@@ -1,0 +1,30 @@
+# conflu.ai - Project State
+
+## Current Milestone: v0.1 Foundation
+
+### Completed
+- [x] Project structure created (backend/app/{core,domain,infrastructure,api,tests}, frontend/src/{components,hooks,lib})
+- [x] PROJECT.md created
+- [x] REQUIREMENTS.md created
+- [x] Git branch: feat/conflu-ai-platform
+- [x] GSD Phase 1: Discuss - Architecture decisions complete
+- [x] 01-CONTEXT.md created with implementation decisions
+- [x] 01-DISCUSSION-LOG.md created
+
+### In Progress
+- [ ] GSD Phase 1: Plan - Detailed implementation plan
+- [ ] GSD Phase 1: Execute - Core infrastructure
+
+### Pending
+- [ ] Data layer (DuckDB + Parquet + tradingview-screener)
+- [ ] Compute layer (vectorbt + pandas-ta)
+- [ ] Screener engine
+- [ ] Backtest engine
+- [ ] Risk engine
+- [ ] API layer (FastAPI + WebSocket)
+- [ ] Frontend (React + TradingView Lightweight Charts + Tailwind)
+
+## Active Phase
+**Phase 1: Foundation & Core Infrastructure**
+- Plan implementation
+- Execute core modules
