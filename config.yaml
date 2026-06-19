@@ -9,6 +9,7 @@ data:
     - america
     - crypto
     - forex
+    - futures
   timeframes:
     - 1m
     - 5m
@@ -40,7 +41,49 @@ data:
       - USDJPY
       - AUDUSD
       - USDCAD
+    commodities:
+      - GC1!
+      - CL1!
+      - SI1!
+      - HG1!
+    indices:
+      - SPX
+      - NDX
+      - DJI
   max_concurrent: 50
+  batch_size: 100
+  exchange_prefixes:
+    equities: "NASDAQ:"
+    crypto: "BINANCE:"
+    forex: "FX:"
+    commodities: "COMEX:"
+    indices: "SP:"
+  asset_class_markets:
+    equities: "america"
+    crypto: "crypto"
+    forex: "forex"
+    commodities: "futures"
+    indices: "america"
+  asset_class_timezones:
+    equities: "America/New_York"
+    crypto: "UTC"
+    forex: "UTC"
+    commodities: "America/New_York"
+    indices: "America/New_York"
+  symbol_exchange_overrides:
+    SPY: "AMEX:"
+  tv_session_id: ""
+
+ingestion:
+  retry_max_attempts: 3
+  retry_base_delay_s: 1.0
+  retry_max_delay_s: 30.0
+  retry_backoff_factor: 2.0
+  retry_jitter: 0.1
+  circuit_breaker_threshold: 5
+  circuit_breaker_cooldown_s: 30.0
+  daily_schedule_utc: "00:00"
+  intraday_interval_s: 300
 
 compute:
   default_indicator_timeframe: 1D

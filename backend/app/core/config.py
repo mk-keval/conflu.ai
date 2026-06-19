@@ -33,7 +33,7 @@ class DataSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="CONFLU_DATA_")
 
     screener_sources: list[str] = Field(
-        default=["america", "crypto", "forex"],
+        default=["america", "crypto", "forex", "futures"],
         description="Active screener data sources",
     )
     timeframes: list[str] = Field(
@@ -45,6 +45,8 @@ class DataSettings(BaseSettings):
             "equities": ["SPY", "QQQ", "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "JPM"],
             "crypto": ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT"],
             "forex": ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD"],
+            "commodities": ["GC1!", "CL1!", "SI1!", "HG1!"],
+            "indices": ["SPX", "NDX", "DJI"],
         },
         description="Default symbol lists per asset class",
     )
@@ -53,6 +55,109 @@ class DataSettings(BaseSettings):
         description="Max concurrent fetch operations (semaphore limit)",
         ge=1,
         le=200,
+    )
+    exchange_prefixes: dict[str, str] = Field(
+        default={
+            "equities": "NASDAQ:",
+            "crypto": "BINANCE:",
+            "forex": "FX:",
+            "commodities": "COMEX:",
+            "indices": "SP:",
+        },
+        description="Default exchange prefix per asset class for TV ticker",
+    )
+    asset_class_markets: dict[str, str] = Field(
+        default={
+            "equities": "america",
+            "crypto": "crypto",
+            "forex": "forex",
+            "commodities": "futures",
+            "indices": "america",
+        },
+        description="TV market name per asset class",
+    )
+    asset_class_timezones: dict[str, str] = Field(
+        default={
+            "equities": "America/New_York",
+            "crypto": "UTC",
+            "forex": "UTC",
+            "commodities": "America/New_York",
+            "indices": "America/New_York",
+        },
+        description="Default timezone per asset class",
+    )
+    symbol_exchange_overrides: dict[str, str] = Field(
+        default={"SPY": "AMEX:"},
+        description="Per-symbol exchange prefix overrides",
+    )
+    tv_session_id: str = Field(
+        default="",
+        description="TradingView session cookie for reduced data delay (optional)",
+    )
+    batch_size: int = Field(
+        default=100,
+        description="Symbols per API call (TV limit)",
+        ge=1,
+        le=500,
+    )
+
+
+class IngestionSettings(BaseSettings):
+    """Ingestion pipeline resilience and scheduling settings."""
+
+    model_config = SettingsConfigDict(env_prefix="CONFLU_INGESTION_")
+
+    retry_max_attempts: int = Field(
+        default=3,
+        description="Maximum retry attempts per scan request",
+        ge=0,
+        le=10,
+    )
+    retry_base_delay_s: float = Field(
+        default=1.0,
+        description="Base delay in seconds for exponential backoff",
+        ge=0.1,
+        le=60.0,
+    )
+    retry_max_delay_s: float = Field(
+        default=30.0,
+        description="Maximum delay in seconds between retries",
+        ge=1.0,
+        le=300.0,
+    )
+    retry_backoff_factor: float = Field(
+        default=2.0,
+        description="Exponential backoff multiplier",
+        ge=1.0,
+        le=10.0,
+    )
+    retry_jitter: float = Field(
+        default=0.1,
+        description="Jitter fraction applied to delay (0.1 = 10%)",
+        ge=0.0,
+        le=0.5,
+    )
+    circuit_breaker_threshold: int = Field(
+        default=5,
+        description="Consecutive failures before circuit opens",
+        ge=1,
+        le=50,
+    )
+    circuit_breaker_cooldown_s: float = Field(
+        default=30.0,
+        description="Cooldown seconds before half-open retry",
+        ge=1.0,
+        le=600.0,
+    )
+    daily_schedule_utc: str = Field(
+        default="00:00",
+        description="UTC time for daily 1D refresh (HH:MM format)",
+    )
+    intraday_interval_s: int = Field(
+        default=300,
+        description="Seconds between intraday polling cycles (default 300 = 5m)",
+        ge=60,
+        le=3600,
     )
 
 
@@ -130,6 +235,7 @@ class AppSettings(BaseSettings):
 
     core: CoreSettings = CoreSettings()
     data: DataSettings = DataSettings()
+    ingestion: IngestionSettings = IngestionSettings()
     compute: ComputeSettings = ComputeSettings()
     api: APISettings = APISettings()
     frontend: FrontendSettings = FrontendSettings()
