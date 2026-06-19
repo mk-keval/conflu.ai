@@ -119,6 +119,18 @@ screen:
   top_down_narrowing: true
   parallel_asset_classes: 5
 
+backtest:
+  default_timeframe: 1D
+  default_position_sizing: fixed
+  default_fees_bps: 10.0
+  default_slippage_bps: 5.0
+  default_initial_cash: 100000.0
+  default_min_train_bars: 252
+  default_train_pct: 0.7
+  cache_results: true
+  max_symbols_per_run: 50
+  parallel_symbols: 4
+
 api:
   host: 0.0.0.0
   port: 8000

@@ -222,6 +222,89 @@ CREATE INDEX IF NOT EXISTS idx_is_scan ON indicator_snapshot (timeframe, symbol)
 """
 
 
+# Backtest results tables
+BACKTEST_RESULTS_DDL = """
+CREATE TABLE IF NOT EXISTS backtest_results (
+    run_id VARCHAR PRIMARY KEY,
+    config_hash VARCHAR NOT NULL,
+    symbol VARCHAR NOT NULL,
+    timeframe VARCHAR NOT NULL,
+    start_date TIMESTAMPTZ NOT NULL,
+    end_date TIMESTAMPTZ NOT NULL,
+    initial_cash DOUBLE NOT NULL,
+    position_sizing VARCHAR NOT NULL,
+    metrics_json VARCHAR,
+    stats_json VARCHAR,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    duration_ms DOUBLE
+);
+"""
+
+BACKTEST_TRADES_DDL = """
+CREATE TABLE IF NOT EXISTS backtest_trades (
+    run_id VARCHAR NOT NULL REFERENCES backtest_results(run_id),
+    trade_index INTEGER NOT NULL,
+    symbol VARCHAR NOT NULL,
+    entry_time TIMESTAMPTZ NOT NULL,
+    exit_time TIMESTAMPTZ,
+    entry_price DOUBLE NOT NULL,
+    exit_price DOUBLE,
+    size DOUBLE NOT NULL,
+    direction VARCHAR NOT NULL,
+    pnl DOUBLE,
+    fees DOUBLE DEFAULT 0.0,
+    mae DOUBLE,
+    mfe DOUBLE,
+    hold_duration_bars INTEGER,
+    exit_reason VARCHAR,
+    signal_metadata_json VARCHAR,
+    PRIMARY KEY (run_id, trade_index)
+);
+"""
+
+BACKTEST_EQUITY_CURVES_DDL = """
+CREATE TABLE IF NOT EXISTS backtest_equity_curves (
+    run_id VARCHAR NOT NULL REFERENCES backtest_results(run_id),
+    timestamp TIMESTAMPTZ NOT NULL,
+    equity DOUBLE NOT NULL,
+    returns DOUBLE,
+    drawdown DOUBLE,
+    PRIMARY KEY (run_id, timestamp)
+);
+"""
+
+BACKTEST_OPTIMIZATION_RESULTS_DDL = """
+CREATE TABLE IF NOT EXISTS backtest_optimization_results (
+    run_id VARCHAR NOT NULL REFERENCES backtest_results(run_id),
+    fold_index INTEGER NOT NULL,
+    param_set_index INTEGER NOT NULL,
+    params_json VARCHAR NOT NULL,
+    in_sample_metrics_json VARCHAR,
+    out_of_sample_metrics_json VARCHAR,
+    is_selected BOOLEAN DEFAULT false,
+    PRIMARY KEY (run_id, fold_index, param_set_index)
+);
+"""
+
+BACKTEST_MC_RESULTS_DDL = """
+CREATE TABLE IF NOT EXISTS backtest_mc_results (
+    run_id VARCHAR NOT NULL REFERENCES backtest_results(run_id),
+    n_paths INTEGER NOT NULL,
+    method VARCHAR NOT NULL,
+    final_equity_p5 DOUBLE,
+    final_equity_p50 DOUBLE,
+    final_equity_mean DOUBLE,
+    final_equity_p95 DOUBLE,
+    max_drawdown_p50 DOUBLE,
+    sharpe_p50 DOUBLE,
+    cagr_p50 DOUBLE,
+    ruin_probability DOUBLE,
+    paths_parquet VARCHAR,
+    results_json VARCHAR
+);
+"""
+
+
 def initialize_database() -> None:
     """Initialize the DuckDB database: create tables and indexes."""
     with get_db() as con:
@@ -230,3 +313,8 @@ def initialize_database() -> None:
         con.execute(INGESTION_HEALTH_DDL)
         con.execute(INDICATOR_VALUES_DDL)
         con.execute(INDICATOR_SNAPSHOT_DDL)
+        con.execute(BACKTEST_RESULTS_DDL)
+        con.execute(BACKTEST_TRADES_DDL)
+        con.execute(BACKTEST_EQUITY_CURVES_DDL)
+        con.execute(BACKTEST_OPTIMIZATION_RESULTS_DDL)
+        con.execute(BACKTEST_MC_RESULTS_DDL)

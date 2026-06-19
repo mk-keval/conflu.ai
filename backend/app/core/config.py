@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
@@ -229,6 +229,63 @@ class ScreenSettings(BaseSettings):
     )
 
 
+class BacktestSettings(BaseSettings):
+    """Backtest engine settings."""
+
+    model_config = SettingsConfigDict(env_prefix="CONFLU_BACKTEST_")
+
+    default_timeframe: str = Field(
+        default="1D",
+        description="Default timeframe for backtest runs",
+    )
+    default_position_sizing: Literal["fixed", "atr", "kelly"] = Field(
+        default="fixed",
+        description="Default position sizing method",
+    )
+    default_fees_bps: float = Field(
+        default=10.0,
+        description="Default fee in basis points per trade side",
+        ge=0.0,
+    )
+    default_slippage_bps: float = Field(
+        default=5.0,
+        description="Default slippage in basis points per trade side",
+        ge=0.0,
+    )
+    default_initial_cash: float = Field(
+        default=100_000.0,
+        description="Default initial capital",
+        gt=0,
+    )
+    default_min_train_bars: int = Field(
+        default=252,
+        description="Minimum training bars for walk-forward optimization",
+        ge=50,
+    )
+    default_train_pct: float = Field(
+        default=0.7,
+        description="Default training percentage for walk-forward split",
+        ge=0.5,
+        le=0.9,
+    )
+    cache_results: bool = Field(
+        default=True,
+        description="Cache backtest results in DuckDB for repeat runs",
+    )
+    max_symbols_per_run: int = Field(
+        default=50,
+        description="Maximum symbols to backtest in a single run",
+        ge=1,
+        le=1000,
+    )
+    parallel_symbols: int = Field(
+        default=4,
+        description="Number of symbols to process in parallel",
+        ge=1,
+        le=16,
+    )
+
+
 class APISettings(BaseSettings):
     """API server settings."""
 
@@ -287,6 +344,7 @@ class AppSettings(BaseSettings):
     ingestion: IngestionSettings = IngestionSettings()
     compute: ComputeSettings = ComputeSettings()
     screen: ScreenSettings = ScreenSettings()
+    backtest: BacktestSettings = BacktestSettings()
     api: APISettings = APISettings()
     frontend: FrontendSettings = FrontendSettings()
 

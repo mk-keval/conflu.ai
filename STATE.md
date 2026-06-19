@@ -39,14 +39,14 @@
 - [x] 04-PLAN.md created with 4 waves, 19 tasks, 18 must_haves
 
 ### In Progress
-- [ ] GSD Phase 4: Execute - Backtest engine
+- [ ] GSD Phase 5: Plan - Risk engine
 
 ### Pending
-- [ ] Backtest engine
 - [ ] Risk engine
 - [ ] API layer (FastAPI + WebSocket)
 - [ ] Frontend (React + TradingView Lightweight Charts + Tailwind)
 
 ## Active Phase
-**Phase 4: Backtest Engine**
-- Execute backtest modules
+**Phase 5: Risk Engine**
+- Plan implementation
+- Execute risk modules

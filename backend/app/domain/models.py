@@ -90,6 +90,8 @@ class Trade(BaseModel):
     pnl: float | None = None
     mae: float | None = None  # Maximum Adverse Excursion
     mfe: float | None = None  # Maximum Favorable Excursion
+    hold_duration_bars: int | None = None  # Number of bars the trade was held
+    exit_reason: str | None = None  # Reason for exit (e.g., 'stop_loss', 'take_profit', 'signal_close')
 
     @field_validator("entry_time", "exit_time")
     @classmethod
@@ -113,6 +115,7 @@ class Metrics(BaseModel):
     profit_factor: float | None = None
     sqn: float | None = None  # System Quality Number
     ulcer: float | None = None  # Ulcer Index
+    cagr: float | None = None  # Compound Annual Growth Rate
 
 
 class ScreenResult(BaseModel):
