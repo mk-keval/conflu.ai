@@ -1,0 +1,7 @@
+# Documentarian Config
+
+docs_dir: docs
+decision_log: CHANGELOG.md
+session_log_dir: docs/SESSIONS
+update_index: true
+significant_threshold: 5
