@@ -140,7 +140,7 @@ def _ensure_ingestion_tables() -> None:
         """)
         con.execute("""
             CREATE TABLE IF NOT EXISTS ingestion_health (
-                id INTEGER PRIMARY KEY AUTO_INCREMENT,
+                id INTEGER PRIMARY KEY,
                 last_successful_run TIMESTAMPTZ,
                 last_run_duration_ms DOUBLE,
                 symbols_processed INTEGER DEFAULT 0,

@@ -128,7 +128,15 @@ def load_latest_health(con: duckdb.DuckDBPyConnection) -> IngestionHealth | None
 
 def save_health(con: duckdb.DuckDBPyConnection, report: IngestionReport) -> None:
     """Save ingestion health report to DuckDB."""
+    # DuckDB 1.x doesn't support SERIAL/GENERATED AS IDENTITY,
+    # so we compute the next id from MAX(id) + 1.
+    last_id: int | None = con.sql(
+        "SELECT MAX(id) FROM ingestion_health"
+    ).fetchone()[0]
+    next_id: int = (last_id + 1) if last_id is not None else 1
+
     health = IngestionHealth(
+        id=next_id,
         last_successful_run=report.completed_at or datetime.now(timezone.utc),
         last_run_duration_ms=report.duration_ms,
         symbols_processed=report.symbols_processed,
@@ -140,11 +148,12 @@ def save_health(con: duckdb.DuckDBPyConnection, report: IngestionReport) -> None
     con.execute(
         """
         INSERT INTO ingestion_health (
-            last_successful_run, last_run_duration_ms, symbols_processed,
+            id, last_successful_run, last_run_duration_ms, symbols_processed,
             candles_written, error_rate, circuit_breaker_state, is_running
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         [
+            health.id,
             health.last_successful_run,
             health.last_run_duration_ms,
             health.symbols_processed,

@@ -94,6 +94,30 @@ compute:
     - ema
     - sma
     - atr
+  cached_indicators:
+    - rsi
+    - macd
+    - ema
+    - sma
+    - atr
+    - adx
+    - obv
+    - bb
+    - vwap
+    - stoch
+  indicator_cache_enabled: true
+  screen_default_timeframes:
+    - 1D
+    - 4h
+    - 1h
+
+screen:
+  screens_dir: config/screens
+  screener_ws_path: /api/v1/ws/screener/{screen_id}
+  stream_interval_s: 5.0
+  max_history: 100
+  top_down_narrowing: true
+  parallel_asset_classes: 5
 
 api:
   host: 0.0.0.0

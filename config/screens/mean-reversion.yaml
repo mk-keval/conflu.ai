@@ -1,0 +1,23 @@
+name: "Mean Reversion"
+description: "Oversold assets near Bollinger Band lower with volume spike"
+asset_classes:
+  - equities
+  - crypto
+  - forex
+timeframes:
+  - 1D
+  - 1h
+filters:
+  - category: momentum
+    indicator: rsi_oversold
+    params:
+      threshold: 30
+    timeframe: "1D"
+  - category: volatility
+    indicator: bb_touch
+    timeframe: "1D"
+  - category: volume
+    indicator: rvol_high
+    params:
+      threshold: 1.5
+    timeframe: "1h"

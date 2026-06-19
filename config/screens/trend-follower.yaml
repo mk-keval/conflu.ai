@@ -1,0 +1,28 @@
+name: "Trend Follower"
+description: "Uptrending assets with momentum and volume confirmation"
+asset_classes:
+  - equities
+  - crypto
+timeframes:
+  - 1D
+  - 4h
+filters:
+  - category: trend
+    indicator: price_above_ema
+    params:
+      period: 200
+    operator: gt
+    timeframe: "1D"
+  - category: trend
+    indicator: adx_trending
+    params:
+      threshold: 25
+    timeframe: "1D"
+  - category: momentum
+    indicator: macd_bullish
+    timeframe: "4h"
+  - category: volume
+    indicator: rvol_high
+    params:
+      threshold: 1.2
+    timeframe: "4h"

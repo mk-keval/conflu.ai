@@ -73,6 +73,17 @@ def write_incremental(
             symbol_norm = str(symbol)
             group_df = group_df.copy()
 
+            # Ensure asset_class column exists
+            if "asset_class" not in group_df.columns:
+                group_df["asset_class"] = asset_class
+
+            # Reorder columns to match ohlcv table schema: symbol, timestamp, open, high, low, close, volume, timeframe, asset_class, year, month
+            ohlcv_order = [
+                "symbol", "timestamp", "open", "high", "low", "close",
+                "volume", "timeframe", "asset_class", "year", "month",
+            ]
+            group_df = group_df[[c for c in ohlcv_order if c in group_df.columns]]
+
             # 5. Check existing max timestamp for this (symbol, timeframe)
             existing_max = con.sql(
                 "SELECT MAX(timestamp) FROM ohlcv WHERE symbol = ? AND timeframe = ?",

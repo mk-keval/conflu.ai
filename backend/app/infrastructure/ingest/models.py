@@ -55,6 +55,8 @@ class IngestionHealth(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    id: int | None = None
+    created_at: datetime | None = None
     last_successful_run: datetime | None = None
     last_run_duration_ms: float | None = None
     symbols_processed: int = 0

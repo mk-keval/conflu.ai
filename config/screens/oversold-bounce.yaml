@@ -1,0 +1,22 @@
+name: "Oversold Bounce"
+description: "Deeply oversold with bullish reversal pattern"
+asset_classes:
+  - equities
+  - crypto
+timeframes:
+  - 1D
+  - 4h
+filters:
+  - category: momentum
+    indicator: rsi_oversold
+    params:
+      threshold: 25
+    timeframe: "1D"
+  - category: volatility
+    indicator: bb_touch
+    timeframe: "1D"
+  - category: pattern
+    indicator: candle_engulfing
+    params:
+      direction: bullish
+    timeframe: "1D"

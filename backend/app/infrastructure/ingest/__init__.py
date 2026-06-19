@@ -146,6 +146,21 @@ async def run_ingestion(
             except Exception:
                 log.exception("metadata_update_failed")
 
+        # Update indicator cache after successful ingestion
+        if not dry_run:
+            try:
+                from backend.app.infrastructure.screener.cache import IndicatorCache
+
+                cache = IndicatorCache()
+                cache_updated = await cache.update_cache(
+                    timeframes=tfs,
+                    indicator_names=None,  # all cached indicators
+                )
+                if cache_updated > 0:
+                    log.info("indicator_cache_updated", new_values=cache_updated)
+            except Exception:
+                log.exception("indicator_cache_update_failed")
+
     metrics.log_summary()
     return metrics.report()
 

@@ -178,6 +178,55 @@ class ComputeSettings(BaseSettings):
         default=["rsi", "macd", "ema", "sma", "atr"],
         description="Indicators to broadcast to lower timeframes",
     )
+    cached_indicators: list[str] = Field(
+        default=["rsi", "macd", "ema", "sma", "atr", "adx", "obv", "bb", "vwap", "stoch"],
+        description="Indicator names to pre-compute and cache in indicator_values table",
+    )
+    indicator_cache_enabled: bool = Field(
+        default=True,
+        description="Enable DuckDB indicator cache (indicator_values table)",
+    )
+    screen_default_timeframes: list[str] = Field(
+        default=["1D", "4h", "1h"],
+        description="Default timeframes for screening, evaluated top-down",
+    )
+
+
+class ScreenSettings(BaseSettings):
+    """Screener engine settings."""
+
+    model_config = SettingsConfigDict(env_prefix="CONFLU_SCREEN_")
+
+    screens_dir: str = Field(
+        default="config/screens",
+        description="Directory containing screen YAML configuration files",
+    )
+    screener_ws_path: str = Field(
+        default="/api/v1/ws/screener/{screen_id}",
+        description="WebSocket endpoint path template for screener streaming",
+    )
+    stream_interval_s: float = Field(
+        default=5.0,
+        description="Seconds between WebSocket stream updates",
+        ge=1.0,
+        le=60.0,
+    )
+    max_history: int = Field(
+        default=100,
+        description="Max WebSocket history messages to retain for reconnection",
+        ge=10,
+        le=1000,
+    )
+    top_down_narrowing: bool = Field(
+        default=True,
+        description="Evaluate timeframes top-down (1D->4h->1h), narrowing candidates at each step",
+    )
+    parallel_asset_classes: int = Field(
+        default=5,
+        description="Max asset classes to screen in parallel",
+        ge=1,
+        le=20,
+    )
 
 
 class APISettings(BaseSettings):
@@ -237,6 +286,7 @@ class AppSettings(BaseSettings):
     data: DataSettings = DataSettings()
     ingestion: IngestionSettings = IngestionSettings()
     compute: ComputeSettings = ComputeSettings()
+    screen: ScreenSettings = ScreenSettings()
     api: APISettings = APISettings()
     frontend: FrontendSettings = FrontendSettings()
 

@@ -124,6 +124,8 @@ class ScreenResult(BaseModel):
     score: float = Field(default=0.0, ge=0.0, le=100.0)
     signals: list[Signal] = Field(default_factory=list)
     indicators: dict[str, float] = Field(default_factory=dict)
+    matched_filters: list[str] = Field(default_factory=list)
+    indicator_values: dict[str, float] = Field(default_factory=dict)
     timestamp: datetime
 
     @field_validator("timestamp")

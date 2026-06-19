@@ -1,0 +1,23 @@
+name: "Volume Surge"
+description: "High relative volume with above-average price movement"
+asset_classes:
+  - equities
+  - crypto
+  - forex
+timeframes:
+  - 1D
+  - 1h
+filters:
+  - category: volume
+    indicator: rvol_high
+    params:
+      threshold: 2.0
+    timeframe: "1D"
+  - category: volatility
+    indicator: atr_percentile_high
+    params:
+      percentile: 75
+    timeframe: "1D"
+  - category: momentum
+    indicator: macd_bullish
+    timeframe: "1h"
