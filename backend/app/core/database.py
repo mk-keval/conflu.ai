@@ -305,6 +305,87 @@ CREATE TABLE IF NOT EXISTS backtest_mc_results (
 """
 
 
+# Risk management cache tables
+RISK_BETA_DDL = """
+CREATE TABLE IF NOT EXISTS risk_beta_history (
+    symbol VARCHAR NOT NULL,
+    benchmark VARCHAR NOT NULL,
+    timestamp TIMESTAMPTZ NOT NULL,
+    beta DOUBLE,
+    alpha DOUBLE,
+    r_squared DOUBLE,
+    std_err DOUBLE,
+    tracking_error DOUBLE,
+    window_days INTEGER DEFAULT 60,
+    computed_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (symbol, benchmark, timestamp)
+);
+"""
+
+RISK_CORRELATION_DDL = """
+CREATE TABLE IF NOT EXISTS risk_correlation_snapshots (
+    timestamp TIMESTAMPTZ NOT NULL,
+    window_days INTEGER NOT NULL,
+    symbols_json VARCHAR NOT NULL,
+    matrix_json VARCHAR NOT NULL,
+    sector_matrix_json VARCHAR,
+    symbol_count INTEGER NOT NULL,
+    computed_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (timestamp, window_days)
+);
+"""
+
+RISK_VAR_DDL = """
+CREATE TABLE IF NOT EXISTS risk_var_history (
+    portfolio_id VARCHAR NOT NULL,
+    timestamp TIMESTAMPTZ NOT NULL,
+    method VARCHAR NOT NULL,
+    confidence DOUBLE NOT NULL,
+    horizon_days INTEGER DEFAULT 1,
+    var DOUBLE NOT NULL,
+    cvar DOUBLE,
+    component_var_json VARCHAR,
+    marginal_var_json VARCHAR,
+    computed_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (portfolio_id, timestamp, method, confidence, horizon_days)
+);
+"""
+
+RISK_KELLY_DDL = """
+CREATE TABLE IF NOT EXISTS risk_kelly_results (
+    backtest_run_id VARCHAR NOT NULL,
+    timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    win_rate DOUBLE,
+    avg_win_loss_ratio DOUBLE,
+    full_kelly DOUBLE,
+    constrained_kelly DOUBLE,
+    recommended_kelly DOUBLE,
+    max_dd_target DOUBLE,
+    backtest_max_dd DOUBLE,
+    is_valid BOOLEAN,
+    PRIMARY KEY (backtest_run_id)
+);
+"""
+
+RISK_HEDGE_DDL = """
+CREATE TABLE IF NOT EXISTS risk_hedge_recommendations (
+    portfolio_id VARCHAR NOT NULL,
+    symbol VARCHAR NOT NULL,
+    benchmark VARCHAR NOT NULL,
+    timestamp TIMESTAMPTZ NOT NULL,
+    beta DOUBLE,
+    hedge_ratio DOUBLE,
+    hedge_value DOUBLE,
+    hedge_instrument VARCHAR,
+    recommendation VARCHAR,
+    effectiveness_r2 DOUBLE,
+    tracking_error DOUBLE,
+    computed_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (portfolio_id, symbol, benchmark, timestamp)
+);
+"""
+
+
 def initialize_database() -> None:
     """Initialize the DuckDB database: create tables and indexes."""
     with get_db() as con:
@@ -318,3 +399,8 @@ def initialize_database() -> None:
         con.execute(BACKTEST_EQUITY_CURVES_DDL)
         con.execute(BACKTEST_OPTIMIZATION_RESULTS_DDL)
         con.execute(BACKTEST_MC_RESULTS_DDL)
+        con.execute(RISK_BETA_DDL)
+        con.execute(RISK_CORRELATION_DDL)
+        con.execute(RISK_VAR_DDL)
+        con.execute(RISK_KELLY_DDL)
+        con.execute(RISK_HEDGE_DDL)

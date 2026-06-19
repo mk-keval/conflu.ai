@@ -322,6 +322,28 @@ class FrontendSettings(BaseSettings):
     )
 
 
+class RiskSettings(BaseSettings):
+    """Risk management engine settings."""
+
+    model_config = SettingsConfigDict(env_prefix="CONFLU_RISK_")
+
+    default_risk_per_trade: float = Field(default=0.01, ge=0.001, le=0.1, description="Default risk per trade as fraction of equity (1%)")
+    default_atr_multiplier: float = Field(default=2.0, ge=1.0, le=5.0, description="Default ATR multiplier")
+    beta_window_days: int = Field(default=60, ge=20, le=252, description="Rolling window for beta in days")
+    beta_benchmark_map: dict[str, str] = Field(default={"equities": "SPY", "crypto": "BTCUSDT", "forex": "EURUSD", "commodities": "GC1!", "indices": "SPX"}, description="Benchmark per asset class")
+    correlation_window_days: int = Field(default=30, ge=10, le=252, description="Rolling window for correlation in days")
+    var_confidence_levels: list[float] = Field(default=[0.95, 0.99], description="Confidence levels for VaR")
+    var_horizon_days: list[int] = Field(default=[1, 10], description="Time horizons for VaR in days")
+    var_methods: list[str] = Field(default=["historical", "parametric", "monte_carlo"], description="Active VaR methods")
+    var_monte_carlo_paths: int = Field(default=10000, ge=1000, le=100000, description="Paths for MC VaR")
+    default_kelly_fraction: float = Field(default=0.5, ge=0.0, le=1.0, description="Default Kelly fraction (0.5 = half-Kelly)")
+    max_dd_target: float = Field(default=0.25, ge=0.1, le=0.5, description="Max acceptable drawdown")
+    risk_ws_path: str = Field(default="/api/v1/ws/risk/{portfolio_id}", description="WebSocket endpoint template")
+    report_max_symbols: int = Field(default=50, description="Max symbols in risk report")
+    cache_risk_results: bool = Field(default=True, description="Cache risk results in DuckDB")
+    max_correlation_symbols: int = Field(default=100, description="Max symbols in correlation matrix (0=unlimited)")
+
+
 class AppSettings(BaseSettings):
     """Top-level settings aggregating all layer configs.
 
@@ -347,6 +369,7 @@ class AppSettings(BaseSettings):
     backtest: BacktestSettings = BacktestSettings()
     api: APISettings = APISettings()
     frontend: FrontendSettings = FrontendSettings()
+    risk: RiskSettings = RiskSettings()
 
     @classmethod
     def settings_customise_sources(

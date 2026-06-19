@@ -148,3 +148,32 @@ frontend:
       - EMA_20
       - EMA_50
       - BB
+
+risk:
+  default_risk_per_trade: 0.01
+  default_atr_multiplier: 2.0
+  beta_window_days: 60
+  beta_benchmark_map:
+    equities: SPY
+    crypto: BTCUSDT
+    forex: EURUSD
+    commodities: GC1!
+    indices: SPX
+  correlation_window_days: 30
+  var_confidence_levels:
+    - 0.95
+    - 0.99
+  var_horizon_days:
+    - 1
+    - 10
+  var_methods:
+    - historical
+    - parametric
+    - monte_carlo
+  var_monte_carlo_paths: 10000
+  default_kelly_fraction: 0.5
+  max_dd_target: 0.25
+  risk_ws_path: /api/v1/ws/risk/{portfolio_id}
+  report_max_symbols: 50
+  cache_risk_results: true
+  max_correlation_symbols: 100

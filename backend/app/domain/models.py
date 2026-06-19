@@ -171,3 +171,12 @@ class RiskParams(BaseModel):
     atr_period: int = Field(default=14, ge=2)
     beta_benchmark: str = Field(default="SPY", description="Benchmark symbol for beta calculation")
     kelly_fraction: float = Field(default=0.5, ge=0.0, le=1.0)  # Half-Kelly default
+
+    # Phase 5 Risk Management extensions
+    var_confidence: float = Field(default=0.95, ge=0.8, le=0.999, description="VaR confidence level")
+    var_horizon_days: int = Field(default=1, ge=1, le=252, description="VaR time horizon in days")
+    var_method: str = Field(default="historical", description="Default VaR method: historical, parametric, monte_carlo")
+    max_var_pct: float = Field(default=0.05, ge=0.01, le=1.0, description="Max VaR as fraction of portfolio (5%)")
+    max_leverage: float = Field(default=1.0, ge=1.0, le=10.0, description="Max leverage ratio")
+    max_correlation: float = Field(default=0.85, ge=0.5, le=1.0, description="Max allowed pairwise correlation")
+    hedge_min_effectiveness: float = Field(default=0.5, ge=0.0, le=1.0, description="Min R² for hedge recommendation")
