@@ -1,0 +1,64 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: conflu-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./backend:/app/backend
+      - ./config.yaml:/app/config.yaml
+    environment:
+      - CONFLU_CORE__LOG_LEVEL=INFO
+      - CONFLU_CORE__LOG_JSON=true
+    command: >
+      sh -c "python -c 'from backend.app.core.database import initialize_database; initialize_database()'
+      && uvicorn backend.app.api.main:app --host 0.0.0.0 --port 8000 --reload"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: conflu-worker
+    volumes:
+      - ./data:/app/data
+      - ./backend:/app/backend
+      - ./config.yaml:/app/config.yaml
+    environment:
+      - CONFLU_CORE__LOG_LEVEL=INFO
+    command: >
+      sh -c "python -c 'from backend.app.core.database import initialize_database; initialize_database()'
+      && celery -A backend.app.worker.tasks worker --loglevel=info"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: conflu-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  redis_data:

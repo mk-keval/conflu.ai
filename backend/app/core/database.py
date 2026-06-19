@@ -1,0 +1,153 @@
+"""DuckDB connection management and Parquet partitioning utilities."""
+
+from __future__ import annotations
+
+import os
+from collections.abc import AsyncGenerator, Generator
+from contextlib import asynccontextmanager, contextmanager
+from pathlib import Path
+
+import duckdb
+
+from backend.app.core.config import settings
+
+# SQL DDL for the OHLCV table
+OHLCV_DDL = """
+CREATE TABLE IF NOT EXISTS ohlcv (
+    symbol VARCHAR,
+    timestamp TIMESTAMPTZ,
+    open DOUBLE,
+    high DOUBLE,
+    low DOUBLE,
+    close DOUBLE,
+    volume DOUBLE,
+    timeframe VARCHAR,
+    asset_class VARCHAR,
+    year INTEGER,
+    month INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_ohlcv_lookup ON ohlcv (symbol, timeframe, timestamp);
+CREATE INDEX IF NOT EXISTS idx_ohlcv_partition ON ohlcv (asset_class, year, month);
+"""
+
+# Parquet partition path pattern
+# Example: data/equities/2025/01/AAPL_1D.parquet
+PARTITION_TEMPLATE = "{asset_class}/{year:04d}/{month:02d}/{symbol}_{timeframe}.parquet"
+
+
+def partition_path(
+    asset_class: str,
+    year: int,
+    month: int,
+    symbol: str,
+    timeframe: str,
+    *,
+    data_dir: str | None = None,
+) -> Path:
+    """Build the Parquet file path for a given partition.
+
+    Partition scheme: {data_dir}/{asset_class}/{year}/{month}/{symbol}_{timeframe}.parquet
+
+    Args:
+        asset_class: Asset class (e.g., 'equities', 'crypto', 'forex').
+        year: Calendar year of the data.
+        month: Calendar month (1-12) of the data.
+        symbol: Normalized symbol name (e.g., 'AAPL', 'BTCUSDT').
+        timeframe: Timeframe string (e.g., '1D', '1h', '15m').
+        data_dir: Override data directory. Defaults to settings.core.duckdb_data_dir.
+
+    Returns:
+        Absolute Path to the Parquet file.
+    """
+    base = Path(data_dir or settings.core.duckdb_data_dir)
+    relative = PARTITION_TEMPLATE.format(
+        asset_class=asset_class,
+        year=year,
+        month=month,
+        symbol=symbol,
+        timeframe=timeframe,
+    )
+    return (base / relative).resolve()
+
+
+def normalize_symbol(symbol: str) -> str:
+    """Normalize a symbol to a filesystem-safe representation.
+
+    Removes characters that are problematic in file paths and uppercases.
+
+    Args:
+        symbol: Raw symbol string (e.g., 'BTC/USDT', 'BRK.B').
+
+    Returns:
+        Normalized symbol (e.g., 'BTCUSDT', 'BRK_B').
+    """
+    return (
+        symbol.replace("/", "")
+        .replace("\\", "")
+        .replace(":", "")
+        .replace("*", "")
+        .replace("?", "")
+        .replace('"', "")
+        .replace("<", "")
+        .replace(">", "")
+        .replace("|", "")
+        .replace(".", "_")
+        .upper()
+    )
+
+
+@contextmanager
+def get_db(read_only: bool = False) -> Generator[duckdb.DuckDBPyConnection, None, None]:
+    """Get a DuckDB connection via context manager.
+
+    DuckDB is embedded — each call creates a new connection to the same database
+    file. Multiple read-only connections are safe concurrently. Writes serialize.
+
+    Args:
+        read_only: If True, open connection in read-only mode.
+
+    Yields:
+        DuckDB connection instance.
+
+    Example:
+        with get_db() as con:
+            result = con.sql("SELECT COUNT(*) FROM ohlcv")
+    """
+    db_path = settings.core.duckdb_path
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    conn = duckdb.connect(db_path, read_only=read_only)
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+
+@asynccontextmanager
+async def get_db_async(read_only: bool = False) -> AsyncGenerator[duckdb.DuckDBPyConnection, None]:
+    """Async wrapper around get_db() using asyncio.to_thread.
+
+    DuckDB's Python API is synchronous. This wrapper runs the connection
+    lifecycle in a thread pool to avoid blocking the async event loop.
+
+    Args:
+        read_only: If True, open connection in read-only mode.
+
+    Yields:
+        DuckDB connection instance (running in executor thread).
+    """
+    import asyncio
+
+    loop = asyncio.get_running_loop()
+    conn: duckdb.DuckDBPyConnection = await loop.run_in_executor(
+        None, lambda: duckdb.connect(settings.core.duckdb_path, read_only=read_only)
+    )
+    try:
+        yield conn
+    finally:
+        await loop.run_in_executor(None, conn.close)
+
+
+def initialize_database() -> None:
+    """Initialize the DuckDB database: create tables and indexes."""
+    with get_db() as con:
+        con.execute(OHLCV_DDL)

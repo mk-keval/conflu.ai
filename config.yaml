@@ -1,0 +1,71 @@
+core:
+  duckdb_path: data/conflu.duckdb
+  duckdb_data_dir: data
+  log_level: INFO
+  log_json: true
+
+data:
+  screener_sources:
+    - america
+    - crypto
+    - forex
+  timeframes:
+    - 1m
+    - 5m
+    - 15m
+    - 1h
+    - 4h
+    - 1D
+  assets:
+    equities:
+      - SPY
+      - QQQ
+      - AAPL
+      - MSFT
+      - GOOGL
+      - AMZN
+      - NVDA
+      - META
+      - TSLA
+      - JPM
+    crypto:
+      - BTCUSDT
+      - ETHUSDT
+      - BNBUSDT
+      - SOLUSDT
+      - XRPUSDT
+    forex:
+      - EURUSD
+      - GBPUSD
+      - USDJPY
+      - AUDUSD
+      - USDCAD
+  max_concurrent: 50
+
+compute:
+  default_indicator_timeframe: 1D
+  cache_indicators: true
+  broadcast_indicators:
+    - rsi
+    - macd
+    - ema
+    - sma
+    - atr
+
+api:
+  host: 0.0.0.0
+  port: 8000
+  cors_origins:
+    - http://localhost:5173
+  rate_limit: 100
+
+frontend:
+  ws_endpoint: ws://localhost:8000/ws
+  chart_config:
+    default_timeframe: 1D
+    indicators:
+      - RSI
+      - MACD
+      - EMA_20
+      - EMA_50
+      - BB

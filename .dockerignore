@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.git/
+.gitignore
+.planning/
+.venv/
+venv/
+.vscode/
+.idea/
+data/
+*.md
+.pre-commit-config.yaml
+.env*
+config.local.yaml

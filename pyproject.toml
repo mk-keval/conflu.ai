@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "conflu-ai"
+version = "0.1.0"
+description = "Professional Multi-Asset Trading Platform"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.0,<3",
+    "pydantic-settings[yaml]>=2.0,<3",
+    "duckdb>=0.10.0",
+    "vectorbt>=0.40.0",
+    "pandas-ta>=0.3.14",
+    "pandas>=2.0,<3",
+    "structlog>=24.1,<25",
+    "numpy>=1.26",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "hypothesis>=6.0",
+    "mypy>=1.8",
+    "ruff>=0.3",
+    "pre-commit>=3.6",
+]
+test = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "hypothesis>=6.0",
+]
+
+[tool.mypy]
+strict = true
+disallow_untyped_defs = true
+warn_return_any = true
+no_implicit_optional = true
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = "pandas_ta.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "duckdb.*"
+ignore_missing_imports = true
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "ARG", "C4"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["backend/tests"]
+python_files = ["test_*.py"]
