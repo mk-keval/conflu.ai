@@ -147,7 +147,39 @@ async def get_db_async(read_only: bool = False) -> AsyncGenerator[duckdb.DuckDBP
         await loop.run_in_executor(None, conn.close)
 
 
+# Symbol metadata for multi-asset class tracking
+SYMBOL_METADATA_DDL = """
+CREATE TABLE IF NOT EXISTS symbol_metadata (
+    symbol VARCHAR PRIMARY KEY,
+    asset_class VARCHAR NOT NULL,
+    exchange VARCHAR,
+    tv_ticker VARCHAR,
+    timezone VARCHAR DEFAULT 'UTC',
+    active BOOLEAN DEFAULT true,
+    added_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+# Ingestion health tracking for the /health/ingestion endpoint
+INGESTION_HEALTH_DDL = """
+CREATE TABLE IF NOT EXISTS ingestion_health (
+    id INTEGER PRIMARY KEY AUTO_INCREMENT,
+    last_successful_run TIMESTAMPTZ,
+    last_run_duration_ms DOUBLE,
+    symbols_processed INTEGER DEFAULT 0,
+    candles_written INTEGER DEFAULT 0,
+    error_rate DOUBLE DEFAULT 0.0,
+    circuit_breaker_state VARCHAR DEFAULT 'CLOSED',
+    is_running BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+
 def initialize_database() -> None:
     """Initialize the DuckDB database: create tables and indexes."""
     with get_db() as con:
         con.execute(OHLCV_DDL)
+        con.execute(SYMBOL_METADATA_DDL)
+        con.execute(INGESTION_HEALTH_DDL)
