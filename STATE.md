@@ -5,8 +5,6 @@
 ### Completed
 - [x] Project structure created (backend/app/{core,domain,infrastructure,api,tests}, frontend/src/{components,hooks,lib})
 - [x] PROJECT.md created
-- [x] REQUIREMENTION] Project structure created (backend/app/{core,domain,infrastructure,api,tests}, frontend/src/{components,hooks,lib})
-- [x] PROJECT.md created
 - [x] REQUIREMENTS.md created
 - [x] Git branch: feat/conflu-ai-platform
 - [x] GSD Phase 1: Discuss - Architecture decisions complete
@@ -33,6 +31,9 @@
 - [x] 03-PLAN.md created with 5 waves, 16 tasks, 18 must_haves
 - [x] GSD Phase 3: Execute - Screener engine complete
 - [x] 03-SUMMARY.md created with verification results
+- [x] GSD Phase 4: Discuss - Architecture decisions complete
+- [x] 04-CONTEXT.md created with 25 implementation decisions
+- [x] 04-DISCUSSION-LOG.md created
 
 ### In Progress
 - [ ] GSD Phase 4: Plan - Backtest engine
