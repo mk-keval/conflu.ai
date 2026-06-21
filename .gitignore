@@ -116,7 +116,6 @@ dmypy.json
 Thumbs.db
 
 # CI/CD
-.github/workflows/
 *.log
 *.out
 
