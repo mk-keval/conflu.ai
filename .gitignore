@@ -53,6 +53,10 @@ build/
 *.egg
 *.whl
 
+# Node.js
+node_modules/
+frontend/node_modules/
+
 # Test/coverage
 .coverage
 htmlcov/
@@ -136,3 +140,19 @@ __pycache__/
 *.temp
 tmp/
 temp/
+
+# Planning artifacts (auto-generated)
+.planning/phases/**/*.md
+.planning/roadmap/current_phase.txt
+
+# Test/debug scripts
+run_pytest.py
+run_tests.py
+run_tests_final.py
+run_tests_fixed.py
+run_tests_isolated.py
+run_tests_isolated.py
+run_tests_proper.py
+test_phase10.py
+run_tests_isolated.py
+test_phase10.py
