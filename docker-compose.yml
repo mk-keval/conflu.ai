@@ -32,6 +32,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: runtime
     container_name: conflu-worker
     volumes:
       - ./data:/app/data

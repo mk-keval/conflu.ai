@@ -44,12 +44,12 @@ LABEL org.opencontainers.image.source=https://github.com/keval/conflu.ai
 CMD ["python", "-m", "uvicorn", "backend.app.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 # Stage 3 — dev: Development image with reload and debug tools
-FROM python:3.11-slim AS dev
+FROM python:3.12-slim AS dev
 
 WORKDIR /app
 
 # Copy installed packages from builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 
 # Copy application code
 COPY backend/ /app/backend/
