@@ -1,39 +1,63 @@
-# Stage 1: Builder
-FROM python:3.11-slim AS builder
+# Stage 1 — uv-builder: Install dependencies with uv
+FROM python:3.12-slim AS builder
+
+# Install uv
+RUN pip install uv --no-cache-dir
 
 WORKDIR /build
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
+# Copy dependency files and source code for layer caching
+COPY pyproject.toml ./
+COPY backend/ ./backend/
 
-# Install Python dependencies
-COPY pyproject.toml .
-RUN pip install --no-cache-dir --user .
+# Install main dependencies
+RUN uv pip install --system . --no-cache-dir
 
-# Stage 2: Runtime
-FROM python:3.11-slim AS runtime
+# Install observability extras
+RUN uv pip install --system ".[observability]" --no-cache-dir
 
-# Create non-root user
-RUN groupadd -r conflu && useradd -r -g conflu -d /app -s /bin/false conflu
+# Clean caches
+RUN rm -rf /root/.cache/pip /root/.cache/uv
+
+# Stage 2 — runtime: Distroless production image
+FROM gcr.io/distroless/python3-debian12:nonroot AS runtime
+
+ENV PYTHONPATH=/app
+
+# Copy installed site-packages from builder
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+
+# Copy application code
+COPY backend/ /app/backend/
+COPY config.yaml /app/config.yaml
+
+USER nonroot:nonroot
+WORKDIR /app
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+  CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+
+EXPOSE 8000
+
+LABEL org.opencontainers.image.source=https://github.com/keval/conflu.ai
+
+CMD ["python", "-m", "uvicorn", "backend.app.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# Stage 3 — dev: Development image with reload and debug tools
+FROM python:3.11-slim AS dev
 
 WORKDIR /app
 
 # Copy installed packages from builder
-COPY --from=builder /root/.local /root/.local
-
-# Ensure local bin is in PATH
-ENV PATH=/root/.local/bin:$PATH
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 
 # Copy application code
-COPY backend/ ./backend/
-COPY config.yaml ./
+COPY backend/ /app/backend/
+COPY config.yaml /app/config.yaml
 
-# Create data directory with write permissions
-RUN mkdir -p /app/data && chown -R conflu:conflu /app/data
+# Install dev/test dependencies
+RUN pip install --no-cache-dir -e ".[dev,test,observability]" 2>/dev/null || true
 
-USER conflu
+EXPOSE 8000
 
-# Default command (overridden by docker-compose)
-CMD ["python", "-c", "import conflu; print('conflu.ai ready')"]
+CMD ["uvicorn", "backend.app.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

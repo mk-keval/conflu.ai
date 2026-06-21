@@ -1,0 +1,42 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    environment:
+      name: staging
+      url: https://staging.conflu.ai
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy via SSH
+        run: |
+          echo "Deploying to staging..."
+          # Placeholder: add actual deploy commands
+          # ssh deploy-user@staging "docker compose -f docker-compose.yml -f docker-compose.prod.yml pull && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d"
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+
+  deploy-production:
+    name: Deploy to Production
+    needs: [deploy-staging]
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://conflu.ai
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy via SSH
+        run: |
+          echo "Deploying to production..."
+          # Placeholder: add actual deploy commands
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}

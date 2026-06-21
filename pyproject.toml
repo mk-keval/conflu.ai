@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "conflu-ai"
 version = "0.1.0"
 description = "Professional Multi-Asset Trading Platform"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.0,<3",
     "pydantic-settings[yaml]>=2.0,<3",
@@ -22,6 +22,7 @@ dependencies = [
     "httpx>=0.27,<1",
     "fastapi>=0.110,<1",
     "uvicorn[standard]>=0.29,<1",
+    "prometheus-fastapi-instrumentator>=7.0,<8",
 ]
 
 [project.optional-dependencies]
@@ -41,6 +42,13 @@ test = [
     "pytest-asyncio>=0.23",
     "hypothesis>=6.0",
     "websockets>=12.0",
+    "httpx>=0.27",
+]
+observability = [
+    "opentelemetry-api>=1.25",
+    "opentelemetry-sdk>=1.25",
+    "opentelemetry-instrumentation-fastapi>=0.50b",
+    "opentelemetry-exporter-otlp>=1.25",
 ]
 
 [tool.mypy]
@@ -68,19 +76,38 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "fastapi.*"
-ignore_missing_imports = false
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "starlette.*"
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "uvicorn.*"
-ignore_missing_imports = false
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "websockets.*"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "prometheus_fastapi_instrumentator.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "prometheus_client.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "opentelemetry.*"
+ignore_missing_imports = true
+
 [tool.ruff]
 target-version = "py311"
 line-length = 100
+
+[tool.setuptools]
+packages = {find = {where = ["backend"]}}
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "ARG", "C4"]

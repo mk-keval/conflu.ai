@@ -131,12 +131,83 @@ backtest:
   max_symbols_per_run: 50
   parallel_symbols: 4
 
+  optimization:
+    enabled: false
+    default_method: bayesian
+    max_trials: 100
+    timeout_s: 300
+    n_jobs: 4
+    early_stopping: true
+    min_improvement: 0.01
+    multi_objective: false
+    objective_metrics:
+      - sharpe
+      - sortino
+      - calmar
+      - max_dd
+      - win_rate
+    default_objective: sharpe
+    optuna_storage: sqlite
+    optuna_storage_path: data/optuna_studies.db
+
+  regime_detection:
+    enabled: false
+    default_method: hmm
+    hmm_n_states: 3
+    hmm_window_days: 252
+    hmm_n_iter: 100
+    vol_quantile_buckets: 4
+    vol_window_days: 21
+    regime_features:
+      - returns
+      - volatility
+
+  reporting:
+    enabled: false
+    default_formats:
+      - html
+      - json
+    templates_dir: config/report_templates
+    default_template: backtest_report.html
+    include_equity_curve: true
+    include_drawdown: true
+    include_trade_analysis: true
+    include_regime_analysis: false
+    include_parameter_sensitivity: true
+    max_chart_points: 5000
+
+  comparison:
+    enabled: false
+    max_strategies: 10
+    significance_level: 0.05
+    bootstrap_samples: 1000
+
 api:
   host: 0.0.0.0
   port: 8000
   cors_origins:
     - http://localhost:5173
+    - http://localhost:3000
   rate_limit: 100
+  rate_limit_screener: 30
+  rate_limit_backtest: 10
+  rate_limit_data: 200
+  rate_limit_ws: 10
+  api_keys: []
+  jwt_secret: ""
+  jwt_algorithm: HS256
+  jwt_expire_minutes: 60
+  cors_allow_credentials: true
+  cors_allow_methods: ["*"]
+  cors_allow_headers: ["*"]
+  otel_service_name: "conflu-api"
+  otel_exporter_otlp_endpoint: ""
+  prometheus_enabled: true
+  log_request_body: false
+  health_db_timeout_s: 5.0
+  ws_max_connections: 1000
+  ws_ping_interval_s: 30.0
+  ws_pong_timeout_s: 10.0
 
 frontend:
   ws_endpoint: ws://localhost:8000/ws
