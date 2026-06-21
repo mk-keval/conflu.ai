@@ -1,0 +1,33 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":separateMajorMinor",
+    ":combinePatchMinorUpdates",
+    ":automergePatch"
+  ],
+  "labels": ["dependencies"],
+  "assignees": ["keval"],
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
+    },
+    {
+      "matchManagers": ["pip_requirements", "pip_setup"],
+      "groupName": "Python dependencies",
+      "matchDepTypes": ["dependencies", "devDependencies"]
+    },
+    {
+      "matchManagers": ["npm"],
+      "groupName": "Frontend dependencies",
+      "matchDepTypes": ["dependencies", "devDependencies"]
+    }
+  ],
+  "pip-compile": {
+    "enabled": false
+  },
+  "npm": {
+    "enabled": true
+  }
+}

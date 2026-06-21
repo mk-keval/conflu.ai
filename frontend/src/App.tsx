@@ -1,0 +1,25 @@
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { AppShell } from './components/layout/AppShell';
+import { ScreenerPage } from './components/screener';
+import { SharedScreenerView } from './components/screener/SharedScreenerView';
+import { ChartsPage } from './components/charts';
+import { BacktestPage, BacktestResultPage, ComparisonDashboard } from './components/backtest';
+import { RiskPage } from './components/risk';
+
+export function App() {
+  return (
+    <Routes>
+      <Route element={<AppShell />}>
+        <Route path="/" element={<Navigate to="/screener" replace />} />
+        <Route path="/screener" element={<ScreenerPage />} />
+        <Route path="/charts" element={<ChartsPage />} />
+        <Route path="/backtest" element={<BacktestPage />} />
+        <Route path="/backtest/result/:runId" element={<BacktestResultPage />} />
+        <Route path="/backtest/compare" element={<ComparisonDashboard />} />
+        <Route path="/risk" element={<RiskPage />} />
+        <Route path="/shared/screen" element={<SharedScreenerView />} />
+        <Route path="/shared/screen/:token" element={<SharedScreenerView />} />
+      </Route>
+    </Routes>
+  );
+}

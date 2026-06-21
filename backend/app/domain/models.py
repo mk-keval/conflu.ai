@@ -180,3 +180,89 @@ class RiskParams(BaseModel):
     max_leverage: float = Field(default=1.0, ge=1.0, le=10.0, description="Max leverage ratio")
     max_correlation: float = Field(default=0.85, ge=0.5, le=1.0, description="Max allowed pairwise correlation")
     hedge_min_effectiveness: float = Field(default=0.5, ge=0.0, le=1.0, description="Min R² for hedge recommendation")
+
+
+class SavedScreen(BaseModel):
+    """A saved screen configuration."""
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: str
+    user_id: str = "default"
+    name: str
+    description: str = ""
+    filter_json: str
+    asset_classes: list[str] = Field(default_factory=lambda: ["equities", "crypto"])
+    timeframes: list[str] = Field(default_factory=lambda: ["1D", "4h"])
+    tags: list[str] = Field(default_factory=list)
+    version: int = 1
+    is_public: bool = False
+    created_at: str = ""
+    updated_at: str = ""
+
+
+class AlertRule(BaseModel):
+    """A user-defined alert rule."""
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: str
+    user_id: str = "default"
+    name: str
+    description: str = ""
+    alert_type: str  # price_threshold | indicator_cross | signal_trigger | volume_spike | trend_break | compound
+    condition_json: str
+    symbols: list[str] = Field(default_factory=list)
+    timeframes: list[str] = Field(default_factory=lambda: ["1D"])
+    is_active: bool = True
+    cooldown_seconds: int = 300
+    last_triggered_at: str | None = None
+    trigger_count: int = 0
+    created_at: str = ""
+    updated_at: str = ""
+
+
+class AlertHistoryEntry(BaseModel):
+    """A single alert trigger event."""
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: str
+    alert_id: str
+    symbol: str | None = None
+    triggered_at: str
+    condition_matched: str | None = None
+    value_at_trigger: float | None = None
+    threshold: float | None = None
+    dismissed: bool = False
+
+
+class ScreenReplayResult(BaseModel):
+    """Results from a historical screen replay."""
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: str
+    screen_config_id: str
+    version: int
+    start_date: str
+    end_date: str
+    total_days: int
+    avg_match_count: float | None = None
+    max_match_count: int | None = None
+    min_match_count: int | None = None
+    total_signals: int | None = None
+    win_rate: float | None = None
+    avg_return: float | None = None
+    total_return: float | None = None
+    sharpe: float | None = None
+    max_drawdown: float | None = None
+    equity_curve_json: str | None = None
+    match_series_json: str | None = None
+    computed_at: str = ""
+
+
+class ShareToken(BaseModel):
+    """A screen sharing token payload."""
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    screen_id: str
+    version: int
+    expires_at: str
+    type: str = "share"

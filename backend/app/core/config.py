@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
@@ -229,6 +229,68 @@ class ScreenSettings(BaseSettings):
     )
 
 
+class OptimizationSettings(BaseSettings):
+    """Parameter optimization settings."""
+
+    model_config = SettingsConfigDict(env_prefix="CONFLU_OPTIMIZATION_")
+
+    enabled: bool = Field(default=False, description="Enable parameter optimization")
+    default_method: Literal["grid", "random", "bayesian"] = Field(default="bayesian", description="Default method")
+    max_trials: int = Field(default=100, ge=10, le=100_000, description="Max trials")
+    timeout_s: int = Field(default=300, ge=30, le=86_400, description="Timeout in seconds")
+    n_jobs: int = Field(default=4, ge=1, le=32, description="Parallel jobs")
+    early_stopping: bool = Field(default=True, description="Median pruning for Optuna")
+    min_improvement: float = Field(default=0.01, ge=0.0, le=1.0, description="Min improvement to continue")
+    multi_objective: bool = Field(default=False, description="Multi-objective Pareto")
+    objective_metrics: list[str] = Field(default=["sharpe","sortino","calmar","max_dd","win_rate"])
+    default_objective: str = Field(default="sharpe", description="Default objective metric")
+    optuna_storage: Literal["sqlite", "duckdb"] = Field(default="sqlite")
+    optuna_storage_path: str = Field(default="data/optuna_studies.db")
+
+
+class RegimeSettings(BaseSettings):
+    """Market regime detection settings."""
+
+    model_config = SettingsConfigDict(env_prefix="CONFLU_REGIME_")
+
+    enabled: bool = Field(default=False)
+    default_method: Literal["hmm", "volatility_quantile", "garch"] = Field(default="hmm")
+    hmm_n_states: int = Field(default=3, ge=2, le=4)
+    hmm_window_days: int = Field(default=252, ge=63, le=1260)
+    hmm_n_iter: int = Field(default=100, ge=10, le=1000)
+    vol_quantile_buckets: int = Field(default=4, ge=2, le=5)
+    vol_window_days: int = Field(default=21, ge=5, le=252)
+    regime_features: list[str] = Field(default=["returns", "volatility"])
+
+
+class ReportSettings(BaseSettings):
+    """Report generation settings."""
+
+    model_config = SettingsConfigDict(env_prefix="CONFLU_REPORT_")
+
+    enabled: bool = Field(default=False)
+    default_formats: list[Literal["html", "pdf", "json"]] = Field(default=["html", "json"])
+    templates_dir: str = Field(default="config/report_templates")
+    default_template: str = Field(default="backtest_report.html")
+    include_equity_curve: bool = Field(default=True)
+    include_drawdown: bool = Field(default=True)
+    include_trade_analysis: bool = Field(default=True)
+    include_regime_analysis: bool = Field(default=False)
+    include_parameter_sensitivity: bool = Field(default=True)
+    max_chart_points: int = Field(default=5000, ge=100, le=50000)
+
+
+class ComparisonSettings(BaseSettings):
+    """Strategy comparison settings."""
+
+    model_config = SettingsConfigDict(env_prefix="CONFLU_COMPARISON_")
+
+    enabled: bool = Field(default=False)
+    max_strategies: int = Field(default=10, ge=2, le=50)
+    significance_level: float = Field(default=0.05, ge=0.001, le=0.1)
+    bootstrap_samples: int = Field(default=1000, ge=100, le=10000)
+
+
 class BacktestSettings(BaseSettings):
     """Backtest engine settings."""
 
@@ -285,6 +347,11 @@ class BacktestSettings(BaseSettings):
         le=16,
     )
 
+    optimization: OptimizationSettings = Field(default_factory=OptimizationSettings)
+    regime_detection: RegimeSettings = Field(default_factory=RegimeSettings)
+    reporting: ReportSettings = Field(default_factory=ReportSettings)
+    comparison: ComparisonSettings = Field(default_factory=ComparisonSettings)
+
 
 class APISettings(BaseSettings):
     """API server settings."""
@@ -294,7 +361,7 @@ class APISettings(BaseSettings):
     host: str = Field(default="0.0.0.0", description="API server bind address")
     port: int = Field(default=8000, description="API server port", ge=1024, le=65535)
     cors_origins: list[str] = Field(
-        default=["http://localhost:5173"],
+        default=["http://localhost:5173", "http://localhost:3000"],
         description="Allowed CORS origins",
     )
     rate_limit: int = Field(
@@ -302,6 +369,41 @@ class APISettings(BaseSettings):
         description="Max requests per minute per client",
         ge=1,
     )
+
+    # Rate limits per endpoint group (D-14)
+    rate_limit_screener: int = Field(default=30, ge=1, le=1000, description="Screener endpoint requests/min")
+    rate_limit_backtest: int = Field(default=10, ge=1, le=100, description="Backtest endpoint requests/min")
+    rate_limit_data: int = Field(default=200, ge=1, le=5000, description="Data endpoint requests/min")
+    rate_limit_ws: int = Field(default=10, ge=1, le=100, description="WebSocket messages/second/client")
+
+    # Authentication (D-10, D-11)
+    api_keys: list[str] = Field(default_factory=list, description="Valid API keys. Empty = auth disabled (dev mode).")
+    jwt_secret: str = Field(default="", description="JWT signing secret (deferred)")
+    jwt_algorithm: str = Field(default="HS256", description="JWT algorithm")
+    jwt_expire_minutes: int = Field(default=60, description="JWT token expiry in minutes")
+
+    # CORS
+    cors_allow_credentials: bool = True
+    cors_allow_methods: list[str] = Field(default=["*"])
+    cors_allow_headers: list[str] = Field(default=["*"])
+
+    # OpenTelemetry (D-17)
+    otel_service_name: str = "conflu-api"
+    otel_exporter_otlp_endpoint: str = Field(default="", description="OTLP gRPC endpoint (empty = console exporter)")
+
+    # Prometheus (D-16)
+    prometheus_enabled: bool = True
+
+    # Security
+    log_request_body: bool = False
+
+    # Health checks
+    health_db_timeout_s: float = Field(default=5.0, ge=1.0)
+
+    # WebSocket (D-05, D-06)
+    ws_max_connections: int = Field(default=1000, ge=1, le=10000)
+    ws_ping_interval_s: float = Field(default=30.0, ge=5.0)
+    ws_pong_timeout_s: float = Field(default=10.0, ge=1.0)
 
 
 class FrontendSettings(BaseSettings):
@@ -344,6 +446,85 @@ class RiskSettings(BaseSettings):
     max_correlation_symbols: int = Field(default=100, description="Max symbols in correlation matrix (0=unlimited)")
 
 
+class AlertSettings(BaseSettings):
+    """Alert engine settings."""
+
+    model_config = SettingsConfigDict(env_prefix="CONFLU_ALERT_")
+
+    evaluation_interval_s: int = Field(
+        default=60,
+        description="Seconds between alert evaluation cycles",
+        ge=5,
+        le=600,
+    )
+    max_alerts_per_user: int = Field(
+        default=100,
+        description="Maximum active alerts per user",
+        ge=1,
+        le=500,
+    )
+    max_triggers_per_day: int = Field(
+        default=100,
+        description="Max alert triggers per user per day before auto-disable",
+        ge=1,
+        le=1000,
+    )
+    default_cooldown_s: int = Field(
+        default=300,
+        description="Default cooldown in seconds between alert triggers (5 min)",
+        ge=30,
+        le=86400,
+    )
+
+
+class ShareSettings(BaseSettings):
+    """Screen sharing settings."""
+
+    model_config = SettingsConfigDict(env_prefix="CONFLU_SHARE_")
+
+    default_expiry_days: int = Field(
+        default=7,
+        description="Default share URL expiry in days",
+        ge=1,
+        le=365,
+    )
+    max_expiry_days: int = Field(
+        default=365,
+        description="Maximum share URL expiry in days",
+        ge=1,
+        le=3650,
+    )
+    secret_key: str = Field(
+        default="conflu-share-secret-dev",
+        description="Secret key for HMAC share token signing",
+    )
+
+
+class ReplaySettings(BaseSettings):
+    """Screen replay settings."""
+
+    model_config = SettingsConfigDict(env_prefix="CONFLU_REPLAY_")
+
+    max_years: int = Field(
+        default=2,
+        description="Maximum years of historical replay data",
+        ge=1,
+        le=10,
+    )
+    default_years: int = Field(
+        default=2,
+        description="Default years for replay",
+        ge=1,
+        le=10,
+    )
+    max_symbols: int = Field(
+        default=100,
+        description="Maximum symbols per replay evaluation",
+        ge=1,
+        le=5000,
+    )
+
+
 class AppSettings(BaseSettings):
     """Top-level settings aggregating all layer configs.
 
@@ -370,6 +551,9 @@ class AppSettings(BaseSettings):
     api: APISettings = APISettings()
     frontend: FrontendSettings = FrontendSettings()
     risk: RiskSettings = RiskSettings()
+    alert: AlertSettings = AlertSettings()
+    share: ShareSettings = ShareSettings()
+    replay: ReplaySettings = ReplaySettings()
 
     @classmethod
     def settings_customise_sources(

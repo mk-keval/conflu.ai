@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ title }}</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<style>
+  :root {
+    --bg: #1a1a2e; --card: #16213e; --accent: #0f3460;
+    --green: #00e676; --red: #ff5252; --text: #e0e0e0; --muted: #8892a4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background: var(--bg); color: var(--text); padding: 24px; }
+  .container { max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 24px; }
+  .section { margin-bottom: 28px; }
+  .section h2 { font-size: 1.1rem; margin-bottom: 12px; border-bottom: 1px solid var(--accent); padding-bottom: 6px; }
+  .metric-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+  .metric-card { background: var(--card); border-radius: 8px; padding: 14px; }
+  .metric-card .label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; }
+  .metric-card .value { font-size: 1.3rem; font-weight: 700; margin-top: 4px; }
+  .metric-card .value.positive { color: var(--green); }
+  .metric-card .value.negative { color: var(--red); }
+  .chart-container { background: var(--card); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--accent); }
+  th { color: var(--muted); font-weight: 600; }
+  .footer { text-align: center; color: var(--muted); font-size: 0.75rem; margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--accent); }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>{{ title }}</h1>
+  <p class="subtitle">Run ID: {{ run_id }} | Generated: {{ generated_at }} | Duration: {{ "%.0f"|format(duration_ms) }}ms</p>
+
+  <div class="section">
+    <h2>Backtest Details</h2>
+    <div class="metric-grid" style="grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));">
+      <div class="metric-card"><div class="label">Symbol</div><div class="value" style="font-size:1rem">{{ symbol }}</div></div>
+      <div class="metric-card"><div class="label">Timeframe</div><div class="value" style="font-size:1rem">{{ timeframe }}</div></div>
+      <div class="metric-card"><div class="label">Period</div><div class="value" style="font-size:0.85rem">{{ start_date }} &mdash; {{ end_date }}</div></div>
+      <div class="metric-card"><div class="label">Initial Cash</div><div class="value" style="font-size:1rem">${{ "{:,.0f}"|format(initial_cash) }}</div></div>
+      <div class="metric-card"><div class="label">Position Sizing</div><div class="value" style="font-size:1rem">{{ position_sizing }}</div></div>
+      <div class="metric-card"><div class="label">Final Equity</div><div class="value" style="font-size:1rem">${{ "{:,.0f}"|format(final_equity) }}</div></div>
+    </div>
+  </div>
+
+  {% if sharpe is not none %}
+  <div class="section">
+    <h2>Performance Metrics</h2>
+    <div class="metric-grid">
+      <div class="metric-card"><div class="label">Sharpe</div><div class="value {% if sharpe and sharpe >= 1 %}positive{% elif sharpe and sharpe < 0 %}negative{% endif %}">{{ "%.2f"|format(sharpe) }}</div></div>
+      <div class="metric-card"><div class="label">Sortino</div><div class="value {% if sortino and sortino >= 1 %}positive{% elif sortino and sortino < 0 %}negative{% endif %}">{{ "%.2f"|format(sortino) }}</div></div>
+      <div class="metric-card"><div class="label">Calmar</div><div class="value {% if calmar and calmar >= 1 %}positive{% elif calmar and calmar < 0 %}negative{% endif %}">{{ "%.2f"|format(calmar) }}</div></div>
+      <div class="metric-card"><div class="label">Max DD</div><div class="value negative">{{ "%.2f"|format(max_dd * 100) }}%</div></div>
+      <div class="metric-card"><div class="label">Win Rate</div><div class="value {% if win_rate and win_rate >= 0.5 %}positive{% else %}negative{% endif %}">{{ "%.1f"|format(win_rate * 100) }}%</div></div>
+      <div class="metric-card"><div class="label">Profit Factor</div><div class="value {% if profit_factor and profit_factor >= 1.5 %}positive{% elif profit_factor and profit_factor < 1 %}negative{% endif %}">{{ "%.2f"|format(profit_factor) }}</div></div>
+      <div class="metric-card"><div class="label">Expectancy</div><div class="value {% if expectancy and expectancy >= 0 %}positive{% else %}negative{% endif %}">{{ "%.2f"|format(expectancy) }}</div></div>
+      <div class="metric-card"><div class="label">SQN</div><div class="value {% if sqn and sqn >= 2 %}positive{% elif sqn and sqn < 1 %}negative{% endif %}">{{ "%.2f"|format(sqn) }}</div></div>
+      <div class="metric-card"><div class="label">Ulcer</div><div class="value">{{ "%.2f"|format(ulcer) }}</div></div>
+      <div class="metric-card"><div class="label">CAGR</div><div class="value {% if cagr and cagr > 0 %}positive{% else %}negative{% endif %}">{{ "%.2f"|format(cagr * 100) }}%</div></div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if include_equity_curve %}
+  <div class="section">
+    <h2>Equity Curve</h2>
+    <div class="chart-container">
+      <div id="equity-chart"></div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if include_drawdown %}
+  <div class="section">
+    <h2>Drawdown</h2>
+    <div class="chart-container">
+      <div id="drawdown-chart"></div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if include_trade_analysis and trades %}
+  <div class="section">
+    <h2>Trades ({{ total_trades }})</h2>
+    <table>
+      <thead><tr><th>#</th><th>Entry</th><th>Exit</th><th>Direction</th><th>Size</th><th>PnL</th><th>Exit Reason</th></tr></thead>
+      <tbody>
+      {% for trade in trades %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ trade.entry_time }}</td>
+        <td>{{ trade.exit_time or '-' }}</td>
+        <td>{{ trade.direction or '-' }}</td>
+        <td>{{ "%.2f"|format(trade.size) }}</td>
+        <td class="{% if trade.pnl and trade.pnl > 0 %}positive{% elif trade.pnl and trade.pnl < 0 %}negative{% endif %}">{{ "%.2f"|format(trade.pnl) if trade.pnl else '-' }}</td>
+        <td>{{ trade.exit_reason or '-' }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if include_regime_analysis and regime_result %}
+  <div class="section">
+    <h2>Regime Analysis</h2>
+    <div class="chart-container">
+      <div id="regime-chart"></div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if include_parameter_sensitivity and optimization_result %}
+  <div class="section">
+    <h2>Parameter Importance</h2>
+    <div class="chart-container">
+      <div id="param-chart"></div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="footer">Conflu AI &mdash; Automated Backtest Report</div>
+</div>
+
+<script>
+{% if include_equity_curve and equity_curve %}
+try {
+  const eq = {{ equity_curve | safe }};
+  Plotly.newPlot('equity-chart', [{
+    x: eq.map(d => d.timestamp), y: eq.map(d => d.equity),
+    type: 'scatter', mode: 'lines', name: 'Equity',
+    line: { color: '#00e676', width: 2 },
+    hovertemplate: '%{x}<br>$%{y:,.2f}<extra></extra>'
+  }], {
+    paper_bgcolor: '#16213e', plot_bgcolor: '#16213e',
+    font: { color: '#e0e0e0' }, margin: { t: 10, b: 40, l: 60, r: 20 },
+    xaxis: { gridcolor: '#0f3460' }, yaxis: { gridcolor: '#0f3460', title: 'Equity ($)' }
+  }, { responsive: true });
+} catch(e) { console.error(e); }
+{% endif %}
+
+{% if include_drawdown and equity_curve %}
+try {
+  const eq2 = {{ equity_curve | safe }};
+  const dd = eq2.map(d => d.drawdown || 0);
+  Plotly.newPlot('drawdown-chart', [{
+    x: eq2.map(d => d.timestamp), y: dd.map(v => v * 100),
+    type: 'scatter', mode: 'lines', name: 'Drawdown',
+    fill: 'tozeroy', line: { color: '#ff5252', width: 1 },
+    hovertemplate: '%{x}<br>%{y:.2f}%<extra></extra>'
+  }], {
+    paper_bgcolor: '#16213e', plot_bgcolor: '#16213e',
+    font: { color: '#e0e0e0' }, margin: { t: 10, b: 40, l: 60, r: 20 },
+    xaxis: { gridcolor: '#0f3460' }, yaxis: { gridcolor: '#0f3460', title: 'Drawdown (%)', tickformat: '.1f' }
+  }, { responsive: true });
+} catch(e) { console.error(e); }
+{% endif %}
+
+{% if include_regime_analysis and regime_result %}
+try {
+  const rr = {{ regime_result | safe }};
+  const regimeColors = ['#ff5252','#ffd740','#00e676','#40c4ff','#e040fb'];
+  const traces = rr.regime_names.map((name, i) => ({
+    x: rr.timestamps, y: rr.regime_labels.map(v => v === i ? 1 : 0),
+    type: 'scatter', mode: 'none', fill: 'tozeroy', name: name,
+    fillcolor: regimeColors[i % regimeColors.length] + '60',
+    hovertemplate: name + '<br>%{x}<extra></extra>'
+  }));
+  Plotly.newPlot('regime-chart', traces, {
+    paper_bgcolor: '#16213e', plot_bgcolor: '#16213e',
+    font: { color: '#e0e0e0' }, margin: { t: 10, b: 40, l: 60, r: 20 },
+    xaxis: { gridcolor: '#0f3460' }, yaxis: { gridcolor: '#0f3460', showticklabels: false },
+    barmode: 'stack', showlegend: true, legend: { orientation: 'h', y: 1.1 }
+  }, { responsive: true });
+} catch(e) { console.error(e); }
+{% endif %}
+
+{% if include_parameter_sensitivity and optimization_result %}
+try {
+  const opt = {{ optimization_result | safe }};
+  if (opt.param_importance && Object.keys(opt.param_importance).length > 0) {
+    const keys = Object.keys(opt.param_importance);
+    const vals = keys.map(k => opt.param_importance[k]);
+    Plotly.newPlot('param-chart', [{
+      y: keys, x: vals, type: 'bar', orientation: 'h',
+      marker: { color: '#0f3460' },
+      hovertemplate: '%{y}: %{x:.3f}<extra></extra>'
+    }], {
+      paper_bgcolor: '#16213e', plot_bgcolor: '#16213e',
+      font: { color: '#e0e0e0' }, margin: { t: 10, b: 40, l: 120, r: 20 },
+      xaxis: { gridcolor: '#0f3460', title: 'Importance' },
+      yaxis: { gridcolor: '#0f3460', autorange: 'reversed' }
+    }, { responsive: true });
+  }
+} catch(e) { console.error(e); }
+{% endif %}
+</script>
+</body>
+</html>

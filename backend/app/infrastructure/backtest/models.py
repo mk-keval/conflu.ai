@@ -163,3 +163,156 @@ class MCSimulationResult(BaseModel):
         default=None,
         description="2D array of equity curves (n_paths × n_bars), stored as list-of-lists for serialization",
     )
+
+
+# ── Phase 9: Advanced Backtest Models ──
+
+
+class OptimizationSearchSpace(BaseModel):
+    """Defines search space for parameter optimization.
+
+    Supports grid, random, and bayesian (Optuna TPE) methods.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    method: Literal["grid", "random", "bayesian"] = "grid"
+    grid_params: dict[str, list[Any]] = Field(default_factory=dict)
+    param_distributions: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    objectives: list[str] = Field(default_factory=lambda: ["sharpe"])
+    objective_weights: list[float] | None = Field(default=None)
+    max_trials: int = Field(default=100, ge=1, le=1_000_000)
+    timeout_s: int | None = Field(default=None, ge=10)
+    n_jobs: int = Field(default=1, ge=1, le=32)
+    early_stopping: bool = True
+    min_improvement: float = Field(default=0.01, ge=0.0, le=1.0)
+    multi_objective: bool = False
+
+
+class RegimeConfig(BaseModel):
+    """Market regime detection configuration."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    enabled: bool = False
+    method: Literal["hmm", "volatility_quantile"] = "hmm"
+    n_states: int = Field(default=3, ge=2, le=4)
+    window_days: int = Field(default=252, ge=63, le=1260)
+    n_quantiles: int = Field(default=4, ge=2, le=5)
+    vol_window_days: int = Field(default=21, ge=5, le=252)
+    features: list[str] = Field(default_factory=lambda: ["returns", "volatility"])
+
+
+class ReportConfig(BaseModel):
+    """Report generation configuration."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    enabled: bool = False
+    formats: list[Literal["html", "pdf", "json"]] = Field(default_factory=lambda: ["html"])
+    template_name: str = "backtest_report.html"
+    include_equity_curve: bool = True
+    include_drawdown: bool = True
+    include_trade_analysis: bool = True
+    include_regime_analysis: bool = False
+    include_parameter_sensitivity: bool = True
+
+
+class ComparisonConfig(BaseModel):
+    """Strategy comparison configuration."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    enabled: bool = False
+    run_ids: list[str] = Field(default_factory=list, min_length=2, max_length=50)
+    labels: list[str] | None = Field(default=None)
+    include_significance: bool = True
+    bootstrap_samples: int = Field(default=1000, ge=100, le=10000)
+
+
+class TrialResult(BaseModel):
+    """Result from a single optimization trial."""
+
+    model_config = ConfigDict(frozen=True)
+
+    trial_number: int
+    params: dict[str, Any]
+    objectives: dict[str, float | None]
+    is_pareto: bool = False
+    state: str = "complete"
+    duration_ms: float | None = None
+
+
+class OptimizationResultV2(BaseModel):
+    """Enhanced optimization result with Optuna integration."""
+
+    model_config = ConfigDict(frozen=True)
+
+    study_id: str
+    symbol: str
+    method: str
+    search_space: OptimizationSearchSpace | None = None
+    best_params: dict[str, Any]
+    best_objectives: dict[str, float | None]
+    trials: list[TrialResult] = Field(default_factory=list)
+    n_trials: int = 0
+    duration_ms: float = 0.0
+    param_importance: dict[str, float] = Field(default_factory=dict)
+
+
+class RegimeResult(BaseModel):
+    """Results from regime detection."""
+
+    model_config = ConfigDict(frozen=True)
+
+    symbol: str
+    method: str
+    n_states: int
+    regime_labels: list[int]
+    regime_names: list[str]
+    transition_matrix: list[list[float]] | None = None
+    state_means: list[float] | None = None
+    state_stds: list[float] | None = None
+    timestamps: list[str]
+    features_json: str | None = None
+
+
+@dataclass
+class RegimeSeries:
+    """Regime labels aligned with DatetimeIndex for chart overlay."""
+
+    timestamps: pd.DatetimeIndex
+    labels: list[int]
+    names: list[str]
+    confidence: list[float] | None = None
+
+
+class ReportResult(BaseModel):
+    """Result from report generation."""
+
+    model_config = ConfigDict(frozen=True)
+
+    report_id: str
+    run_id: str
+    format: str
+    template: str
+    report_path: str | None = None
+    size_bytes: int = 0
+    created_at: str = ""
+
+
+class StrategyComparisonResult(BaseModel):
+    """Results from comparing multiple backtest runs."""
+
+    model_config = ConfigDict(frozen=True)
+
+    comparison_id: str
+    run_ids: list[str]
+    labels: list[str]
+    n_strategies: int
+    best_by_metric: dict[str, str] = Field(default_factory=dict)
+    metrics_table: list[dict[str, Any]] = Field(default_factory=list)
+    significance_matrix: list[list[float | None]] = Field(default_factory=list)
+    equity_curves: dict[str, list[dict[str, float]]] = Field(default_factory=dict)
+    drawdown_curves: dict[str, list[dict[str, float]]] = Field(default_factory=dict)
+    rolling_metrics: dict[str, dict[str, list[float]]] = Field(default_factory=dict)

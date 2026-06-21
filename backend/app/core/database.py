@@ -304,6 +304,62 @@ CREATE TABLE IF NOT EXISTS backtest_mc_results (
 );
 """
 
+BACKTEST_OPTIMIZATION_TRIALS_DDL = """
+CREATE TABLE IF NOT EXISTS backtest_optimization_trials (
+    study_id VARCHAR NOT NULL,
+    trial_number INTEGER NOT NULL,
+    symbol VARCHAR NOT NULL,
+    method VARCHAR NOT NULL,
+    params_json VARCHAR NOT NULL,
+    objective_values_json VARCHAR,
+    is_pareto BOOLEAN DEFAULT false,
+    state VARCHAR DEFAULT 'complete',
+    duration_ms DOUBLE,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (study_id, trial_number)
+);
+"""
+
+BACKTEST_REGIME_RESULTS_DDL = """
+CREATE TABLE IF NOT EXISTS backtest_regime_results (
+    run_id VARCHAR NOT NULL,
+    symbol VARCHAR NOT NULL,
+    timestamp TIMESTAMPTZ NOT NULL,
+    regime_label INTEGER NOT NULL,
+    regime_name VARCHAR,
+    method VARCHAR NOT NULL,
+    confidence DOUBLE,
+    features_json VARCHAR,
+    PRIMARY KEY (run_id, symbol, timestamp)
+);
+"""
+
+BACKTEST_REPORTS_DDL = """
+CREATE TABLE IF NOT EXISTS backtest_reports (
+    report_id VARCHAR PRIMARY KEY,
+    run_id VARCHAR NOT NULL REFERENCES backtest_results(run_id),
+    format VARCHAR NOT NULL,
+    template VARCHAR NOT NULL,
+    report_path VARCHAR,
+    report_data_json VARCHAR,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    size_bytes INTEGER DEFAULT 0
+);
+"""
+
+BACKTEST_COMPARISON_RESULTS_DDL = """
+CREATE TABLE IF NOT EXISTS backtest_comparison_results (
+    comparison_id VARCHAR PRIMARY KEY,
+    run_ids_json VARCHAR NOT NULL,
+    run_labels_json VARCHAR,
+    n_strategies INTEGER NOT NULL,
+    best_run_id VARCHAR,
+    metrics_comparison_json VARCHAR,
+    significance_json VARCHAR,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
 
 # Risk management cache tables
 RISK_BETA_DDL = """
@@ -385,6 +441,101 @@ CREATE TABLE IF NOT EXISTS risk_hedge_recommendations (
 );
 """
 
+SCREEN_CONFIGS_DDL = """
+CREATE TABLE IF NOT EXISTS screen_configs (
+    id VARCHAR PRIMARY KEY,
+    user_id VARCHAR DEFAULT 'default',
+    name VARCHAR NOT NULL,
+    description VARCHAR DEFAULT '',
+    filter_json VARCHAR NOT NULL,
+    asset_classes VARCHAR DEFAULT '["equities","crypto"]',
+    timeframes VARCHAR DEFAULT '["1D","4h"]',
+    tags VARCHAR DEFAULT '[]',
+    version INT NOT NULL DEFAULT 1,
+    is_public BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_screen_configs_user ON screen_configs (user_id);
+CREATE INDEX IF NOT EXISTS idx_screen_configs_name ON screen_configs (name);
+CREATE INDEX IF NOT EXISTS idx_screen_configs_public ON screen_configs (is_public) WHERE is_public = TRUE;
+"""
+
+SCREEN_VERSIONS_DDL = """
+CREATE TABLE IF NOT EXISTS screen_versions (
+    id VARCHAR PRIMARY KEY,
+    screen_config_id VARCHAR NOT NULL,
+    version INT NOT NULL,
+    name VARCHAR NOT NULL,
+    filter_json VARCHAR NOT NULL,
+    asset_classes VARCHAR NOT NULL,
+    timeframes VARCHAR NOT NULL,
+    tags VARCHAR DEFAULT '[]',
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    snapshot_data VARCHAR
+);
+CREATE INDEX IF NOT EXISTS idx_screen_versions_parent ON screen_versions (screen_config_id, version DESC);
+"""
+
+ALERTS_DDL = """
+CREATE TABLE IF NOT EXISTS alerts (
+    id VARCHAR PRIMARY KEY,
+    user_id VARCHAR DEFAULT 'default',
+    name VARCHAR NOT NULL,
+    description VARCHAR DEFAULT '',
+    alert_type VARCHAR NOT NULL,
+    condition_json VARCHAR NOT NULL,
+    symbols VARCHAR DEFAULT '[]',
+    timeframes VARCHAR DEFAULT '["1D"]',
+    is_active BOOLEAN DEFAULT TRUE,
+    cooldown_seconds INT DEFAULT 300,
+    last_triggered_at TIMESTAMPTZ,
+    trigger_count INT DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_alerts_user ON alerts (user_id);
+CREATE INDEX IF NOT EXISTS idx_alerts_active ON alerts (is_active) WHERE is_active = TRUE;
+"""
+
+ALERT_HISTORY_DDL = """
+CREATE TABLE IF NOT EXISTS alert_history (
+    id VARCHAR PRIMARY KEY,
+    alert_id VARCHAR NOT NULL,
+    symbol VARCHAR,
+    triggered_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    condition_matched VARCHAR,
+    value_at_trigger DOUBLE,
+    threshold DOUBLE,
+    dismissed BOOLEAN DEFAULT FALSE
+);
+CREATE INDEX IF NOT EXISTS idx_alert_history_alert ON alert_history (alert_id, triggered_at DESC);
+"""
+
+SCREEN_REPLAY_RESULTS_DDL = """
+CREATE TABLE IF NOT EXISTS screen_replay_results (
+    id VARCHAR PRIMARY KEY,
+    screen_config_id VARCHAR NOT NULL,
+    version INT NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    total_days INT NOT NULL,
+    avg_match_count DOUBLE,
+    max_match_count INT,
+    min_match_count INT,
+    total_signals INT,
+    win_rate DOUBLE,
+    avg_return DOUBLE,
+    total_return DOUBLE,
+    sharpe DOUBLE,
+    max_drawdown DOUBLE,
+    equity_curve_json VARCHAR,
+    match_series_json VARCHAR,
+    computed_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_replay_screen ON screen_replay_results (screen_config_id, version);
+"""
+
 
 def initialize_database() -> None:
     """Initialize the DuckDB database: create tables and indexes."""
@@ -399,8 +550,17 @@ def initialize_database() -> None:
         con.execute(BACKTEST_EQUITY_CURVES_DDL)
         con.execute(BACKTEST_OPTIMIZATION_RESULTS_DDL)
         con.execute(BACKTEST_MC_RESULTS_DDL)
+        con.execute(BACKTEST_OPTIMIZATION_TRIALS_DDL)
+        con.execute(BACKTEST_REGIME_RESULTS_DDL)
+        con.execute(BACKTEST_REPORTS_DDL)
+        con.execute(BACKTEST_COMPARISON_RESULTS_DDL)
         con.execute(RISK_BETA_DDL)
         con.execute(RISK_CORRELATION_DDL)
         con.execute(RISK_VAR_DDL)
         con.execute(RISK_KELLY_DDL)
         con.execute(RISK_HEDGE_DDL)
+        con.execute(SCREEN_CONFIGS_DDL)
+        con.execute(SCREEN_VERSIONS_DDL)
+        con.execute(ALERTS_DDL)
+        con.execute(ALERT_HISTORY_DDL)
+        con.execute(SCREEN_REPLAY_RESULTS_DDL)

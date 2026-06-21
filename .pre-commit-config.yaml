@@ -11,3 +11,8 @@ repos:
       - id: mypy
         args: [--strict, --ignore-missing-imports]
         additional_dependencies: [pydantic, pydantic-settings, structlog]
+  - repo: https://github.com/kevinconway/trufflehog-precommit
+    rev: v3.82.0
+    hooks:
+      - id: trufflehog
+        args: ["--only-verified"]

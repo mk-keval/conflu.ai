@@ -277,6 +277,59 @@ class IndicatorCache:
 
         return await loop.run_in_executor(None, _query)
 
+    async def get_as_of(
+        self,
+        indicator_name: str,
+        timeframe: str = "1D",
+        as_of_date: datetime | None = None,
+        symbols: list[str] | None = None,
+    ) -> pd.DataFrame:
+        """Get indicator values as of a specific date.
+
+        For each symbol, returns the most recent indicator value
+        that is <= as_of_date. Used by ScreenReplay for historical evaluation.
+
+        Args:
+            indicator_name: The indicator to query.
+            timeframe: Timeframe to query.
+            as_of_date: Cutoff date (default: now).
+            symbols: Optional symbol subset.
+
+        Returns:
+            DataFrame with columns: symbol, timestamp, value.
+            One row per symbol (latest before or on as_of_date).
+        """
+        import asyncio
+
+        loop = asyncio.get_running_loop()
+        if as_of_date is None:
+            as_of_date = datetime.now(timezone.utc)
+
+        def _query() -> pd.DataFrame:
+            with get_db(read_only=True) as con:
+                query = """
+                    SELECT symbol, timestamp, value
+                    FROM indicator_values
+                    WHERE indicator_name = ?
+                      AND timeframe = ?
+                      AND timestamp <= ?
+                """
+                params: list[Any] = [indicator_name, timeframe, as_of_date]
+
+                if symbols:
+                    placeholders = ",".join("?" * len(symbols))
+                    query += f" AND symbol IN ({placeholders})"
+                    params.extend(symbols)
+
+                query = f"""
+                    SELECT symbol, timestamp, value
+                    FROM ({query}) sub
+                    QUALIFY ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY timestamp DESC) = 1
+                """
+                return con.sql(query, params=params).fetchdf()
+
+        return await loop.run_in_executor(None, _query)
+
     async def rebuild(
         self,
         indicator_name: str | None = None,

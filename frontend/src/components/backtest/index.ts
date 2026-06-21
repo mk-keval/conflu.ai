@@ -1,0 +1,13 @@
+export { BacktestPage } from './BacktestPage';
+export { BacktestResultPage } from './BacktestResultPage';
+export { BacktestForm } from './BacktestForm';
+export { BacktestResult } from './BacktestResult';
+export { ComparisonDashboard } from './ComparisonDashboard';
+export { MetricsCards } from './MetricsCards';
+export { EquityCurveChart } from './EquityCurveChart';
+export { DrawdownChart } from './DrawdownChart';
+export { OptimizationForm } from './OptimizationForm';
+export { RegimeTimeline } from './RegimeTimeline';
+export { ReportDownload } from './ReportDownload';
+export { TradesTable } from './TradesTable';
+export { TradeDetail } from './TradeDetail';

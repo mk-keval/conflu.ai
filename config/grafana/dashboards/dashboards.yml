@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: "Conflu AI"
+    orgId: 1
+    folder: "Conflu AI"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards

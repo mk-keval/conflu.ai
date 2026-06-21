@@ -1,5 +1,7 @@
 # ARCHITECTURE.md
 
+> **Note:** This file is auto-generated from the MkDocs source at `docs/architecture.md`. Edit that file instead.
+
 ## Project: conflu.ai — Trading Intelligence Platform
 
 A modular trading platform with DuckDB-based storage, TradingView data ingestion, and async analysis pipeline.
@@ -10,7 +12,7 @@ A modular trading platform with DuckDB-based storage, TradingView data ingestion
 backend/
 ├── app/
 │   ├── core/              # Shared infrastructure
-│   │   ├── config.py      # Pydantic settings (6 classes)
+│   │   ├── config.py      # Pydantic settings (6 classes + APISettings)
 │   │   ├── database.py    # DuckDB connection + DDL + partition utils
 │   │   └── logging.py     # structlog with correlation IDs
 │   ├── domain/            # Domain models
@@ -18,29 +20,27 @@ backend/
 │   ├── infrastructure/    # Technical implementations
 │   │   ├── indicators.py  # @indicator decorator + 5 indicators
 │   │   ├── ingest/        # Data ingestion pipeline
+│   │   ├── backtest/      # Backtest engine (vectorbt-based)
 │   │   └── risk/          # Risk management engine
-│   │       ├── __init__.py  # run_ingestion() orchestrator
-│   │       ├── cli.py       # argparse CLI entry point
-│   │       ├── scanner.py   # TradingView scanner + retry + circuit breaker
-│   │       ├── symbol_map.py # TickerResolver (internal ↔ TV ticker)
-│   │       ├── quality.py   # OHLCV validation (6 checks)
-│   │       ├── models.py    # Ingestion-specific Pydantic models
-│   │       ├── fetcher.py   # IngestionFetcher (semaphore + chunking)
-│   │       ├── writer.py    # Incremental Parquet writer
-│   │       └── metrics.py   # IngestionMetrics + health persistence
-│   │   └── risk/          # Risk management engine
-│   │       ├── __init__.py   # 20+ symbol exports
-│   │       ├── models.py    # 8 frozen Pydantic models (BetaResult, VaRResult, etc.)
-│   │       ├── beta.py      # BetaHedger — vectorized rolling beta, OLS, hedge ratio
-│   │       ├── correlation.py # CorrelationAnalyzer — Pearson, sector agg, diversification
-│   │       ├── var.py       # VaRCalculator — 3 methods (historical/parametric/MC)
-│   │       ├── kelly.py     # KellyOptimizer — D-15 fractional Kelly, D-17 validation
-│   │       ├── position_sizing.py # PositionSizingRefiner — 4 constraint layers
-│   │       ├── engine.py    # RiskEngine — async orchestrator, composite risk score, alerts
-│   │       ├── streaming.py # RiskStreamManager — WebSocket lifecycle, sequencing, replay
-│   │       ├── metrics.py   # RiskMetricsComputer — risk-adjusted return metrics
-│   │       └── reporting.py # RiskReportGenerator — HTML reports with inline CSS
-│   └── api/               # FastAPI routes (future)
+│   └── api/               # FastAPI REST + WebSocket layer
+│       ├── main.py        # create_app() factory — wires all middleware, routers, lifespan
+│       ├── schemas.py     # ApiResponse/ApiErrorResponse envelopes + all request/response models
+│       ├── exceptions.py  # ApiError hierarchy + register_exception_handlers()
+│       ├── middleware.py  # TokenBucket, RequestLogMiddleware, RateLimitMiddleware, APIKeyMiddleware
+│       ├── dependencies.py # Annotated DI aliases for ScreenEngine, BacktestEngine, RiskEngine, IndicatorCache
+│       ├── observability.py # Prometheus metrics + OpenTelemetry tracing setup
+│       ├── routers/       # REST endpoint modules
+│       │   ├── __init__.py
+│       │   ├── health.py  # GET /health, GET /health/ready
+│       │   ├── screener.py # POST /api/v1/screen (JSON/CSV/JSON export)
+│       │   ├── backtest.py # POST backtest/optimize/monte-carlo, GET results
+│       │   ├── data.py    # GET indicators, OHLCV data, symbols
+│       │   └── risk.py    # GET beta/correlation/var, POST kelly/position-size
+│       └── ws/            # WebSocket streaming
+│           ├── __init__.py
+│           ├── manager.py # WebSocketManager singleton + channel subscription + background loops
+│           ├── channels.py # PriceChannel & IndicatorChannel data providers
+│           └── handler.py # /ws/stream endpoint with auth + reconnection
 ├── tests/
 │   ├── conftest.py        # Shared fixtures
 │   ├── test_config.py     # 11 tests
@@ -78,7 +78,7 @@ docker-compose.yml       # 3 services: api, worker, redis
 pyproject.toml           # Build config + deps + linting
 ```
 
-## Data Flow
+## Data Flow — Ingestion Pipeline
 
 ```
 TradingView Scanner
@@ -94,6 +94,24 @@ Parquet partitions: {asset_class}/{year}/{month}/{symbol}_{timeframe}.parquet
 DuckDB ohlcv table (parquet-backed)
 ```
 
+## Data Flow — API Layer
+
+```
+Client
+    ↓
+CORSMiddleware
+    ↓
+RequestLogMiddleware (correlation ID + timing)
+    ↓
+RateLimitMiddleware (token bucket per endpoint group)
+    ↓
+APIKeyMiddleware (X-API-Key header validation)
+    ↓
+Router Endpoints (REST) / WebSocket (ws/stream endpoint)
+    ↓
+ExceptionHandlers → {error: {code, message, details, request_id}}
+```
+
 ## Key Design Decisions
 
 - DuckDB as primary store (zero-config, columnar, Parquet-native)
@@ -102,3 +120,105 @@ DuckDB ohlcv table (parquet-backed)
 - Semaphore-based concurrency (no unbounded parallelism)
 - Partial failures don't stop pipeline (D-15)
 - DuckDB 1.x has no SERIAL/GENERATED AS IDENTITY → manual id via MAX(id)+1
+
+## API Design Decisions
+
+- **Response envelope**: `{data: T, meta: {timestamp, request_id}}` — consistent across all endpoints
+- **Error envelope**: `{error: {code, message, details, request_id}}` — structured error responses
+- **Middleware order**: CORSMiddleware → RequestLogMiddleware → RateLimitMiddleware → APIKeyMiddleware
+- **Rate limiting**: In-process TokenBucket with per-endpoint groups (not Redis-backed)
+- **WebSocket**: Single multiplexed endpoint `/ws/stream` with channel-based subscriptions (price:{symbol}, indicator:{symbol})
+- **WebSocket pooling**: Single WebSocketManager singleton with background update loops (on-demand: only when clients subscribed)
+- **WebSocket reconnection**: Per-connection sequence numbering + history buffer (100 msgs) for replay
+- **Observability**: Prometheus metrics via `prometheus-fastapi-instrumentator` (auto-expose `/metrics`); OpenTelemetry optional (console exporter if no OTLP endpoint)
+- **DI pattern**: `Annotated[Type, Depends()]` for engine dependencies — compliant with ruff B008 rules
+- **Pydantic strictness**: All models use `frozen=True, extra="forbid"`
+
+---
+
+## System Context (C4 Level 1)
+
+```mermaid
+C4Context
+  Person(trader, "Trader", "User of the trading platform")
+  System(conflu, "conflu.ai", "Multi-asset trading intelligence platform")
+  System_Ext(tv, "TradingView", "Market data source via tradingview-screener")
+  
+  Rel(trader, conflu, "Screens, backtests, monitors risk via")
+  Rel(conflu, tv, "Fetches market data from")
+```
+
+## Container Diagram (C4 Level 2)
+
+```mermaid
+C4Container
+  Person(trader, "Trader")
+  
+  Container_Boundary(frontend, "Frontend") {
+    Container(react_app, "React SPA", "React 18 + TypeScript + Vite", "Trading dashboard UI")
+    Container(nginx, "Nginx", "Nginx 1.25", "Static file serving & API proxy")
+  }
+  
+  Container_Boundary(backend, "Backend") {
+    Container(fastapi, "FastAPI", "Python 3.11 + FastAPI", "REST API & WebSocket server")
+    Container(worker, "Celery Worker", "Python 3.11 + Celery", "Async task processing")
+  }
+  
+  Container_Boundary(storage, "Storage") {
+    ContainerDb(duckdb, "DuckDB", "OLAP database", "Analytics data warehouse")
+    ContainerDb(redis, "Redis", "In-memory cache", "Caching & message queue")
+  }
+  
+  Container_Boundary(observability, "Observability") {
+    Container(prometheus, "Prometheus", "Metrics collection")
+    Container(grafana, "Grafana", "Metrics visualization")
+    Container(loki, "Loki", "Log aggregation")
+    Container(tempo, "Tempo", "Distributed tracing")
+  }
+  
+  System_Ext(tv, "TradingView", "Market data")
+  
+  Rel(trader, react_app, "Uses")
+  Rel(react_app, nginx, "Serves via")
+  Rel(nginx, fastapi, "Proxies API calls to")
+  Rel(fastapi, duckdb, "Reads/Writes")
+  Rel(fastapi, redis, "Caches")
+  Rel(worker, duckdb, "Writes data")
+  Rel(worker, tv, "Fetches from")
+  Rel(fastapi, prometheus, "Exposes metrics")
+  Rel(prometheus, grafana, "Visualizes")
+```
+
+## Data Flow
+
+```mermaid
+flowchart LR
+  TV[TradingView] -->|OHLCV Data| Ing[Data Ingestion]
+  Ing -->|Parquet Files| Duck[(DuckDB)]
+  Duck -->|Query| API[FastAPI]
+  Duck -->|Pre-computed| Cache[(Indicator Cache)]
+  API -->|Screen Results| WS[WebSocket]
+  API -->|REST| Frontend[React SPA]
+  Cache -->|Fast Lookup| Screen[Screener Engine]
+  Screen -->|Signals| WS
+  API -->|Risk Metrics| Risk[Risk Engine]
+  API -->|Backtest Results| Backtest[Backtest Engine]
+```
+
+## Technology Stack
+
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| Frontend | React 18, TypeScript, Vite | UI framework & build |
+| Charts | TradingView Lightweight Charts | Financial charts |
+| Styling | Tailwind CSS | Utility-first CSS |
+| State | Zustand + React Query | Client state & server cache |
+| Backend | Python 3.11, FastAPI | REST API & WebSocket |
+| Database | DuckDB | OLAP analytics (columnar) |
+| Cache | Redis | In-memory cache & queue |
+| Data Source | tradingview-screener | Market data |
+| Metrics | Prometheus + Grafana | Observability |
+| Logs | structlog + Loki | Structured logging |
+| Tracing | OpenTelemetry + Tempo | Distributed tracing |
+| Compute | vectorbt + pandas-ta | Vectorized indicators & backtesting |
+| CI/CD | GitHub Actions | Automation |

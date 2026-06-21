@@ -1,0 +1,3 @@
+# Ignore specific vulnerabilities with expiry dates
+# Example: CVE-2023-XXXXX expires="2024-12-31"
+# No current ignores - review periodically
