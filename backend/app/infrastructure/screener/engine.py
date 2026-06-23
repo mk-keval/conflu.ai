@@ -29,6 +29,7 @@ from backend.app.infrastructure.screener.broadcasting import sort_timeframes
 from backend.app.infrastructure.screener.cache import IndicatorCache
 from backend.app.infrastructure.screener.configs import ScreenConfig, load_screen_template
 from backend.app.infrastructure.screener.filters import _FILTER_REGISTRY, list_filters
+from backend.app.infrastructure.indicators import list_indicators
 from backend.app.infrastructure.screener.models import FilterRunResult, ScreenRunResult
 from backend.app.infrastructure.screener.scoring import compute_pass_rates, compute_score
 
@@ -104,6 +105,22 @@ class ScreenEngine:
                     continue
 
                 try:
+                    # Check if this is a multi-timeframe filter
+                    compare_tf = getattr(flt, "compare_timeframe", None)
+                    if compare_tf and compare_tf != tf:
+                        # Load comparison timeframe data
+                        compare_data = await self._load_indicator_data(compare_tf, symbols)
+                        if compare_data is not None and not compare_data.empty:
+                            # Merge data from both timeframes on symbol
+                            # Suffix comparison timeframe columns with _tf
+                            compare_cols = [c for c in compare_data.columns if c != "symbol"]
+                            compare_data = compare_data.rename(
+                                columns={c: f"{c}_{compare_tf}" for c in compare_cols}
+                            )
+                            indicator_data = indicator_data.merge(
+                                compare_data, on="symbol", how="outer"
+                            )
+                    
                     mask = filter_def.func(indicator_data, **flt.params)
 
                     # Apply negation if specified
@@ -200,7 +217,7 @@ class ScreenEngine:
         If cache is empty, computes on-the-fly.
         """
         # Get all registered indicators
-        all_indicators = list_filters()
+        all_indicators = list_indicators()
         indicator_names = list(all_indicators.keys())
 
         # For each indicator, get latest values

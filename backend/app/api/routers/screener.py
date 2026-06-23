@@ -12,18 +12,58 @@ from fastapi import APIRouter
 from starlette.responses import JSONResponse, StreamingResponse
 
 from backend.app.api.dependencies import ScreenEngineDep
-from backend.app.api.schemas import ApiResponse, MetaInfo, ScreenRequest, ScreenSymbolResult
+from backend.app.api.schemas import (
+    ApiResponse,
+    CustomScreenConfig,
+    FilterRuleRequest,
+    MetaInfo,
+    ScreenRequest,
+    ScreenSymbolResult,
+)
+from backend.app.infrastructure.screener.configs import ScreenConfig
 
 router = APIRouter(prefix="/screen", tags=["screener"])
+
+
+def _convert_custom_config(custom: CustomScreenConfig) -> ScreenConfig:
+    """Convert API CustomScreenConfig to internal ScreenConfig."""
+    from backend.app.infrastructure.screener.configs import FilterRule
+
+    filters = [
+        FilterRule(
+            category=f.category,
+            indicator=f.indicator,
+            params=f.params,
+            operator=f.operator,
+            timeframe=f.timeframe,
+            negate=f.negate,
+            compare_timeframe=f.compare_timeframe,
+        )
+        for f in custom.filters
+    ]
+    return ScreenConfig(
+        name=custom.name,
+        description=custom.description,
+        asset_classes=custom.asset_classes,
+        timeframes=custom.timeframes,
+        filters=filters,
+    )
+
+
+def _resolve_config(request: ScreenRequest) -> ScreenConfig | str:
+    """Resolve config to either template name or ScreenConfig object."""
+    if isinstance(request.config, str):
+        return request.config
+    return _convert_custom_config(request.config)
 
 
 @router.post(
     "",
     summary="Run a technical screen",
-    description="Execute a predefined screen configuration against all active symbols. "
-    "Supports multi-timeframe top-down evaluation with AND/OR filter composition. "
-    "Returns matched symbols with scores, matched filters, and indicator values. "
-    "Optionally export results as CSV or JSON.",
+    description="Execute a predefined screen configuration or custom filter configuration "
+    "against all active symbols. Supports multi-timeframe top-down evaluation "
+    "with AND/OR filter composition. Returns matched symbols with scores, "
+    "matched filters, and indicator values. Optionally export results as CSV or JSON.",
     response_description="Screen results with matched symbols and metadata",
     status_code=200,
 )
@@ -34,22 +74,24 @@ async def run_screen(
     """Run a screen configuration and return results.
 
     Args:
-        request: Screen configuration including config name, optional symbol subset,
-                 timeframe overrides, and export format.
+        request: Screen configuration including config name or custom config,
+                 optional symbol subset, timeframe overrides, and export format.
         engine: Injected ScreenEngine instance.
 
     Returns:
         Standard ApiResponse envelope or StreamingResponse for CSV/JSON export.
     """
+    resolved_config = _resolve_config(request)
+
     # Handle export formats
     if request.export_format == "csv":
         result = await engine.screen(
-            config=request.config,
+            config=resolved_config,
             symbols=request.symbols,
             timeframes=request.timeframes,
         )
         csv_data = await engine.screen_to_csv(
-            config=request.config,
+            config=resolved_config,
             path="",  # Will return string instead of writing to file
             symbols=request.symbols,
         )
@@ -61,7 +103,7 @@ async def run_screen(
 
     if request.export_format == "json":
         json_data = await engine.screen_to_json(
-            config=request.config,
+            config=resolved_config,
             path="",
             symbols=request.symbols,
         )
@@ -69,7 +111,7 @@ async def run_screen(
 
     # Standard JSON response
     result = await engine.screen(
-        config=request.config,
+        config=resolved_config,
         symbols=request.symbols,
         timeframes=request.timeframes,
     )

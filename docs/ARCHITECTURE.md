@@ -121,6 +121,30 @@ ExceptionHandlers → {error: {code, message, details, request_id}}
 - Partial failures don't stop pipeline (D-15)
 - DuckDB 1.x has no SERIAL/GENERATED AS IDENTITY → manual id via MAX(id)+1
 
+---
+
+## ⚠️ Known Automation Gaps (Not Yet Implemented)
+
+The architecture includes config and docker-compose for automation, but the following are **NOT YET IMPLEMENTED**:
+
+| Component | Status | Config Exists | Code Exists |
+|-----------|--------|---------------|-------------|
+| **Ingestion Scheduler** | ❌ Missing | `ingestion.daily_schedule_utc`, `ingestion.intraday_interval_s` | No APScheduler/Celery Beat |
+| **Celery Worker** | ❌ Missing | docker-compose `worker` service | No `backend/app/worker/` module |
+| **Celery Beat (Periodic Tasks)** | ❌ Missing | — | No beat schedule |
+| **Auto-indicator cache refresh** | ❌ Missing | `compute.indicator_cache_enabled` | No periodic task |
+| **Auto-screener streaming** | ❌ Missing | `screen.stream_interval_s` | Only on-demand via WebSocket |
+
+**Current State:** Ingestion runs manually via CLI (`python -m backend.app.infrastructure.ingest.cli`). The `worker` service in docker-compose will fail to start because there's no Celery app/tasks module.
+
+**To Enable Automation:**
+1. Create `backend/app/worker/tasks.py` with Celery app
+2. Add APScheduler or Celery Beat for periodic ingestion
+3. Schedule `IndicatorCache.update_cache()` after ingestion completes
+4. Add beat schedule for `daily_schedule_utc` and `intraday_interval_s`
+
+See [Phase 2 Plan](.planning/phases/02-data-ingestion-pipeline/02-PLAN.md) and [Phase 10](.planning/phases/10-production-hardening/10-PLAN.md) for detailed implementation tasks.
+
 ## API Design Decisions
 
 - **Response envelope**: `{data: T, meta: {timestamp, request_id}}` — consistent across all endpoints

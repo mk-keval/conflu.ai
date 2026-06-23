@@ -74,8 +74,10 @@ def setup_prometheus(app: Any) -> None:
             should_group_status_codes=True,
             should_ignore_untemplated=True,
         )
-        instrumentator.instrument(app).expose(app, endpoint="/metrics")
-        log.info("prometheus_instrumentation_ready")
+        # Don't add middleware - just expose the /metrics endpoint
+        # The middleware causes issues with _IncludedRouter objects
+        instrumentator.expose(app, endpoint="/metrics", include_in_schema=False)
+        log.info("prometheus_instrumentation_ready (metrics endpoint only)")
     except ImportError:
         log.warning(
             "prometheus-fastapi-instrumentator not available — "

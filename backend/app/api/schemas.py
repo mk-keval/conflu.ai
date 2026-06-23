@@ -67,12 +67,42 @@ class ApiErrorResponse(BaseModel):
 # ── Screener Schemas ──
 
 
-class ScreenRequest(BaseModel):
-    """POST /api/v1/screen request body."""
+class FilterRuleRequest(BaseModel):
+    """A single filter rule in a custom screen configuration."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    config: str
+    category: str
+    indicator: str
+    params: dict[str, Any] = Field(default_factory=dict)
+    operator: Literal["gt", "lt", "eq", "crosses_above", "crosses_below"] = "gt"
+    timeframe: str = "1D"
+    negate: bool = False
+    compare_timeframe: str | None = None
+
+
+class CustomScreenConfig(BaseModel):
+    """Custom screen configuration (alternative to predefined template)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str = "Custom Screen"
+    description: str = ""
+    asset_classes: list[str] = Field(default_factory=lambda: ["equities", "crypto"])
+    timeframes: list[str] = Field(default_factory=lambda: ["1D", "4h"])
+    filters: list[FilterRuleRequest] = Field(default_factory=list)
+
+
+class ScreenRequest(BaseModel):
+    """POST /api/v1/screen request body.
+
+    Can specify either a predefined template name (config: str)
+    or a full custom configuration (config: CustomScreenConfig).
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    config: str | CustomScreenConfig
     symbols: list[str] | None = None
     timeframes: list[str] | None = None
     export_format: Literal["json", "csv"] | None = None

@@ -14,7 +14,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from starlette.responses import JSONResponse
 
-from backend.app.api.dependencies import ScreenEngineDep
+from backend.app.api.dependencies import ScreenEngineDep, ScreenReplayDep
 from backend.app.api.schemas import (
     ApiResponse,
     CreateScreenRequest,
@@ -367,7 +367,7 @@ async def revert_screen_version(
 )
 async def start_replay(
     request: ReplayRequest,
-    engine: ScreenReplay,
+    engine: ScreenReplayDep,
 ) -> ApiResponse[ReplayStartResponse]:
     """Start a historical screen replay."""
     from backend.app.infrastructure.screener.configs import ScreenConfig

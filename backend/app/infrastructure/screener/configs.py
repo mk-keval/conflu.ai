@@ -40,6 +40,8 @@ class FilterRule(BaseModel):
     operator: Literal["gt", "lt", "eq", "crosses_above", "crosses_below"] = "gt"
     timeframe: str = "1D"
     negate: bool = False
+    # For multi-timeframe filters (e.g., ema_compare, rsi_compare)
+    compare_timeframe: str | None = None
 
 
 class ScreenConfig(BaseModel):
