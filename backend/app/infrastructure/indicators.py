@@ -81,7 +81,7 @@ def compute_macd(
 ) -> pd.DataFrame:
     """Compute MACD oscillator (MACD line, signal line, histogram).
 
-    Returns three rows per timestamp: one for 'macd', 'macd_signal', 'macd_hist'.
+    Returns three rows per timestamp: one for 'macd_line', 'macd_signal', 'macd_hist'.
 
     Args:
         df: DataFrame with 'close' column.
@@ -96,15 +96,24 @@ def compute_macd(
     if macd_result is None or macd_result.empty:
         return pd.DataFrame(columns=["symbol", "timestamp", "indicator_name", "value"])
 
+    # pandas_ta returns columns like MACD_12_26_9, MACDs_12_26_9, MACDh_12_26_9
+    # Map to standard names: macd_line, macd_signal, macd_hist
+    col_mapping = {
+        f"MACD_{fast}_{slow}_{signal}": "macd_line",
+        f"MACDs_{fast}_{slow}_{signal}": "macd_signal",
+        f"MACDh_{fast}_{slow}_{signal}": "macd_hist",
+    }
+
     rows = []
     base = df[["symbol", "timestamp"]]
-    for col in macd_result.columns:
-        part = base.copy()
-        part["indicator_name"] = col.lower().replace("macd_", "macd_")
-        part["value"] = macd_result[col].values
-        rows.append(part)
+    for src_col, dst_name in col_mapping.items():
+        if src_col in macd_result.columns:
+            part = base.copy()
+            part["indicator_name"] = dst_name
+            part["value"] = macd_result[src_col].values
+            rows.append(part)
 
-    return pd.concat(rows, ignore_index=True)
+    return pd.concat(rows, ignore_index=True) if rows else pd.DataFrame(columns=["symbol", "timestamp", "indicator_name", "value"])
 
 
 @indicator(name="ema", timeframe="1D")
@@ -169,6 +178,39 @@ def compute_atr(
     return result
 
 
+@indicator(name="adx", timeframe="1D")
+def compute_adx(
+    df: pd.DataFrame,
+    length: int = 14,
+) -> pd.DataFrame:
+    """Compute Average Directional Index for trend strength.
+
+    Args:
+        df: DataFrame with 'high', 'low', 'close' columns.
+        length: ADX period (default 14).
+
+    Returns:
+        DataFrame with symbol, timestamp, indicator_name, value columns.
+    """
+    result = df[["symbol", "timestamp"]].copy()
+    adx_result = ta.adx(
+        high=df["high"],
+        low=df["low"],
+        close=df["close"],
+        length=length,
+    )
+    if adx_result is None or adx_result.empty:
+        return pd.DataFrame(columns=["symbol", "timestamp", "indicator_name", "value"])
+    
+    # pandas_ta returns ADX_14, DMP_14, DMN_14
+    # We want the ADX line
+    adx_col = f"ADX_{length}"
+    if adx_col in adx_result.columns:
+        result["indicator_name"] = "adx"
+        result["value"] = adx_result[adx_col].values
+    return result
+
+
 def list_indicators() -> dict[str, Callable[..., pd.DataFrame]]:
     """Return a copy of the registered indicator registry.
 
@@ -181,14 +223,15 @@ def list_indicators() -> dict[str, Callable[..., pd.DataFrame]]:
 def compute_all(
     df: pd.DataFrame,
     indicators: list[str] | None = None,
-    **kwargs: Any,
+    indicator_params: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, pd.DataFrame]:
     """Compute multiple indicators at once.
 
     Args:
         df: Input DataFrame with OHLCV columns.
         indicators: List of indicator names to compute. If None, compute all registered.
-        **kwargs: Additional keyword arguments passed to each indicator function.
+        indicator_params: Optional dict mapping indicator name to its specific parameters.
+                         e.g., {"ema": {"length": 200}, "sma": {"length": 50}}
 
     Returns:
         Dict mapping indicator name to its result DataFrame.
@@ -198,5 +241,6 @@ def compute_all(
     for name in names:
         func = _INDICATOR_REGISTRY.get(name)
         if func is not None:
-            results[name] = func(df, **kwargs)
+            params = indicator_params.get(name, {}) if indicator_params else {}
+            results[name] = func(df, **params)
     return results

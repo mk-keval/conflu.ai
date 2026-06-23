@@ -25,6 +25,26 @@ class IndicatorCache:
     full rebuilds (on parameter changes).
     """
 
+    # Indicator-specific parameters for proper computation
+    _INDICATOR_PARAMS: dict[str, dict[str, Any]] = {
+        "rsi": {"length": 14},
+        "macd": {"fast": 12, "slow": 26, "signal": 9},
+        "ema": {"length": 20},  # Default, can be overridden
+        "ema_20": {"length": 20},
+        "ema_50": {"length": 50},
+        "ema_200": {"length": 200},
+        "sma": {"length": 50},
+        "sma_20": {"length": 20},
+        "sma_50": {"length": 50},
+        "sma_200": {"length": 200},
+        "atr": {"length": 14},
+        "adx": {"length": 14},
+        "obv": {},
+        "bb": {"length": 20, "std": 2},
+        "vwap": {},
+        "stoch": {"k": 14, "d": 3, "smooth_k": 3},
+    }
+
     def __init__(self) -> None:
         self._log = get_logger("conflu.screener.cache")
         self._cached_indicators: list[str] = list(settings.compute.cached_indicators)
@@ -65,7 +85,13 @@ class IndicatorCache:
 
             # Compute and store each indicator
             for ind_name in names:
-                if ind_name not in list_indicators():
+                # Check if indicator is registered or has a registered base (e.g., "ema_20" -> "ema")
+                registered = ind_name in list_indicators()
+                if not registered and "_" in ind_name:
+                    base = ind_name.split("_")[0]
+                    registered = base in list_indicators()
+                
+                if not registered:
                     self._log.warning("indicator_not_registered", indicator=ind_name)
                     continue
 
@@ -103,10 +129,14 @@ class IndicatorCache:
                 return con.sql(
                     """
                     SELECT symbol, timestamp, open, high, low, close, volume
-                    FROM ohlcv
-                    WHERE timeframe = ?
-                    ORDER BY symbol, timestamp DESC
-                    LIMIT 500
+                    FROM (
+                        SELECT symbol, timestamp, open, high, low, close, volume,
+                               ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY timestamp DESC) as rn
+                        FROM ohlcv
+                        WHERE timeframe = ?
+                    )
+                    WHERE rn <= 500
+                    ORDER BY symbol, timestamp ASC
                     """,
                     params=[timeframe],
                 ).fetchdf()
@@ -163,16 +193,37 @@ class IndicatorCache:
                 if new_data.empty:
                     return 0
 
-                # 3. Compute indicator
-                results = compute_all(new_data, indicators=[indicator_name])
+                # Ensure data is sorted chronologically for indicator computation
+                new_data = new_data.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
 
-                if indicator_name not in results:
+                # 3. Compute indicator with proper parameters
+                # Handle indicators with period suffixes (e.g., "ema_200" -> base="ema", period=200)
+                # First check if indicator_name is directly registered
+                if indicator_name in list_indicators():
+                    base_indicator = indicator_name
+                    params = self._INDICATOR_PARAMS.get(indicator_name, {})
+                else:
+                    # Try to extract base indicator (e.g., "ema_200" -> "ema")
+                    base_indicator = indicator_name
+                    params = self._INDICATOR_PARAMS.get(indicator_name, {})
+                    if "_" in indicator_name:
+                        base = indicator_name.split("_")[0]
+                        if base in list_indicators():
+                            base_indicator = base
+                            params = self._INDICATOR_PARAMS.get(indicator_name, {})
+                
+                results = compute_all(new_data, indicators=[base_indicator], indicator_params={base_indicator: params})
+
+                if base_indicator not in results:
                     return 0
 
-                result_df = results[indicator_name]
+                result_df = results[base_indicator].copy()
+                
+                # Rename indicator_name to match what filters expect (e.g., "ema_200")
+                result_df["indicator_name"] = indicator_name
 
                 # 4. Add timeframe and params columns
-                params_json = json.dumps({})
+                params_json = json.dumps(params)
 
                 result_df["timeframe"] = timeframe
                 result_df["params"] = params_json

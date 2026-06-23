@@ -146,8 +146,8 @@ async def run_ingestion(
             resolver = TickerResolver()
             tickers = [resolver.to_tv_ticker(sym, asset_class) for sym in symbols]
             
-            # Determine columns to fetch (OHLCV)
-            columns = ["open", "high", "low", "close", "volume"]
+            # Determine columns to fetch (OHLCV + timestamp from TV)
+            columns = ["time", "open", "high", "low", "close", "volume"]
             
             log.info(
                 "ingestion_asset_class_start",

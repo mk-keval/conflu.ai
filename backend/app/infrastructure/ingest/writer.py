@@ -56,7 +56,15 @@ def write_incremental(
         clean_df["timeframe"] = timeframe
 
     # 3. Parse timestamps and add partition columns
-    ts_col = clean_df["timestamp"]
+    # Handle both 'timestamp' and 'time' (Unix timestamp from TV)
+    if "timestamp" in clean_df.columns:
+        ts_col = clean_df["timestamp"]
+    elif "time" in clean_df.columns:
+        ts_col = pd.to_datetime(clean_df["time"], unit="s", utc=True)
+        clean_df["timestamp"] = ts_col
+    else:
+        raise ValueError("No timestamp/time column found in data")
+    
     if not pd.api.types.is_datetime64_any_dtype(ts_col):
         ts_col = pd.to_datetime(ts_col, utc=True)
     clean_df["year"] = ts_col.dt.year.astype(int)
