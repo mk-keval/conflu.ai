@@ -1,0 +1,38 @@
+name: "Trend Follower (Multi-Timeframe)"
+description: "EMA50 > EMA200 on daily, RSI > 60 daily, RSI > 55 weekly"
+asset_classes:
+  - equities
+  - crypto
+timeframes:
+  - 1D
+  - 4h
+  - 1W
+filters:
+  - category: trend
+    indicator: ema_compare
+    params:
+      fast_period: 50
+      slow_period: 200
+      operator: gt
+    operator: gt
+    timeframe: "1D"
+  - category: momentum
+    indicator: rsi_compare
+    params:
+      threshold: 60
+      operator: gt
+    operator: gt
+    timeframe: "1D"
+  - category: momentum
+    indicator: rsi_compare
+    params:
+      threshold: 55
+      operator: gt
+    operator: gt
+    timeframe: "1W"
+  - category: volume
+    indicator: rvol_high
+    params:
+      threshold: 1.2
+    operator: gt
+    timeframe: "4h"
