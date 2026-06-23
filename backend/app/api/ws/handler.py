@@ -20,27 +20,42 @@ log = get_logger("conflu.api.ws.handler")
 
 ws_router = APIRouter()
 
-# Lazy Prometheus metrics
+# Lazy Prometheus metrics - initialize at module level with duplicate protection
 _ws_messages_total: Any = None
 _ws_errors_total: Any = None
 
+try:
+    from prometheus_client import Counter, REGISTRY
+
+    # Check if metrics already exist in registry to avoid duplicate registration on reload
+    if "ws_messages_total" not in REGISTRY._names_to_collectors:
+        _ws_messages_total = Counter(
+            "ws_messages_total", "Total WebSocket messages", labelnames=("channel_type",)
+        )
+    else:
+        # Get existing collector
+        for collector in REGISTRY._collector_to_names:
+            if "ws_messages_total" in REGISTRY._collector_to_names[collector]:
+                _ws_messages_total = collector
+                break
+
+    if "ws_errors_total" not in REGISTRY._names_to_collectors:
+        _ws_errors_total = Counter(
+            "ws_errors_total", "Total WebSocket errors", labelnames=("error_type",)
+        )
+    else:
+        for collector in REGISTRY._collector_to_names:
+            if "ws_errors_total" in REGISTRY._collector_to_names[collector]:
+                _ws_errors_total = collector
+                break
+
+except ImportError:
+    _ws_messages_total = None
+    _ws_errors_total = None
+
 
 def _get_ws_metrics() -> tuple[Any, Any]:
-    """Get Prometheus WS metrics (lazy import)."""
-    global _ws_messages_total, _ws_errors_total
-    if _ws_messages_total is None:
-        try:
-            from prometheus_client import Counter
-
-            _ws_messages_total = Counter(
-                "ws_messages_total", "Total WebSocket messages", labelnames=("channel_type",)
-            )
-            _ws_errors_total = Counter(
-                "ws_errors_total", "Total WebSocket errors", labelnames=("error_type",)
-            )
-        except ImportError:
-            _ws_messages_total = None
-            _ws_errors_total = None
+    """Get Prometheus WS metrics (already initialized at module level)."""
     return _ws_messages_total, _ws_errors_total
 
 

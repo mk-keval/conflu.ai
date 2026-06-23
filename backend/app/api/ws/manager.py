@@ -25,15 +25,22 @@ _ws_connections_gauge: Any = None
 
 
 def _get_ws_gauge() -> Any:
-    """Get the Prometheus WS connections gauge (lazy import)."""
+    """Get the Prometheus WS connections gauge (lazy import with duplicate protection)."""
     global _ws_connections_gauge
     if _ws_connections_gauge is None:
         try:
-            from prometheus_client import Gauge
+            from prometheus_client import Gauge, REGISTRY
 
-            _ws_connections_gauge = Gauge(
-                "ws_connections_active", "Active WebSocket connections"
-            )
+            if "ws_connections_active" not in REGISTRY._names_to_collectors:
+                _ws_connections_gauge = Gauge(
+                    "ws_connections_active", "Active WebSocket connections"
+                )
+            else:
+                # Get existing collector
+                for collector in REGISTRY._collector_to_names:
+                    if "ws_connections_active" in REGISTRY._collector_to_names[collector]:
+                        _ws_connections_gauge = collector
+                        break
         except ImportError:
             _ws_connections_gauge = None
     return _ws_connections_gauge

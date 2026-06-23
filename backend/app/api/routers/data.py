@@ -43,7 +43,7 @@ async def get_indicators(
             series = await cache.get_series(
                 indicator_name=name,
                 timeframe=params.timeframe,
-                symbols=[symbol],
+                symbol=symbol,
                 limit=params.limit,
             )
             if series is not None and not series.empty:
@@ -95,7 +95,7 @@ async def get_bulk_indicators(
                 series = await cache.get_series(
                     indicator_name=name,
                     timeframe=timeframe,
-                    symbols=[sym],
+                    symbol=sym,
                     limit=200,
                 )
                 if series is not None and not series.empty:
@@ -120,6 +120,56 @@ async def get_bulk_indicators(
             "timeframe": timeframe,
             "indicators": result,
         },
+        meta=MetaInfo(timestamp=datetime.now(UTC).isoformat()),
+    )
+
+
+@router.get(
+    "/symbols",
+    summary="List available symbols",
+    description="Get the list of available trading symbols with metadata.",
+    status_code=200,
+)
+async def get_symbols(
+    asset_class: str | None = Query(None, description="Filter by asset class"),
+    active_only: bool = Query(True, description="Only return active symbols"),
+) -> Any:
+    """Get list of available symbols."""
+    conditions = []
+    params: list[Any] = []
+
+    if asset_class:
+        conditions.append("asset_class = ?")
+        params.append(asset_class)
+    if active_only:
+        conditions.append("active = true")
+
+    where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+
+    with get_db(read_only=True) as con:
+        rows = con.sql(
+            f"""
+            SELECT symbol, asset_class, exchange, tv_ticker, active
+            FROM symbol_metadata
+            {where_clause}
+            ORDER BY symbol
+            """,
+            params=params,
+        ).fetchall()
+
+    symbols = []
+    for row in rows:
+        symbols.append({
+            "symbol": row[0],
+            "asset_class": row[1],
+            "exchange": row[2],
+            "tv_ticker": row[3],
+            "name": row[3],  # Use tv_ticker as name since name column doesn't exist
+            "active": bool(row[4]),
+        })
+
+    return ApiResponse(
+        data=symbols,
         meta=MetaInfo(timestamp=datetime.now(UTC).isoformat()),
     )
 
@@ -178,55 +228,5 @@ async def get_data(
             "timeframe": params.timeframe,
             "candles": candles,
         },
-        meta=MetaInfo(timestamp=datetime.now(UTC).isoformat()),
-    )
-
-
-@router.get(
-    "/symbols",
-    summary="List available symbols",
-    description="Get the list of available trading symbols with metadata.",
-    status_code=200,
-)
-async def get_symbols(
-    asset_class: str | None = Query(None, description="Filter by asset class"),
-    active_only: bool = Query(True, description="Only return active symbols"),
-) -> Any:
-    """Get list of available symbols."""
-    conditions = []
-    params: list[Any] = []
-
-    if asset_class:
-        conditions.append("asset_class = ?")
-        params.append(asset_class)
-    if active_only:
-        conditions.append("active = true")
-
-    where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
-
-    with get_db(read_only=True) as con:
-        rows = con.sql(
-            f"""
-            SELECT symbol, asset_class, exchange, tv_ticker, name, active
-            FROM symbol_metadata
-            {where_clause}
-            ORDER BY symbol
-            """,
-            params=params,
-        ).fetchall()
-
-    symbols = []
-    for row in rows:
-        symbols.append({
-            "symbol": row[0],
-            "asset_class": row[1],
-            "exchange": row[2],
-            "tv_ticker": row[3],
-            "name": row[4],
-            "active": bool(row[5]),
-        })
-
-    return ApiResponse(
-        data=symbols,
         meta=MetaInfo(timestamp=datetime.now(UTC).isoformat()),
     )

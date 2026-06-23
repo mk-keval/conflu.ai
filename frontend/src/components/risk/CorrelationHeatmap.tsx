@@ -36,7 +36,10 @@ function CorrCell({ value }: { value: number }) {
 export function CorrelationHeatmap({ data, isLoading, error }: CorrelationHeatmapProps) {
   const matrix = useMemo(() => {
     if (!data) return { symbols: [] as string[], rows: [] as number[][] };
-    return { symbols: data.symbols, rows: data.correlation_matrix };
+    // Handle case where data exists but has unexpected shape (e.g., empty object from API)
+    const symbols = Array.isArray(data.symbols) ? data.symbols : [];
+    const rows = Array.isArray(data.correlation_matrix) ? data.correlation_matrix : [];
+    return { symbols, rows };
   }, [data]);
 
   if (isLoading) {
@@ -55,9 +58,9 @@ export function CorrelationHeatmap({ data, isLoading, error }: CorrelationHeatma
     );
   }
 
-  if (!data || matrix.symbols.length === 0) {
+  if (!data || !matrix.symbols?.length) {
     return (
-      <div className="flex h-48 items-center justify-center rounded border border-dashed border-dark-600 text-sm text-dark-400">
+      <div className="flex h-48 items-center justify-center rounded border-dashed border-dark-600 text-sm text-dark-400">
         No correlation data
       </div>
     );
@@ -71,10 +74,10 @@ export function CorrelationHeatmap({ data, isLoading, error }: CorrelationHeatma
         <span
           className={cn(
             'font-mono text-sm font-semibold',
-            data.diversification_score >= 0.7 ? 'text-gain' : data.diversification_score >= 0.4 ? 'text-yellow-400' : 'text-loss'
+            (data.diversification_score ?? 0) >= 0.7 ? 'text-gain' : (data.diversification_score ?? 0) >= 0.4 ? 'text-yellow-400' : 'text-loss'
           )}
         >
-          {formatNumber(data.diversification_score, 2)}
+          {formatNumber(data.diversification_score ?? 0, 2)}
         </span>
       </div>
 
@@ -111,7 +114,7 @@ export function CorrelationHeatmap({ data, isLoading, error }: CorrelationHeatma
       </div>
 
       {/* High correlation pairs */}
-      {data.high_correlation_pairs.length > 0 && (
+      {data.high_correlation_pairs?.length > 0 && (
         <div className="rounded border border-dark-600 bg-dark-800 p-3">
           <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-dark-400">
             High Correlation Pairs

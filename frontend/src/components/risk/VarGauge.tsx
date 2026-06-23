@@ -67,7 +67,7 @@ export function VarGauge({ data, isLoading, error }: VarGaugeProps) {
         </h3>
         <div className="flex gap-2 text-[10px] text-dark-400">
           <span>Confidence: {formatNumber(data.confidence * 100, 0)}%</span>
-          <span>Method: {data.method.replace('_', ' ')}</span>
+          <span>Method: {data.method?.replace('_', ' ') ?? '—'}</span>
         </div>
       </div>
 

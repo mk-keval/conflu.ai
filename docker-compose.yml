@@ -11,12 +11,13 @@ services:
       - ./data:/app/data
       - ./backend:/app/backend
       - ./config.yaml:/app/config.yaml
+      - ./config/screens:/app/config/screens
     environment:
       - CONFLU_CORE__LOG_LEVEL=INFO
       - CONFLU_CORE__LOG_JSON=true
     command: >
       sh -c "python -c 'from backend.app.core.database import initialize_database; initialize_database()'
-      && uvicorn backend.app.api.main:app --host 0.0.0.0 --port 8000 --reload"
+      && python -m uvicorn backend.app.api.main:app --host 0.0.0.0 --port 8000 --reload"
     depends_on:
       redis:
         condition: service_healthy
@@ -40,9 +41,33 @@ services:
       - ./config.yaml:/app/config.yaml
     environment:
       - CONFLU_CORE__LOG_LEVEL=INFO
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
     command: >
       sh -c "python -c 'from backend.app.core.database import initialize_database; initialize_database()'
-      && celery -A backend.app.worker.tasks worker --loglevel=info"
+      && celery -A backend.app.worker.celery_app worker --loglevel=info -Q ingestion,compute,screener"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: conflu-beat
+    volumes:
+      - ./data:/app/data
+      - ./backend:/app/backend
+      - ./config.yaml:/app/config.yaml
+    environment:
+      - CONFLU_CORE__LOG_LEVEL=INFO
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    command: >
+      sh -c "python -c 'from backend.app.core.database import initialize_database; initialize_database()'
+      && celery -A backend.app.worker.celery_app beat --loglevel=info --scheduler celery.beat.PersistentScheduler"
     depends_on:
       redis:
         condition: service_healthy

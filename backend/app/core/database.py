@@ -458,7 +458,7 @@ CREATE TABLE IF NOT EXISTS screen_configs (
 );
 CREATE INDEX IF NOT EXISTS idx_screen_configs_user ON screen_configs (user_id);
 CREATE INDEX IF NOT EXISTS idx_screen_configs_name ON screen_configs (name);
-CREATE INDEX IF NOT EXISTS idx_screen_configs_public ON screen_configs (is_public) WHERE is_public = TRUE;
+CREATE INDEX IF NOT EXISTS idx_screen_configs_public ON screen_configs (is_public);
 """
 
 SCREEN_VERSIONS_DDL = """
@@ -495,7 +495,7 @@ CREATE TABLE IF NOT EXISTS alerts (
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_alerts_user ON alerts (user_id);
-CREATE INDEX IF NOT EXISTS idx_alerts_active ON alerts (is_active) WHERE is_active = TRUE;
+CREATE INDEX IF NOT EXISTS idx_alerts_active ON alerts (is_active);
 """
 
 ALERT_HISTORY_DDL = """

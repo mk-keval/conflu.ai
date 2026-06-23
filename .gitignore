@@ -38,13 +38,6 @@ Thumbs.db
 # Docker Compose overrides
 docker-compose.override.yml
 
-# IDE/Editor
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
 # Build artifacts
 dist/
 build/
@@ -69,11 +62,6 @@ htmlcov/
 *.log
 logs/
 
-# IDE/Editor
-*.swp
-*.swo
-*~
-
 # Environment
 .env
 .env.local
@@ -95,13 +83,6 @@ logs/
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Unit test / coverage
-.coverage
-htmlcov/
-.pytest_cache/
-.nox/
-.tox/
-
 # Type checking
 .mypy_cache/
 .dmypy.json
@@ -111,16 +92,9 @@ dmypy.json
 *.sublime-workspace
 *.sublime-project
 
-# OS
-.DS_Store
-Thumbs.db
-
 # CI/CD
 *.log
 *.out
-
-# Docker
-.docker/
 
 # Database
 *.sqlite
@@ -144,14 +118,51 @@ temp/
 .planning/phases/**/*.md
 .planning/roadmap/current_phase.txt
 
-# Test/debug scripts
-run_pytest.py
-run_tests.py
-run_tests_final.py
-run_tests_fixed.py
-run_tests_isolated.py
-run_tests_isolated.py
-run_tests_proper.py
-test_phase10.py
-run_tests_isolated.py
-test_phase10.py
+# Test/debug scripts (now in scripts/ directory which is ignored)
+
+# Frontend build
+frontend/dist/
+frontend/.vite-err.log
+frontend/.vite-out.log
+frontend/.server-log.txt
+
+# Backend logs
+backend/logs/
+backend/*.log
+
+# IDE/Editor specific
+*.swp
+*.swo
+*~
+.vscode/settings.json
+.vscode/launch.json
+
+# Coverage reports
+coverage/
+.coverage.*
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Playwright test artifacts
+*-page.png
+*-page-fixed.png
+*-snapshot.yml
+*-detailed.yml
+*-with-editor.yml
+*-with-data.yml
+shared-screen-snapshot.yml
+after-modification.yml
+risk-fixed.yml
+
+# Playwright test results directory
+playwright-results/
+test-results/
+*.snap
+
+# Playwright MCP artifacts
+.playwright-mcp/
+
+# Backend test scripts (use scripts/ at root instead)
+backend/scripts/

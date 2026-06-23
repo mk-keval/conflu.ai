@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { SavedScreenListItem, AlertRule } from '@/types/screener';
+import type { ScreenTemplateConfig } from '@/lib/constants';
+
+interface CustomTemplateConfig {
+  templateKey: string;
+  config: ScreenTemplateConfig;
+  isModified: boolean;
+}
 
 interface ScreenStore {
   selectedConfig: string;
@@ -20,6 +27,8 @@ interface ScreenStore {
   draftFilterJson: string;
   lastSavedAt: string | null;
   hasUnsavedChanges: boolean;
+  // Custom template configs (user modifications to predefined templates)
+  customTemplateConfigs: Record<string, CustomTemplateConfig>;
 
   // Setters
   setConfig: (config: string) => void;
@@ -38,11 +47,17 @@ interface ScreenStore {
   setDraftFilterJson: (json: string) => void;
   setLastSavedAt: (at: string | null) => void;
   setHasUnsavedChanges: (changed: boolean) => void;
+
+  // Custom template config setters
+  setCustomTemplateConfig: (templateKey: string, config: ScreenTemplateConfig) => void;
+  resetCustomTemplateConfig: (templateKey: string) => void;
+  getCustomTemplateConfig: (templateKey: string) => ScreenTemplateConfig | null;
+  isTemplateModified: (templateKey: string) => boolean;
 }
 
 export const useScreenStore = create<ScreenStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       selectedConfig: 'trend-follower',
       timeframes: ['1D', '4h'],
       columnVisibility: {},
@@ -57,6 +72,7 @@ export const useScreenStore = create<ScreenStore>()(
       draftFilterJson: '',
       lastSavedAt: null,
       hasUnsavedChanges: false,
+      customTemplateConfigs: {},
       setConfig: (config) => set({ selectedConfig: config }),
       setTimeframes: (timeframes) => set({ timeframes }),
       toggleColumn: (column) =>
@@ -78,6 +94,53 @@ export const useScreenStore = create<ScreenStore>()(
         set({ draftFilterJson: json, hasUnsavedChanges: true }),
       setLastSavedAt: (at) => set({ lastSavedAt: at }),
       setHasUnsavedChanges: (changed) => set({ hasUnsavedChanges: changed }),
+      setCustomTemplateConfig: (templateKey, config) =>
+        set((state) => {
+          const newCustomTemplates = {
+            ...state.customTemplateConfigs,
+            [templateKey]: { templateKey, config, isModified: true },
+          };
+          // Manual persistence as fallback
+          if (typeof window !== 'undefined') {
+            try {
+              let parsed: any = { state: {}, version: 0 };
+              const store = localStorage.getItem('screen-store');
+              if (store) {
+                parsed = JSON.parse(store);
+              }
+              if (!parsed.state) parsed.state = {};
+              parsed.state.customTemplateConfigs = newCustomTemplates;
+              localStorage.setItem('screen-store', JSON.stringify(parsed));
+            } catch {}
+          }
+          return { customTemplateConfigs: newCustomTemplates };
+        }),
+      resetCustomTemplateConfig: (templateKey) =>
+        set((state) => {
+          const { [templateKey]: removed, ...rest } = state.customTemplateConfigs;
+          // Manual persistence as fallback
+          if (typeof window !== 'undefined') {
+            try {
+              let parsed: any = { state: {}, version: 0 };
+              const store = localStorage.getItem('screen-store');
+              if (store) {
+                parsed = JSON.parse(store);
+              }
+              if (!parsed.state) parsed.state = {};
+              parsed.state.customTemplateConfigs = rest;
+              localStorage.setItem('screen-store', JSON.stringify(parsed));
+            } catch {}
+          }
+          return { customTemplateConfigs: rest };
+        }),
+      getCustomTemplateConfig: (templateKey) => {
+        const custom = get().customTemplateConfigs[templateKey];
+        return custom?.config ?? null;
+      },
+      isTemplateModified: (templateKey) => {
+        const custom = get().customTemplateConfigs[templateKey];
+        return custom?.isModified ?? false;
+      },
     }),
     {
       name: 'screen-store',
@@ -89,6 +152,7 @@ export const useScreenStore = create<ScreenStore>()(
         selectedScreenId: state.selectedScreenId,
         draftFilterJson: state.draftFilterJson,
         lastSavedAt: state.lastSavedAt,
+        customTemplateConfigs: state.customTemplateConfigs,
       }),
     }
   )

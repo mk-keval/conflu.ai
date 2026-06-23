@@ -115,9 +115,9 @@ function RiskContent() {
         {/* Risk summary badge */}
         {summaryQuery.data && (
           <div className="flex items-center gap-3 text-[10px] text-dark-400">
-            <span>Exposure: {summaryQuery.data.total_exposure.toLocaleString()}</span>
-            <span>β: {summaryQuery.data.beta_weighted.toFixed(2)}</span>
-            <span>Div: {summaryQuery.data.diversification_score.toFixed(2)}</span>
+            <span>Exposure: {summaryQuery.data.total_exposure?.toLocaleString() ?? '—'}</span>
+            <span>β: {summaryQuery.data.beta_weighted?.toFixed(2) ?? '—'}</span>
+            <span>Div: {summaryQuery.data.diversification_score?.toFixed(2) ?? '—'}</span>
           </div>
         )}
       </div>

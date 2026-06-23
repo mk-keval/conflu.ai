@@ -429,3 +429,135 @@ def candle_doji(df: pd.DataFrame) -> pd.Series:
     # Avoid division by zero
     body_pct = body / full_range.replace(0, float("nan"))
     return body_pct < 0.05
+
+
+# =============================================================================
+# Multi-Timeframe Filters (compare indicators across timeframes)
+# =============================================================================
+
+
+@filter(
+    name="ema_compare",
+    category="trend",
+    description="Compare two EMAs (e.g., EMA50 > EMA200). Can compare across timeframes.",
+    params=[
+        FilterParam(name="fast_period", type="int", default=50, description="Fast EMA period"),
+        FilterParam(name="slow_period", type="int", default=200, description="Slow EMA period"),
+        FilterParam(name="operator", type="str", default="gt", description="Operator: gt, lt"),
+    ],
+)
+def ema_compare(
+    df: pd.DataFrame,
+    fast_period: int = 50,
+    slow_period: int = 200,
+    operator: str = "gt",
+) -> pd.Series:
+    """Compare two EMAs: fast > slow (or <).
+    
+    Args:
+        df: DataFrame with EMA columns (e.g., ema_50, ema_200)
+        fast_period: Fast EMA period
+        slow_period: Slow EMA period
+        operator: 'gt' for fast > slow, 'lt' for fast < slow
+    """
+    fast_col = f"ema_{fast_period}"
+    slow_col = f"ema_{slow_period}"
+    if fast_col in df.columns and slow_col in df.columns:
+        if operator == "gt":
+            return df[fast_col] > df[slow_col]
+        elif operator == "lt":
+            return df[fast_col] < df[slow_col]
+    return pd.Series(False, index=df.index)
+
+
+@filter(
+    name="rsi_compare",
+    category="momentum",
+    description="Compare RSI value against threshold (e.g., RSI > 60). Works on any timeframe.",
+    params=[
+        FilterParam(name="threshold", type="float", default=60.0, description="RSI threshold"),
+        FilterParam(name="operator", type="str", default="gt", description="Operator: gt, lt"),
+    ],
+)
+def rsi_compare(
+    df: pd.DataFrame,
+    threshold: float = 60.0,
+    operator: str = "gt",
+) -> pd.Series:
+    """RSI compared to threshold.
+    
+    Args:
+        df: DataFrame with RSI column
+        threshold: RSI threshold value
+        operator: 'gt' for RSI > threshold, 'lt' for RSI < threshold
+    """
+    if "rsi" in df.columns:
+        if operator == "gt":
+            return df["rsi"] > threshold
+        elif operator == "lt":
+            return df["rsi"] < threshold
+    return pd.Series(False, index=df.index)
+
+
+@filter(
+    name="indicator_compare",
+    category="trend",
+    description="Generic indicator comparison (e.g., MACD line > signal). Works on any timeframe.",
+    params=[
+        FilterParam(name="indicator_a", type="str", default="macd_line", description="First indicator"),
+        FilterParam(name="indicator_b", type="str", default="macd_signal", description="Second indicator"),
+        FilterParam(name="operator", type="str", default="gt", description="Operator: gt, lt, eq"),
+    ],
+)
+def indicator_compare(
+    df: pd.DataFrame,
+    indicator_a: str = "macd_line",
+    indicator_b: str = "macd_signal",
+    operator: str = "gt",
+) -> pd.Series:
+    """Compare two indicators.
+    
+    Args:
+        df: DataFrame with indicator columns
+        indicator_a: First indicator name
+        indicator_b: Second indicator name
+        operator: 'gt', 'lt', or 'eq'
+    """
+    if indicator_a in df.columns and indicator_b in df.columns:
+        if operator == "gt":
+            return df[indicator_a] > df[indicator_b]
+        elif operator == "lt":
+            return df[indicator_a] < df[indicator_b]
+        elif operator == "eq":
+            return df[indicator_a] == df[indicator_b]
+    return pd.Series(False, index=df.index)
+
+
+@filter(
+    name="price_vs_ema",
+    category="trend",
+    description="Price vs EMA comparison (e.g., close > EMA200).",
+    params=[
+        FilterParam(name="ema_period", type="int", default=200, description="EMA period"),
+        FilterParam(name="operator", type="str", default="gt", description="Operator: gt, lt"),
+    ],
+)
+def price_vs_ema(
+    df: pd.DataFrame,
+    ema_period: int = 200,
+    operator: str = "gt",
+) -> pd.Series:
+    """Price compared to EMA.
+    
+    Args:
+        df: DataFrame with close and EMA columns
+        ema_period: EMA period
+        operator: 'gt' for price > EMA, 'lt' for price < EMA
+    """
+    ema_col = f"ema_{ema_period}"
+    if "close" in df.columns and ema_col in df.columns:
+        if operator == "gt":
+            return df["close"] > df[ema_col]
+        elif operator == "lt":
+            return df["close"] < df[ema_col]
+    return pd.Series(False, index=df.index)

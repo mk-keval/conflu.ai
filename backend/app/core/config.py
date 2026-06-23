@@ -347,10 +347,10 @@ class BacktestSettings(BaseSettings):
         le=16,
     )
 
-    optimization: OptimizationSettings = Field(default_factory=OptimizationSettings)
-    regime_detection: RegimeSettings = Field(default_factory=RegimeSettings)
-    reporting: ReportSettings = Field(default_factory=ReportSettings)
-    comparison: ComparisonSettings = Field(default_factory=ComparisonSettings)
+    optimization: "OptimizationSettings" = Field(default_factory=OptimizationSettings)
+    regime_detection: "RegimeSettings" = Field(default_factory=RegimeSettings)
+    reporting: "ReportSettings" = Field(default_factory=ReportSettings)
+    comparison: "ComparisonSettings" = Field(default_factory=ComparisonSettings)
 
 
 class APISettings(BaseSettings):
@@ -525,6 +525,21 @@ class ReplaySettings(BaseSettings):
     )
 
 
+# Rebuild models with forward references to resolve Pydantic v2 class-not-fully-defined errors
+# These classes use string annotations (forward references) to other settings classes
+OptimizationSettings.model_rebuild()
+RegimeSettings.model_rebuild()
+ReportSettings.model_rebuild()
+ComparisonSettings.model_rebuild()
+BacktestSettings.model_rebuild()
+APISettings.model_rebuild()
+FrontendSettings.model_rebuild()
+RiskSettings.model_rebuild()
+AlertSettings.model_rebuild()
+ShareSettings.model_rebuild()
+ReplaySettings.model_rebuild()
+
+
 class AppSettings(BaseSettings):
     """Top-level settings aggregating all layer configs.
 
@@ -575,6 +590,9 @@ class AppSettings(BaseSettings):
 
         return (env_settings, *yaml_sources, init_settings)
 
+
+# Rebuild AppSettings after all nested classes are defined
+AppSettings.model_rebuild()
 
 # Singleton settings instance
 settings = AppSettings()

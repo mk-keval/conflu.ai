@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchScreen, fetchSymbols } from '@/api/screener';
+import { fetchScreen, fetchSymbols, type ScreenConfigInput } from '@/api/screener';
 import { useScreenStore } from '@/store/screen';
 import { useWS } from '@/ws/WebSocketProvider';
 import { screenerChannel } from '@/ws/channels';
@@ -17,11 +17,25 @@ import { LoadScreenModal } from './LoadScreenModal';
 import { AlertsPanel } from './AlertsPanel';
 import { AlertToast } from './AlertToast';
 import { ShareModal } from './ShareModal';
+import { ScreenTemplateEditor } from './TemplateEditor';
 import type { WSScreenUpdate, WSMessage } from '@/types/ws';
 import type { ScreenSymbolResult, SavedScreenListItem, AlertRule } from '@/types/screener';
+import { SCREEN_TEMPLATE_CONFIGS } from '@/lib/constants';
+import { cn } from '@/lib/cn';
 
 function ScreenerContent() {
-  const { selectedConfig, timeframes, showAlertsPanel, setShowAlertsPanel, lastAlertId, draftFilterJson } = useScreenStore();
+  const { 
+    selectedConfig, 
+    timeframes, 
+    showAlertsPanel, 
+    setShowAlertsPanel, 
+    lastAlertId, 
+    draftFilterJson,
+    customTemplateConfigs,
+    setCustomTemplateConfig,
+    resetCustomTemplateConfig,
+    isTemplateModified,
+  } = useScreenStore();
   const { subscribe, unsubscribe, onMessage } = useWS();
   const queryClient = useQueryClient();
   const { alerts } = useAlerts();
@@ -32,6 +46,56 @@ function ScreenerContent() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [currentScreenId, setCurrentScreenId] = useState('');
   const [toastAlert, setToastAlert] = useState<AlertRule | null>(null);
+
+  // Template editor state
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+  const isModified = isTemplateModified(selectedConfig);
+  const customConfig = customTemplateConfigs[selectedConfig]?.config ?? null;
+  const defaultConfig = SCREEN_TEMPLATE_CONFIGS[selectedConfig];
+
+  // Use custom config if modified, otherwise default
+  const currentConfig = customConfig ?? defaultConfig;
+
+  const handleConfigChange = (config: typeof defaultConfig) => {
+    if (!defaultConfig) return;
+    setCustomTemplateConfig(selectedConfig, config);
+    // Manual persistence fallback
+    if (typeof window !== 'undefined') {
+      try {
+        let parsed: any = { state: {}, version: 0 };
+        const store = localStorage.getItem('screen-store');
+        if (store) {
+          parsed = JSON.parse(store);
+        }
+        if (!parsed.state) parsed.state = {};
+        if (!parsed.state.customTemplateConfigs) parsed.state.customTemplateConfigs = {};
+        parsed.state.customTemplateConfigs[selectedConfig] = {
+          templateKey: selectedConfig,
+          config,
+          isModified: true,
+        };
+        localStorage.setItem('screen-store', JSON.stringify(parsed));
+      } catch {}
+    }
+  };
+
+  const handleReset = () => {
+    resetCustomTemplateConfig(selectedConfig);
+    // Manual persistence fallback
+    if (typeof window !== 'undefined') {
+      try {
+        let parsed: any = { state: {}, version: 0 };
+        const store = localStorage.getItem('screen-store');
+        if (store) {
+          parsed = JSON.parse(store);
+        }
+        if (!parsed.state) parsed.state = {};
+        if (!parsed.state.customTemplateConfigs) parsed.state.customTemplateConfigs = {};
+        delete parsed.state.customTemplateConfigs[selectedConfig];
+        localStorage.setItem('screen-store', JSON.stringify(parsed));
+      } catch {}
+    }
+  };
 
   // Track last triggered alert for toast
   useEffect(() => {
@@ -49,9 +113,20 @@ function ScreenerContent() {
     setCurrentScreenId(screen.id);
   };
 
+  // Use custom config if modified, otherwise use template name
+  const screenConfig: ScreenConfigInput = isModified && customConfig
+    ? {
+        name: customConfig.name,
+        description: customConfig.description,
+        asset_classes: customConfig.assetClasses,
+        timeframes: customConfig.timeframes,
+        filters: customConfig.filters,
+      }
+    : selectedConfig;
+
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['screen', selectedConfig, timeframes],
-    queryFn: () => fetchScreen(selectedConfig, undefined, timeframes),
+    queryKey: ['screen', selectedConfig, timeframes, isModified ? 'custom' : 'default'],
+    queryFn: () => fetchScreen(screenConfig, undefined, timeframes),
     staleTime: STALE_TIMES.screen,
     refetchInterval: 30_000,
   });
@@ -153,9 +228,39 @@ function ScreenerContent() {
           )}
         </button>
 
+        {/* Template Editor Toggle */}
+        {defaultConfig && (
+          <button
+            onClick={() => setShowTemplateEditor(!showTemplateEditor)}
+            className={cn(
+              'rounded px-3 py-1.5 text-xs font-medium transition-colors',
+              showTemplateEditor
+                ? 'bg-accent text-dark-900'
+                : 'text-gray-300 hover:bg-dark-600 hover:text-white'
+            )}
+            title="Edit template filters"
+          >
+            {isModified ? '✎ ' : ''}Edit Template
+          </button>
+        )}
+
         <ColumnToggle data={results} />
         <ExportButtons />
       </div>
+
+      {/* Template Editor */}
+      {showTemplateEditor && defaultConfig && (
+        <div className="border-b border-dark-600 px-4 py-3">
+          <ScreenTemplateEditor
+            config={currentConfig}
+            defaultConfig={defaultConfig}
+            onConfigChange={handleConfigChange}
+            onReset={handleReset}
+            isDirty={isModified}
+          />
+        </div>
+      )}
+
       <ScreenerTable data={results} />
 
       {/* Phase 8: Modals */}

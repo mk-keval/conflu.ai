@@ -76,12 +76,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     initialize_database()
 
-    # Initialize Prometheus
-    if settings.api.prometheus_enabled:
-        from backend.app.api.observability import setup_prometheus
-
-        setup_prometheus(app)
-
     # Initialize OpenTelemetry
     if settings.api.otel_exporter_otlp_endpoint:
         from backend.app.api.observability import setup_opentelemetry
@@ -124,6 +118,7 @@ def create_app() -> FastAPI:
     2. RequestLogMiddleware (correlation ID, timing, logging)
     3. RateLimitMiddleware (token bucket)
     4. APIKeyMiddleware (X-API-Key header)
+    5. PrometheusMiddleware (metrics) - added conditionally
     """
     app = FastAPI(
         title="conflu.ai API",
@@ -136,6 +131,12 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
         openapi_tags=tags_metadata,
     )
+
+    # ── Initialize Prometheus instrumentation (must be before middleware) ──
+    if settings.api.prometheus_enabled:
+        from backend.app.api.observability import setup_prometheus
+
+        setup_prometheus(app)
 
     # ── Middleware (order matters: first added = outermost) ──
     app.add_middleware(

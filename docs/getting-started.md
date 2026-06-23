@@ -44,7 +44,29 @@ npm install
 docker compose up -d
 ```
 
-### 5. Verify Installation
+### 5. Initialize Database & Ingest Data
+
+```bash
+# Initialize DuckDB tables
+python -m backend.app.infrastructure.ingest.cli --setup
+
+# Ingest market data (run once to populate database)
+# This fetches OHLCV from TradingView and stores in DuckDB
+python -m backend.app.infrastructure.ingest.cli --asset-class crypto --timeframe 1D --dry-run  # Test first
+python -m backend.app.infrastructure.ingest.cli --asset-class crypto --timeframe 1D  # Actual run
+
+# Ingest all asset classes & timeframes
+python -m backend.app.infrastructure.ingest.cli
+
+# Update indicator cache (pre-computes RSI, MACD, EMA, etc. for fast screening)
+python -c "
+import asyncio
+from backend.app.infrastructure.screener.cache import IndicatorCache
+asyncio.run(IndicatorCache().update_cache())
+"
+```
+
+### 6. Verify Installation
 
 ```bash
 # Health check
@@ -52,6 +74,11 @@ curl http://localhost:8000/health
 
 # Should return:
 # {"status":"ok","service":"conflu-api","version":"0.2.0"}
+
+# Test screener
+curl -X POST http://localhost:8000/api/v1/screen \
+  -H "Content-Type: application/json" \
+  -d '{"config": "trend-follower"}'
 ```
 
 ## Configuration

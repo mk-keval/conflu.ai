@@ -2,6 +2,11 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import path from 'path';
 
+// Environment-aware proxy targets for Docker vs local development
+const API_TARGET = process.env.VITE_API_PROXY_TARGET || 'http://localhost:8000';
+// For WebSocket proxy, use HTTP target (Vite upgrades to WebSocket automatically with ws: true)
+const WS_TARGET = process.env.VITE_WS_PROXY_TARGET || 'http://localhost:8000';
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -27,11 +32,11 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: API_TARGET,
         changeOrigin: true,
       },
-      '/ws': {
-        target: 'ws://localhost:8000',
+      '/ws/stream': {
+        target: WS_TARGET,
         ws: true,
       },
     },
