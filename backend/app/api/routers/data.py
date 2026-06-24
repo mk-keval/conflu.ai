@@ -49,14 +49,16 @@ async def get_indicators(
             if series is not None and not series.empty:
                 records = []
                 for _, row in series.iterrows():
-                    records.append({
-                        "timestamp": (
-                            row["timestamp"].isoformat()
-                            if hasattr(row["timestamp"], "isoformat")
-                            else str(row["timestamp"])
-                        ),
-                        "value": float(row["value"]) if "value" in row else None,
-                    })
+                    records.append(
+                        {
+                            "timestamp": (
+                                row["timestamp"].isoformat()
+                                if hasattr(row["timestamp"], "isoformat")
+                                else str(row["timestamp"])
+                            ),
+                            "value": float(row["value"]) if "value" in row else None,
+                        }
+                    )
                 indicators_data[name] = records
             else:
                 indicators_data[name] = []
@@ -101,14 +103,16 @@ async def get_bulk_indicators(
                 if series is not None and not series.empty:
                     records = []
                     for _, row in series.iterrows():
-                        records.append({
-                            "timestamp": (
-                                row["timestamp"].isoformat()
-                                if hasattr(row["timestamp"], "isoformat")
-                                else str(row["timestamp"])
-                            ),
-                            "value": float(row["value"]) if "value" in row else None,
-                        })
+                        records.append(
+                            {
+                                "timestamp": (
+                                    row["timestamp"].isoformat()
+                                    if hasattr(row["timestamp"], "isoformat")
+                                    else str(row["timestamp"])
+                                ),
+                                "value": float(row["value"]) if "value" in row else None,
+                            }
+                        )
                     sym_data[name] = records
                 else:
                     sym_data[name] = []
@@ -159,14 +163,16 @@ async def get_symbols(
 
     symbols = []
     for row in rows:
-        symbols.append({
-            "symbol": row[0],
-            "asset_class": row[1],
-            "exchange": row[2],
-            "tv_ticker": row[3],
-            "name": row[3],  # Use tv_ticker as name since name column doesn't exist
-            "active": bool(row[4]),
-        })
+        symbols.append(
+            {
+                "symbol": row[0],
+                "asset_class": row[1],
+                "exchange": row[2],
+                "tv_ticker": row[3],
+                "name": row[3],  # Use tv_ticker as name since name column doesn't exist
+                "active": bool(row[4]),
+            }
+        )
 
     return ApiResponse(
         data=symbols,
@@ -209,18 +215,16 @@ async def get_data(
 
     candles = []
     for row in rows:
-        candles.append({
-            "timestamp": (
-                row[0].isoformat()
-                if hasattr(row[0], "isoformat")
-                else str(row[0])
-            ),
-            "open": float(row[1]),
-            "high": float(row[2]),
-            "low": float(row[3]),
-            "close": float(row[4]),
-            "volume": float(row[5]),
-        })
+        candles.append(
+            {
+                "timestamp": (row[0].isoformat() if hasattr(row[0], "isoformat") else str(row[0])),
+                "open": float(row[1]),
+                "high": float(row[2]),
+                "low": float(row[3]),
+                "close": float(row[4]),
+                "volume": float(row[5]),
+            }
+        )
 
     return ApiResponse(
         data={

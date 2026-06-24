@@ -6,9 +6,10 @@ Uses the same registry pattern as the @indicator decorator in indicators.py.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any, Callable, Literal
+from typing import Any, Literal
 
 import pandas as pd
 
@@ -103,11 +104,7 @@ def list_filters_by_category(category: str) -> dict[str, FilterDef]:
     Returns:
         Dict mapping filter name to FilterDef for matching category.
     """
-    return {
-        name: fdef
-        for name, fdef in _FILTER_REGISTRY.items()
-        if fdef.category == category
-    }
+    return {name: fdef for name, fdef in _FILTER_REGISTRY.items() if fdef.category == category}
 
 
 # =============================================================================
@@ -453,7 +450,7 @@ def ema_compare(
     operator: str = "gt",
 ) -> pd.Series:
     """Compare two EMAs: fast > slow (or <).
-    
+
     Args:
         df: DataFrame with EMA columns (e.g., ema_50, ema_200)
         fast_period: Fast EMA period
@@ -485,7 +482,7 @@ def rsi_compare(
     operator: str = "gt",
 ) -> pd.Series:
     """RSI compared to threshold.
-    
+
     Args:
         df: DataFrame with RSI column
         threshold: RSI threshold value
@@ -516,7 +513,7 @@ def indicator_compare(
     operator: str = "gt",
 ) -> pd.Series:
     """Compare two indicators.
-    
+
     Args:
         df: DataFrame with indicator columns
         indicator_a: First indicator name
@@ -548,7 +545,7 @@ def price_vs_ema(
     operator: str = "gt",
 ) -> pd.Series:
     """Price compared to EMA.
-    
+
     Args:
         df: DataFrame with close and EMA columns
         ema_period: EMA period

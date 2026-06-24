@@ -7,9 +7,7 @@ scipy.stats.linregress for the latest window.
 
 from __future__ import annotations
 
-import math
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 
 import numpy as np
 import pandas as pd
@@ -18,7 +16,11 @@ from scipy import stats as scipy_stats
 from backend.app.core.config import settings
 from backend.app.core.database import get_db
 from backend.app.core.logging import get_logger
-from backend.app.infrastructure.risk.models import BetaResult, HedgeRecommendation, PortfolioBetaResult
+from backend.app.infrastructure.risk.models import (
+    BetaResult,
+    HedgeRecommendation,
+    PortfolioBetaResult,
+)
 
 log = get_logger("conflu.risk.beta")
 
@@ -117,7 +119,7 @@ class BetaHedger:
                     tracking_error=tracking_error,
                     window_days=window,
                     n_observations=len(x),
-                    computed_at=datetime.now(timezone.utc),
+                    computed_at=datetime.now(UTC),
                 )
             )
 
@@ -153,7 +155,7 @@ class BetaHedger:
             return PortfolioBetaResult(
                 portfolio_id=portfolio_id,
                 benchmark=benchmark or self._benchmark_map.get("equities", "SPY"),
-                computed_at=datetime.now(timezone.utc),
+                computed_at=datetime.now(UTC),
             )
 
         total_value = sum(abs(v) for v in positions.values())
@@ -161,7 +163,7 @@ class BetaHedger:
             return PortfolioBetaResult(
                 portfolio_id=portfolio_id,
                 benchmark=benchmark or self._benchmark_map.get("equities", "SPY"),
-                computed_at=datetime.now(timezone.utc),
+                computed_at=datetime.now(UTC),
             )
 
         weighted_beta = 0.0
@@ -175,7 +177,7 @@ class BetaHedger:
             benchmark=benchmark or self._benchmark_map.get("equities", "SPY"),
             weighted_beta=weighted_beta,
             symbol_betas=symbol_betas,
-            computed_at=datetime.now(timezone.utc),
+            computed_at=datetime.now(UTC),
         )
 
     def recommend_hedge(
@@ -212,7 +214,7 @@ class BetaHedger:
                 symbol=symbol,
                 asset_class=asset_class,
                 recommendation="none",
-                computed_at=datetime.now(timezone.utc),
+                computed_at=datetime.now(UTC),
             )
 
         beta = beta_result.beta
@@ -251,7 +253,7 @@ class BetaHedger:
             hedge_units=hedge_units,
             hedge_instrument=hedge_instrument,
             recommendation=recommendation,
-            computed_at=datetime.now(timezone.utc),
+            computed_at=datetime.now(UTC),
         )
 
     def resolve_benchmark(self, asset_class: str, override: str | None = None) -> str:
@@ -356,5 +358,5 @@ class BetaHedger:
             benchmark=benchmark,
             window_days=window,
             n_observations=0,
-            computed_at=datetime.now(timezone.utc),
+            computed_at=datetime.now(UTC),
         )

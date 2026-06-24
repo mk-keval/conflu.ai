@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import duckdb
-import pytest
 
-from backend.app.core.database import get_db, initialize_database, normalize_symbol, partition_path
+from backend.app.core.database import get_db, normalize_symbol, partition_path
 
 
 class TestNormalizeSymbol:

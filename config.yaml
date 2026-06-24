@@ -97,14 +97,14 @@ compute:
   cached_indicators:
     - rsi
     - macd
-    - ema
-    - sma
+    - ema_20
+    - ema_50
+    - ema_200
+    - sma_20
+    - sma_50
+    - sma_200
     - atr
     - adx
-    - obv
-    - bb
-    - vwap
-    - stoch
   indicator_cache_enabled: true
   screen_default_timeframes:
     - 1D

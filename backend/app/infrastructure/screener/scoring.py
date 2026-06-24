@@ -32,11 +32,7 @@ def compute_score(
     """
     if per_filter_masks and total_filters > 1:
         # Nuanced scoring: count how many filters each symbol passed
-        passed_count = sum(
-            per_filter_masks[name].astype(int)
-            for name in per_filter_masks
-            if name in per_filter_masks
-        )
+        passed_count = sum(per_filter_masks[name].astype(int) for name in per_filter_masks if name in per_filter_masks)
         return (passed_count / total_filters * 100.0).clip(0, 100)
 
     # Binary: all or nothing (AND-combined)

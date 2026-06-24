@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -63,9 +63,8 @@ async def test_scan_with_retry_fails_after_retries() -> None:
     with patch(
         "backend.app.infrastructure.ingest.scanner.Query",
         return_value=mock_query,
-    ):
-        with pytest.raises(RuntimeError, match="TV API error"):
-            await scan_with_retry(["NASDAQ:AAPL"], ["close"], "america")
+    ), pytest.raises(RuntimeError, match="TV API error"):
+        await scan_with_retry(["NASDAQ:AAPL"], ["close"], "america")
 
     # Should have been called retry_max_attempts times (default 3)
     assert mock_query.get_scanner_data.call_count == 3

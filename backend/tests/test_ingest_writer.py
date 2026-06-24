@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 import duckdb
@@ -51,7 +51,7 @@ def test_write_incremental_new_data(in_memory_db: duckdb.DuckDBPyConnection) -> 
     """Writes new rows to DuckDB."""
     df = pd.DataFrame({
         "symbol": ["AAPL"],
-        "timestamp": [datetime(2024, 1, 1, 10, 0, tzinfo=timezone.utc)],
+        "timestamp": [datetime(2024, 1, 1, 10, 0, tzinfo=UTC)],
         "open": [150.0],
         "high": [152.0],
         "low": [149.0],
@@ -72,8 +72,8 @@ def test_write_incremental_multi(in_memory_db: duckdb.DuckDBPyConnection) -> Non
     df = pd.DataFrame({
         "symbol": ["AAPL", "AAPL"],
         "timestamp": [
-            datetime(2024, 1, 1, 10, 0, tzinfo=timezone.utc),
-            datetime(2024, 1, 1, 10, 0, tzinfo=timezone.utc),
+            datetime(2024, 1, 1, 10, 0, tzinfo=UTC),
+            datetime(2024, 1, 1, 10, 0, tzinfo=UTC),
         ],
         "open": [150.0, 151.0],
         "high": [152.0, 153.0],
@@ -96,8 +96,8 @@ def test_write_incremental_quality_filter() -> None:
     df = pd.DataFrame({
         "symbol": ["AAPL", "AAPL"],
         "timestamp": [
-            datetime(2024, 1, 1, 10, 0, tzinfo=timezone.utc),
-            datetime(2024, 1, 1, 11, 0, tzinfo=timezone.utc),
+            datetime(2024, 1, 1, 10, 0, tzinfo=UTC),
+            datetime(2024, 1, 1, 11, 0, tzinfo=UTC),
         ],
         "open": [150.0, 0.0],  # second row has zero price
         "high": [152.0, 100.0],

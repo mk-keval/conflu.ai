@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -150,7 +150,7 @@ class TestRiskAssessment:
 class TestCorrelationResult:
     def test_simple_matrix_creation(self):
         result = CorrelationResult(
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             symbols=["AAPL", "MSFT"],
             matrix=[[1.0, 0.85], [0.85, 1.0]],
             diversification_score=0.15,

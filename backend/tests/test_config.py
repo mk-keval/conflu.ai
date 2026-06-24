@@ -5,7 +5,14 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from backend.app.core.config import APISettings, AppSettings, ComputeSettings, CoreSettings, DataSettings, FrontendSettings
+from backend.app.core.config import (
+    APISettings,
+    AppSettings,
+    ComputeSettings,
+    CoreSettings,
+    DataSettings,
+    FrontendSettings,
+)
 
 
 class TestCoreSettings:

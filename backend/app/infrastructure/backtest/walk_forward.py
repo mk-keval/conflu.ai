@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import itertools
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 import numpy as np
@@ -19,7 +19,6 @@ from backend.app.domain.models import Metrics
 from backend.app.infrastructure.backtest.models import (
     BacktestRunConfig,
     FoldResult,
-    OptimizationConfig,
     OptimizationResult,
 )
 
@@ -121,7 +120,6 @@ class WalkForwardOptimizer:
         metric: str,
     ) -> OptimizationResult:
         """Synchronous optimization loop (runs in thread pool)."""
-        import vectorbt as vbt
 
         # Lazy import engine to avoid circular dependency at module level
         if self._engine is None:

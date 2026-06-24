@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 import pytest
 
-from backend.app.infrastructure.backtest.monte_carlo import MonteCarloSimulator
 from backend.app.infrastructure.backtest.models import BacktestRunConfig
+from backend.app.infrastructure.backtest.monte_carlo import MonteCarloSimulator
 
 
 @pytest.fixture
@@ -20,8 +20,8 @@ def simulator() -> MonteCarloSimulator:
 def sample_config() -> BacktestRunConfig:
     return BacktestRunConfig(
         symbols=["SPY"],
-        start=datetime(2024, 1, 1, tzinfo=timezone.utc),
-        end=datetime(2024, 12, 31, tzinfo=timezone.utc),
+        start=datetime(2024, 1, 1, tzinfo=UTC),
+        end=datetime(2024, 12, 31, tzinfo=UTC),
     )
 
 

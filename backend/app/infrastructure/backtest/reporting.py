@@ -27,7 +27,8 @@ class ReportGenerator:
         self._log = get_logger("conflu.backtest.reporting")
 
     def generate(
-        self, run_record: BacktestRunRecord,
+        self,
+        run_record: BacktestRunRecord,
         config: ReportConfig | None = None,
         extra_data: dict[str, Any] | None = None,
     ) -> list[ReportResult]:
@@ -52,11 +53,16 @@ class ReportGenerator:
 
         return results
 
-    def _generate_html(self, report_id: str, run_record: BacktestRunRecord, config: ReportConfig, extra: dict[str, Any]) -> ReportResult:
+    def _generate_html(
+        self, report_id: str, run_record: BacktestRunRecord, config: ReportConfig, extra: dict[str, Any]
+    ) -> ReportResult:
         from jinja2 import Environment, FileSystemLoader, select_autoescape
+
         template_dir = TEMPLATES_DIR if TEMPLATES_DIR.exists() else Path("config/report_templates")
         env = Environment(loader=FileSystemLoader(str(template_dir)), autoescape=select_autoescape(["html", "xml"]))
-        template_name = config.template_name if (template_dir / config.template_name).exists() else "backtest_report.html"
+        template_name = (
+            config.template_name if (template_dir / config.template_name).exists() else "backtest_report.html"
+        )
         template = env.get_template(template_name)
 
         report_data = self._build_report_data(run_record, config, extra)
@@ -68,12 +74,18 @@ class ReportGenerator:
         report_path.write_text(html_content, encoding="utf-8")
 
         return ReportResult(
-            report_id=report_id, run_id=run_record.run_id, format="html",
-            template=config.template_name, report_path=str(report_path),
-            size_bytes=report_path.stat().st_size, created_at=datetime.now(UTC).isoformat(),
+            report_id=report_id,
+            run_id=run_record.run_id,
+            format="html",
+            template=config.template_name,
+            report_path=str(report_path),
+            size_bytes=report_path.stat().st_size,
+            created_at=datetime.now(UTC).isoformat(),
         )
 
-    def _generate_pdf(self, report_id: str, run_record: BacktestRunRecord, config: ReportConfig, extra: dict[str, Any]) -> ReportResult:
+    def _generate_pdf(
+        self, report_id: str, run_record: BacktestRunRecord, config: ReportConfig, extra: dict[str, Any]
+    ) -> ReportResult:
         try:
             from weasyprint import HTML as WeasyHTML
         except ImportError:
@@ -89,27 +101,39 @@ class ReportGenerator:
         try:
             WeasyHTML(filename=str(html_result.report_path)).write_pdf(str(pdf_path))
             return ReportResult(
-                report_id=report_id, run_id=run_record.run_id, format="pdf",
-                template=config.template_name, report_path=str(pdf_path),
-                size_bytes=pdf_path.stat().st_size, created_at=datetime.now(UTC).isoformat(),
+                report_id=report_id,
+                run_id=run_record.run_id,
+                format="pdf",
+                template=config.template_name,
+                report_path=str(pdf_path),
+                size_bytes=pdf_path.stat().st_size,
+                created_at=datetime.now(UTC).isoformat(),
             )
         except Exception:
             self._log.exception("pdf_conversion_failed")
             return html_result
 
-    def _generate_json(self, report_id: str, run_record: BacktestRunRecord, config: ReportConfig, extra: dict[str, Any]) -> ReportResult:
+    def _generate_json(
+        self, report_id: str, run_record: BacktestRunRecord, config: ReportConfig, extra: dict[str, Any]
+    ) -> ReportResult:
         report_data = self._build_report_data(run_record, config, extra)
         reports_dir = Path("data/reports")
         reports_dir.mkdir(parents=True, exist_ok=True)
         report_path = reports_dir / f"{report_id}.json"
         report_path.write_text(json.dumps(report_data, default=str, indent=2), encoding="utf-8")
         return ReportResult(
-            report_id=report_id, run_id=run_record.run_id, format="json",
-            template=config.template_name, report_path=str(report_path),
-            size_bytes=report_path.stat().st_size, created_at=datetime.now(UTC).isoformat(),
+            report_id=report_id,
+            run_id=run_record.run_id,
+            format="json",
+            template=config.template_name,
+            report_path=str(report_path),
+            size_bytes=report_path.stat().st_size,
+            created_at=datetime.now(UTC).isoformat(),
         )
 
-    def _build_report_data(self, run_record: BacktestRunRecord, config: ReportConfig, extra: dict[str, Any]) -> dict[str, Any]:
+    def _build_report_data(
+        self, run_record: BacktestRunRecord, config: ReportConfig, extra: dict[str, Any]
+    ) -> dict[str, Any]:
         metrics = run_record.metrics
         equity_curve = extra.get("equity_curve", [])
         trades = extra.get("trades", [])
@@ -118,11 +142,15 @@ class ReportGenerator:
 
         return {
             "title": f"Backtest Report — {run_record.symbol}",
-            "run_id": run_record.run_id, "symbol": run_record.symbol,
+            "run_id": run_record.run_id,
+            "symbol": run_record.symbol,
             "timeframe": run_record.timeframe,
-            "start_date": str(run_record.start_date), "end_date": str(run_record.end_date),
-            "initial_cash": run_record.initial_cash, "position_sizing": run_record.position_sizing,
-            "generated_at": datetime.now(UTC).isoformat(), "duration_ms": run_record.duration_ms,
+            "start_date": str(run_record.start_date),
+            "end_date": str(run_record.end_date),
+            "initial_cash": run_record.initial_cash,
+            "position_sizing": run_record.position_sizing,
+            "generated_at": datetime.now(UTC).isoformat(),
+            "duration_ms": run_record.duration_ms,
             "sharpe": metrics.sharpe if metrics else None,
             "sortino": metrics.sortino if metrics else None,
             "calmar": metrics.calmar if metrics else None,
@@ -138,11 +166,13 @@ class ReportGenerator:
             "include_trade_analysis": config.include_trade_analysis and bool(trades),
             "include_regime_analysis": config.include_regime_analysis and regime_result is not None,
             "include_parameter_sensitivity": config.include_parameter_sensitivity and optimization_result is not None,
-            "equity_curve": json.dumps(equity_curve[:config.max_chart_points]),
+            "equity_curve": json.dumps(equity_curve[: config.max_chart_points]),
             "trades": trades,
             "regime_result": regime_result,
             "optimization_result": optimization_result,
             "total_trades": run_record.trades_count,
             "total_fees": run_record.total_fees,
-            "final_equity": equity_curve[-1].get("equity", run_record.initial_cash) if equity_curve else run_record.initial_cash,
+            "final_equity": equity_curve[-1].get("equity", run_record.initial_cash)
+            if equity_curve
+            else run_record.initial_cash,
         }

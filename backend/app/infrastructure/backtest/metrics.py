@@ -12,7 +12,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from backend.app.domain.models import Metrics, Trade
+from backend.app.domain.models import Metrics
 
 
 class MetricsComputer:
@@ -38,11 +38,7 @@ class MetricsComputer:
         Returns:
             Metrics model with all available fields populated.
         """
-        ulcer = (
-            self.ulcer_index(drawdown_series)
-            if drawdown_series is not None and not drawdown_series.empty
-            else None
-        )
+        ulcer = self.ulcer_index(drawdown_series) if drawdown_series is not None and not drawdown_series.empty else None
 
         metrics = Metrics(
             sharpe=self._safe_get(portfolio_stats, "sharpe_ratio"),
@@ -84,7 +80,7 @@ class MetricsComputer:
             Ulcer Index value.
         """
         # Use only underwater periods for Ulcer computation
-        dd_squared = drawdown_series ** 2
+        dd_squared = drawdown_series**2
         return float(np.sqrt(np.mean(dd_squared)))
 
     @staticmethod
@@ -118,8 +114,8 @@ class MetricsComputer:
         start = max(0, trade_entry_idx)
         end = min(len(ohlcv) - 1, trade_exit_idx)
 
-        high = float(ohlcv.iloc[start:end + 1]["high"].max())
-        low = float(ohlcv.iloc[start:end + 1]["low"].min())
+        high = float(ohlcv.iloc[start : end + 1]["high"].max())
+        low = float(ohlcv.iloc[start : end + 1]["low"].min())
 
         if direction == "Long":
             mfe = max(0.0, high - entry_price)
@@ -159,13 +155,15 @@ class MetricsComputer:
             if group.iloc[0] < 0:  # In drawdown
                 depth = abs(float(group.min()))
                 duration = len(group)
-                periods.append({
-                    "start": str(group.index[0]),
-                    "trough": str(group.idxmin()),
-                    "end": str(group.index[-1]),
-                    "depth": depth,
-                    "duration_bars": duration,
-                })
+                periods.append(
+                    {
+                        "start": str(group.index[0]),
+                        "trough": str(group.idxmin()),
+                        "end": str(group.index[-1]),
+                        "depth": depth,
+                        "duration_bars": duration,
+                    }
+                )
 
         if not periods:
             return {

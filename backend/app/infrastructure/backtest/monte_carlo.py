@@ -7,7 +7,6 @@ bootstrap (with replacement) or block bootstrap (preserves autocorrelation).
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Literal
 
 import numpy as np
 
@@ -152,9 +151,7 @@ class MonteCarloSimulator:
             path_max_dds.append(max_dd)
 
         # Convert equity curves to serializable format
-        equity_curves_list: list[list[float]] = [
-            [float(v) for v in path] for path in equity_curves
-        ]
+        equity_curves_list: list[list[float]] = [[float(v) for v in path] for path in equity_curves]
 
         result = MCSimulationResult(
             n_paths=n_paths,
@@ -211,9 +208,9 @@ class MonteCarloSimulator:
             pos = 0
             while pos < n_days:
                 block_start = rng.integers(0, n_blocks)
-                block = returns[block_start:block_start + block_size]
+                block = returns[block_start : block_start + block_size]
                 remaining = n_days - pos
-                samples[i, pos:pos + min(block_size, remaining)] = block[:min(block_size, remaining)]
+                samples[i, pos : pos + min(block_size, remaining)] = block[: min(block_size, remaining)]
                 pos += block_size
 
         return samples

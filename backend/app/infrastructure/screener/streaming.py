@@ -12,12 +12,11 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from backend.app.core.config import settings
 from backend.app.core.logging import get_logger
-from backend.app.infrastructure.screener.configs import load_screen_template
 from backend.app.infrastructure.screener.engine import ScreenEngine
 
 log = get_logger("conflu.screener.streaming")
@@ -55,7 +54,7 @@ class ConnectionManager:
             snapshot = {
                 "type": "screen_update",
                 "screen_id": screen_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "results": result.symbols,
                 "total_matched": result.symbols_matched,
                 "total_symbols": result.total_symbols,
@@ -63,11 +62,13 @@ class ConnectionManager:
             await self._send_with_sequence(screen_id, snapshot, websocket)
         except Exception:
             self._log.exception("initial_screen_failed", screen_id=screen_id)
-            await websocket.send_json({
-                "type": "error",
-                "screen_id": screen_id,
-                "message": "Failed to load initial screen data",
-            })
+            await websocket.send_json(
+                {
+                    "type": "error",
+                    "screen_id": screen_id,
+                    "message": "Failed to load initial screen data",
+                }
+            )
 
     async def disconnect(self, screen_id: str, websocket: Any) -> None:
         """Remove a WebSocket connection.
@@ -130,9 +131,7 @@ class ConnectionManager:
         """
         history = self._history.get(screen_id, [])
 
-        if len(history) >= self._max_history or last_sequence < (
-            self._sequences[screen_id] - len(history)
-        ):
+        if len(history) >= self._max_history or last_sequence < (self._sequences[screen_id] - len(history)):
             # Too many missed — send full snapshot instead
             self._log.info(
                 "resync_full_snapshot",
@@ -143,10 +142,7 @@ class ConnectionManager:
             return
 
         # Replay missed messages
-        missed = [
-            msg for msg in history
-            if msg.get("sequence", 0) > last_sequence
-        ]
+        missed = [msg for msg in history if msg.get("sequence", 0) > last_sequence]
         for msg in missed:
             try:
                 await websocket.send_json(msg)
@@ -185,7 +181,7 @@ class ConnectionManager:
                 message = {
                     "type": "screen_update",
                     "screen_id": screen_id,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                     "interval_ms": self._stream_interval * 1000,
                     "results": result.symbols,
                     "total_matched": result.symbols_matched,
@@ -227,11 +223,13 @@ class ConnectionManager:
         msg_type = data.get("type", "")
 
         if msg_type == "ping":
-            await websocket.send_json({
-                "type": "pong",
-                "screen_id": screen_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            })
+            await websocket.send_json(
+                {
+                    "type": "pong",
+                    "screen_id": screen_id,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                }
+            )
 
         elif msg_type == "resync":
             last_seq = data.get("last_sequence", 0)

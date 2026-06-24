@@ -65,10 +65,7 @@ class ScreenConfig(BaseModel):
         registered = list_filters()
         for flt in filters:
             if flt.indicator not in registered:
-                msg = (
-                    f"Unknown filter '{flt.indicator}'. "
-                    f"Available: {list(registered.keys())}"
-                )
+                msg = f"Unknown filter '{flt.indicator}'. Available: {list(registered.keys())}"
                 raise ValueError(msg)
         return filters
 

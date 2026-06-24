@@ -15,18 +15,14 @@ import asyncio
 import hashlib
 import json
 import uuid
-from collections import defaultdict
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
-
-import pandas as pd
 
 from backend.app.core.config import settings
 from backend.app.core.database import get_db
 from backend.app.core.logging import get_logger
 from backend.app.infrastructure.screener.cache import IndicatorCache
 from backend.app.infrastructure.screener.engine import ScreenEngine
-from backend.app.infrastructure.screener.configs import ScreenConfig
 
 log = get_logger("conflu.screener.alerts")
 
@@ -487,12 +483,19 @@ class AlertEngine:
     def _operator_label(self, operator: str) -> str:
         """Get a human-readable label for an operator."""
         labels = {
-            "gt": ">", ">": ">",
-            "gte": ">=", ">=": ">=",
-            "lt": "<", "<": "<",
-            "lte": "<=", "<=": "<=",
-            "eq": "==", "==": "==", "=": "==",
-            "neq": "!=", "!=": "!=",
+            "gt": ">",
+            ">": ">",
+            "gte": ">=",
+            ">=": ">=",
+            "lt": "<",
+            "<": "<",
+            "lte": "<=",
+            "<=": "<=",
+            "eq": "==",
+            "==": "==",
+            "=": "==",
+            "neq": "!=",
+            "!=": "!=",
         }
         return labels.get(operator, operator)
 
@@ -531,11 +534,7 @@ class AlertEngine:
     def _build_message(self, alert: dict[str, Any], result: EvaluationResult) -> str:
         """Build a human-readable alert message."""
         symbol_part = f" ({result.symbol})" if result.symbol else ""
-        value_part = (
-            f" at {result.value_at_trigger:.2f}"
-            if result.value_at_trigger is not None
-            else ""
-        )
+        value_part = f" at {result.value_at_trigger:.2f}" if result.value_at_trigger is not None else ""
         return f"{alert['name']}: {result.condition_matched}{value_part}{symbol_part}"
 
     def _record_trigger(
@@ -606,7 +605,7 @@ class AlertEngine:
                 "threshold": triggered.threshold,
                 "severity": triggered.severity,
                 "message": triggered.message,
-                "deep_link": f"/screener",
+                "deep_link": "/screener",
             },
         }
 
@@ -622,10 +621,7 @@ class AlertEngine:
     def _clean_dedup_cache(self, max_age_minutes: int = 30) -> None:
         """Remove stale entries from the dedup cache."""
         now = datetime.now(UTC)
-        stale_keys = [
-            key for key, ts in self._dedup_cache.items()
-            if (now - ts).total_seconds() > max_age_minutes * 60
-        ]
+        stale_keys = [key for key, ts in self._dedup_cache.items() if (now - ts).total_seconds() > max_age_minutes * 60]
         for key in stale_keys:
             del self._dedup_cache[key]
 

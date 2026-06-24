@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import pandas as pd
 
@@ -43,18 +43,20 @@ def validate_ohlcv(df: pd.DataFrame) -> tuple[pd.DataFrame, QualityReport]:
     n_before = len(df)
     report.total_rows = n_before
 
-    # 1. Remove NaN rows
+    # 1. Handle 'time' column from TradingView (Unix timestamp)
+    if "time" in df.columns and "timestamp" not in df.columns:
+        df["timestamp"] = pd.to_datetime(df["time"], unit="s", utc=True)
+
+    # 2. Remove NaN rows
     nan_mask = df[["open", "high", "low", "close", "volume"]].isna().any(axis=1)
     df = df[~nan_mask].copy()
     report.nan_values = int(nan_mask.sum())
 
-    # 2. Handle ticker -> symbol conversion if ticker column exists
+    # 3. Handle ticker -> symbol conversion if ticker column exists
     if "ticker" in df.columns and "symbol" not in df.columns:
-        df["symbol"] = df["ticker"].apply(
-            lambda t: str(t).split(":")[-1] if ":" in str(t) else str(t)
-        )
+        df["symbol"] = df["ticker"].apply(lambda t: str(t).split(":")[-1] if ":" in str(t) else str(t))
 
-    # 3. Remove duplicate (symbol, timestamp, timeframe) — keep first
+    # 4. Remove duplicate (symbol, timestamp, timeframe) — keep first
     if "symbol" in df.columns and "timestamp" in df.columns:
         if "timeframe" not in df.columns:
             df["timeframe"] = "1D"  # default if not present
@@ -63,10 +65,7 @@ def validate_ohlcv(df: pd.DataFrame) -> tuple[pd.DataFrame, QualityReport]:
         report.duplicate_timestamps = before_dedup - len(df)
 
     # 4. OHLC consistency: high >= max(open, close)
-    ohlc_mask = (
-        (df["high"] >= df[["open", "close"]].max(axis=1))
-        & (df["low"] <= df[["open", "close"]].min(axis=1))
-    )
+    ohlc_mask = (df["high"] >= df[["open", "close"]].max(axis=1)) & (df["low"] <= df[["open", "close"]].min(axis=1))
     # 5. Volume >= 0
     vol_mask = df["volume"] >= 0
     # 6. Prices > 0

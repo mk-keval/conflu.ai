@@ -23,9 +23,7 @@ class MetaInfo(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    timestamp: str = Field(
-        default_factory=lambda: datetime.now(UTC).isoformat()
-    )
+    timestamp: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
     request_id: str = ""
     duration_ms: float | None = None
 
@@ -422,6 +420,7 @@ StreamChannel = Literal[
 
 class CreateScreenRequest(BaseModel):
     """POST /api/v1/screens request body."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     name: str
@@ -435,6 +434,7 @@ class CreateScreenRequest(BaseModel):
 
 class UpdateScreenRequest(BaseModel):
     """PUT /api/v1/screens/{id} request body."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     name: str | None = None
@@ -448,6 +448,7 @@ class UpdateScreenRequest(BaseModel):
 
 class ScreenListItem(BaseModel):
     """Summary item for screen list response."""
+
     model_config = ConfigDict(frozen=True)
 
     id: str
@@ -462,6 +463,7 @@ class ScreenListItem(BaseModel):
 
 class ScreenDetail(BaseModel):
     """Full screen detail response."""
+
     model_config = ConfigDict(frozen=True)
 
     id: str
@@ -480,6 +482,7 @@ class ScreenDetail(BaseModel):
 
 class ScreenVersionSummary(BaseModel):
     """Summary of a screen version."""
+
     model_config = ConfigDict(frozen=True)
 
     version: int
@@ -492,6 +495,7 @@ class ScreenVersionSummary(BaseModel):
 
 class CreateAlertRequest(BaseModel):
     """POST /api/v1/alerts request body."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     name: str
@@ -506,6 +510,7 @@ class CreateAlertRequest(BaseModel):
 
 class UpdateAlertRequest(BaseModel):
     """PUT /api/v1/alerts/{id} request body."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     name: str | None = None
@@ -519,6 +524,7 @@ class UpdateAlertRequest(BaseModel):
 
 class AlertDetail(BaseModel):
     """Full alert detail response."""
+
     model_config = ConfigDict(frozen=True)
 
     id: str
@@ -539,6 +545,7 @@ class AlertDetail(BaseModel):
 
 class AlertHistoryDetail(BaseModel):
     """Single alert history entry response."""
+
     model_config = ConfigDict(frozen=True)
 
     id: str
@@ -556,6 +563,7 @@ class AlertHistoryDetail(BaseModel):
 
 class ReplayRequest(BaseModel):
     """POST /api/v1/screens/replay request body."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     screen_config_id: str
@@ -566,6 +574,7 @@ class ReplayRequest(BaseModel):
 
 class ReplayResultResponse(BaseModel):
     """Replay result response."""
+
     model_config = ConfigDict(frozen=True)
 
     id: str
@@ -589,6 +598,7 @@ class ReplayResultResponse(BaseModel):
 
 class ReplayStartResponse(BaseModel):
     """Response when replay is started."""
+
     model_config = ConfigDict(frozen=True)
 
     result_id: str
@@ -600,6 +610,7 @@ class ReplayStartResponse(BaseModel):
 
 class ShareTokenRequest(BaseModel):
     """POST /api/v1/screens/{id}/share request body."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     expiry_days: int | None = None
@@ -607,6 +618,7 @@ class ShareTokenRequest(BaseModel):
 
 class ShareTokenResponse(BaseModel):
     """Share token response."""
+
     model_config = ConfigDict(frozen=True)
 
     token: str

@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
 
 from backend.app.domain.models import (
+    OHLCV,
     BacktestConfig,
     Metrics,
-    OHLCV,
     Position,
     RiskParams,
     ScreenResult,
@@ -55,7 +54,7 @@ class TestSignal:
     def test_valid(self) -> None:
         s = Signal(
             symbol="AAPL",
-            timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            timestamp=datetime(2024, 1, 1, tzinfo=UTC),
             direction="buy",
         )
         assert s.direction == "buy"
@@ -65,7 +64,7 @@ class TestSignal:
         with pytest.raises(ValidationError):
             Signal(
                 symbol="AAPL",
-                timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                timestamp=datetime(2024, 1, 1, tzinfo=UTC),
                 direction="invalid",  # type: ignore[arg-type]
             )
 
@@ -73,7 +72,7 @@ class TestSignal:
         with pytest.raises(ValidationError):
             Signal(
                 symbol="AAPL",
-                timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                timestamp=datetime(2024, 1, 1, tzinfo=UTC),
                 direction="buy",
                 strength=1.5,
             )
@@ -93,8 +92,8 @@ class TestBacktestConfig:
     def test_defaults(self) -> None:
         cfg = BacktestConfig(
             symbols=["AAPL", "SPY"],
-            start=datetime(2024, 1, 1, tzinfo=timezone.utc),
-            end=datetime(2024, 12, 31, tzinfo=timezone.utc),
+            start=datetime(2024, 1, 1, tzinfo=UTC),
+            end=datetime(2024, 12, 31, tzinfo=UTC),
         )
         assert cfg.initial_cash == 100_000.0
         assert cfg.position_sizing == "fixed"
@@ -104,7 +103,7 @@ class TestBacktestConfig:
             BacktestConfig(
                 symbols=["AAPL"],
                 start=datetime(2024, 1, 1),  # naive
-                end=datetime(2024, 12, 31, tzinfo=timezone.utc),
+                end=datetime(2024, 12, 31, tzinfo=UTC),
             )
 
 
@@ -125,7 +124,7 @@ class TestTrade:
     def test_minimal(self) -> None:
         t = Trade(
             symbol="AAPL",
-            entry_time=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            entry_time=datetime(2024, 1, 1, tzinfo=UTC),
             entry_price=150.0,
             size=100,
         )
@@ -136,7 +135,7 @@ class TestPosition:
     def test_minimal(self) -> None:
         p = Position(
             symbol="AAPL",
-            entry_time=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            entry_time=datetime(2024, 1, 1, tzinfo=UTC),
             entry_price=150.0,
             size=100,
         )
@@ -147,7 +146,7 @@ class TestScreenResult:
     def test_empty_signals(self) -> None:
         sr = ScreenResult(
             symbol="AAPL",
-            timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            timestamp=datetime(2024, 1, 1, tzinfo=UTC),
         )
         assert sr.signals == []
         assert sr.indicators == {}

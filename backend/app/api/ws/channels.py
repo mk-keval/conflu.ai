@@ -78,9 +78,7 @@ async def price_update_provider(symbol: str) -> dict[str, Any]:
         "price": float(row["close"]),
         "volume": float(row["volume"]),
         "timestamp": (
-            row["timestamp"].isoformat()
-            if hasattr(row["timestamp"], "isoformat")
-            else str(row["timestamp"])
+            row["timestamp"].isoformat() if hasattr(row["timestamp"], "isoformat") else str(row["timestamp"])
         ),
     }
 
@@ -100,9 +98,7 @@ async def indicator_update_provider(symbol: str, indicator_name: str) -> dict[st
     """
     try:
         cache = IndicatorCache()
-        df = await cache.get_latest(
-            indicator_name, timeframe="1D", symbols=[symbol]
-        )
+        df = await cache.get_latest(indicator_name, timeframe="1D", symbols=[symbol])
     except Exception:
         log.exception("indicator_update_error", symbol=symbol, indicator=indicator_name)
         return {"symbol": symbol, "indicator": indicator_name, "value": None}
@@ -116,8 +112,6 @@ async def indicator_update_provider(symbol: str, indicator_name: str) -> dict[st
         "indicator": indicator_name,
         "value": float(row["value"]) if "value" in row else None,
         "timestamp": (
-            row["timestamp"].isoformat()
-            if hasattr(row["timestamp"], "isoformat")
-            else str(row["timestamp"])
+            row["timestamp"].isoformat() if hasattr(row["timestamp"], "isoformat") else str(row["timestamp"])
         ),
     }

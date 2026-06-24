@@ -8,7 +8,7 @@ Enriches raw vectorbt data with:
 
 from __future__ import annotations
 
-from datetime import timezone
+from datetime import UTC
 
 import pandas as pd
 
@@ -84,8 +84,8 @@ class TradeLedger:
 
             trade = Trade(
                 symbol=symbol,
-                entry_time=entry_time.to_pydatetime().replace(tzinfo=timezone.utc),
-                exit_time=exit_time.to_pydatetime().replace(tzinfo=timezone.utc),
+                entry_time=entry_time.to_pydatetime().replace(tzinfo=UTC),
+                exit_time=exit_time.to_pydatetime().replace(tzinfo=UTC),
                 entry_price=float(record["entry_price"]),
                 exit_price=float(record.get("exit_price", float("nan"))),
                 size=abs(float(record["size"])),

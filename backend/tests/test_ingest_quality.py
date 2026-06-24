@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 import pandas as pd
@@ -22,8 +22,8 @@ def valid_df() -> pd.DataFrame:
     return pd.DataFrame({
         "symbol": ["AAPL", "AAPL"],
         "timestamp": [
-            datetime(2024, 1, 1, 10, 0, tzinfo=timezone.utc),
-            datetime(2024, 1, 1, 11, 0, tzinfo=timezone.utc),
+            datetime(2024, 1, 1, 10, 0, tzinfo=UTC),
+            datetime(2024, 1, 1, 11, 0, tzinfo=UTC),
         ],
         "open": [150.0, 151.0],
         "high": [152.0, 153.0],
@@ -45,7 +45,7 @@ def test_high_low_violation() -> None:
     """Rows where high < low are discarded."""
     df = pd.DataFrame({
         "symbol": ["AAPL"],
-        "timestamp": [datetime(2024, 1, 1, tzinfo=timezone.utc)],
+        "timestamp": [datetime(2024, 1, 1, tzinfo=UTC)],
         "open": [100.0],
         "high": [90.0],  # high < low
         "low": [95.0],
@@ -62,7 +62,7 @@ def test_ohlc_consistency() -> None:
     """Rows where high < max(open,close) are discarded."""
     df = pd.DataFrame({
         "symbol": ["AAPL"],
-        "timestamp": [datetime(2024, 1, 1, tzinfo=timezone.utc)],
+        "timestamp": [datetime(2024, 1, 1, tzinfo=UTC)],
         "open": [100.0],
         "high": [99.0],  # high < open
         "low": [95.0],
@@ -78,7 +78,7 @@ def test_negative_volume() -> None:
     """Rows with volume < 0 are discarded."""
     df = pd.DataFrame({
         "symbol": ["AAPL"],
-        "timestamp": [datetime(2024, 1, 1, tzinfo=timezone.utc)],
+        "timestamp": [datetime(2024, 1, 1, tzinfo=UTC)],
         "open": [100.0],
         "high": [102.0],
         "low": [99.0],
@@ -95,7 +95,7 @@ def test_zero_price() -> None:
     """Rows with open=0 are discarded."""
     df = pd.DataFrame({
         "symbol": ["AAPL"],
-        "timestamp": [datetime(2024, 1, 1, tzinfo=timezone.utc)],
+        "timestamp": [datetime(2024, 1, 1, tzinfo=UTC)],
         "open": [0.0],  # zero price
         "high": [102.0],
         "low": [0.0],  # zero price
@@ -118,7 +118,7 @@ def test_nan_values(valid_df: pd.DataFrame) -> None:
 
 def test_duplicate_timestamps() -> None:
     """Duplicate (symbol, timestamp, timeframe) are deduplicated."""
-    ts = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    ts = datetime(2024, 1, 1, tzinfo=UTC)
     df = pd.DataFrame({
         "symbol": ["AAPL", "AAPL"],
         "timestamp": [ts, ts],
@@ -147,7 +147,7 @@ def test_ticker_to_symbol() -> None:
     """ticker column is converted to symbol when symbol missing."""
     df = pd.DataFrame({
         "ticker": ["NASDAQ:AAPL"],
-        "timestamp": [datetime(2024, 1, 1, tzinfo=timezone.utc)],
+        "timestamp": [datetime(2024, 1, 1, tzinfo=UTC)],
         "open": [100.0],
         "high": [102.0],
         "low": [99.0],
@@ -179,7 +179,7 @@ def test_validate_ohlcv_strict_raises() -> None:
     """validate_ohlcv_strict raises ValueError on bad data."""
     df = pd.DataFrame({
         "symbol": ["AAPL"],
-        "timestamp": [datetime(2024, 1, 1, tzinfo=timezone.utc)],
+        "timestamp": [datetime(2024, 1, 1, tzinfo=UTC)],
         "open": [100.0],
         "high": [99.0],  # high < open
         "low": [95.0],
