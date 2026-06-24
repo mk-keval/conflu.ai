@@ -66,15 +66,19 @@ warn_unreachable = false
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "pandas*"
+module = "pandas.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "numpy*"
+module = "numpy.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "scipy*"
+module = "scipy.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "pandas_ta.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
@@ -118,63 +122,59 @@ module = "opentelemetry.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "vectorbt*"
+module = "vectorbt.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "optuna*"
+module = "optuna.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "celery*"
+module = "celery.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "redis*"
+module = "redis.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "pydantic*"
+module = "pydantic.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "pydantic_settings*"
+module = "pydantic_settings.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "pydantic_core*"
+module = "pydantic_core.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "celery*"
+module = "weasyprint.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "weasyprint*"
-ignore_missing_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "yaml*"
+module = "yaml.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "dateparser*"
+module = "dateparser.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "jedi*"
+module = "jedi.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "llvmlite*"
+module = "llvmlite.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "numba*"
+module = "numba.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "click*"
+module = "click.*"
 ignore_missing_imports = true
 
 [tool.ruff]
