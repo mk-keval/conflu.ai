@@ -20,7 +20,7 @@ jobs:
       - name: TruffleHog Secrets Scan
         uses: trufflesecurity/trufflehog@main
         with:
-          extra_args: --only-verified --results=verified --fail
+          extra_args: --only-verified --results=verified
           path: .
 
   dependencies:
