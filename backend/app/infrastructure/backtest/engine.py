@@ -16,7 +16,6 @@ import asyncio
 import hashlib
 import json
 import time
-from datetime import datetime, timezone
 from typing import Any
 
 import numpy as np
@@ -24,7 +23,6 @@ import pandas as pd
 
 from backend.app.core.database import get_db
 from backend.app.core.logging import get_logger, set_correlation_id
-from backend.app.domain.models import Metrics, Trade
 from backend.app.infrastructure.backtest.ledger import TradeLedger
 from backend.app.infrastructure.backtest.metrics import MetricsComputer
 from backend.app.infrastructure.backtest.models import (
@@ -363,12 +361,8 @@ class BacktestEngine:
                 columns=["signal"],
             )
         else:
-            entries = pd.DataFrame(
-                np.zeros(len(ohlcv), dtype=bool), index=ohlcv.index, columns=["signal"]
-            )
-            exits = pd.DataFrame(
-                np.zeros(len(ohlcv), dtype=bool), index=ohlcv.index, columns=["signal"]
-            )
+            entries = pd.DataFrame(np.zeros(len(ohlcv), dtype=bool), index=ohlcv.index, columns=["signal"])
+            exits = pd.DataFrame(np.zeros(len(ohlcv), dtype=bool), index=ohlcv.index, columns=["signal"])
 
         return entries, exits
 

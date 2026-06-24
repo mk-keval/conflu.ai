@@ -6,7 +6,6 @@ Share token generation and resolution for saved screen configurations.
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException
 
@@ -14,7 +13,6 @@ from backend.app.api.dependencies import ScreenSharingDep
 from backend.app.api.schemas import (
     ApiResponse,
     MetaInfo,
-    ScreenDetail,
     ShareTokenRequest,
     ShareTokenResponse,
 )
@@ -58,6 +56,7 @@ async def generate_share_token(
 
     # Decode token to get expir
     import base64
+
     padded = token + "=" * (4 - len(token) % 4)
     try:
         decoded = base64.urlsafe_b64decode(padded).decode()
@@ -74,6 +73,3 @@ async def generate_share_token(
         ),
         meta=MetaInfo(),
     )
-
-
-

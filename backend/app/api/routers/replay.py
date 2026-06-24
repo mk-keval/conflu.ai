@@ -51,12 +51,14 @@ async def resolve_shared_screen(
         raise HTTPException(status_code=404, detail="Screen not found")
 
     r = row.iloc[0]
-    return JSONResponse(content={
-        "id": r["id"],
-        "name": r["name"],
-        "description": r.get("description", ""),
-        "filter_json": r["filter_json"],
-        "asset_classes": json.loads(r.get("asset_classes", "[]")),
-        "timeframes": json.loads(r.get("timeframes", '["1D","4h"]')),
-        "version": r["version"],
-    })
+    return JSONResponse(
+        content={
+            "id": r["id"],
+            "name": r["name"],
+            "description": r.get("description", ""),
+            "filter_json": r["filter_json"],
+            "asset_classes": json.loads(r.get("asset_classes", "[]")),
+            "timeframes": json.loads(r.get("timeframes", '["1D","4h"]')),
+            "version": r["version"],
+        }
+    )

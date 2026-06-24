@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import UTC, datetime
 
 import duckdb
 import pandas as pd
@@ -48,9 +47,7 @@ def write_incremental(
 
     # 2. Ensure symbol, timestamp, timeframe columns
     if "symbol" not in clean_df.columns and "ticker" in clean_df.columns:
-        clean_df["symbol"] = clean_df["ticker"].apply(
-            lambda t: str(t).split(":")[-1] if ":" in str(t) else str(t)
-        )
+        clean_df["symbol"] = clean_df["ticker"].apply(lambda t: str(t).split(":")[-1] if ":" in str(t) else str(t))
 
     if "timeframe" not in clean_df.columns:
         clean_df["timeframe"] = timeframe
@@ -64,7 +61,7 @@ def write_incremental(
         clean_df["timestamp"] = ts_col
     else:
         raise ValueError("No timestamp/time column found in data")
-    
+
     if not pd.api.types.is_datetime64_any_dtype(ts_col):
         ts_col = pd.to_datetime(ts_col, utc=True)
     clean_df["year"] = ts_col.dt.year.astype(int)
@@ -75,9 +72,7 @@ def write_incremental(
     total_bytes = 0
 
     with get_db() as con:
-        for (symbol, year, month), group_df in clean_df.groupby(
-            ["symbol", "year", "month"], sort=False
-        ):
+        for (symbol, year, month), group_df in clean_df.groupby(["symbol", "year", "month"], sort=False):
             symbol_norm = str(symbol)
             group_df = group_df.copy()
 
@@ -87,8 +82,17 @@ def write_incremental(
 
             # Reorder columns to match ohlcv table schema: symbol, timestamp, open, high, low, close, volume, timeframe, asset_class, year, month
             ohlcv_order = [
-                "symbol", "timestamp", "open", "high", "low", "close",
-                "volume", "timeframe", "asset_class", "year", "month",
+                "symbol",
+                "timestamp",
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+                "timeframe",
+                "asset_class",
+                "year",
+                "month",
             ]
             group_df = group_df[[c for c in ohlcv_order if c in group_df.columns]]
 
@@ -118,9 +122,7 @@ def write_incremental(
             parquet_path.parent.mkdir(parents=True, exist_ok=True)
 
             # 7. Write to Parquet via DuckDB COPY
-            con.execute(
-                "CREATE TEMP TABLE IF NOT EXISTS _write_staging AS SELECT * FROM ohlcv WHERE 1=0"
-            )
+            con.execute("CREATE TEMP TABLE IF NOT EXISTS _write_staging AS SELECT * FROM ohlcv WHERE 1=0")
             con.execute("DELETE FROM _write_staging")
 
             # Insert the new rows into staging
@@ -194,7 +196,7 @@ def update_symbol_metadata(con: duckdb.DuckDBPyConnection, symbols: list[dict]) 
         con: DuckDB connection.
         symbols: List of dicts with keys: symbol, asset_class, exchange, tv_ticker, timezone.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     for sym in symbols:
         con.execute(
             """

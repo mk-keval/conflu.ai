@@ -6,7 +6,7 @@ Timestamps are UTC-aware datetime objects.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -32,7 +32,7 @@ class OHLCV(BaseModel):
     def ensure_utc(cls, v: datetime) -> datetime:
         if v.tzinfo is None:
             raise ValueError("timestamp must be timezone-aware")
-        return v.astimezone(timezone.utc)
+        return v.astimezone(UTC)
 
 
 class Signal(BaseModel):
@@ -51,7 +51,7 @@ class Signal(BaseModel):
     def ensure_utc(cls, v: datetime) -> datetime:
         if v.tzinfo is None:
             raise ValueError("timestamp must be timezone-aware")
-        return v.astimezone(timezone.utc)
+        return v.astimezone(UTC)
 
 
 class Position(BaseModel):
@@ -72,7 +72,7 @@ class Position(BaseModel):
     def ensure_utc(cls, v: datetime | None) -> datetime | None:
         if v is not None and v.tzinfo is None:
             raise ValueError("timestamp must be timezone-aware")
-        return v.astimezone(timezone.utc) if v is not None else None
+        return v.astimezone(UTC) if v is not None else None
 
 
 class Trade(BaseModel):
@@ -98,7 +98,7 @@ class Trade(BaseModel):
     def ensure_utc(cls, v: datetime | None) -> datetime | None:
         if v is not None and v.tzinfo is None:
             raise ValueError("timestamp must be timezone-aware")
-        return v.astimezone(timezone.utc) if v is not None else None
+        return v.astimezone(UTC) if v is not None else None
 
 
 class Metrics(BaseModel):
@@ -136,7 +136,7 @@ class ScreenResult(BaseModel):
     def ensure_utc(cls, v: datetime) -> datetime:
         if v.tzinfo is None:
             raise ValueError("timestamp must be timezone-aware")
-        return v.astimezone(timezone.utc)
+        return v.astimezone(UTC)
 
 
 class BacktestConfig(BaseModel):
@@ -158,7 +158,7 @@ class BacktestConfig(BaseModel):
     def ensure_utc(cls, v: datetime) -> datetime:
         if v.tzinfo is None:
             raise ValueError("timestamp must be timezone-aware")
-        return v.astimezone(timezone.utc)
+        return v.astimezone(UTC)
 
 
 class RiskParams(BaseModel):
@@ -184,6 +184,7 @@ class RiskParams(BaseModel):
 
 class SavedScreen(BaseModel):
     """A saved screen configuration."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     id: str
@@ -202,6 +203,7 @@ class SavedScreen(BaseModel):
 
 class AlertRule(BaseModel):
     """A user-defined alert rule."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     id: str
@@ -222,6 +224,7 @@ class AlertRule(BaseModel):
 
 class AlertHistoryEntry(BaseModel):
     """A single alert trigger event."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     id: str
@@ -236,6 +239,7 @@ class AlertHistoryEntry(BaseModel):
 
 class ScreenReplayResult(BaseModel):
     """Results from a historical screen replay."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     id: str
@@ -260,6 +264,7 @@ class ScreenReplayResult(BaseModel):
 
 class ShareToken(BaseModel):
     """A screen sharing token payload."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     screen_id: str

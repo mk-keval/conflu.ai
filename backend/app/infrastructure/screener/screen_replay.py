@@ -29,6 +29,7 @@ log = get_logger("conflu.screener.replay")
 @dataclass
 class DailyReplaySnapshot:
     """Results from a single day's evaluation during replay."""
+
     date: str
     match_count: int
     total_symbols: int
@@ -38,6 +39,7 @@ class DailyReplaySnapshot:
 @dataclass
 class SignalQualityMetrics:
     """Signal quality metrics computed from replay."""
+
     win_rate: float = 0.0
     avg_return: float = 0.0
     total_return: float = 0.0
@@ -127,18 +129,18 @@ class ScreenReplay:
             "total_return": metrics.total_return,
             "sharpe": metrics.sharpe,
             "max_drawdown": metrics.max_drawdown,
-            "match_series": [
-                {"date": s.date, "match_count": s.match_count}
-                for s in snapshots
-            ],
+            "match_series": [{"date": s.date, "match_count": s.match_count} for s in snapshots],
             "equity_curve": equity_curve,
         }
 
-        self._log.info("replay_completed", result_summary={
-            "days": len(daily_dates),
-            "avg_matches": result["avg_match_count"],
-            "win_rate": result["win_rate"],
-        })
+        self._log.info(
+            "replay_completed",
+            result_summary={
+                "days": len(daily_dates),
+                "avg_matches": result["avg_match_count"],
+                "win_rate": result["win_rate"],
+            },
+        )
 
         return result
 
@@ -176,10 +178,7 @@ class ScreenReplay:
         matched_symbols: set[str] = set()
 
         for tf in tfs:
-            tf_filters = [
-                f for f in screen_config.filters
-                if getattr(f, "timeframe", "1D") == tf
-            ]
+            tf_filters = [f for f in screen_config.filters if getattr(f, "timeframe", "1D") == tf]
             if not tf_filters:
                 continue
 

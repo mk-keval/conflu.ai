@@ -127,7 +127,9 @@ class PositionSizer:
                 size[col] = col_size
         else:
             # No ATR available — fall back to fixed sizing
-            return self._fixed_size(close, entries, initial_cash, {"mode": "cash", "value": initial_cash * risk_per_trade})
+            return self._fixed_size(
+                close, entries, initial_cash, {"mode": "cash", "value": initial_cash * risk_per_trade}
+            )
 
         return size
 

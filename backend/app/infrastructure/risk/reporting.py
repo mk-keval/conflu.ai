@@ -9,20 +9,13 @@ Pure string-based HTML generation — no Jinja2 dependency required.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 from backend.app.core.config import settings
 from backend.app.core.logging import get_logger
 from backend.app.infrastructure.risk.models import (
-    CorrelationResult,
-    HedgeRecommendation,
-    KellyRecommendation,
-    PortfolioBetaResult,
-    RiskAlert,
     RiskAssessment,
-    VaRResult,
 )
 
 log = get_logger("conflu.risk.reporting")
@@ -50,7 +43,7 @@ class RiskReportGenerator:
             Complete HTML string with inline styles.
         """
         report_title = title or f"Risk Report — {assessment.portfolio_id}"
-        timestamp = assessment.timestamp.isoformat() if assessment.timestamp else datetime.now(timezone.utc).isoformat()
+        timestamp = assessment.timestamp.isoformat() if assessment.timestamp else datetime.now(UTC).isoformat()
 
         sections = [
             self._render_executive_summary(assessment),
@@ -120,7 +113,7 @@ tr:hover {{ background: #fafafa; }}
             Absolute path to the saved report file.
         """
         if filepath is None:
-            date_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            date_str = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
             filename = f"risk_{assessment.portfolio_id}_{date_str}.html"
             reports_dir = Path("reports")
             reports_dir.mkdir(parents=True, exist_ok=True)
@@ -136,19 +129,27 @@ tr:hover {{ background: #fafafa; }}
         """Render executive summary cards."""
         var_95_str = f"{assessment.var_95.var:.2%}" if assessment.var_95 else "N/A"
         var_99_str = f"{assessment.var_99.var:.2%}" if assessment.var_99 else "N/A"
-        beta_str = f"{assessment.portfolio_beta.weighted_beta:.2f}" if assessment.portfolio_beta and assessment.portfolio_beta.weighted_beta is not None else "N/A"
-        div_str = f"{assessment.correlation.diversification_score:.2f}" if assessment.correlation and assessment.correlation.diversification_score is not None else "N/A"
+        beta_str = (
+            f"{assessment.portfolio_beta.weighted_beta:.2f}"
+            if assessment.portfolio_beta and assessment.portfolio_beta.weighted_beta is not None
+            else "N/A"
+        )
+        div_str = (
+            f"{assessment.correlation.diversification_score:.2f}"
+            if assessment.correlation and assessment.correlation.diversification_score is not None
+            else "N/A"
+        )
         score = assessment.risk_score or 0
 
         score_class = "good" if score < 30 else ("warning" if score < 60 else "danger")
 
         return f"""
 <div class="grid">
-<div class="card"><h3>VaR (95%)</h3><div class="value {'warning' if assessment.var_95 and assessment.var_95.var > 0.03 else 'good'}">{var_95_str}</div></div>
+<div class="card"><h3>VaR (95%)</h3><div class="value {"warning" if assessment.var_95 and assessment.var_95.var > 0.03 else "good"}">{var_95_str}</div></div>
 <div class="card"><h3>VaR (99%)</h3><div class="value">{var_99_str}</div></div>
 <div class="card"><h3>Portfolio Beta</h3><div class="value">{beta_str}</div></div>
 <div class="card"><h3>Diversification</h3><div class="value">{div_str}</div></div>
-<div class="card"><h3>Risk Score</h3><div class="value {score_class}">{score:.0f}/100</div><div class="score-bar"><div class="fill" style="width:{score}%;background:{'#2e7d32' if score < 30 else '#f57c00' if score < 60 else '#c62828'}"></div></div></div>
+<div class="card"><h3>Risk Score</h3><div class="value {score_class}">{score:.0f}/100</div><div class="score-bar"><div class="fill" style="width:{score}%;background:{"#2e7d32" if score < 30 else "#f57c00" if score < 60 else "#c62828"}"></div></div></div>
 </div>"""
 
     def _render_var_breakdown(self, assessment: RiskAssessment) -> str:
@@ -187,7 +188,9 @@ tr:hover {{ background: #fafafa; }}
 
         hedges = ""
         for hr in assessment.hedge_recommendations:
-            rec_class = "danger" if hr.recommendation == "required" else ("warning" if hr.recommendation == "optional" else "")
+            rec_class = (
+                "danger" if hr.recommendation == "required" else ("warning" if hr.recommendation == "optional" else "")
+            )
             hedges += f"<tr><td>{self._escape_html(hr.symbol)}</td><td>{hr.beta:.4f if hr.beta else 'N/A'}</td><td>{hr.r_squared:.2% if hr.r_squared else 'N/A'}</td><td class='{rec_class}'>{hr.recommendation}</td><td>{self._escape_html(hr.hedge_instrument or 'N/A')}</td></tr>"
 
         html = f"""
@@ -220,7 +223,9 @@ tr:hover {{ background: #fafafa; }}
             pairs += f"<tr><td>{self._escape_html(symbols_str)}</td><td>{pair.get('correlation', 0):.4f}</td></tr>"
 
         div_score = corr.diversification_score
-        div_class = "good" if div_score and div_score > 0.5 else ("warning" if div_score and div_score > 0.3 else "danger")
+        div_class = (
+            "good" if div_score and div_score > 0.5 else ("warning" if div_score and div_score > 0.3 else "danger")
+        )
 
         html = f"""
 <div class="section">
@@ -282,7 +287,7 @@ tr:hover {{ background: #fafafa; }}
 <div class="alert {alert.severity}">
 <strong>[{alert.severity.upper()}] {self._escape_html(alert.category.upper())}</strong>
 <p>{self._escape_html(alert.message)}</p>
-<small>{alert.symbol or ''}{' | Value: ' + f'{alert.current_value:.4f}' if alert.current_value is not None else ''}{' | Threshold: ' + f'{alert.threshold:.4f}' if alert.threshold is not None else ''}</small>
+<small>{alert.symbol or ""}{" | Value: " + f"{alert.current_value:.4f}" if alert.current_value is not None else ""}{" | Threshold: " + f"{alert.threshold:.4f}" if alert.threshold is not None else ""}</small>
 </div>"""
 
         return f"""

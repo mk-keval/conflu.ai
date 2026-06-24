@@ -17,20 +17,19 @@ Flow:
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
-from backend.app.core.config import settings
 from backend.app.core.database import get_db
 from backend.app.core.logging import get_logger, set_correlation_id
+from backend.app.infrastructure.indicators import list_indicators
 from backend.app.infrastructure.screener.broadcasting import sort_timeframes
 from backend.app.infrastructure.screener.cache import IndicatorCache
 from backend.app.infrastructure.screener.configs import ScreenConfig, load_screen_template
-from backend.app.infrastructure.screener.filters import _FILTER_REGISTRY, list_filters
-from backend.app.infrastructure.indicators import list_indicators
+from backend.app.infrastructure.screener.filters import _FILTER_REGISTRY
 from backend.app.infrastructure.screener.models import FilterRunResult, ScreenRunResult
 from backend.app.infrastructure.screener.scoring import compute_pass_rates, compute_score
 
@@ -135,11 +134,9 @@ class ScreenEngine:
                             # Merge data from both timeframes on symbol index
                             # Suffix comparison timeframe columns with _tf
                             compare_cols = [c for c in compare_data.columns]
-                            compare_data = compare_data.rename(
-                                columns={c: f"{c}_{compare_tf}" for c in compare_cols}
-                            )
+                            compare_data = compare_data.rename(columns={c: f"{c}_{compare_tf}" for c in compare_cols})
                             indicator_data = indicator_data.join(compare_data, how="outer")
-                    
+
                     mask = filter_def.func(indicator_data, **flt.params)
 
                     # Apply negation if specified
@@ -181,9 +178,7 @@ class ScreenEngine:
             )
 
         # 5. Build results
-        matched_symbols = (
-            list(scores[scores > 0].index) if not scores.empty else []
-        )
+        matched_symbols = list(scores[scores > 0].index) if not scores.empty else []
         pass_rates = compute_pass_rates(per_filter_masks) if per_filter_masks else {}
 
         # Build matched symbols detail
@@ -196,17 +191,22 @@ class ScreenEngine:
                 tf_data = all_indicator_data[last_tf]
                 if tf_data is not None and sym in tf_data.index:
                     row = tf_data.loc[sym]
-                    indicator_values = {col: float(row[col]) for col in tf_data.columns if col not in ["open", "high", "low", "close", "volume"] and pd.notna(row[col])}
-            
-            symbol_details.append({
-                "symbol": sym,
-                "score": float(scores[sym]),
-                "matched_filters": [
-                    name for name, mask in per_filter_masks.items()
-                    if sym in mask.index and mask.get(sym, False)
-                ],
-                "indicator_values": indicator_values,
-            })
+                    indicator_values = {
+                        col: float(row[col])
+                        for col in tf_data.columns
+                        if col not in ["open", "high", "low", "close", "volume"] and pd.notna(row[col])
+                    }
+
+            symbol_details.append(
+                {
+                    "symbol": sym,
+                    "score": float(scores[sym]),
+                    "matched_filters": [
+                        name for name, mask in per_filter_masks.items() if sym in mask.index and mask.get(sym, False)
+                    ],
+                    "indicator_values": indicator_values,
+                }
+            )
 
         # Build filter run results
         filter_results = []
@@ -214,9 +214,7 @@ class ScreenEngine:
             filter_results.append(
                 FilterRunResult(
                     filter_name=name,
-                    category=getattr(
-                        _FILTER_REGISTRY.get(name), "category", ""
-                    ),
+                    category=getattr(_FILTER_REGISTRY.get(name), "category", ""),
                     matched=int(mask.sum()) if not mask.empty else 0,
                     total=len(mask) if not mask.empty else 0,
                     pass_rate=pass_rates.get(name, 0.0),
@@ -227,7 +225,7 @@ class ScreenEngine:
 
         return ScreenRunResult(
             screen_name=cfg.name,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             duration_ms=round(duration_ms, 2),
             total_symbols=len(scores) if not scores.empty else 0,
             symbols_matched=len(matched_symbols),
@@ -261,7 +259,7 @@ class ScreenEngine:
 
         Aggregates required cached indicators into a single wide DataFrame.
         If cache is empty, computes on-the-fly.
-        
+
         Args:
             timeframe: Timeframe to load data for.
             symbols: Optional subset of symbols.
@@ -316,6 +314,7 @@ class ScreenEngine:
     ) -> pd.DataFrame | None:
         """Load OHLCV data for a timeframe from DuckDB."""
         import asyncio
+
         loop = asyncio.get_running_loop()
 
         def _query() -> pd.DataFrame:
@@ -342,13 +341,13 @@ class ScreenEngine:
 
     def _get_required_indicators(self, filters: list[Any]) -> tuple[list[str], bool]:
         """Determine which indicators and OHLCV columns are needed for a list of filters.
-        
+
         Returns:
             Tuple of (indicator_names, needs_ohlcv)
         """
         indicator_names = set()
         needs_ohlcv = False
-        
+
         # Map filter indicator names to cache indicator names
         FILTER_TO_CACHE = {
             "price_above_ema": lambda params: [f"ema_{params.get('period', 200)}"],
@@ -372,16 +371,19 @@ class ScreenEngine:
             "candle_engulfing": lambda _: [],  # Needs OHLCV
             "candle_hammer": lambda _: [],  # Needs OHLCV
             "candle_doji": lambda _: [],  # Needs OHLCV
-            "ema_compare": lambda params: [f"ema_{params.get('fast_period', 50)}", f"ema_{params.get('slow_period', 200)}"],
+            "ema_compare": lambda params: [
+                f"ema_{params.get('fast_period', 50)}",
+                f"ema_{params.get('slow_period', 200)}",
+            ],
             "rsi_compare": lambda _: ["rsi"],
             "indicator_compare": lambda params: [params.get("indicator_a", ""), params.get("indicator_b", "")],
             "price_vs_ema": lambda params: [f"ema_{params.get('ema_period', 200)}"],
         }
-        
+
         for flt in filters:
             indicator = flt.indicator
             params = getattr(flt, "params", {}) or {}
-            
+
             if indicator in FILTER_TO_CACHE:
                 needed = FILTER_TO_CACHE[indicator](params)
                 for n in needed:
@@ -392,12 +394,12 @@ class ScreenEngine:
             else:
                 # Unknown filter - try to load the indicator directly
                 indicator_names.add(indicator)
-        
+
         # Also need OHLCV for price-based filters
         price_indicators = {"price_above_ema", "price_below_ema", "ema_cross", "ema_compare", "price_vs_ema"}
         if any(flt.indicator in price_indicators for flt in filters):
             needs_ohlcv = True
-            
+
         return list(indicator_names), needs_ohlcv
 
     async def screen_to_csv(

@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
-from typing import Any, Iterator
-from uuid import uuid4
+from datetime import UTC, datetime
 
 import duckdb
 
@@ -28,7 +27,7 @@ class IngestionMetrics:
 
     def __init__(self) -> None:
         self.correlation_id: str = set_correlation_id()
-        self.started_at: datetime = datetime.now(timezone.utc)
+        self.started_at: datetime = datetime.now(UTC)
         self.asset_classes_processed: list[str] = []
         self.timeframes_processed: list[str] = []
         self.symbols_processed: int = 0
@@ -84,7 +83,7 @@ class IngestionMetrics:
         return IngestionReport(
             correlation_id=self.correlation_id,
             started_at=self.started_at,
-            completed_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(UTC),
             duration_ms=self._duration_ms,
             asset_classes_processed=self.asset_classes_processed,
             timeframes_processed=self.timeframes_processed,
@@ -118,9 +117,7 @@ class IngestionMetrics:
 
 def load_latest_health(con: duckdb.DuckDBPyConnection) -> IngestionHealth | None:
     """Load most recent ingestion health from DuckDB."""
-    row = con.sql(
-        "SELECT * FROM ingestion_health ORDER BY last_successful_run DESC LIMIT 1"
-    ).fetchdf()
+    row = con.sql("SELECT * FROM ingestion_health ORDER BY last_successful_run DESC LIMIT 1").fetchdf()
     if row.empty:
         return None
     return IngestionHealth(**row.iloc[0].to_dict())
@@ -130,14 +127,12 @@ def save_health(con: duckdb.DuckDBPyConnection, report: IngestionReport) -> None
     """Save ingestion health report to DuckDB."""
     # DuckDB 1.x doesn't support SERIAL/GENERATED AS IDENTITY,
     # so we compute the next id from MAX(id) + 1.
-    last_id: int | None = con.sql(
-        "SELECT MAX(id) FROM ingestion_health"
-    ).fetchone()[0]
+    last_id: int | None = con.sql("SELECT MAX(id) FROM ingestion_health").fetchone()[0]
     next_id: int = (last_id + 1) if last_id is not None else 1
 
     health = IngestionHealth(
         id=next_id,
-        last_successful_run=report.completed_at or datetime.now(timezone.utc),
+        last_successful_run=report.completed_at or datetime.now(UTC),
         last_run_duration_ms=report.duration_ms,
         symbols_processed=report.symbols_processed,
         candles_written=report.candles_written,

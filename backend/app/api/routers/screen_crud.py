@@ -9,12 +9,10 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import UTC, datetime
-from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from starlette.responses import JSONResponse
 
-from backend.app.api.dependencies import ScreenEngineDep, ScreenReplayDep
+from backend.app.api.dependencies import ScreenReplayDep
 from backend.app.api.schemas import (
     ApiResponse,
     CreateScreenRequest,
@@ -63,16 +61,18 @@ async def list_screens() -> ApiResponse[list[ScreenListItem]]:
                 tags = json.loads(tags)
             except (json.JSONDecodeError, TypeError):
                 tags = []
-        screens.append(ScreenListItem(
-            id=row["id"],
-            name=row["name"],
-            description=row.get("description", ""),
-            version=row["version"],
-            is_public=bool(row.get("is_public", False)),
-            created_at=str(row.get("created_at", "")),
-            updated_at=str(row.get("updated_at", "")),
-            tags=tags,
-        ))
+        screens.append(
+            ScreenListItem(
+                id=row["id"],
+                name=row["name"],
+                description=row.get("description", ""),
+                version=row["version"],
+                is_public=bool(row.get("is_public", False)),
+                created_at=str(row.get("created_at", "")),
+                updated_at=str(row.get("updated_at", "")),
+                tags=tags,
+            )
+        )
 
     return ApiResponse(data=screens, meta=MetaInfo())
 

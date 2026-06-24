@@ -130,8 +130,7 @@ async def get_var(
 @router.post(
     "/kelly",
     summary="Compute Kelly optimization",
-    description="Compute optimal position sizes using the Kelly Criterion "
-    "based on a backtest run's trade statistics.",
+    description="Compute optimal position sizes using the Kelly Criterion based on a backtest run's trade statistics.",
     status_code=200,
 )
 async def post_kelly(
@@ -186,9 +185,7 @@ async def post_position_size(
     import pandas as pd
 
     # Pivot to wide format for engine
-    close_pivot = close_data.pivot(
-        index="timestamp", columns="symbol", values="close"
-    ).dropna()
+    close_pivot = close_data.pivot(index="timestamp", columns="symbol", values="close").dropna()
 
     # Create dummy entries (all True) — last bar entry signal
     entries = pd.DataFrame(True, index=close_pivot.index, columns=close_pivot.columns)
@@ -216,8 +213,7 @@ async def post_position_size(
 @router.get(
     "/summary",
     summary="Get full risk assessment",
-    description="Get a comprehensive risk assessment for a portfolio including "
-    "VaR, beta, correlation, and risk score.",
+    description="Get a comprehensive risk assessment for a portfolio including VaR, beta, correlation, and risk score.",
     status_code=200,
 )
 async def get_risk_summary(

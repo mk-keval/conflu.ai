@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 
 import duckdb
 import numpy as np
@@ -71,7 +70,7 @@ def sample_ohlcv_row() -> dict[str, object]:
     """A single valid OHLCV data point for model construction tests."""
     return {
         "symbol": "AAPL",
-        "timestamp": datetime(2024, 1, 15, 10, 30, tzinfo=timezone.utc),
+        "timestamp": datetime(2024, 1, 15, 10, 30, tzinfo=UTC),
         "open": 150.0,
         "high": 152.0,
         "low": 149.0,

@@ -242,7 +242,7 @@ class OptimizationSettings(BaseSettings):
     early_stopping: bool = Field(default=True, description="Median pruning for Optuna")
     min_improvement: float = Field(default=0.01, ge=0.0, le=1.0, description="Min improvement to continue")
     multi_objective: bool = Field(default=False, description="Multi-objective Pareto")
-    objective_metrics: list[str] = Field(default=["sharpe","sortino","calmar","max_dd","win_rate"])
+    objective_metrics: list[str] = Field(default=["sharpe", "sortino", "calmar", "max_dd", "win_rate"])
     default_objective: str = Field(default="sharpe", description="Default objective metric")
     optuna_storage: Literal["sqlite", "duckdb"] = Field(default="sqlite")
     optuna_storage_path: str = Field(default="data/optuna_studies.db")
@@ -347,10 +347,10 @@ class BacktestSettings(BaseSettings):
         le=16,
     )
 
-    optimization: "OptimizationSettings" = Field(default_factory=OptimizationSettings)
-    regime_detection: "RegimeSettings" = Field(default_factory=RegimeSettings)
-    reporting: "ReportSettings" = Field(default_factory=ReportSettings)
-    comparison: "ComparisonSettings" = Field(default_factory=ComparisonSettings)
+    optimization: OptimizationSettings = Field(default_factory=OptimizationSettings)
+    regime_detection: RegimeSettings = Field(default_factory=RegimeSettings)
+    reporting: ReportSettings = Field(default_factory=ReportSettings)
+    comparison: ComparisonSettings = Field(default_factory=ComparisonSettings)
 
 
 class APISettings(BaseSettings):
@@ -429,16 +429,27 @@ class RiskSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="CONFLU_RISK_")
 
-    default_risk_per_trade: float = Field(default=0.01, ge=0.001, le=0.1, description="Default risk per trade as fraction of equity (1%)")
+    default_risk_per_trade: float = Field(
+        default=0.01, ge=0.001, le=0.1, description="Default risk per trade as fraction of equity (1%)"
+    )
     default_atr_multiplier: float = Field(default=2.0, ge=1.0, le=5.0, description="Default ATR multiplier")
     beta_window_days: int = Field(default=60, ge=20, le=252, description="Rolling window for beta in days")
-    beta_benchmark_map: dict[str, str] = Field(default={"equities": "SPY", "crypto": "BTCUSDT", "forex": "EURUSD", "commodities": "GC1!", "indices": "SPX"}, description="Benchmark per asset class")
-    correlation_window_days: int = Field(default=30, ge=10, le=252, description="Rolling window for correlation in days")
+    beta_benchmark_map: dict[str, str] = Field(
+        default={"equities": "SPY", "crypto": "BTCUSDT", "forex": "EURUSD", "commodities": "GC1!", "indices": "SPX"},
+        description="Benchmark per asset class",
+    )
+    correlation_window_days: int = Field(
+        default=30, ge=10, le=252, description="Rolling window for correlation in days"
+    )
     var_confidence_levels: list[float] = Field(default=[0.95, 0.99], description="Confidence levels for VaR")
     var_horizon_days: list[int] = Field(default=[1, 10], description="Time horizons for VaR in days")
-    var_methods: list[str] = Field(default=["historical", "parametric", "monte_carlo"], description="Active VaR methods")
+    var_methods: list[str] = Field(
+        default=["historical", "parametric", "monte_carlo"], description="Active VaR methods"
+    )
     var_monte_carlo_paths: int = Field(default=10000, ge=1000, le=100000, description="Paths for MC VaR")
-    default_kelly_fraction: float = Field(default=0.5, ge=0.0, le=1.0, description="Default Kelly fraction (0.5 = half-Kelly)")
+    default_kelly_fraction: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="Default Kelly fraction (0.5 = half-Kelly)"
+    )
     max_dd_target: float = Field(default=0.25, ge=0.1, le=0.5, description="Max acceptable drawdown")
     risk_ws_path: str = Field(default="/api/v1/ws/risk/{portfolio_id}", description="WebSocket endpoint template")
     report_max_symbols: int = Field(default=50, description="Max symbols in risk report")
@@ -584,9 +595,7 @@ class AppSettings(BaseSettings):
         for yaml_file in ["config.local.yaml", "config.yaml"]:
             yaml_path = Path(yaml_file)
             if yaml_path.exists():
-                yaml_sources.append(
-                    YamlConfigSettingsSource(settings_cls, yaml_file=str(yaml_path))
-                )
+                yaml_sources.append(YamlConfigSettingsSource(settings_cls, yaml_file=str(yaml_path)))
 
         return (env_settings, *yaml_sources, init_settings)
 

@@ -51,7 +51,7 @@ celery_app.conf.beat_schedule = {}
 def configure_beat_schedule() -> None:
     """Configure periodic tasks from settings."""
     ingestion = settings.ingestion
-    
+
     # Daily full ingestion at configured UTC time
     hour, minute = map(int, ingestion.daily_schedule_utc.split(":"))
     celery_app.conf.beat_schedule["daily-full-ingestion"] = {
@@ -59,7 +59,7 @@ def configure_beat_schedule() -> None:
         "schedule": crontab(hour=hour, minute=minute),
         "options": {"queue": "ingestion"},
     }
-    
+
     # Intraday ingestion every N seconds (converted to minutes for crontab)
     # For sub-minute intervals, we'd use a different approach
     interval_minutes = max(1, ingestion.intraday_interval_s // 60)
@@ -77,7 +77,7 @@ def configure_beat_schedule() -> None:
             "schedule": crontab(minute=0),
             "options": {"queue": "ingestion"},
         }
-    
+
     # Indicator cache refresh after daily ingestion (5 minutes later)
     refresh_minute = (minute + 5) % 60
     refresh_hour = hour + (1 if refresh_minute < minute else 0)

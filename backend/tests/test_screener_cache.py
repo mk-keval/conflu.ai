@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import os
 import tempfile
-from typing import Generator
+from collections.abc import Generator
 
-import duckdb
 import pandas as pd
 import pytest
 

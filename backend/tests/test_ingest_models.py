@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -48,7 +48,7 @@ def test_ingestion_report_defaults() -> None:
     """IngestionReport default values are correct."""
     report = IngestionReport(
         correlation_id="test-123",
-        started_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        started_at=datetime(2024, 1, 1, tzinfo=UTC),
     )
     assert report.correlation_id == "test-123"
     assert report.symbols_processed == 0
@@ -68,7 +68,7 @@ def test_ingestion_report_with_scan_results() -> None:
     )
     report = IngestionReport(
         correlation_id="test-456",
-        started_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        started_at=datetime(2024, 1, 1, tzinfo=UTC),
         scan_results=[sr],
         symbols_processed=95,
         candles_written=190,
@@ -91,7 +91,7 @@ def test_ingestion_health() -> None:
 def test_ingestion_health_with_data() -> None:
     """IngestionHealth with full data."""
     health = IngestionHealth(
-        last_successful_run=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        last_successful_run=datetime(2024, 1, 1, tzinfo=UTC),
         last_run_duration_ms=15000.0,
         symbols_processed=100,
         candles_written=500,
@@ -110,14 +110,14 @@ def test_report_utc_validation() -> None:
         started_at=datetime(2024, 1, 1),  # naive
     )
     assert report.started_at.tzinfo is not None
-    assert report.started_at.tzinfo == timezone.utc
+    assert report.started_at.tzinfo == UTC
 
 
 def test_report_frozen() -> None:
     """Trying to modify a frozen model field raises ValidationError."""
     report = IngestionReport(
         correlation_id="test",
-        started_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        started_at=datetime(2024, 1, 1, tzinfo=UTC),
     )
     with pytest.raises(ValidationError):
         report.symbols_processed = 100  # type: ignore[misc]
@@ -128,6 +128,6 @@ def test_extra_fields_forbidden() -> None:
     with pytest.raises(ValidationError):
         IngestionReport(
             correlation_id="test",
-            started_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            started_at=datetime(2024, 1, 1, tzinfo=UTC),
             extra_field="not allowed",  # type: ignore[call-arg]
         )

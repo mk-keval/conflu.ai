@@ -52,8 +52,7 @@ async def readiness_check() -> JSONResponse:
 
             # Check if indicator_values table exists
             result = con.sql(
-                "SELECT COUNT(*) as cnt FROM information_schema.tables "
-                "WHERE table_name = 'indicator_values'"
+                "SELECT COUNT(*) as cnt FROM information_schema.tables WHERE table_name = 'indicator_values'"
             ).fetchone()
             cache_ok = (result and result[0] > 0) if result else False
     except Exception:

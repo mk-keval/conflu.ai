@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pandas as pd
 import pytest
@@ -15,8 +15,8 @@ from backend.app.infrastructure.backtest.signals import SignalAdapter
 def sample_config() -> BacktestRunConfig:
     return BacktestRunConfig(
         symbols=["SPY", "QQQ"],
-        start=datetime(2024, 1, 1, tzinfo=timezone.utc),
-        end=datetime(2024, 12, 31, tzinfo=timezone.utc),
+        start=datetime(2024, 1, 1, tzinfo=UTC),
+        end=datetime(2024, 12, 31, tzinfo=UTC),
         signal_source=SignalSource(type="indicator_crossing"),
     )
 

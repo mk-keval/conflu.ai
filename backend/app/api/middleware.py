@@ -190,14 +190,16 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
     must include a valid X-API-Key header.
     """
 
-    PUBLIC_PATHS = frozenset({
-        "/health",
-        "/health/ready",
-        "/docs",
-        "/redoc",
-        "/api/v1/openapi.json",
-        "/metrics",
-    })
+    PUBLIC_PATHS = frozenset(
+        {
+            "/health",
+            "/health/ready",
+            "/docs",
+            "/redoc",
+            "/api/v1/openapi.json",
+            "/metrics",
+        }
+    )
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         # Skip auth for public paths and WebSocket endpoints

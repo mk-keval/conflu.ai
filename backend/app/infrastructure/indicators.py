@@ -5,8 +5,9 @@ ZERO explicit loops over DataFrame rows — all operations are vectorized.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable
+from typing import Any
 
 import pandas as pd
 import pandas_ta as ta
@@ -113,7 +114,11 @@ def compute_macd(
             part["value"] = macd_result[src_col].values
             rows.append(part)
 
-    return pd.concat(rows, ignore_index=True) if rows else pd.DataFrame(columns=["symbol", "timestamp", "indicator_name", "value"])
+    return (
+        pd.concat(rows, ignore_index=True)
+        if rows
+        else pd.DataFrame(columns=["symbol", "timestamp", "indicator_name", "value"])
+    )
 
 
 @indicator(name="ema", timeframe="1D")
@@ -201,7 +206,7 @@ def compute_adx(
     )
     if adx_result is None or adx_result.empty:
         return pd.DataFrame(columns=["symbol", "timestamp", "indicator_name", "value"])
-    
+
     # pandas_ta returns ADX_14, DMP_14, DMN_14
     # We want the ADX line
     adx_col = f"ADX_{length}"

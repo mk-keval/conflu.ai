@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import pandas as pd
 
@@ -54,9 +54,7 @@ def validate_ohlcv(df: pd.DataFrame) -> tuple[pd.DataFrame, QualityReport]:
 
     # 3. Handle ticker -> symbol conversion if ticker column exists
     if "ticker" in df.columns and "symbol" not in df.columns:
-        df["symbol"] = df["ticker"].apply(
-            lambda t: str(t).split(":")[-1] if ":" in str(t) else str(t)
-        )
+        df["symbol"] = df["ticker"].apply(lambda t: str(t).split(":")[-1] if ":" in str(t) else str(t))
 
     # 4. Remove duplicate (symbol, timestamp, timeframe) — keep first
     if "symbol" in df.columns and "timestamp" in df.columns:
@@ -67,10 +65,7 @@ def validate_ohlcv(df: pd.DataFrame) -> tuple[pd.DataFrame, QualityReport]:
         report.duplicate_timestamps = before_dedup - len(df)
 
     # 4. OHLC consistency: high >= max(open, close)
-    ohlc_mask = (
-        (df["high"] >= df[["open", "close"]].max(axis=1))
-        & (df["low"] <= df[["open", "close"]].min(axis=1))
-    )
+    ohlc_mask = (df["high"] >= df[["open", "close"]].max(axis=1)) & (df["low"] <= df[["open", "close"]].min(axis=1))
     # 5. Volume >= 0
     vol_mask = df["volume"] >= 0
     # 6. Prices > 0

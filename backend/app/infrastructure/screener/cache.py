@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-import duckdb
 import pandas as pd
 
 from backend.app.core.config import settings
@@ -71,8 +70,6 @@ class IndicatorCache:
         if not self._enabled:
             return 0
 
-        import asyncio
-
         tfs = timeframes or list(settings.data.timeframes)
         names = indicator_names or self._cached_indicators
         total_new = 0
@@ -90,7 +87,7 @@ class IndicatorCache:
                 if not registered and "_" in ind_name:
                     base = ind_name.split("_")[0]
                     registered = base in list_indicators()
-                
+
                 if not registered:
                     self._log.warning("indicator_not_registered", indicator=ind_name)
                     continue
@@ -184,8 +181,7 @@ class IndicatorCache:
                         how="left",
                     )
                     new_data = merged[
-                        merged["cached_until"].isna()
-                        | (merged["timestamp"] > merged["cached_until"])
+                        merged["cached_until"].isna() | (merged["timestamp"] > merged["cached_until"])
                     ].drop(columns=["cached_until"])
                 else:
                     new_data = ohlcv
@@ -211,14 +207,14 @@ class IndicatorCache:
                         if base in list_indicators():
                             base_indicator = base
                             params = self._INDICATOR_PARAMS.get(indicator_name, {})
-                
+
                 results = compute_all(new_data, indicators=[base_indicator], indicator_params={base_indicator: params})
 
                 if base_indicator not in results:
                     return 0
 
                 result_df = results[base_indicator].copy()
-                
+
                 # Rename indicator_name to match what filters expect (e.g., "ema_200")
                 result_df["indicator_name"] = indicator_name
 
@@ -354,7 +350,7 @@ class IndicatorCache:
 
         loop = asyncio.get_running_loop()
         if as_of_date is None:
-            as_of_date = datetime.now(timezone.utc)
+            as_of_date = datetime.now(UTC)
 
         def _query() -> pd.DataFrame:
             with get_db(read_only=True) as con:

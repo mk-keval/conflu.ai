@@ -15,7 +15,6 @@ from backend.app.api.dependencies import ScreenEngineDep
 from backend.app.api.schemas import (
     ApiResponse,
     CustomScreenConfig,
-    FilterRuleRequest,
     MetaInfo,
     ScreenRequest,
     ScreenSymbolResult,

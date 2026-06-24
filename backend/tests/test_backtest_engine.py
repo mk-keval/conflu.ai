@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-import numpy as np
 import pandas as pd
 import pytest
 
@@ -21,8 +20,8 @@ def engine() -> BacktestEngine:
 def sample_config() -> BacktestRunConfig:
     return BacktestRunConfig(
         symbols=["SPY"],
-        start=datetime(2024, 1, 1, tzinfo=timezone.utc),
-        end=datetime(2024, 12, 31, tzinfo=timezone.utc),
+        start=datetime(2024, 1, 1, tzinfo=UTC),
+        end=datetime(2024, 12, 31, tzinfo=UTC),
     )
 
 
@@ -36,8 +35,8 @@ def test_compute_config_hash_consistency(engine, sample_config):
     """Same config produces same hash."""
     cfg2 = BacktestRunConfig(
         symbols=["SPY"],
-        start=datetime(2024, 1, 1, tzinfo=timezone.utc),
-        end=datetime(2024, 12, 31, tzinfo=timezone.utc),
+        start=datetime(2024, 1, 1, tzinfo=UTC),
+        end=datetime(2024, 12, 31, tzinfo=UTC),
     )
     h1 = engine._compute_config_hash(sample_config)
     h2 = engine._compute_config_hash(cfg2)
@@ -48,8 +47,8 @@ def test_compute_config_hash_different(engine, sample_config):
     """Different configs produce different hashes."""
     cfg2 = BacktestRunConfig(
         symbols=["QQQ"],
-        start=datetime(2024, 1, 1, tzinfo=timezone.utc),
-        end=datetime(2024, 12, 31, tzinfo=timezone.utc),
+        start=datetime(2024, 1, 1, tzinfo=UTC),
+        end=datetime(2024, 12, 31, tzinfo=UTC),
     )
     h1 = engine._compute_config_hash(sample_config)
     h2 = engine._compute_config_hash(cfg2)
@@ -72,9 +71,9 @@ def test_infer_freq_hourly(engine):
 def test_infer_freq_fallback(engine):
     """Irregular index falls back to 'D'."""
     idx = pd.DatetimeIndex(
-        [datetime(2024, 1, 1, tzinfo=timezone.utc),
-         datetime(2024, 1, 5, tzinfo=timezone.utc),
-         datetime(2024, 2, 1, tzinfo=timezone.utc)]
+        [datetime(2024, 1, 1, tzinfo=UTC),
+         datetime(2024, 1, 5, tzinfo=UTC),
+         datetime(2024, 2, 1, tzinfo=UTC)]
     )
     assert engine._infer_freq(idx) == "D"
 
@@ -94,8 +93,8 @@ def test_build_default_signals(engine):
     )
     entries, exits = engine._build_default_signals(ohlcv, BacktestRunConfig(
         symbols=["SPY"],
-        start=datetime(2024, 1, 1, tzinfo=timezone.utc),
-        end=datetime(2024, 12, 31, tzinfo=timezone.utc),
+        start=datetime(2024, 1, 1, tzinfo=UTC),
+        end=datetime(2024, 12, 31, tzinfo=UTC),
     ))
     assert isinstance(entries, pd.DataFrame)
     assert isinstance(exits, pd.DataFrame)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -11,7 +11,6 @@ from backend.app.infrastructure.screener.configs import (
     ScreenConfig,
     list_screen_templates,
     load_screen_template,
-    save_screen_config,
 )
 from backend.app.infrastructure.screener.models import (
     FilterRunResult,
@@ -125,7 +124,7 @@ class TestScreenRunResult:
     def test_model_serialization(self) -> None:
         result = ScreenRunResult(
             screen_name="Test",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             duration_ms=100.0,
             total_symbols=100,
             symbols_matched=25,
@@ -152,7 +151,7 @@ class TestScreenStreamMessage:
         msg = ScreenStreamMessage(
             type="screen_update",
             screen_id="trend-follower",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             total_matched=10,
             total_symbols=100,
         )
@@ -162,7 +161,7 @@ class TestScreenStreamMessage:
         msg = ScreenStreamMessage(
             type="delta_update",
             screen_id="trend-follower",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             added=[{"symbol": "AAPL", "score": 100.0}],
         )
         assert msg.type == "delta_update"
@@ -172,6 +171,6 @@ class TestScreenStreamMessage:
         msg = ScreenStreamMessage(
             type="error",
             screen_id="trend-follower",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
         )
         assert msg.type == "error"

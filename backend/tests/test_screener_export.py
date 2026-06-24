@@ -7,7 +7,6 @@ import os
 import tempfile
 
 import pandas as pd
-import pytest
 
 from backend.app.infrastructure.screener.export import export_csv, export_json
 
