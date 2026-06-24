@@ -37,9 +37,8 @@ jobs:
         run: |
           pip install uv
           uv pip install --system ".[dev,test,observability]"
-          uv pip freeze > requirements.txt
           pip install pip-audit --break-system-packages
-          pip-audit --allow-vuln "starlette" --allow-vuln "starlette" -r requirements.txt
+          pip-audit --allow-vuln "starlette"
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
