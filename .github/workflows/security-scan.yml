@@ -20,7 +20,8 @@ jobs:
       - name: TruffleHog Secrets Scan
         uses: trufflesecurity/trufflehog@main
         with:
-          extra_args: --only-verified --results=verified
+          extra_args: --only-verified --results=verified --fail
+          path: .
 
   dependencies:
     name: Dependency Scanning
@@ -29,7 +30,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
       - name: pip-audit
         run: |
           pip install uv
