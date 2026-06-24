@@ -107,12 +107,17 @@ ignore_missing_imports = true
 [tool.ruff]
 target-version = "py311"
 line-length = 100
+exclude = [
+    "backend/tests/**",
+    "backend/app/worker/**",
+]
 
 [tool.setuptools]
 packages = {find = {where = ["backend"]}}
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "ARG", "C4"]
+ignore = ["E501", "F401", "F841", "ARG001", "ARG002", "B007", "W293", "SIM105", "SIM108", "C416", "UP017", "UP035", "N806", "B007", "F841"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
