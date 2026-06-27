@@ -6,7 +6,7 @@ Timestamps are UTC-aware datetime objects.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -16,7 +16,7 @@ def _ensure_utc(v: datetime | None) -> datetime | None:
     """Validate and convert timestamp to UTC."""
     if v is not None and v.tzinfo is None:
         raise ValueError("timestamp must be timezone-aware")
-    return v.astimezone(timezone.utc) if v is not None else None
+    return v.astimezone(UTC) if v is not None else None
 
 
 class BetaResult(BaseModel):
@@ -34,7 +34,7 @@ class BetaResult(BaseModel):
     tracking_error: float | None = None
     window_days: int = 60
     n_observations: int = 0
-    computed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    computed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     @field_validator("computed_at")
     @classmethod
@@ -51,7 +51,7 @@ class PortfolioBetaResult(BaseModel):
     benchmark: str
     weighted_beta: float | None = None
     symbol_betas: dict[str, float] = Field(default_factory=dict)
-    computed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    computed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     @field_validator("computed_at")
     @classmethod
@@ -95,7 +95,7 @@ class VaRResult(BaseModel):
     ci_lower: float | None = None
     ci_upper: float | None = None
     n_simulations: int | None = None
-    computed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    computed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     @field_validator("computed_at")
     @classmethod
@@ -137,7 +137,7 @@ class HedgeRecommendation(BaseModel):
     hedge_instrument: str | None = None
     recommendation: str = "none"
     hedge_cost_annual_pct: float | None = None
-    computed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    computed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     @field_validator("computed_at")
     @classmethod
@@ -156,7 +156,7 @@ class RiskAlert(BaseModel):
     symbol: str | None = None
     current_value: float | None = None
     threshold: float | None = None
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     @field_validator("timestamp")
     @classmethod
@@ -170,7 +170,7 @@ class RiskAssessment(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     portfolio_id: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     var_95: VaRResult | None = None
     var_99: VaRResult | None = None
     portfolio_beta: PortfolioBetaResult | None = None

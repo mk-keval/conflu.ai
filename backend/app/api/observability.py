@@ -79,10 +79,7 @@ def setup_prometheus(app: Any) -> None:
         instrumentator.expose(app, endpoint="/metrics", include_in_schema=False)
         log.info("prometheus_instrumentation_ready (metrics endpoint only)")
     except ImportError:
-        log.warning(
-            "prometheus-fastapi-instrumentator not available — "
-            "prometheus metrics disabled"
-        )
+        log.warning("prometheus-fastapi-instrumentator not available — prometheus metrics disabled")
 
 
 def setup_opentelemetry(app: Any) -> None:

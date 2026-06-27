@@ -56,12 +56,8 @@ class RiskMetricsComputer:
         returns_array = returns.dropna().values
 
         # VaR metrics
-        var_95 = self._var_calculator.compute_var(
-            "metrics", returns_array, method="historical", confidence=0.95
-        )
-        var_99 = self._var_calculator.compute_var(
-            "metrics", returns_array, method="historical", confidence=0.99
-        )
+        var_95 = self._var_calculator.compute_var("metrics", returns_array, method="historical", confidence=0.95)
+        var_99 = self._var_calculator.compute_var("metrics", returns_array, method="historical", confidence=0.99)
         var_parametric_95 = self._var_calculator.compute_var(
             "metrics", returns_array, method="parametric", confidence=0.95
         )
@@ -110,13 +106,15 @@ class RiskMetricsComputer:
                 alpha_annual = port_ret - (risk_free_rate + beta * (bench_ret - risk_free_rate))
                 information_ratio = alpha_annual / tracking_error_annual if tracking_error_annual > 0 else 0.0
 
-                result.update({
-                    "beta": beta,
-                    "r_squared": r_squared,
-                    "tracking_error_annual": tracking_error_annual,
-                    "information_ratio": information_ratio,
-                    "alpha_annual": alpha_annual,
-                })
+                result.update(
+                    {
+                        "beta": beta,
+                        "r_squared": r_squared,
+                        "tracking_error_annual": tracking_error_annual,
+                        "information_ratio": information_ratio,
+                        "alpha_annual": alpha_annual,
+                    }
+                )
 
         return result
 

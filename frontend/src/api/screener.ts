@@ -1,70 +1,47 @@
 import apiClient from './client';
-import type { ScreenSymbolResult, SymbolInfo } from '@/types/screener';
-import type { FilterRuleConfig } from '@/lib/constants';
+import type {
+  TVScreenResponse,
+  TVTemplate,
+  TVDeepAnalysisResponse,
+  TVDeepAnalysisRequest,
+  SymbolInfo,
+} from '@/types/screener';
 
-export interface CustomScreenConfig {
-  name: string;
-  description: string;
-  asset_classes: string[];
-  timeframes: string[];
-  filters: FilterRuleConfig[];
+// ── TV Screener API (v1) ──
+
+/** Run a screen by template name or inline config. */
+export async function fetchScreenTV(
+  config: string | Record<string, unknown>,
+  limit?: number,
+): Promise<TVScreenResponse> {
+  return apiClient.post('/api/v1/screen/tv', { config, limit }) as Promise<TVScreenResponse>;
 }
 
-type FilterOperator = 'gt' | 'lt' | 'eq' | 'crosses_above' | 'crosses_below';
-
-export interface ApiFilterRule {
-  category: string;
-  indicator: string;
-  params: Record<string, unknown>;
-  operator: FilterOperator;
-  timeframe: string;
-  negate: boolean;
-  compare_timeframe?: string;
+/** Multi-timeframe screen. */
+export async function fetchScreenTVMultiTF(
+  config: string | Record<string, unknown>,
+): Promise<TVScreenResponse> {
+  return apiClient.post('/api/v1/screen/tv/multi-tf', { config }) as Promise<TVScreenResponse>;
 }
 
-export interface ApiScreenConfig {
-  name: string;
-  description: string;
-  asset_classes: string[];
-  timeframes: string[];
-  filters: ApiFilterRule[];
+/** Deep analysis for a single ticker. */
+export async function fetchDeepAnalysis(
+  req: TVDeepAnalysisRequest,
+): Promise<TVDeepAnalysisResponse> {
+  return apiClient.post('/api/v1/screen/tv/analyze', req) as Promise<TVDeepAnalysisResponse>;
 }
 
-export type ScreenConfigInput = string | CustomScreenConfig;
-
-const convertToApiConfig = (config: CustomScreenConfig) => ({
-  name: config.name,
-  description: config.description,
-  asset_classes: config.asset_classes,
-  timeframes: config.timeframes,
-  filters: config.filters.map((f) => ({
-    category: f.category,
-    indicator: f.indicator,
-    params: Object.fromEntries(
-      Object.entries(f.params).map(([k, p]) => [k, p.defaultValue])
-    ),
-    operator: f.operator,
-    timeframe: f.timeframe,
-    negate: f.negate,
-    compare_timeframe: f.compareTimeframe,
-  })),
-});
-
-export async function fetchScreen(
-  config: ScreenConfigInput,
-  symbols?: string[],
-  timeframes?: string[],
-  exportFormat?: 'json' | 'csv'
-): Promise<ScreenSymbolResult[]> {
-  const apiConfig = typeof config === 'string' ? config : convertToApiConfig(config);
-  const response = await apiClient.post<ScreenSymbolResult[]>('/api/v1/screen', {
-    config: apiConfig,
-    symbols,
-    timeframes,
-    export_format: exportFormat,
-  });
-  return response.data;
+/** List available screen templates. */
+export async function fetchTVTemplates(): Promise<TVTemplate[]> {
+  return apiClient.get('/api/v1/screen/tv/templates') as Promise<TVTemplate[]>;
 }
+
+/** Load a specific template by name. */
+export async function fetchTVTemplate(name: string): Promise<Record<string, unknown>> {
+  return apiClient.get(`/api/v1/screen/tv/templates/${name}`) as Promise<Record<string, unknown>>;
+}
+
+// ── Legacy API (old architecture) ──
 
 export async function fetchSymbols(
   assetClass?: string,
@@ -73,9 +50,5 @@ export async function fetchSymbols(
   const params = new URLSearchParams();
   if (assetClass) params.set('asset_class', assetClass);
   if (activeOnly !== undefined) params.set('active_only', String(activeOnly));
-
-  const response = await apiClient.get<SymbolInfo[]>(
-    `/api/v1/data/symbols?${params.toString()}`
-  );
-  return response.data;
+  return apiClient.get(`/api/v1/data/symbols?${params.toString()}`) as Promise<SymbolInfo[]>;
 }

@@ -25,13 +25,11 @@ _ws_messages_total: Any = None
 _ws_errors_total: Any = None
 
 try:
-    from prometheus_client import Counter, REGISTRY
+    from prometheus_client import REGISTRY, Counter
 
     # Check if metrics already exist in registry to avoid duplicate registration on reload
     if "ws_messages_total" not in REGISTRY._names_to_collectors:
-        _ws_messages_total = Counter(
-            "ws_messages_total", "Total WebSocket messages", labelnames=("channel_type",)
-        )
+        _ws_messages_total = Counter("ws_messages_total", "Total WebSocket messages", labelnames=("channel_type",))
     else:
         # Get existing collector
         for collector in REGISTRY._collector_to_names:
@@ -40,9 +38,7 @@ try:
                 break
 
     if "ws_errors_total" not in REGISTRY._names_to_collectors:
-        _ws_errors_total = Counter(
-            "ws_errors_total", "Total WebSocket errors", labelnames=("error_type",)
-        )
+        _ws_errors_total = Counter("ws_errors_total", "Total WebSocket errors", labelnames=("error_type",))
     else:
         for collector in REGISTRY._collector_to_names:
             if "ws_errors_total" in REGISTRY._collector_to_names[collector]:
@@ -84,11 +80,13 @@ async def websocket_stream(websocket: WebSocket) -> None:
             if initial.get("type") == "auth" and settings.api.api_keys:
                 key = initial.get("api_key", "")
                 if key not in settings.api.api_keys:
-                    await websocket.send_json({
-                        "type": "error",
-                        "code": "AUTH_FAILED",
-                        "message": "Invalid API key",
-                    })
+                    await websocket.send_json(
+                        {
+                            "type": "error",
+                            "code": "AUTH_FAILED",
+                            "message": "Invalid API key",
+                        }
+                    )
                     await websocket.close(code=4001)
                     return
         except Exception:
@@ -96,12 +94,14 @@ async def websocket_stream(websocket: WebSocket) -> None:
             pass
 
         # ── Connected Confirmation ──
-        await websocket.send_json({
-            "type": "connected",
-            "connection_id": ws_id,
-            "timestamp": datetime.now(UTC).isoformat(),
-            "server_version": "0.2.0",
-        })
+        await websocket.send_json(
+            {
+                "type": "connected",
+                "connection_id": ws_id,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "server_version": "0.2.0",
+            }
+        )
 
         # ── Register ──
         await ws_manager.register(ws_id, websocket)

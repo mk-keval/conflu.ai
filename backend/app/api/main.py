@@ -30,13 +30,11 @@ tags_metadata = [
     },
     {
         "name": "screener",
-        "description": "Multi-timeframe technical screener — run filter pipelines across "
-        "asset classes",
+        "description": "Multi-timeframe technical screener — run filter pipelines across asset classes",
     },
     {
         "name": "backtest",
-        "description": "Strategy backtesting — vectorized simulation, walk-forward "
-        "optimization, Monte Carlo",
+        "description": "Strategy backtesting — vectorized simulation, walk-forward optimization, Monte Carlo",
     },
     {
         "name": "data",
@@ -71,9 +69,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # ── Startup ──
     log.info("app_startup_begin")
 
-    configure_logging(
-        log_level=settings.core.log_level, log_json=settings.core.log_json
-    )
+    configure_logging(log_level=settings.core.log_level, log_json=settings.core.log_json)
     initialize_database()
 
     # Initialize OpenTelemetry
@@ -122,8 +118,7 @@ def create_app() -> FastAPI:
     """
     app = FastAPI(
         title="conflu.ai API",
-        description="Multi-asset trading platform — screener, backtest, risk analysis, "
-        "and real-time data streaming",
+        description="Multi-asset trading platform — screener, backtest, risk analysis, and real-time data streaming",
         version="0.2.0",
         docs_url="/docs",
         redoc_url="/redoc",
@@ -159,26 +154,18 @@ def create_app() -> FastAPI:
 
     # ── Routers ──
     from backend.app.api.routers import (
-        alerts_router,
         backtest_router,
         data_router,
         health_router,
-        replay_router,
         risk_router,
-        screen_crud_router,
-        screener_router,
-        sharing_router,
+        tv_screener_router,
     )
 
     app.include_router(health_router)
-    app.include_router(screener_router, prefix="/api/v1")
-    app.include_router(screen_crud_router, prefix="/api/v1")
-    app.include_router(alerts_router, prefix="/api/v1")
-    app.include_router(sharing_router, prefix="/api/v1")
-    app.include_router(replay_router, prefix="/api/v1")
     app.include_router(backtest_router, prefix="/api/v1")
     app.include_router(data_router, prefix="/api/v1")
     app.include_router(risk_router, prefix="/api/v1")
+    app.include_router(tv_screener_router, prefix="/api/v1")
 
     # ── WebSocket ──
     from backend.app.api.ws.handler import register_ws_routes

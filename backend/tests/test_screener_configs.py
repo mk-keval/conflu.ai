@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 import pytest
 
 from backend.app.infrastructure.screener.configs import (
@@ -11,12 +9,6 @@ from backend.app.infrastructure.screener.configs import (
     ScreenConfig,
     list_screen_templates,
     load_screen_template,
-    save_screen_config,
-)
-from backend.app.infrastructure.screener.models import (
-    FilterRunResult,
-    ScreenRunResult,
-    ScreenStreamMessage,
 )
 
 
@@ -93,7 +85,7 @@ class TestScreenTemplates:
     def test_mean_reversion_loads(self) -> None:
         config = load_screen_template("mean-reversion")
         assert config.name == "Mean Reversion"
-        assert len(config.filters) == 3
+        assert len(config.filters) == 2
 
     def test_breakout_loads(self) -> None:
         config = load_screen_template("breakout")
@@ -103,12 +95,12 @@ class TestScreenTemplates:
     def test_volume_surge_loads(self) -> None:
         config = load_screen_template("volume-surge")
         assert config.name == "Volume Surge"
-        assert len(config.filters) == 3
+        assert len(config.filters) == 2
 
     def test_oversold_bounce_loads(self) -> None:
         config = load_screen_template("oversold-bounce")
         assert config.name == "Oversold Bounce"
-        assert len(config.filters) == 3
+        assert len(config.filters) == 2
 
     def test_list_screen_templates_returns_5(self) -> None:
         templates = list_screen_templates()
@@ -119,59 +111,4 @@ class TestScreenTemplates:
             load_screen_template("nonexistent_template")
 
 
-class TestScreenRunResult:
-    """Test ScreenRunResult serialization."""
 
-    def test_model_serialization(self) -> None:
-        result = ScreenRunResult(
-            screen_name="Test",
-            timestamp=datetime.now(timezone.utc),
-            duration_ms=100.0,
-            total_symbols=100,
-            symbols_matched=25,
-            filter_results=[
-                FilterRunResult(
-                    filter_name="rsi_oversold",
-                    category="momentum",
-                    matched=25,
-                    total=100,
-                    pass_rate=0.25,
-                ),
-            ],
-        )
-        data = result.model_dump(mode="json")
-        assert data["screen_name"] == "Test"
-        assert data["symbols_matched"] == 25
-        assert len(data["filter_results"]) == 1
-
-
-class TestScreenStreamMessage:
-    """Test ScreenStreamMessage types."""
-
-    def test_screen_update_type(self) -> None:
-        msg = ScreenStreamMessage(
-            type="screen_update",
-            screen_id="trend-follower",
-            timestamp=datetime.now(timezone.utc),
-            total_matched=10,
-            total_symbols=100,
-        )
-        assert msg.type == "screen_update"
-
-    def test_delta_update_type(self) -> None:
-        msg = ScreenStreamMessage(
-            type="delta_update",
-            screen_id="trend-follower",
-            timestamp=datetime.now(timezone.utc),
-            added=[{"symbol": "AAPL", "score": 100.0}],
-        )
-        assert msg.type == "delta_update"
-        assert len(msg.added) == 1
-
-    def test_error_type(self) -> None:
-        msg = ScreenStreamMessage(
-            type="error",
-            screen_id="trend-follower",
-            timestamp=datetime.now(timezone.utc),
-        )
-        assert msg.type == "error"

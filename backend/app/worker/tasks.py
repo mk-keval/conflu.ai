@@ -55,9 +55,9 @@ def ingest_asset_class(
         Dict with ingestion report
     """
     from backend.app.infrastructure.ingest import run_ingestion
-    
+
     log.info("celery_ingest_started", asset_class=asset_class, timeframes=timeframes, dry_run=dry_run)
-    
+
     try:
         report = _run_async(
             run_ingestion(
@@ -67,7 +67,7 @@ def ingest_asset_class(
                 max_concurrent=settings.data.max_concurrent,
             )
         )
-        
+
         result = {
             "asset_class": asset_class,
             "status": "success" if report.error_rate < 1.0 else "partial_failure",
@@ -77,11 +77,11 @@ def ingest_asset_class(
             "error_rate": report.error_rate,
             "duration_ms": report.duration_ms,
         }
-        
+
         log.info("celery_ingest_completed", **result)
         return result
-        
-    except Exception as e:
+
+    except Exception:
         log.exception("celery_ingest_failed", asset_class=asset_class)
         raise
 
@@ -112,9 +112,9 @@ def ingest_all(
         Dict with combined ingestion report
     """
     from backend.app.infrastructure.ingest import run_ingestion
-    
+
     log.info("celery_ingest_all_started", asset_classes=asset_classes, timeframes=timeframes)
-    
+
     try:
         report = _run_async(
             run_ingestion(
@@ -124,7 +124,7 @@ def ingest_all(
                 max_concurrent=settings.data.max_concurrent,
             )
         )
-        
+
         result = {
             "status": "success" if report.error_rate < 1.0 else "partial_failure",
             "asset_classes_processed": report.asset_classes_processed,
@@ -137,16 +137,16 @@ def ingest_all(
             "scans_succeeded": report.scans_succeeded,
             "scans_failed": report.scans_failed,
         }
-        
+
         log.info("celery_ingest_all_completed", **result)
-        
+
         # Trigger indicator cache refresh as a chained task
         if report.error_rate < 1.0:
             refresh_indicator_cache.delay()
-        
+
         return result
-        
-    except Exception as e:
+
+    except Exception:
         log.exception("celery_ingest_all_failed")
         raise
 
@@ -175,9 +175,9 @@ def refresh_indicator_cache(
         Dict with cache update stats
     """
     from backend.app.infrastructure.screener.cache import IndicatorCache
-    
+
     log.info("celery_refresh_cache_started", timeframes=timeframes, indicators=indicator_names)
-    
+
     try:
         cache = IndicatorCache()
         new_rows = _run_async(
@@ -186,20 +186,20 @@ def refresh_indicator_cache(
                 indicator_names=indicator_names,
             )
         )
-        
+
         status = _run_async(cache.cache_status())
-        
+
         result = {
             "status": "success",
             "new_rows": new_rows,
             "total_rows": status.get("total_rows", 0),
             "cached_indicators": status.get("cached_indicators", []),
         }
-        
+
         log.info("celery_refresh_cache_completed", **result)
         return result
-        
-    except Exception as e:
+
+    except Exception:
         log.exception("celery_refresh_cache_failed")
         raise
 
@@ -225,19 +225,19 @@ def run_screen(
     Returns:
         Dict with screen results
     """
-    from backend.app.infrastructure.screener.engine import ScreenEngine
     from backend.app.infrastructure.screener.configs import ScreenConfig
-    
+    from backend.app.infrastructure.screener.engine import ScreenEngine
+
     log.info("celery_screen_started", config=config if isinstance(config, str) else config.get("name"))
-    
+
     try:
         engine = ScreenEngine()
-        
+
         if isinstance(config, str):
             cfg = config
         else:
             cfg = ScreenConfig(**config)
-        
+
         result = _run_async(
             engine.screen(
                 config=cfg,
@@ -245,7 +245,7 @@ def run_screen(
                 timeframes=timeframes,
             )
         )
-        
+
         output = {
             "screen_name": result.screen_name,
             "total_symbols": result.total_symbols,
@@ -262,11 +262,11 @@ def run_screen(
                 for f in result.filter_results
             ],
         }
-        
+
         log.info("celery_screen_completed", screen_name=result.screen_name, matched=result.symbols_matched)
         return output
-        
-    except Exception as e:
+
+    except Exception:
         log.exception("celery_screen_failed")
         raise
 
@@ -275,14 +275,14 @@ def run_screen(
 def health_check() -> dict[str, Any]:
     """Health check task for monitoring."""
     from backend.app.core.database import get_db
-    
+
     try:
         with get_db(read_only=True) as con:
             con.sql("SELECT 1").fetchone()
         db_ok = True
     except Exception:
         db_ok = False
-    
+
     return {
         "status": "healthy" if db_ok else "unhealthy",
         "database": db_ok,

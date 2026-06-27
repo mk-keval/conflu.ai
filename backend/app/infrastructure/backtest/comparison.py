@@ -11,8 +11,6 @@ import json
 from typing import Any
 from uuid import uuid4
 
-import numpy as np
-
 from backend.app.core.database import get_db
 from backend.app.core.logging import get_logger
 from backend.app.infrastructure.backtest.models import ComparisonConfig, StrategyComparisonResult
@@ -45,7 +43,7 @@ class StrategyComparator:
 
     def _compare_sync(self, config: ComparisonConfig) -> StrategyComparisonResult:
         run_ids = config.run_ids
-        labels = config.labels or [f"Run {i+1}" for i in range(len(run_ids))]
+        labels = config.labels or [f"Run {i + 1}" for i in range(len(run_ids))]
 
         if len(run_ids) < 2:
             raise ValueError("At least 2 run_ids required for comparison")
@@ -55,18 +53,26 @@ class StrategyComparator:
         with get_db(read_only=True) as con:
             metrics_data: dict[str, dict[str, Any]] = {}
             for run_id in run_ids:
-                row = con.sql("SELECT metrics_json, initial_cash, symbol FROM backtest_results WHERE run_id = ?", params=[run_id]).fetchone()
+                row = con.sql(
+                    "SELECT metrics_json, initial_cash, symbol FROM backtest_results WHERE run_id = ?", params=[run_id]
+                ).fetchone()
                 metrics_data[run_id] = json.loads(row[0]) if row and row[0] else {}
 
             equity_curves_raw: dict[str, list[tuple]] = {}
             for run_id in run_ids:
-                rows = con.sql("SELECT timestamp, equity FROM backtest_equity_curves WHERE run_id = ? ORDER BY timestamp", params=[run_id]).fetchall()
+                rows = con.sql(
+                    "SELECT timestamp, equity FROM backtest_equity_curves WHERE run_id = ? ORDER BY timestamp",
+                    params=[run_id],
+                ).fetchall()
                 if rows:
                     equity_curves_raw[run_id] = rows
 
             drawdown_curves_raw: dict[str, list[tuple]] = {}
             for run_id in run_ids:
-                rows = con.sql("SELECT timestamp, drawdown FROM backtest_equity_curves WHERE run_id = ? ORDER BY timestamp", params=[run_id]).fetchall()
+                rows = con.sql(
+                    "SELECT timestamp, drawdown FROM backtest_equity_curves WHERE run_id = ? ORDER BY timestamp",
+                    params=[run_id],
+                ).fetchall()
                 if rows:
                     drawdown_curves_raw[run_id] = rows
 
@@ -94,7 +100,9 @@ class StrategyComparator:
                 if val is not None:
                     formatted = round(val, precision)
                     row[labels[i]] = formatted
-                    if (higher_is_better and formatted > best_value) or (not higher_is_better and formatted < best_value):
+                    if (higher_is_better and formatted > best_value) or (
+                        not higher_is_better and formatted < best_value
+                    ):
                         best_value = formatted
                         best_run = run_id
                 else:
@@ -111,23 +119,35 @@ class StrategyComparator:
                     if i == j:
                         row_sig.append(None)
                     else:
-                        row_sig.append(self._bootstrap_significance(metrics_data.get(run_a, {}), metrics_data.get(run_b, {}), config.bootstrap_samples))
+                        row_sig.append(
+                            self._bootstrap_significance(
+                                metrics_data.get(run_a, {}), metrics_data.get(run_b, {}), config.bootstrap_samples
+                            )
+                        )
                 significance_matrix.append(row_sig)
 
         return StrategyComparisonResult(
-            comparison_id=str(uuid4()), run_ids=run_ids, labels=labels,
-            n_strategies=len(run_ids), best_by_metric=best_by_metric,
-            metrics_table=metrics_table, significance_matrix=significance_matrix,
-            equity_curves=equity_curves, drawdown_curves=drawdown_curves,
+            comparison_id=str(uuid4()),
+            run_ids=run_ids,
+            labels=labels,
+            n_strategies=len(run_ids),
+            best_by_metric=best_by_metric,
+            metrics_table=metrics_table,
+            significance_matrix=significance_matrix,
+            equity_curves=equity_curves,
+            drawdown_curves=drawdown_curves,
         )
 
     @staticmethod
-    def _bootstrap_significance(metrics_a: dict[str, Any], metrics_b: dict[str, Any], n_samples: int = 1000) -> float | None:
+    def _bootstrap_significance(
+        metrics_a: dict[str, Any], metrics_b: dict[str, Any], n_samples: int = 1000
+    ) -> float | None:
         sharpe_a, sharpe_b = metrics_a.get("sharpe"), metrics_b.get("sharpe")
         if sharpe_a is None or sharpe_b is None:
             return None
         try:
             from scipy import stats as scipy_stats
+
             diff = abs(sharpe_a - sharpe_b)
             t_stat = diff / 0.2  # Simplified SE approximation
             return float(min(max(2.0 * (1.0 - scipy_stats.norm.cdf(abs(t_stat))), 0.0), 1.0))

@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import asyncio
 import itertools
-import json
 import time
 from typing import Any
 
@@ -67,7 +66,10 @@ class BacktestOptimizer:
         )
 
         result = await loop.run_in_executor(
-            None, self._optimize_sync, config, search_space,
+            None,
+            self._optimize_sync,
+            config,
+            search_space,
         )
 
         duration_ms = (time.monotonic() - start_time) * 1000
@@ -82,11 +84,14 @@ class BacktestOptimizer:
         return result
 
     def _optimize_sync(
-        self, config: BacktestRunConfig, search_space: OptimizationSearchSpace,
+        self,
+        config: BacktestRunConfig,
+        search_space: OptimizationSearchSpace,
     ) -> OptimizationResultV2:
         """Synchronous optimization (runs in thread pool)."""
         if self._engine is None:
             from backend.app.infrastructure.backtest.engine import BacktestEngine
+
             self._engine = BacktestEngine()
 
         if search_space.method == "grid":
@@ -100,7 +105,9 @@ class BacktestOptimizer:
             raise ValueError(msg)
 
     def _grid_search(
-        self, config: BacktestRunConfig, search_space: OptimizationSearchSpace,
+        self,
+        config: BacktestRunConfig,
+        search_space: OptimizationSearchSpace,
     ) -> OptimizationResultV2:
         """Exhaustive grid search over all parameter combinations."""
         if not search_space.grid_params:
@@ -123,24 +130,36 @@ class BacktestOptimizer:
             obj_value = self._get_objective_value(metrics, objective_metric)
             obj_values = {objective_metric: obj_value}
             trial_duration = (time.monotonic() - trial_start) * 1000
-            trials.append(TrialResult(
-                trial_number=i, params=params, objectives=obj_values,
-                state="complete", duration_ms=trial_duration,
-            ))
+            trials.append(
+                TrialResult(
+                    trial_number=i,
+                    params=params,
+                    objectives=obj_values,
+                    state="complete",
+                    duration_ms=trial_duration,
+                )
+            )
             if obj_value is not None and obj_value > best_objective:
                 best_objective = obj_value
                 best_params = params
                 best_objectives = obj_values
 
         return OptimizationResultV2(
-            study_id=f"grid_{config.run_id}", symbol=",".join(config.symbols),
-            method="grid", search_space=search_space,
-            best_params=best_params, best_objectives=best_objectives,
-            trials=trials, n_trials=len(trials), duration_ms=0.0,
+            study_id=f"grid_{config.run_id}",
+            symbol=",".join(config.symbols),
+            method="grid",
+            search_space=search_space,
+            best_params=best_params,
+            best_objectives=best_objectives,
+            trials=trials,
+            n_trials=len(trials),
+            duration_ms=0.0,
         )
 
     def _random_search(
-        self, config: BacktestRunConfig, search_space: OptimizationSearchSpace,
+        self,
+        config: BacktestRunConfig,
+        search_space: OptimizationSearchSpace,
     ) -> OptimizationResultV2:
         """Random search sampling from parameter distributions."""
         if not search_space.param_distributions:
@@ -160,10 +179,15 @@ class BacktestOptimizer:
             obj_value = self._get_objective_value(metrics, objective_metric)
             obj_values = {objective_metric: obj_value}
             trial_duration = (time.monotonic() - trial_start) * 1000
-            trials.append(TrialResult(
-                trial_number=i, params=params, objectives=obj_values,
-                state="complete", duration_ms=trial_duration,
-            ))
+            trials.append(
+                TrialResult(
+                    trial_number=i,
+                    params=params,
+                    objectives=obj_values,
+                    state="complete",
+                    duration_ms=trial_duration,
+                )
+            )
             if obj_value is not None and obj_value > best_objective:
                 best_objective = obj_value
                 best_params = params
@@ -177,14 +201,21 @@ class BacktestOptimizer:
                     break
 
         return OptimizationResultV2(
-            study_id=f"random_{config.run_id}", symbol=",".join(config.symbols),
-            method="random", search_space=search_space,
-            best_params=best_params, best_objectives=best_objectives,
-            trials=trials, n_trials=len(trials), duration_ms=0.0,
+            study_id=f"random_{config.run_id}",
+            symbol=",".join(config.symbols),
+            method="random",
+            search_space=search_space,
+            best_params=best_params,
+            best_objectives=best_objectives,
+            trials=trials,
+            n_trials=len(trials),
+            duration_ms=0.0,
         )
 
     def _bayesian_optimize(
-        self, config: BacktestRunConfig, search_space: OptimizationSearchSpace,
+        self,
+        config: BacktestRunConfig,
+        search_space: OptimizationSearchSpace,
     ) -> OptimizationResultV2:
         """Bayesian optimization using Optuna TPESampler."""
         try:
@@ -206,11 +237,17 @@ class BacktestOptimizer:
             study = optuna.create_study(
                 direction="maximize",
                 sampler=optuna.samplers.TPESampler(
-                    n_startup_trials=10, multivariate=True, seed=42,
+                    n_startup_trials=10,
+                    multivariate=True,
+                    seed=42,
                 ),
                 pruner=optuna.pruners.MedianPruner(
-                    n_startup_trials=5, n_warmup_steps=10, interval_steps=1,
-                ) if search_space.early_stopping else optuna.pruners.NopPruner(),
+                    n_startup_trials=5,
+                    n_warmup_steps=10,
+                    interval_steps=1,
+                )
+                if search_space.early_stopping
+                else optuna.pruners.NopPruner(),
                 study_name=f"backtest_{config.run_id[:8]}",
             )
 
@@ -218,15 +255,14 @@ class BacktestOptimizer:
             params = self._suggest_from_optuna(trial, search_space)
             metrics = self._evaluate_params(config, params)
             if search_space.multi_objective and len(search_space.objectives) > 1:
-                return [
-                    (self._get_objective_value(metrics, obj) or -999.0)
-                    for obj in search_space.objectives
-                ]
+                return [(self._get_objective_value(metrics, obj) or -999.0) for obj in search_space.objectives]
             return self._get_objective_value(metrics, objective_metric) or -999.0
 
         study.optimize(
-            objective, n_trials=n_trials,
-            timeout=search_space.timeout_s, n_jobs=search_space.n_jobs,
+            objective,
+            n_trials=n_trials,
+            timeout=search_space.timeout_s,
+            n_jobs=search_space.n_jobs,
             show_progress_bar=False,
         )
 
@@ -242,25 +278,35 @@ class BacktestOptimizer:
             if trial.values:
                 for j, obj_name in enumerate(search_space.objectives):
                     obj_values[obj_name] = trial.values[j] if j < len(trial.values) else None
-            trials.append(TrialResult(
-                trial_number=i, params=trial.params, objectives=obj_values,
-                state=str(trial.state.name),
-            ))
+            trials.append(
+                TrialResult(
+                    trial_number=i,
+                    params=trial.params,
+                    objectives=obj_values,
+                    state=str(trial.state.name),
+                )
+            )
 
         param_importance: dict[str, float] = {}
         try:
             if len(study.trials) > 10:
                 from optuna.importance import get_param_importances
+
                 importance = get_param_importances(study)
                 param_importance = {k: float(v) for k, v in importance.items()}
         except Exception:
             self._log.warning("param_importance_failed")
 
         return OptimizationResultV2(
-            study_id=study.study_name, symbol=",".join(config.symbols),
-            method="bayesian", search_space=search_space,
-            best_params=best_params, best_objectives=best_objectives,
-            trials=trials, n_trials=len(trials), duration_ms=0.0,
+            study_id=study.study_name,
+            symbol=",".join(config.symbols),
+            method="bayesian",
+            search_space=search_space,
+            best_params=best_params,
+            best_objectives=best_objectives,
+            trials=trials,
+            n_trials=len(trials),
+            duration_ms=0.0,
             param_importance=param_importance,
         )
 
@@ -268,6 +314,7 @@ class BacktestOptimizer:
         """Evaluate a single parameter set by running a backtest."""
         if self._engine is None:
             from backend.app.infrastructure.backtest.engine import BacktestEngine
+
             self._engine = BacktestEngine()
         modified_config = self._apply_params(config, params)
         record = self._engine._run_sync(modified_config)
@@ -277,12 +324,20 @@ class BacktestOptimizer:
     def _apply_params(config: BacktestRunConfig, params: dict[str, Any]) -> BacktestRunConfig:
         """Apply parameter overrides to a copy of the base config."""
         import copy
+
         new_config = copy.deepcopy(config)
-        sizing_keys = {"risk_per_trade", "atr_multiplier", "kelly_fraction", "mode", "value", "max_position_pct", "win_rate", "avg_win_avg_loss_ratio"}
+        sizing_keys = {
+            "risk_per_trade",
+            "atr_multiplier",
+            "kelly_fraction",
+            "mode",
+            "value",
+            "max_position_pct",
+            "win_rate",
+            "avg_win_avg_loss_ratio",
+        }
         for key, value in params.items():
-            if key == "position_sizing":
-                object.__setattr__(new_config, key, value)
-            elif key in ("fees_bps", "slippage_bps", "initial_cash"):
+            if key == "position_sizing" or key in ("fees_bps", "slippage_bps", "initial_cash"):
                 object.__setattr__(new_config, key, value)
             elif key in sizing_keys:
                 new_config.sizing_params[key] = value
@@ -302,7 +357,9 @@ class BacktestOptimizer:
             dist_type = dist.get("type", "categorical")
             if dist_type == "int":
                 low, high, step = int(dist.get("low", 0)), int(dist.get("high", 100)), int(dist.get("step", 1))
-                params[name] = int(np.random.choice(list(range(low, high + 1, step))) if list(range(low, high + 1, step)) else low)
+                params[name] = int(
+                    np.random.choice(list(range(low, high + 1, step))) if list(range(low, high + 1, step)) else low
+                )
             elif dist_type == "float":
                 low, high = float(dist.get("low", 0.0)), float(dist.get("high", 1.0))
                 if dist.get("log", False):
@@ -322,7 +379,9 @@ class BacktestOptimizer:
             for name, dist in search_space.param_distributions.items():
                 dist_type = dist.get("type", "categorical")
                 if dist_type == "int":
-                    params[name] = trial.suggest_int(name, int(dist.get("low", 0)), int(dist.get("high", 100)), step=int(dist.get("step", 1)))
+                    params[name] = trial.suggest_int(
+                        name, int(dist.get("low", 0)), int(dist.get("high", 100)), step=int(dist.get("step", 1))
+                    )
                 elif dist_type == "float":
                     low, high = float(dist.get("low", 0.0)), float(dist.get("high", 1.0))
                     params[name] = trial.suggest_float(name, low, high, log=dist.get("log", False))

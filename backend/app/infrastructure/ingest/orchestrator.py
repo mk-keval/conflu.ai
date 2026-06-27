@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pandas as pd
@@ -15,8 +14,8 @@ from backend.app.core.database import get_db, initialize_database
 from backend.app.core.logging import get_logger
 from backend.app.infrastructure.ingest.fetcher import IngestionFetcher
 from backend.app.infrastructure.ingest.models import IngestionReport, ScanResult
-from backend.app.infrastructure.ingest.quality import QualityReport, validate_ohlcv
-from backend.app.infrastructure.ingest.scanner import circuit_breaker_state, reset_circuit_breaker
+from backend.app.infrastructure.ingest.quality import validate_ohlcv
+from backend.app.infrastructure.ingest.scanner import circuit_breaker_state
 from backend.app.infrastructure.ingest.symbol_map import TickerResolver
 from backend.app.infrastructure.ingest.writer import write_incremental
 
@@ -26,6 +25,7 @@ log = get_logger("conflu.ingest.orchestrator")
 @dataclass
 class IngestionTracker:
     """Mutable tracker for ingestion progress."""
+
     correlation_id: str
     started_at: datetime
     asset_classes_processed: list[str] = field(default_factory=list)
@@ -68,7 +68,7 @@ class IngestionTracker:
         """Convert to frozen IngestionReport."""
         total_ops = self.scans_succeeded + self.scans_failed
         error_rate = round(self.scans_failed / total_ops, 4) if total_ops > 0 else 0.0
-        
+
         return IngestionReport(
             correlation_id=self.correlation_id,
             started_at=self.started_at,
@@ -95,60 +95,60 @@ async def run_ingestion(
     max_concurrent: int | None = None,
 ) -> IngestionReport:
     """Run the full ingestion pipeline.
-    
+
     Args:
         asset_classes: Asset classes to process (default: all from config).
         timeframes: Timeframes to fetch (default: all from config).
         dry_run: Validate configuration and connectivity without writing data.
         max_concurrent: Max concurrent scan operations (default: from config).
-    
+
     Returns:
         IngestionReport with pipeline statistics.
     """
     # Ensure database is initialized
     initialize_database()
-    
+
     # Resolve asset classes and timeframes
     asset_classes = asset_classes or list(settings.data.assets.keys())
     timeframes = timeframes or list(settings.data.timeframes)
     max_concurrent = max_concurrent or settings.data.max_concurrent
-    
+
     # Initialize tracker
     tracker = IngestionTracker(
         correlation_id=str(uuid4())[:8],
-        started_at=datetime.now(timezone.utc),
+        started_at=datetime.now(UTC),
     )
-    
+
     # Track circuit breaker states
     breaker_states = {market: circuit_breaker_state(market) for market in settings.data.asset_class_markets.values()}
-    
+
     try:
         # Initialize fetcher
         fetcher = IngestionFetcher(max_concurrent=max_concurrent)
-        
+
         # Process each asset class
         for asset_class in asset_classes:
             if asset_class not in settings.data.assets:
                 log.warning("unknown_asset_class", asset_class=asset_class)
                 continue
-            
+
             symbols = settings.data.assets[asset_class]
             market = settings.data.asset_class_markets.get(asset_class, "america")
-            
+
             # Check circuit breaker
             breaker = breaker_states.get(market, {})
             if breaker.get("state") == "OPEN":
                 log.warning("circuit_breaker_open_skipping", market=market, asset_class=asset_class)
                 tracker.record_asset_class(f"{asset_class} (skipped)")
                 continue
-            
+
             # Resolve TV tickers
             resolver = TickerResolver()
             tickers = [resolver.to_tv_ticker(sym, asset_class) for sym in symbols]
-            
-            # Determine columns to fetch (OHLCV)
-            columns = ["open", "high", "low", "close", "volume"]
-            
+
+            # Determine columns to fetch (OHLCV + timestamp from TV)
+            columns = ["time", "open", "high", "low", "close", "volume"]
+
             log.info(
                 "ingestion_asset_class_start",
                 asset_class=asset_class,
@@ -156,13 +156,13 @@ async def run_ingestion(
                 symbols=len(symbols),
                 timeframes=timeframes,
             )
-            
+
             tracker.record_asset_class(asset_class)
-            
+
             # Process each timeframe
             for timeframe in timeframes:
                 tracker.record_timeframe(timeframe)
-                
+
                 try:
                     # Fetch data for this asset class + timeframe
                     df, scan_results = await fetcher.fetch_asset_class(
@@ -171,27 +171,27 @@ async def run_ingestion(
                         tickers=tickers,
                         columns=columns,
                     )
-                    
+
                     # Record scan results
                     for scan in scan_results:
                         tracker.record_scan(scan)
-                    
+
                     if df.empty:
                         log.warning("no_data_fetched", asset_class=asset_class, timeframe=timeframe)
                         continue
-                    
+
                     # Add metadata columns
                     df = df.copy()
                     df["asset_class"] = asset_class
                     df["timeframe"] = timeframe
-                    
+
                     if dry_run:
                         log.info("dry_run_skip_write", asset_class=asset_class, timeframe=timeframe, rows=len(df))
                         continue
-                    
+
                     # Validate quality
                     clean_df, quality_report = validate_ohlcv(df)
-                    
+
                     if clean_df.empty:
                         log.warning(
                             "no_valid_rows_after_quality",
@@ -201,16 +201,16 @@ async def run_ingestion(
                         )
                         tracker.rows_discarded += quality_report.rows_discarded
                         continue
-                    
+
                     # Write incrementally
                     new_rows, bytes_written, _ = write_incremental(
                         clean_df,
                         asset_class=asset_class,
                         timeframe=timeframe,
                     )
-                    
+
                     tracker.record_write(new_rows, bytes_written, quality_report.rows_discarded)
-                    
+
                     log.info(
                         "ingestion_timeframe_complete",
                         asset_class=asset_class,
@@ -218,8 +218,8 @@ async def run_ingestion(
                         new_rows=new_rows,
                         bytes_written=bytes_written,
                     )
-                    
-                except Exception as e:
+
+                except Exception:
                     log.exception(
                         "ingestion_timeframe_failed",
                         asset_class=asset_class,
@@ -227,20 +227,20 @@ async def run_ingestion(
                     )
                     # Continue with other timeframes
                     continue
-        
+
         # Update symbol metadata
         await _update_symbol_metadata(asset_classes)
-        
+
         # Finalize tracker
-        tracker.completed_at = datetime.now(timezone.utc)
+        tracker.completed_at = datetime.now(UTC)
         tracker.duration_ms = (tracker.completed_at - tracker.started_at).total_seconds() * 1000
-        
+
         # Convert to report
         report = tracker.to_report()
-        
+
         # Store health check
         await _store_health(report)
-        
+
         log.info(
             "ingestion_complete",
             correlation_id=report.correlation_id,
@@ -250,17 +250,17 @@ async def run_ingestion(
             error_rate=report.error_rate,
             duration_ms=report.duration_ms,
         )
-        
+
         return report
-        
-    except Exception as e:
+
+    except Exception:
         log.exception("ingestion_fatal")
         # Create error report
         error_tracker = IngestionTracker(
             correlation_id=str(uuid4())[:8],
-            started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
         )
-        error_tracker.completed_at = datetime.now(timezone.utc)
+        error_tracker.completed_at = datetime.now(UTC)
         error_tracker.duration_ms = (error_tracker.completed_at - error_tracker.started_at).total_seconds() * 1000
         error_tracker.error_rate = 1.0
         await _store_health(error_tracker.to_report())
@@ -269,11 +269,10 @@ async def run_ingestion(
 
 async def _update_symbol_metadata(asset_classes: list[str]) -> None:
     """Update symbol_metadata table with processed symbols."""
-    from backend.app.core.database import get_db
     from backend.app.infrastructure.ingest.symbol_map import TickerResolver
-    
+
     resolver = TickerResolver()
-    
+
     symbols_data = []
     for asset_class in asset_classes:
         if asset_class not in settings.data.assets:
@@ -282,25 +281,28 @@ async def _update_symbol_metadata(asset_classes: list[str]) -> None:
             tv_ticker = resolver.to_tv_ticker(symbol, asset_class)
             exchange, _ = resolver.from_tv_ticker(tv_ticker)
             timezone = resolver.get_timezone(asset_class)
-            
-            symbols_data.append({
-                "symbol": symbol,
-                "asset_class": asset_class,
-                "exchange": exchange,
-                "tv_ticker": tv_ticker,
-                "timezone": timezone,
-                "active": True,
-            })
-    
+
+            symbols_data.append(
+                {
+                    "symbol": symbol,
+                    "asset_class": asset_class,
+                    "exchange": exchange,
+                    "tv_ticker": tv_ticker,
+                    "timezone": timezone,
+                    "active": True,
+                }
+            )
+
     if not symbols_data:
         return
-    
+
     df = pd.DataFrame(symbols_data)
-    
+
     def _upsert() -> None:
         with get_db() as con:
             for _, row in df.iterrows():
-                con.sql("""
+                con.sql(
+                    """
                     INSERT INTO symbol_metadata (symbol, asset_class, exchange, tv_ticker, timezone, active)
                     VALUES (?, ?, ?, ?, ?, ?)
                     ON CONFLICT (symbol) DO UPDATE SET
@@ -309,37 +311,45 @@ async def _update_symbol_metadata(asset_classes: list[str]) -> None:
                         tv_ticker = EXCLUDED.tv_ticker,
                         timezone = EXCLUDED.timezone,
                         active = EXCLUDED.active
-                """, params=[
-                    row["symbol"], row["asset_class"], row["exchange"],
-                    row["tv_ticker"], row["timezone"], row["active"]
-                ])
-    
+                """,
+                    params=[
+                        row["symbol"],
+                        row["asset_class"],
+                        row["exchange"],
+                        row["tv_ticker"],
+                        row["timezone"],
+                        row["active"],
+                    ],
+                )
+
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, _upsert)
 
 
 async def _store_health(report: IngestionReport) -> None:
     """Store ingestion health in database."""
-    from backend.app.core.database import get_db
-    
+
     def _insert() -> None:
         with get_db() as con:
             # Delete old health record (keep only latest)
             con.sql("DELETE FROM ingestion_health WHERE id = 1")
-            con.sql("""
+            con.sql(
+                """
                 INSERT INTO ingestion_health (
                     id, last_successful_run, last_run_duration_ms,
                     symbols_processed, candles_written, error_rate,
                     circuit_breaker_state, is_running
                 ) VALUES (1, ?, ?, ?, ?, ?, 'CLOSED', FALSE)
-            """, params=[
-                report.completed_at,
-                report.duration_ms,
-                report.symbols_processed,
-                report.candles_written,
-                report.error_rate,
-            ])
-    
+            """,
+                params=[
+                    report.completed_at,
+                    report.duration_ms,
+                    report.symbols_processed,
+                    report.candles_written,
+                    report.error_rate,
+                ],
+            )
+
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, _insert)
 

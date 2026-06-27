@@ -1,4 +1,16 @@
-# Stage 1 — builder: Build frontend assets
+# Stage 1 — dev: Hot-reload Vite dev server
+FROM node:20-alpine AS dev
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci --frozen-lockfile
+
+COPY . .
+
+EXPOSE 5173
+
+# Stage 2 — builder: Build frontend assets
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -9,7 +21,7 @@ RUN npm ci --frozen-lockfile
 COPY . .
 RUN npm run build
 
-# Stage 2 — runtime: Nginx unprivileged with brotli
+# Stage 3 — runtime: Nginx unprivileged with brotli
 FROM nginxinc/nginx-unprivileged:1.25-alpine-slim
 
 USER nginx

@@ -12,7 +12,7 @@ and √N time scaling.
 from __future__ import annotations
 
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 from scipy.stats import norm as norm_dist
@@ -77,7 +77,7 @@ class VaRCalculator:
                 confidence=confidence,
                 horizon_days=horizon_days,
                 var=0.0,
-                computed_at=datetime.now(timezone.utc),
+                computed_at=datetime.now(UTC),
             )
 
         # Ensure numpy array
@@ -93,7 +93,7 @@ class VaRCalculator:
                 confidence=confidence,
                 horizon_days=horizon_days,
                 var=0.0,
-                computed_at=datetime.now(timezone.utc),
+                computed_at=datetime.now(UTC),
             )
 
         n_sim = n_simulations or self._n_mc_paths
@@ -123,7 +123,7 @@ class VaRCalculator:
             component_var=component_var,
             marginal_var=marginal_var,
             n_simulations=n_sim if method == "monte_carlo" else None,
-            computed_at=datetime.now(timezone.utc),
+            computed_at=datetime.now(UTC),
         )
 
     def _compute_var_1d(

@@ -1,6 +1,6 @@
 # ADR-007: React + TypeScript Frontend
 
-**Status:** Accepted
+**Status:** Superseded
 **Date:** 2026-06-18
 
 ## Context

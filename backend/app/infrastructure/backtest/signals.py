@@ -6,8 +6,6 @@ indicator data, producing boolean arrays for vbt.Portfolio.from_signals().
 
 from __future__ import annotations
 
-from typing import Any
-
 import pandas as pd
 
 from backend.app.infrastructure.backtest.models import BacktestRunConfig

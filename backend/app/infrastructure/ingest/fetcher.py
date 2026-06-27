@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import time
 from collections.abc import AsyncIterator
-from typing import Any
 
 import pandas as pd
 
@@ -62,10 +61,7 @@ class IngestionFetcher:
         market: str,
     ) -> AsyncIterator[tuple[pd.DataFrame, ScanResult]]:
         """Yield (DataFrame, ScanResult) for each chunk as they complete."""
-        chunks = [
-            tickers[i : i + self._batch_size]
-            for i in range(0, len(tickers), self._batch_size)
-        ]
+        chunks = [tickers[i : i + self._batch_size] for i in range(0, len(tickers), self._batch_size)]
 
         async def fetch_chunk(chunk_tickers: list[str]) -> tuple[pd.DataFrame, ScanResult]:
             start = time.monotonic()

@@ -1,18 +1,19 @@
 import { NavLink } from 'react-router-dom';
 import { useWS } from '@/ws/WebSocketProvider';
 import { cn } from '@/lib/cn';
+import { LayoutDashboard, TrendingUp, BarChart2, Shield } from 'lucide-react';
 
 interface NavItemProps {
   to: string;
   label: string;
-  icon: string;
+  icon: React.ReactNode;
 }
 
 const navItems: NavItemProps[] = [
-  { to: '/screener', label: 'Screener', icon: '▦' },
-  { to: '/charts', label: 'Charts', icon: '⬡' },
-  { to: '/backtest', label: 'Backtest', icon: '↗' },
-  { to: '/risk', label: 'Risk', icon: '◈' },
+  { to: '/screener', label: 'Screener', icon: <LayoutDashboard className="w-5 h-5" /> },
+  { to: '/charts', label: 'Charts', icon: <TrendingUp className="w-5 h-5" /> },
+  { to: '/backtest', label: 'Backtest', icon: <BarChart2 className="w-5 h-5" /> },
+  { to: '/risk', label: 'Risk', icon: <Shield className="w-5 h-5" /> },
 ];
 
 function NavItem({ to, label, icon }: NavItemProps) {
@@ -21,14 +22,14 @@ function NavItem({ to, label, icon }: NavItemProps) {
       to={to}
       className={({ isActive }) =>
         cn(
-          'flex items-center gap-2 rounded p-2 text-sm transition-colors',
+          'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
           isActive
-            ? 'bg-dark-500 text-accent-light'
-            : 'text-dark-200 hover:bg-dark-500 hover:text-dark-50'
+            ? 'bg-surface-hover text-accent border-l-2 border-accent'
+            : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'
         )
       }
     >
-      <span className="w-5 text-center">{icon}</span>
+      <span className="flex-shrink-0">{icon}</span>
       <span>{label}</span>
     </NavLink>
   );
@@ -39,34 +40,43 @@ function ConnectionDot() {
   const dotColors: Record<string, string> = {
     connected: 'bg-gain',
     disconnected: 'bg-loss',
-    connecting: 'bg-yellow-400',
-    reconnecting: 'bg-yellow-400',
+    connecting: 'bg-warning',
+    reconnecting: 'bg-warning',
+  };
+
+  const labels: Record<string, string> = {
+    connected: 'Connected',
+    disconnected: 'Disconnected',
+    connecting: 'Connecting...',
+    reconnecting: 'Reconnecting...',
   };
 
   return (
-    <div className="flex items-center gap-2 px-2 py-3">
+    <div className="flex items-center gap-2 px-3 py-2">
       <span
-        className={cn('h-2 w-2 rounded-full', dotColors[connectionState] || 'bg-dark-400')}
+        className={cn('h-2 w-2 rounded-full', dotColors[connectionState] || 'bg-text-muted')}
       />
-      <span className="text-xs text-dark-300 capitalize">{connectionState}</span>
+      <span className="text-xs text-text-muted capitalize">
+        {labels[connectionState] || connectionState}
+      </span>
     </div>
   );
 }
 
 export function Sidebar() {
   return (
-    <aside className="flex w-56 flex-col border-r border-dark-600 bg-dark-900">
-      <div className="flex items-center gap-2 border-b border-dark-600 px-4 py-3">
+    <aside className="flex w-64 flex-col border-r border-border bg-surface">
+      <div className="flex items-center gap-2 border-b border-border px-4 py-4">
         <span className="text-lg font-bold text-accent">conflu.ai</span>
       </div>
 
-      <nav className="flex-1 space-y-1 px-2 py-4">
+      <nav className="flex-1 space-y-1 px-3 py-4">
         {navItems.map((item) => (
           <NavItem key={item.to} {...item} />
         ))}
       </nav>
 
-      <div className="border-t border-dark-600 px-3 py-2">
+      <div className="border-t border-border px-3 py-3">
         <ConnectionDot />
       </div>
     </aside>

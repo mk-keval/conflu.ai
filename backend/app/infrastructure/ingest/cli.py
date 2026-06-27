@@ -13,7 +13,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
-from typing import Any
 
 from backend.app.core.config import settings
 from backend.app.core.database import get_db, initialize_database

@@ -5,11 +5,11 @@ import { ErrorBoundary } from './ErrorBoundary';
 
 export function AppShell() {
   return (
-    <div className="flex h-screen bg-dark-800">
+    <div className="flex h-screen bg-background">
       <Sidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto bg-background">
           <ErrorBoundary>
             <Outlet />
           </ErrorBoundary>

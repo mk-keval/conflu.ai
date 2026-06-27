@@ -7,8 +7,6 @@ recommended position sizing parameters. Never fails — returns sensible default
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 import numpy as np
 
 from backend.app.core.config import settings
@@ -229,11 +227,13 @@ class KellyOptimizer:
             for _, row in result.iterrows():
                 pnl_val = row.get("pnl")
                 if pnl_val is not None:
-                    trades.append({
-                        "pnl": float(pnl_val),
-                        "direction": str(row.get("direction", "Long")),
-                        "size": float(row.get("size", 0.0)),
-                    })
+                    trades.append(
+                        {
+                            "pnl": float(pnl_val),
+                            "direction": str(row.get("direction", "Long")),
+                            "size": float(row.get("size", 0.0)),
+                        }
+                    )
             return trades
 
         except Exception:

@@ -7,7 +7,6 @@ Provides regime classification for:
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 import numpy as np
@@ -46,7 +45,8 @@ class RegimeDetector:
         result = self.detect(ohlcv, config)
         return RegimeSeries(
             timestamps=pd.DatetimeIndex(result.timestamps),
-            labels=result.regime_labels, names=result.regime_names,
+            labels=result.regime_labels,
+            names=result.regime_names,
         )
 
     def _detect_hmm(self, ohlcv: pd.DataFrame, config: RegimeConfig) -> RegimeResult:
@@ -74,7 +74,9 @@ class RegimeDetector:
 
         n_states = max(2, min(config.n_states, 4))
         try:
-            model = hmm.GaussianHMM(n_components=n_states, covariance_type="full", n_iter=100, random_state=42, tol=1e-4)
+            model = hmm.GaussianHMM(
+                n_components=n_states, covariance_type="full", n_iter=100, random_state=42, tol=1e-4
+            )
             model.fit(X)
             hidden_states = model.predict(X)
         except Exception:
@@ -105,10 +107,14 @@ class RegimeDetector:
             state_stds_list = [float(np.sqrt(model.covars_[s, 0, 0])) for s in state_order]
 
         return RegimeResult(
-            symbol="unknown", method="hmm", n_states=n_states,
-            regime_labels=full_labels, regime_names=regime_names,
+            symbol="unknown",
+            method="hmm",
+            n_states=n_states,
+            regime_labels=full_labels,
+            regime_names=regime_names,
             transition_matrix=transition_matrix,
-            state_means=state_means_list, state_stds=state_stds_list,
+            state_means=state_means_list,
+            state_stds=state_stds_list,
             timestamps=full_timestamps,
         )
 
@@ -129,8 +135,12 @@ class RegimeDetector:
         timestamps = [str(ts) for ts in ohlcv.index]
 
         return RegimeResult(
-            symbol="unknown", method="volatility_quantile", n_states=n_quantiles,
-            regime_labels=regime_labels, regime_names=regime_names, timestamps=timestamps,
+            symbol="unknown",
+            method="volatility_quantile",
+            n_states=n_quantiles,
+            regime_labels=regime_labels,
+            regime_names=regime_names,
+            timestamps=timestamps,
         )
 
     @staticmethod
@@ -138,8 +148,11 @@ class RegimeDetector:
         n_states = max(2, min(n_states, 4))
         regime_names = REGIME_NAMES.get(n_states, [f"Regime {i}" for i in range(n_states)])
         return RegimeResult(
-            symbol="unknown", method=method, n_states=n_states,
-            regime_labels=[0] * len(ohlcv), regime_names=regime_names,
+            symbol="unknown",
+            method=method,
+            n_states=n_states,
+            regime_labels=[0] * len(ohlcv),
+            regime_names=regime_names,
             timestamps=[str(ts) for ts in ohlcv.index],
         )
 
@@ -148,16 +161,21 @@ class RegimeDetector:
         """Compute per-regime statistics (returns, volatility, Sharpe)."""
         close = ohlcv["close"]
         returns = close.pct_change().dropna()
-        aligned_labels = regime_labels[-len(returns):] if len(regime_labels) >= len(returns) else regime_labels
+        aligned_labels = regime_labels[-len(returns) :] if len(regime_labels) >= len(returns) else regime_labels
         regime_data: dict[str, Any] = {}
         for r in range(n_regimes):
-            mask = np.array(aligned_labels[:len(returns)]) == r
-            regime_returns = returns.values[:len(mask)][mask]
+            mask = np.array(aligned_labels[: len(returns)]) == r
+            regime_returns = returns.values[: len(mask)][mask]
             if len(regime_returns) > 0:
                 avg_ret = float(np.mean(regime_returns))
                 vol_val = float(np.std(regime_returns))
                 sharpe = avg_ret / vol_val * np.sqrt(252) if vol_val > 0 else 0.0
             else:
                 avg_ret = vol_val = sharpe = 0.0
-            regime_data[f"regime_{r}"] = {"n_bars": int(np.sum(mask)), "avg_return": avg_ret, "volatility": vol_val, "sharpe": sharpe}
+            regime_data[f"regime_{r}"] = {
+                "n_bars": int(np.sum(mask)),
+                "avg_return": avg_ret,
+                "volatility": vol_val,
+                "sharpe": sharpe,
+            }
         return regime_data

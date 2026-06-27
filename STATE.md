@@ -1,98 +1,62 @@
 # conflu.ai - Project State
 
-## Current Milestone: v0.1 Foundation
+## Overview
+The project was initially built with a 10-phase DuckDB-dependent architecture (v0.1 Foundation). The screening engine has been redesigned to use TradingView Screener as the primary discovery source. Phases 1–2 of the old architecture are retained (data ingestion for backtest OHLCV); Phases 3–10 are replaced by the new TV Screener approach.
 
-### Completed
-- [x] Project structure created (backend/app/{core,domain,infrastructure,api,tests}, frontend/src/{components,hooks,lib})
-- [x] PROJECT.md created
-- [x] REQUIREMENTS.md created
-- [x] Git branch: feat/conflu-ai-platform
-- [x] GSD Phase 1: Discuss - Architecture decisions complete
-- [x] 01-CONTEXT.md created with implementation decisions
-- [x] 01-DISCUSSION-LOG.md created
-- [x] 01-RESEARCH.md created with technical research
-- [x] GSD Phase 1: Plan - Detailed implementation plan complete
-- [x] 01-PLAN.md created with 8 created with 8 tasks across 4 waves
-- [x] GSD Phase 1: Execute - Core infrastructure complete
-- [x] 01-SUMMARY.md created with verification results
-- [x] GSD Phase 2: Discuss - Architecture decisions complete
-- [x] 02-CONTEXT.md created with 20 implementation decisions
-- [x] 02-DISCUSSION-LOG.md created
-- [x] 02-RESEARCH.md created with technical research
-- [x] GSD Phase 2: Plan - Detailed implementation plan complete
-- [x] 02-PLAN.md created with 5 waves, 15 tasks, 20 must_haves
-- [x] GSD Phase 2: Execute - Data ingestion pipeline complete
-- [x] 02-SUMMARY.md created with verification results
-- [x] GSD Phase 3: Discuss - Architecture decisions complete
-- [x] 03-CONTEXT.md created with 22 implementation decisions
-- [x] 03-DISCUSSION-LOG.md created
-- [x] 03-RESEARCH.md created with technical research
-- [x] GSD Phase 3: Plan - Detailed implementation plan complete
-- [x] 03-PLAN.md created with 5 waves, 16 tasks, 18 must_haves
-- [x] GSD Phase 3: Execute - Screener engine complete
-- [x] 03-SUMMARY.md created with verification results
-- [x] GSD Phase 4: Discuss - Architecture decisions complete
-- [x] 04-CONTEXT.md created with 25 implementation decisions
-- [x] 04-DISCUSSION-LOG.md created
-- [x] 04-RESEARCH.md created with technical research
-- [x] GSD Phase 4: Plan - Detailed implementation plan complete
-- [x] 04-PLAN.md created with 4 waves, 19 tasks, 18 must_haves
-- [x] GSD Phase 4: Execute - Backtest engine complete
-- [x] 04-SUMMARY.md created with verification results
-- [x] GSD Phase 5: Discuss - Architecture decisions complete
-- [x] 05-CONTEXT.md created with 23 implementation decisions
-- [x] 05-DISCUSSION-LOG.md created
-- [x] 05-RESEARCH.md created with technical research
-- [x] GSD Phase 5: Plan - Detailed implementation plan complete
-- [x] 05-PLAN.md created with 4 waves, 18 tasks, 18 must_haves
-- [x] GSD Phase 5: Execute - Risk engine complete
-- [x] 05-SUMMARY.md created with verification results
-- [x] GSD Phase 6: Discuss - Architecture decisions complete
-- [x] 06-CONTEXT.md created with 21 implementation decisions
-- [x] 06-DISCUSSION-LOG.md created
-- [x] 06-RESEARCH.md created with technical research
-- [x] GSD Phase 6: Plan - Detailed implementation plan complete
-- [x] 06-PLAN.md created with 4 waves, 13 tasks, 15 must_haves
-- [x] GSD Phase 6: Execute - API layer complete
-- [x] 06-SUMMARY.md created with verification results
-- [x] GSD Phase 7: Discuss - Architecture decisions complete
-- [x] 07-CONTEXT.md created with 20 implementation decisions
-- [x] 07-DISCUSSION-LOG.md created
-- [x] 07-RESEARCH.md created with technical research
-- [x] GSD Phase 7: Plan - Detailed implementation plan complete
-- [x] 07-PLAN.md created with 5 waves, 18 tasks, 10 must_haves
-- [x] GSD Phase 7: Execute - Frontend core complete
-- [x] 07-SUMMARY.md created with verification results
-- [x] GSD Phase 8: Discuss - Architecture decisions complete
-- [x] 08-CONTEXT.md created with 16 implementation decisions
-- [x] 08-DISCUSSION-LOG.md created with audit trail
+## Current Milestone: v1.0 — TV Screener + Deep Analysis
 
-### Completed
-- [x] GSD Phase 8: Plan - Detailed implementation plan
-- [x] GSD Phase 8: Execute - Advanced screener complete
-- [x] 08-SUMMARY.md created with verification results
+### Phase 1: TV Screener Specialist
+**Status:** ✅ Complete
+**Files created:**
+- `backend/app/infrastructure/screener/tv_specialist.py` — TVScreenerSpecialist class
+- `backend/app/infrastructure/screener/confluence_scorer.py` — TVConfluenceScorer
+- `backend/app/infrastructure/screener/tv_engine.py` — TVScreenEngine orchestrator
+- `backend/app/infrastructure/screener/tv_models.py` — Pydantic models
+- `backend/app/api/routers/tv_screener.py` — FastAPI endpoints
+- `backend/app/infrastructure/screener/configs.py` — ScreenConfig updates
+- `config/screens/*.yaml` — 5 screen templates
+- `.claude/skills/tvscreener-specialist/SKILL.md` — AI agent skill
+- `.planning/phases/01-tv-screener-phase1/` — GSD artifacts
 
-### Completed
-- [x] GSD Phase 9: Discuss - Architecture decisions complete
-- [x] 09-CONTEXT.md created with 25 implementation decisions
-- [x] 09-DISCUSSION-LOG.md created with audit trail
-- [x] 09-RESEARCH.md created with technical research
-- [x] GSD Phase 9: Plan - Detailed implementation plan complete
-- [x] 09-PLAN.md created with 4 waves, 20 tasks, 16 must_haves
-- [x] GSD Phase 9: Execute - Advanced backtest complete
-- [x] 09-SUMMARY.md created with verification results
-- [x] GSD Phase 10: Discuss - Architecture decisions complete
-- [x] 10-CONTEXT.md created with 30 implementation decisions
-- [x] 10-DISCUSSION-LOG.md created with audit trail
-- [x] GSD Phase 10: Plan - Detailed implementation plan complete
-- [x] 10-PLAN.md created with 4 waves, 14 tasks, 6 must_haves
+### Phase 2: Deep Analysis Orchestrator
+**Status:** ✅ Complete
+**Files created:**
+- `backend/app/infrastructure/analysis/deep_analysis.py` — DeepAnalysisOrchestrator
+- `backend/app/infrastructure/backtest/engine.py` — Fixed multi-symbol OHLCV
+- `backend/app/infrastructure/backtest/sizing.py` — Fixed ATR sizing
+- `.planning/phases/02-deep-analysis-phase2/` — GSD artifacts
 
-### In Progress
-- [ ] GSD Phase 10: Execute - Production hardening
+### Phase 3: Cleanup & Consolidation
+**Status:** ✅ Complete
+- Removed 11 old DuckDB-dependent screener files (engine.py, cache.py, filters.py, scoring.py, export.py, streaming.py, alerts.py, broadcasting.py, screen_replay.py, sharing.py, models.py)
+- Removed 5 old API routers (screener.py, screen_crud.py, alerts.py, replay.py, sharing.py)
+- Updated router __init__.py and main.py to remove old registrations
+- Cleaned test_screener_configs.py (removed models.py references)
+- Deleted 7 obsolete test files for old screener modules
 
-### Pending
-- [ ] (none - final phase)
+### Phase 4: Production Hardening
+**Status:** 🔄 In Progress
+- **Wave 1 (Bugfixes):** ✅ Fixed 3 critical bugs — FILTER_MAP validation in configs.py, full FILTER_MAP + compile_filters + build_query in tv_specialist.py, deep_analyze endpoint returning real pipeline data
+- **Wave 2 (Rate Limiting & Caching):** ✅ Created TVRateLimiter (token bucket, 25 req/min) and TVCache (60s TTL, 50 entries LRU); integrated into tv_engine.py discover()
+- **Wave 3 (API Hardening):** ✅ Request/response models use Pydantic (TVScreenRequest, TVScreenResponse, ScoredTickerResponse); config accepts inline dict or template name; dict_to_screen_config handles universe properly; tv_screener.py endpoint uses typed models
+- **Wave 4 (Tests):** ✅ Created 67 new tests across 3 files — test_tv_specialist.py (14 filter builder tests + compile/query/discover tests), test_tv_engine.py (5 engine + 3 rate limiter + 7 cache tests), test_tv_screener.py (16 request/response/helper tests); all pass
+- **Wave 5 (Docs):** 🔄 STATE.md update, GSD SUMMARY.md
+- **Removed unsupported filters:** `macd_hist_rising` and `bb_squeeze` removed from FILTER_MAP (tradingview_screener Column doesn't support `.shift()` or arithmetic operators)
+- **Updated YAML templates:** mean-reversion, oversold-bounce, volume-surge, breakout updated to use only valid FILTER_MAP entries
 
-## Active Phase
-**Phase 10: Production Hardening**
-- Execute CI/CD pipeline, containerization, observability, documentation, performance hardening
+## Archive: v0.1 Foundation (Legacy 10-Phase Plan)
+The original GSD plan with Phases 1–10 was built around a DuckDB-dependent architecture. Phases 1–2 (Foundation + Data Ingestion) are **retained** — they provide the data pipeline for backtest OHLCV. Phases 3–10 (Screener Engine, Backtest, Risk, API, Frontend, Advanced Screener, Advanced Backtest, Production) are **superseded** by the TV Screener approach.
+
+### What's Retained
+- Phase 1: Foundation & Core Infrastructure — Core config, database, logging
+- Phase 2: Data Ingestion Pipeline — OHLCV ingestion for backtesting
+
+### What's Superseded
+- Phase 3: Screener Engine → TV Screener Specialist (Phase 1, new)
+- Phase 4: Backtest Engine → Deep Analysis Orchestrator (Phase 2, new)
+- Phase 5-10: Risk/API/Frontend/Advanced/Production — To be evaluated
+
+## Active Work
+**Phase 3: Cleanup & Consolidation** — ✅ Complete (23 old files deleted)
+**Phase 4: Production Hardening** — 🔄 Wave 5 (Docs wrap-up) — 5 Waves implemented, 67 tests passing
+**Phase 5: UI / Frontend Integration** — ⏳ Future work

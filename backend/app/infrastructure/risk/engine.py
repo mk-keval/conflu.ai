@@ -11,7 +11,7 @@ Data flow:
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import numpy as np
@@ -25,7 +25,6 @@ from backend.app.infrastructure.risk.correlation import CorrelationAnalyzer
 from backend.app.infrastructure.risk.kelly import KellyOptimizer
 from backend.app.infrastructure.risk.models import (
     CorrelationResult,
-    KellyRecommendation,
     PortfolioBetaResult,
     RiskAlert,
     RiskAssessment,
@@ -74,7 +73,7 @@ class RiskEngine:
         Returns:
             RiskAssessment with all metrics and alerts.
         """
-        positions = positions or {s: 1.0 for s in symbols}
+        positions = positions or dict.fromkeys(symbols, 1.0)
 
         # Load portfolio returns
         portfolio_returns = self._load_portfolio_returns(symbols)
@@ -125,7 +124,7 @@ class RiskEngine:
 
         return RiskAssessment(
             portfolio_id=portfolio_id,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             var_95=var_95,
             var_99=var_99,
             portfolio_beta=portfolio_beta,
@@ -192,9 +191,7 @@ class RiskEngine:
             List of beta result dicts.
         """
         loop = asyncio.get_running_loop()
-        results = await loop.run_in_executor(
-            None, self._beta.compute_beta, symbols, benchmark, window
-        )
+        results = await loop.run_in_executor(None, self._beta.compute_beta, symbols, benchmark, window)
         return [r.model_dump() for r in results]
 
     async def compute_correlation(
@@ -214,9 +211,7 @@ class RiskEngine:
             Correlation result dict.
         """
         loop = asyncio.get_running_loop()
-        result = await loop.run_in_executor(
-            None, self._correlation.compute_correlation, symbols, window, 15, group_by
-        )
+        result = await loop.run_in_executor(None, self._correlation.compute_correlation, symbols, window, 15, group_by)
         return result.model_dump()
 
     async def compute_var(
@@ -262,9 +257,7 @@ class RiskEngine:
             Kelly recommendation dict.
         """
         loop = asyncio.get_running_loop()
-        result = await loop.run_in_executor(
-            None, self._kelly.optimize_from_backtest, backtest_run_id, trades, max_dd
-        )
+        result = await loop.run_in_executor(None, self._kelly.optimize_from_backtest, backtest_run_id, trades, max_dd)
         return result.model_dump()
 
     def _load_portfolio_returns(self, symbols: list[str]) -> pd.Series | None:
@@ -333,7 +326,7 @@ class RiskEngine:
                         message=f"VaR(95%) {var_95.var:.2%} exceeds threshold",
                         current_value=var_95.var,
                         threshold=max_var * 2,
-                        timestamp=datetime.now(timezone.utc),
+                        timestamp=datetime.now(UTC),
                     )
                 )
 
@@ -348,7 +341,7 @@ class RiskEngine:
                         message=f"Portfolio beta {beta:.2f} exceeds 1.5",
                         current_value=beta,
                         threshold=1.5,
-                        timestamp=datetime.now(timezone.utc),
+                        timestamp=datetime.now(UTC),
                     )
                 )
 
@@ -362,7 +355,7 @@ class RiskEngine:
                         message=f"Low diversification score: {correlation.diversification_score:.2f}",
                         current_value=correlation.diversification_score,
                         threshold=0.3,
-                        timestamp=datetime.now(timezone.utc),
+                        timestamp=datetime.now(UTC),
                     )
                 )
 
@@ -380,7 +373,7 @@ class RiskEngine:
                             symbol=symbols_str,
                             current_value=abs(corr_val),
                             threshold=0.95,
-                            timestamp=datetime.now(timezone.utc),
+                            timestamp=datetime.now(UTC),
                         )
                     )
 

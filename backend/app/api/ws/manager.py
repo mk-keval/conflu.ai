@@ -29,12 +29,10 @@ def _get_ws_gauge() -> Any:
     global _ws_connections_gauge
     if _ws_connections_gauge is None:
         try:
-            from prometheus_client import Gauge, REGISTRY
+            from prometheus_client import REGISTRY, Gauge
 
             if "ws_connections_active" not in REGISTRY._names_to_collectors:
-                _ws_connections_gauge = Gauge(
-                    "ws_connections_active", "Active WebSocket connections"
-                )
+                _ws_connections_gauge = Gauge("ws_connections_active", "Active WebSocket connections")
             else:
                 # Get existing collector
                 for collector in REGISTRY._collector_to_names:
@@ -109,10 +107,12 @@ class WebSocketManager:
 
         elif msg_type == "ping":
             with suppress(Exception):
-                await websocket.send_json({
-                    "type": "pong",
-                    "timestamp": datetime.now(UTC).isoformat(),
-                })
+                await websocket.send_json(
+                    {
+                        "type": "pong",
+                        "timestamp": datetime.now(UTC).isoformat(),
+                    }
+                )
 
         elif msg_type == "resync":
             last_seq = data.get("last_sequence", 0)
@@ -171,11 +171,13 @@ class WebSocketManager:
         if last_sequence < (self._sequences[ws_id] - len(history)):
             # Too many missed — send reconnection guidance
             with suppress(Exception):
-                await websocket.send_json({
-                    "type": "resync_required",
-                    "message": "Too many messages missed. Reconnect for full state.",
-                    "current_sequence": self._sequences[ws_id],
-                })
+                await websocket.send_json(
+                    {
+                        "type": "resync_required",
+                        "message": "Too many messages missed. Reconnect for full state.",
+                        "current_sequence": self._sequences[ws_id],
+                    }
+                )
             return
 
         missed = [msg for msg in history if msg.get("sequence", 0) > last_sequence]
@@ -191,13 +193,9 @@ class WebSocketManager:
         Launched from FastAPI lifespan startup.
         """
         # Price update loop (default 1s interval per D-07)
-        self._background_tasks["price"] = asyncio.create_task(
-            self._price_update_loop()
-        )
+        self._background_tasks["price"] = asyncio.create_task(self._price_update_loop())
         # Indicator update loop (default 5s interval per D-07)
-        self._background_tasks["indicator"] = asyncio.create_task(
-            self._indicator_update_loop()
-        )
+        self._background_tasks["indicator"] = asyncio.create_task(self._indicator_update_loop())
         # Alert evaluation loop (Per D-22: singleton alert_engine, background loop)
         from backend.app.infrastructure.screener.alerts import alert_engine
 
@@ -211,18 +209,18 @@ class WebSocketManager:
                 from backend.app.api.ws.channels import price_update_provider
 
                 # Find all price:* subscriptions
-                price_channels = [
-                    ch for ch in self._channel_subscribers
-                    if ch.startswith("price:")
-                ]
+                price_channels = [ch for ch in self._channel_subscribers if ch.startswith("price:")]
                 for channel in price_channels:
                     symbol = channel.split(":", 1)[1]
                     data = await price_update_provider(symbol)
-                    await self.broadcast(channel, {
-                        "type": "price_update",
-                        "channel": channel,
-                        "data": data,
-                    })
+                    await self.broadcast(
+                        channel,
+                        {
+                            "type": "price_update",
+                            "channel": channel,
+                            "data": data,
+                        },
+                    )
                 await asyncio.sleep(1.0)  # 1s interval per D-07
             except asyncio.CancelledError:
                 break
@@ -236,20 +234,20 @@ class WebSocketManager:
             try:
                 from backend.app.api.ws.channels import indicator_update_provider
 
-                indicator_channels = [
-                    ch for ch in self._channel_subscribers
-                    if ch.startswith("indicator:")
-                ]
+                indicator_channels = [ch for ch in self._channel_subscribers if ch.startswith("indicator:")]
                 for channel in indicator_channels:
                     parts = channel.split(":")
                     if len(parts) >= 3:
                         _, symbol, indicator = parts[0], parts[1], parts[2]
                         data = await indicator_update_provider(symbol, indicator)
-                        await self.broadcast(channel, {
-                            "type": "indicator_update",
-                            "channel": channel,
-                            "data": data,
-                        })
+                        await self.broadcast(
+                            channel,
+                            {
+                                "type": "indicator_update",
+                                "channel": channel,
+                                "data": data,
+                            },
+                        )
                 await asyncio.sleep(5.0)  # 5s interval per D-07
             except asyncio.CancelledError:
                 break

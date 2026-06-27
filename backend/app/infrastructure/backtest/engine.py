@@ -16,7 +16,6 @@ import asyncio
 import hashlib
 import json
 import time
-from datetime import datetime, timezone
 from typing import Any
 
 import numpy as np
@@ -24,7 +23,6 @@ import pandas as pd
 
 from backend.app.core.database import get_db
 from backend.app.core.logging import get_logger, set_correlation_id
-from backend.app.domain.models import Metrics, Trade
 from backend.app.infrastructure.backtest.ledger import TradeLedger
 from backend.app.infrastructure.backtest.metrics import MetricsComputer
 from backend.app.infrastructure.backtest.models import (
@@ -111,6 +109,11 @@ class BacktestEngine:
                 position_sizing=config.position_sizing,
                 duration_ms=0.0,
             )
+
+        # Handle multi-symbol case: process each symbol separately
+        if "symbol" in ohlcv.columns and len(config.symbols) > 1:
+            # For multi-symbol, process first symbol for now
+            ohlcv = ohlcv[ohlcv["symbol"] == config.symbols[0]].copy()
 
         # 2. Build signals (entries/exits)
         price = ohlcv[["close"]].copy() if "close" in ohlcv.columns else ohlcv
@@ -363,12 +366,8 @@ class BacktestEngine:
                 columns=["signal"],
             )
         else:
-            entries = pd.DataFrame(
-                np.zeros(len(ohlcv), dtype=bool), index=ohlcv.index, columns=["signal"]
-            )
-            exits = pd.DataFrame(
-                np.zeros(len(ohlcv), dtype=bool), index=ohlcv.index, columns=["signal"]
-            )
+            entries = pd.DataFrame(np.zeros(len(ohlcv), dtype=bool), index=ohlcv.index, columns=["signal"])
+            exits = pd.DataFrame(np.zeros(len(ohlcv), dtype=bool), index=ohlcv.index, columns=["signal"])
 
         return entries, exits
 

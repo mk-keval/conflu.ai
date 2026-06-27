@@ -19,17 +19,30 @@ from fastapi import APIRouter
 from backend.app.api.dependencies import BacktestEngineDep
 from backend.app.api.exceptions import NotFoundError
 from backend.app.api.schemas import (
-    ApiResponse, BacktestRequest, BacktestResultData, CompareRequest, MetaInfo,
-    OptimizeRequest, OptimizeResponse, RegimeRequest, ReportRequest, ReportResponse,
+    ApiResponse,
+    BacktestRequest,
+    BacktestResultData,
+    CompareRequest,
+    MetaInfo,
+    OptimizeRequest,
+    OptimizeResponse,
+    RegimeRequest,
+    ReportRequest,
+    ReportResponse,
 )
 from backend.app.core.database import get_db
 from backend.app.core.logging import get_logger
 from backend.app.infrastructure.backtest.comparison import StrategyComparator
-from backend.app.infrastructure.backtest.models import BacktestRunConfig, BacktestRunRecord, ComparisonConfig, OptimizationSearchSpace
+from backend.app.infrastructure.backtest.models import (
+    BacktestRunConfig,
+    BacktestRunRecord,
+    ComparisonConfig,
+    OptimizationSearchSpace,
+)
+from backend.app.infrastructure.backtest.models import ReportConfig as ReportCfgModel
 from backend.app.infrastructure.backtest.optimization import BacktestOptimizer
 from backend.app.infrastructure.backtest.regimes import RegimeDetector
 from backend.app.infrastructure.backtest.reporting import ReportGenerator
-from backend.app.infrastructure.backtest.models import ReportConfig as ReportCfgModel
 
 router = APIRouter(prefix="/backtest", tags=["backtest"])
 log = get_logger("conflu.api.backtest")
@@ -190,8 +203,7 @@ async def get_backtest_equity(run_id: str) -> Any:
     """Retrieve equity curve for a backtest run."""
     with get_db(read_only=True) as con:
         rows = con.sql(
-            "SELECT timestamp, equity FROM backtest_equity "
-            "WHERE run_id = ? ORDER BY timestamp",
+            "SELECT timestamp, equity FROM backtest_equity WHERE run_id = ? ORDER BY timestamp",
             params=[run_id],
         ).fetchall()
 
@@ -211,26 +223,40 @@ async def get_backtest_equity(run_id: str) -> Any:
 async def optimize_backtest_v2(request: OptimizeRequest, engine: BacktestEngineDep) -> Any:
     """Run parameter optimization with grid/random/bayesian methods."""
     import uuid
+
     optimizer = BacktestOptimizer(engine=engine)
     run_id = str(uuid.uuid4())
     base_config = BacktestRunConfig(
-        run_id=run_id, symbols=request.symbols, start=request.start, end=request.end,
-        initial_cash=request.initial_cash, fees_bps=request.fees_bps,
-        slippage_bps=request.slippage_bps, position_sizing=request.position_sizing,
+        run_id=run_id,
+        symbols=request.symbols,
+        start=request.start,
+        end=request.end,
+        initial_cash=request.initial_cash,
+        fees_bps=request.fees_bps,
+        slippage_bps=request.slippage_bps,
+        position_sizing=request.position_sizing,
         sizing_params=request.sizing_params,
     )
     search_space = OptimizationSearchSpace(
-        method=request.method, grid_params=request.grid_params,
-        param_distributions=request.param_distributions, objectives=request.objectives,
-        max_trials=request.max_trials, timeout_s=request.timeout_s,
-        n_jobs=request.n_jobs, early_stopping=request.early_stopping,
+        method=request.method,
+        grid_params=request.grid_params,
+        param_distributions=request.param_distributions,
+        objectives=request.objectives,
+        max_trials=request.max_trials,
+        timeout_s=request.timeout_s,
+        n_jobs=request.n_jobs,
+        early_stopping=request.early_stopping,
     )
     result = await optimizer.optimize(base_config, search_space)
     return ApiResponse(
         data=OptimizeResponse(
-            study_id=result.study_id, symbol=result.symbol, method=result.method,
-            best_params=result.best_params, best_objectives=result.best_objectives,
-            n_trials=result.n_trials, duration_ms=result.duration_ms,
+            study_id=result.study_id,
+            symbol=result.symbol,
+            method=result.method,
+            best_params=result.best_params,
+            best_objectives=result.best_objectives,
+            n_trials=result.n_trials,
+            duration_ms=result.duration_ms,
             param_importance=result.param_importance,
         ),
         meta=MetaInfo(timestamp=datetime.now(UTC).isoformat(), duration_ms=result.duration_ms),
@@ -241,6 +267,7 @@ async def optimize_backtest_v2(request: OptimizeRequest, engine: BacktestEngineD
 async def detect_regimes(request: RegimeRequest) -> Any:
     """Detect market regimes for a symbol/date range."""
     import pandas as pd
+
     detector = RegimeDetector()
     with get_db(read_only=True) as con:
         placeholders = ",".join("?" * len(request.symbols))
@@ -253,7 +280,10 @@ async def detect_regimes(request: RegimeRequest) -> Any:
     result.set_index("timestamp", inplace=True)
     result.index = pd.DatetimeIndex(result.index)
     from backend.app.infrastructure.backtest.models import RegimeConfig as RegimeCfg
-    regime_result = detector.detect(result, RegimeCfg(method=request.method, n_states=request.n_states, window_days=request.window_days))
+
+    regime_result = detector.detect(
+        result, RegimeCfg(method=request.method, n_states=request.n_states, window_days=request.window_days)
+    )
     return ApiResponse(data=regime_result.model_dump(), meta=MetaInfo(timestamp=datetime.now(UTC).isoformat()))
 
 
@@ -266,38 +296,69 @@ async def generate_report(run_id: str, request: ReportRequest) -> Any:
         raise NotFoundError("BacktestRun", run_id)
 
     import json
+
     from backend.app.domain.models import Metrics
+
     metrics_json = row["metrics_json"] if row.get("metrics_json") else "{}"
     metrics_data = json.loads(metrics_json) if isinstance(metrics_json, str) else (metrics_json or {})
 
     run_record = BacktestRunRecord(
-        run_id=row["run_id"], config_hash=row["config_hash"], symbol=row["symbol"],
-        timeframe=row["timeframe"], start_date=row["start_date"], end_date=row["end_date"],
-        initial_cash=row["initial_cash"], position_sizing=row["position_sizing"],
+        run_id=row["run_id"],
+        config_hash=row["config_hash"],
+        symbol=row["symbol"],
+        timeframe=row["timeframe"],
+        start_date=row["start_date"],
+        end_date=row["end_date"],
+        initial_cash=row["initial_cash"],
+        position_sizing=row["position_sizing"],
         metrics=Metrics(**{k: v for k, v in metrics_data.items() if k in Metrics.model_fields}),
-        duration_ms=row.get("duration_ms", 0.0), trades_count=0,
+        duration_ms=row.get("duration_ms", 0.0),
+        trades_count=0,
     )
 
     extra_data: dict[str, Any] = {}
     with get_db(read_only=True) as con:
-        equity_rows = con.sql("SELECT timestamp, equity, drawdown FROM backtest_equity_curves WHERE run_id = ? ORDER BY timestamp", params=[run_id]).fetchall()
+        equity_rows = con.sql(
+            "SELECT timestamp, equity, drawdown FROM backtest_equity_curves WHERE run_id = ? ORDER BY timestamp",
+            params=[run_id],
+        ).fetchall()
         if equity_rows:
-            extra_data["equity_curve"] = [{"timestamp": str(r[0]), "equity": r[1], "drawdown": r[2] if len(r) > 2 else 0} for r in equity_rows]
-        trade_rows = con.sql("SELECT * FROM backtest_trades WHERE run_id = ? ORDER BY entry_time", params=[run_id]).fetchall()
+            extra_data["equity_curve"] = [
+                {"timestamp": str(r[0]), "equity": r[1], "drawdown": r[2] if len(r) > 2 else 0} for r in equity_rows
+            ]
+        trade_rows = con.sql(
+            "SELECT * FROM backtest_trades WHERE run_id = ? ORDER BY entry_time", params=[run_id]
+        ).fetchall()
         if trade_rows:
             extra_data["trades"] = [dict(r) for r in trade_rows]
 
     generator = ReportGenerator()
-    results = generator.generate(run_record, ReportCfgModel(
-        formats=request.formats, template_name=request.template,
-        include_equity_curve=request.include_equity_curve, include_drawdown=request.include_drawdown,
-        include_trade_analysis=request.include_trade_analysis, include_regime_analysis=request.include_regime_analysis,
-        include_parameter_sensitivity=request.include_parameter_sensitivity,
-    ), extra_data)
+    results = generator.generate(
+        run_record,
+        ReportCfgModel(
+            formats=request.formats,
+            template_name=request.template,
+            include_equity_curve=request.include_equity_curve,
+            include_drawdown=request.include_drawdown,
+            include_trade_analysis=request.include_trade_analysis,
+            include_regime_analysis=request.include_regime_analysis,
+            include_parameter_sensitivity=request.include_parameter_sensitivity,
+        ),
+        extra_data,
+    )
 
-    formats_list = [{"format": r.format, "download_url": f"/api/v1/backtest/reports/{r.report_id}.{r.format}"} for r in results if r.report_path]
+    formats_list = [
+        {"format": r.format, "download_url": f"/api/v1/backtest/reports/{r.report_id}.{r.format}"}
+        for r in results
+        if r.report_path
+    ]
     return ApiResponse(
-        data=ReportResponse(report_id=results[0].report_id if results else "", formats=formats_list, size_bytes=sum(r.size_bytes for r in results), created_at=datetime.now(UTC).isoformat()),
+        data=ReportResponse(
+            report_id=results[0].report_id if results else "",
+            formats=formats_list,
+            size_bytes=sum(r.size_bytes for r in results),
+            created_at=datetime.now(UTC).isoformat(),
+        ),
         meta=MetaInfo(timestamp=datetime.now(UTC).isoformat()),
     )
 
@@ -306,8 +367,12 @@ async def generate_report(run_id: str, request: ReportRequest) -> Any:
 async def compare_backtests(request: CompareRequest) -> Any:
     """Compare multiple backtest runs."""
     comparator = StrategyComparator()
-    result = await comparator.compare(ComparisonConfig(
-        run_ids=request.run_ids, labels=request.labels,
-        include_significance=request.include_significance, bootstrap_samples=request.bootstrap_samples,
-    ))
+    result = await comparator.compare(
+        ComparisonConfig(
+            run_ids=request.run_ids,
+            labels=request.labels,
+            include_significance=request.include_significance,
+            bootstrap_samples=request.bootstrap_samples,
+        )
+    )
     return ApiResponse(data=result.model_dump(), meta=MetaInfo(timestamp=datetime.now(UTC).isoformat()))

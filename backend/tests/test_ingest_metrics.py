@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from unittest.mock import patch
+from datetime import UTC
 
 import duckdb
-import pytest
 
 from backend.app.infrastructure.ingest.metrics import (
     IngestionMetrics,
@@ -21,7 +19,7 @@ def test_metrics_initialization() -> None:
     m = IngestionMetrics()
     assert m.correlation_id is not None
     assert len(m.correlation_id) > 0
-    assert m.started_at.tzinfo == timezone.utc
+    assert m.started_at.tzinfo == UTC
 
 
 def test_metrics_track_time() -> None:

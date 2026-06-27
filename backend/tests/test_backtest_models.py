@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -20,12 +20,12 @@ from backend.app.infrastructure.backtest.models import (
 
 @pytest.fixture
 def sample_start() -> datetime:
-    return datetime(2024, 1, 1, tzinfo=timezone.utc)
+    return datetime(2024, 1, 1, tzinfo=UTC)
 
 
 @pytest.fixture
 def sample_end() -> datetime:
-    return datetime(2024, 12, 31, tzinfo=timezone.utc)
+    return datetime(2024, 12, 31, tzinfo=UTC)
 
 
 def test_backtest_run_config_required_fields(sample_start, sample_end):
@@ -86,7 +86,7 @@ def test_monte_carlo_config_validation():
 
 def test_backtest_run_record_serialization():
     """BacktestRunRecord can be created with all fields."""
-    now = datetime(2024, 6, 15, tzinfo=timezone.utc)
+    now = datetime(2024, 6, 15, tzinfo=UTC)
     record = BacktestRunRecord(
         run_id="test-123",
         config_hash="abc123",
@@ -136,8 +136,8 @@ def test_config_hash_consistency(sample_start, sample_end):
     cfg1 = BacktestRunConfig(symbols=["SPY"], start=sample_start, end=sample_end)
     cfg2 = BacktestRunConfig(symbols=["SPY"], start=sample_start, end=sample_end)
 
-    import json
     import hashlib
+    import json
 
     def get_hash(cfg):
         d = cfg.model_dump(mode="json", exclude={"run_id"})

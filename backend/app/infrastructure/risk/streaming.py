@@ -10,10 +10,9 @@ from __future__ import annotations
 import asyncio
 from collections import defaultdict
 from collections.abc import Callable, Coroutine
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from backend.app.core.config import settings
 from backend.app.core.logging import get_logger
 
 log = get_logger("conflu.risk.streaming")
@@ -51,7 +50,7 @@ class RiskStreamManager:
             {
                 "type": "risk_snapshot",
                 "portfolio_id": portfolio_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "data": {"status": "connected", "message": "Risk monitoring active"},
             },
             websocket,
@@ -91,7 +90,7 @@ class RiskStreamManager:
         message = {
             "type": update_type,
             "portfolio_id": portfolio_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "sequence": self._sequences[portfolio_id],
             "data": data,
         }
@@ -241,11 +240,13 @@ class RiskStreamManager:
         msg_type = data.get("type", "")
 
         if msg_type == "ping":
-            await websocket.send_json({
-                "type": "pong",
-                "portfolio_id": portfolio_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            })
+            await websocket.send_json(
+                {
+                    "type": "pong",
+                    "portfolio_id": portfolio_id,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                }
+            )
 
         elif msg_type == "resync":
             last_seq = data.get("last_sequence", 0)

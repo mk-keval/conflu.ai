@@ -7,7 +7,7 @@ detection, and diversification scoring.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import numpy as np
@@ -62,7 +62,7 @@ class CorrelationAnalyzer:
         returns_matrix = self._load_returns_matrix(symbols)
         if returns_matrix is None or returns_matrix.empty:
             return CorrelationResult(
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 window_days=window,
                 diversification_score=None,
             )
@@ -93,7 +93,9 @@ class CorrelationAnalyzer:
         div_score = self._compute_diversification_score(latest_corr, clean_symbols)
 
         return CorrelationResult(
-            timestamp=latest_timestamp.to_pydatetime() if hasattr(latest_timestamp, "to_pydatetime") else latest_timestamp,
+            timestamp=latest_timestamp.to_pydatetime()
+            if hasattr(latest_timestamp, "to_pydatetime")
+            else latest_timestamp,
             window_days=window,
             symbols=clean_symbols,
             matrix=matrix_values,
@@ -251,10 +253,12 @@ class CorrelationAnalyzer:
                 if s1 in matrix.columns and s2 in matrix.columns:
                     corr_val = matrix.loc[s1, s2]
                     if not np.isnan(corr_val) and abs(corr_val) > threshold:
-                        pairs.append({
-                            "symbols": [s1, s2],
-                            "correlation": round(float(corr_val), 4),
-                        })
+                        pairs.append(
+                            {
+                                "symbols": [s1, s2],
+                                "correlation": round(float(corr_val), 4),
+                            }
+                        )
 
         # Sort by absolute correlation descending
         pairs.sort(key=lambda p: abs(p["correlation"]), reverse=True)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -20,8 +20,8 @@ def optimizer() -> WalkForwardOptimizer:
 def sample_config() -> BacktestRunConfig:
     return BacktestRunConfig(
         symbols=["SPY"],
-        start=datetime(2024, 1, 1, tzinfo=timezone.utc),
-        end=datetime(2024, 12, 31, tzinfo=timezone.utc),
+        start=datetime(2024, 1, 1, tzinfo=UTC),
+        end=datetime(2024, 12, 31, tzinfo=UTC),
     )
 
 
@@ -52,15 +52,15 @@ class TestGenerateWindows:
 class TestEstimateNBars:
     def test_daily_data(self, optimizer):
         """Daily data for 1 year ≈ 252 bars."""
-        start = datetime(2024, 1, 1, tzinfo=timezone.utc)
-        end = datetime(2024, 12, 31, tzinfo=timezone.utc)
+        start = datetime(2024, 1, 1, tzinfo=UTC)
+        end = datetime(2024, 12, 31, tzinfo=UTC)
         n_bars = optimizer._estimate_n_bars(start, end, "1D")
         assert n_bars > 300  # Actually 366 in leap year
 
     def test_hourly_data(self, optimizer):
         """Hourly data for 1 day = 24 bars."""
-        start = datetime(2024, 1, 1, tzinfo=timezone.utc)
-        end = datetime(2024, 1, 2, tzinfo=timezone.utc)
+        start = datetime(2024, 1, 1, tzinfo=UTC)
+        end = datetime(2024, 1, 2, tzinfo=UTC)
         n_bars = optimizer._estimate_n_bars(start, end, "1h")
         assert n_bars == 24
 

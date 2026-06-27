@@ -44,6 +44,10 @@ npm install
 docker compose up -d
 ```
 
+- Frontend: http://localhost:5173
+- API: http://localhost:8000
+- Swagger Docs: http://localhost:8000/docs
+
 ### 5. Initialize Database & Ingest Data
 
 ```bash
@@ -66,7 +70,7 @@ asyncio.run(IndicatorCache().update_cache())
 "
 ```
 
-### 6. Verify Installation
+### 5. Verify Installation
 
 ```bash
 # Health check

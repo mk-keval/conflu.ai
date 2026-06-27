@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import math
-
 import numpy as np
 import pytest
-from scipy.stats import norm
 
 from backend.app.infrastructure.risk.var import VaRCalculator
 

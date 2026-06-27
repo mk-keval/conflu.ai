@@ -29,6 +29,14 @@ def _resolve_screens_dir() -> Path:
     return (_PROJECT_ROOT / raw).resolve()
 
 
+class UniverseConfig(BaseModel):
+    """Universe configuration for screen."""
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    
+    markets: list[str] = Field(default_factory=lambda: ["america"])
+    index: str | None = None
+
+
 class FilterRule(BaseModel):
     """A single filter rule in a screen configuration."""
 
@@ -40,7 +48,6 @@ class FilterRule(BaseModel):
     operator: Literal["gt", "lt", "eq", "crosses_above", "crosses_below"] = "gt"
     timeframe: str = "1D"
     negate: bool = False
-    # For multi-timeframe filters (e.g., ema_compare, rsi_compare)
     compare_timeframe: str | None = None
 
 
@@ -54,20 +61,21 @@ class ScreenConfig(BaseModel):
     asset_classes: list[str] = Field(default_factory=lambda: ["equities", "crypto"])
     timeframes: list[str] = Field(default_factory=lambda: ["1D", "4h"])
     filters: list[FilterRule] = Field(default_factory=list)
+    universe: UniverseConfig = Field(default_factory=UniverseConfig)
+    limit: int = Field(default=500, ge=1, le=2000)
 
     @field_validator("filters")
     @classmethod
     def validate_filter_names(cls, filters: list[FilterRule]) -> list[FilterRule]:
-        """Ensure all referenced filter names are registered."""
-        # Lazy import to avoid circular dependency
-        from backend.app.infrastructure.screener.filters import list_filters  # fmt: skip
+        """Ensure all referenced filter names are registered in the TV filter map."""
+        # Lazy import to avoid circular dependency with tv_specialist
+        from backend.app.infrastructure.screener.tv_specialist import FILTER_MAP
 
-        registered = list_filters()
         for flt in filters:
-            if flt.indicator not in registered:
+            if flt.indicator not in FILTER_MAP:
                 msg = (
                     f"Unknown filter '{flt.indicator}'. "
-                    f"Available: {list(registered.keys())}"
+                    f"Available: {list(FILTER_MAP.keys())}"
                 )
                 raise ValueError(msg)
         return filters
