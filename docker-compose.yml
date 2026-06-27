@@ -30,6 +30,7 @@ services:
       start_period: 10s
 
   worker:
+    profiles: ["workers"]
     build:
       context: .
       dockerfile: Dockerfile
@@ -53,6 +54,7 @@ services:
     restart: unless-stopped
 
   beat:
+    profiles: ["workers"]
     build:
       context: .
       dockerfile: Dockerfile
@@ -86,8 +88,7 @@ services:
     volumes:
       - ./frontend/src:/app/src
     depends_on:
-      api:
-        condition: service_healthy
+      - api
     restart: unless-stopped
 
   redis:
