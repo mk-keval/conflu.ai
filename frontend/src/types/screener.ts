@@ -1,3 +1,57 @@
+// ── TV Screener API Types ──
+
+export interface TVScreenRequest {
+  config: string | Record<string, unknown>;
+  limit?: number;
+  multi_timeframe?: boolean;
+}
+
+export interface TVScreenResponse {
+  screen_name: string;
+  total_matches: number;
+  execution_ms: number;
+  timeframe: string;
+  results: TVScoredTicker[];
+}
+
+export interface TVScoredTicker {
+  symbol: string;
+  score: number;
+  breakdown: Record<string, number>;
+  entry: number;
+  stop_loss: number;
+  targets: number[];
+  risk_reward: number;
+  rating: string;
+  tv_data: Record<string, unknown>;
+}
+
+export interface TVTemplate {
+  name: string;
+  description: string;
+}
+
+export interface TVDeepAnalysisRequest {
+  symbol: string;
+  timeframe: string;
+  include_backtest?: boolean;
+  include_risk?: boolean;
+}
+
+export interface TVDeepAnalysisResponse {
+  symbol: string;
+  timeframe: string;
+  confluence_score: number;
+  entry: number;
+  stop_loss: number;
+  targets: number[];
+  backtest: Record<string, unknown> | null;
+  risk: Record<string, unknown> | null;
+  execution_ms: number;
+}
+
+// ── Legacy Types (for old architecture) ──
+
 export interface ScreenRequest {
   config: string;
   symbols?: string[];

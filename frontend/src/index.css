@@ -4,28 +4,102 @@
 
 @layer base {
   html {
-    @apply bg-dark-800 text-dark-50;
+    @apply bg-background text-text-primary;
     font-feature-settings: 'tnum' on;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
-    @apply m-0 p-0;
+    @apply m-0 p-0 font-sans;
   }
 
   /* Custom scrollbar for dark theme */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-dark-800;
+    @apply bg-background;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-dark-500 rounded;
+    @apply bg-surface-hover rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-text-muted;
   }
 
   /* Tabular numbers for financial data */
   .tabular-nums {
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Selection */
+  ::selection {
+    @apply bg-accent/20 text-text-primary;
+  }
+}
+
+@layer components {
+  /* Card component */
+  .card {
+    @apply bg-surface border border-border rounded-lg shadow-card;
+  }
+  .card-hover {
+    @apply card transition-shadow duration-200 hover:shadow-card-hover;
+  }
+
+  /* Data table cell for price values */
+  .cell-price {
+    @apply font-mono text-price tabular-nums;
+  }
+  .cell-gain {
+    @apply cell-price text-gain;
+  }
+  .cell-loss {
+    @apply cell-price text-loss;
+  }
+
+  /* Badge */
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
+  }
+  .badge-green {
+    @apply badge text-gain bg-gain-bg;
+  }
+  .badge-red {
+    @apply badge text-loss bg-loss-bg;
+  }
+  .badge-neutral {
+    @apply badge text-text-muted bg-surface-hover;
+  }
+
+  /* Input styles */
+  .input {
+    @apply w-full px-3 py-2 bg-surface border border-border rounded-lg
+           text-text-primary placeholder-text-muted
+           focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent
+           transition-colors duration-150;
+  }
+  .select {
+    @apply input appearance-none cursor-pointer;
+  }
+
+  /* Button styles */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg
+           font-medium text-sm transition-all duration-150
+           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-white hover:bg-accent-dark
+           focus:ring-accent/50 shadow-glow-green;
+  }
+  .btn-secondary {
+    @apply btn bg-surface-elevated text-text-primary border border-border
+           hover:bg-surface-hover focus:ring-border;
+  }
+  .btn-ghost {
+    @apply btn text-text-secondary hover:text-text-primary hover:bg-surface-hover;
   }
 }

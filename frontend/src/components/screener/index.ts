@@ -12,3 +12,4 @@ export { AlertToast } from './AlertToast';
 export { ShareModal } from './ShareModal';
 export { ScreenDiffView } from './ScreenDiffView';
 export { SharedScreenerView } from './SharedScreenerView';
+export { DetailPanel } from './DetailPanel';

@@ -1,5 +1,12 @@
 export { default as apiClient } from './client';
-export { fetchScreen, fetchSymbols } from './screener';
+export {
+  fetchScreenTV,
+  fetchScreenTVMultiTF,
+  fetchDeepAnalysis,
+  fetchTVTemplates,
+  fetchTVTemplate,
+  fetchSymbols,
+} from './screener';
 export {
   listScreens,
   getScreen,

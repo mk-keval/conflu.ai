@@ -1,15 +1,18 @@
 import { useState } from 'react';
-import { fetchScreen } from '@/api/screener';
+import { fetchScreenTV } from '@/api/screener';
 import { useScreenStore } from '@/store/screen';
+import type { TVScoredTicker } from '@/types/screener';
+import { FileText, FileSpreadsheet } from 'lucide-react';
 
 export function ExportButtons() {
   const [loading, setLoading] = useState<'csv' | 'json' | null>(null);
-  const { selectedConfig, timeframes } = useScreenStore();
+  const { selectedConfig } = useScreenStore();
 
   const handleExport = async (format: 'csv' | 'json') => {
     try {
       setLoading(format);
-      const data = await fetchScreen(selectedConfig, undefined, timeframes, format);
+      const response = await fetchScreenTV(selectedConfig, 500);
+      const data = response.results;
 
       const blob = new Blob(
         [format === 'json' ? JSON.stringify(data, null, 2) : convertToCsv(data)],
@@ -29,32 +32,36 @@ export function ExportButtons() {
   };
 
   return (
-    <div className="flex gap-2">
+    <div className="flex items-center gap-1">
       <button
         onClick={() => handleExport('csv')}
         disabled={loading !== null}
-        className="rounded bg-dark-600 px-3 py-1.5 text-sm text-dark-200 hover:bg-dark-500 disabled:opacity-50"
+        className="btn-secondary gap-1.5"
+        title="Export CSV"
       >
-        {loading === 'csv' ? 'Exporting...' : 'Export CSV'}
+        <FileSpreadsheet className="w-4 h-4" />
+        <span className="hidden sm:inline">CSV</span>
       </button>
       <button
         onClick={() => handleExport('json')}
         disabled={loading !== null}
-        className="rounded bg-dark-600 px-3 py-1.5 text-sm text-dark-200 hover:bg-dark-500 disabled:opacity-50"
+        className="btn-secondary gap-1.5"
+        title="Export JSON"
       >
-        {loading === 'json' ? 'Exporting...' : 'Export JSON'}
+        <FileText className="w-4 h-4" />
+        <span className="hidden sm:inline">JSON</span>
       </button>
     </div>
   );
 }
 
-function convertToCsv(data: unknown[]): string {
+function convertToCsv(data: TVScoredTicker[]): string {
   if (data.length === 0) return '';
-  const headers = Object.keys(data[0] as Record<string, unknown>);
+  const headers = ['symbol', 'score', 'rating', 'entry', 'stop_loss', 'targets', 'risk_reward', 'breakdown'];
   const csvRows = [headers.join(',')];
   for (const row of data) {
     const values = headers.map((h) => {
-      const val = (row as Record<string, unknown>)[h];
+      const val = (row as unknown as Record<string, unknown>)[h];
       if (typeof val === 'object') return JSON.stringify(val);
       return String(val ?? '');
     });
