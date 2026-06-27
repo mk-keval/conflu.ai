@@ -34,26 +34,6 @@ jobs:
       - run: ruff format --check backend/
       # - run: mypy backend/  # Temporarily disabled - needs type fixes
 
-  lint-frontend:
-    name: Lint & Type Check (Frontend)
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: ["20", "22"]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - run: npm ci --frozen-lockfile
-        working-directory: frontend
-      - run: npm run lint
-        working-directory: frontend
-      - run: npm run typecheck
-        working-directory: frontend
-
   test-backend:
     name: Test (Backend)
     needs: [lint-backend]
@@ -85,7 +65,7 @@ jobs:
 
   docker-build:
     name: Build Docker Images
-    needs: [test-backend, lint-frontend]
+    needs: [test-backend]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -116,15 +96,6 @@ jobs:
           target: runtime
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Build & push frontend
-        uses: docker/build-push-action@v6
-        with:
-          context: ./frontend
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}-frontend
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
       - name: Generate SBOM
         uses: aquasecurity/trivy-action@master
         with:
@@ -150,11 +121,3 @@ jobs:
       - run: uv pip install --system ".[dev,test]"
       - name: Backend benchmarks
         run: python config/benchmarks/run-backend-benchmarks.py
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-      - name: Frontend benchmarks
-        working-directory: frontend
-        run: |
-          npm ci
-          bash ../config/benchmarks/run-frontend-benchmarks.sh
