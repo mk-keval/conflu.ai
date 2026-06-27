@@ -10,48 +10,47 @@ from typing import Annotated
 
 from fastapi import Depends
 
-from backend.app.infrastructure.backtest.engine import BacktestEngine
-from backend.app.infrastructure.risk.engine import RiskEngine
-from backend.app.infrastructure.screener.cache import IndicatorCache
-from backend.app.infrastructure.screener.engine import ScreenEngine
-from backend.app.infrastructure.screener.screen_replay import ScreenReplay
-from backend.app.infrastructure.screener.sharing import ScreenSharing
 
-
-async def get_screen_engine() -> ScreenEngine:
+async def get_screen_engine() -> object:
     """Dependency that provides a ScreenEngine instance."""
+    from backend.app.infrastructure.screener.engine import ScreenEngine
     return ScreenEngine()
 
 
-async def get_backtest_engine() -> BacktestEngine:
+async def get_backtest_engine() -> object:
     """Dependency that provides a BacktestEngine instance."""
+    from backend.app.infrastructure.backtest.engine import BacktestEngine
     return BacktestEngine()
 
 
-async def get_risk_engine() -> RiskEngine:
+async def get_risk_engine() -> object:
     """Dependency that provides a RiskEngine instance."""
+    from backend.app.infrastructure.risk.engine import RiskEngine
     return RiskEngine()
 
 
-async def get_indicator_cache() -> IndicatorCache:
+async def get_indicator_cache() -> object:
     """Dependency that provides an IndicatorCache instance."""
+    from backend.app.infrastructure.screener.cache import IndicatorCache
     return IndicatorCache()
 
 
-async def get_screen_replay() -> ScreenReplay:
+async def get_screen_replay() -> object:
     """Dependency that provides a ScreenReplay instance."""
+    from backend.app.infrastructure.screener.screen_replay import ScreenReplay
     return ScreenReplay()
 
 
-async def get_screen_sharing() -> ScreenSharing:
+async def get_screen_sharing() -> object:
     """Dependency that provides a ScreenSharing instance."""
+    from backend.app.infrastructure.screener.sharing import ScreenSharing
     return ScreenSharing()
 
 
 # Typed Annotated aliases for cleaner route signatures
-ScreenEngineDep = Annotated[ScreenEngine, Depends(get_screen_engine)]
-BacktestEngineDep = Annotated[BacktestEngine, Depends(get_backtest_engine)]
-RiskEngineDep = Annotated[RiskEngine, Depends(get_risk_engine)]
-IndicatorCacheDep = Annotated[IndicatorCache, Depends(get_indicator_cache)]
-ScreenReplayDep = Annotated[ScreenReplay, Depends(get_screen_replay)]
-ScreenSharingDep = Annotated[ScreenSharing, Depends(get_screen_sharing)]
+ScreenEngineDep = Annotated[object, Depends(get_screen_engine)]
+BacktestEngineDep = Annotated[object, Depends(get_backtest_engine)]
+RiskEngineDep = Annotated[object, Depends(get_risk_engine)]
+IndicatorCacheDep = Annotated[object, Depends(get_indicator_cache)]
+ScreenReplayDep = Annotated[object, Depends(get_screen_replay)]
+ScreenSharingDep = Annotated[object, Depends(get_screen_sharing)]

@@ -154,26 +154,18 @@ def create_app() -> FastAPI:
 
     # ── Routers ──
     from backend.app.api.routers import (
-        alerts_router,
         backtest_router,
         data_router,
         health_router,
-        replay_router,
         risk_router,
-        screen_crud_router,
-        screener_router,
-        sharing_router,
+        tv_screener_router,
     )
 
     app.include_router(health_router)
-    app.include_router(screener_router, prefix="/api/v1")
-    app.include_router(screen_crud_router, prefix="/api/v1")
-    app.include_router(alerts_router, prefix="/api/v1")
-    app.include_router(sharing_router, prefix="/api/v1")
-    app.include_router(replay_router, prefix="/api/v1")
     app.include_router(backtest_router, prefix="/api/v1")
     app.include_router(data_router, prefix="/api/v1")
     app.include_router(risk_router, prefix="/api/v1")
+    app.include_router(tv_screener_router, prefix="/api/v1")
 
     # ── WebSocket ──
     from backend.app.api.ws.handler import register_ws_routes

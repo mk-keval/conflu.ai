@@ -120,8 +120,10 @@ class PositionSizer:
             raw_size = risk_amount / (atr_aligned.values * atr_multiplier)
 
             # Only apply at entry signals, cap at max position per column
+            # entries DataFrame has 'signal' column, not 'close'
+            signal_col = 'signal' if 'signal' in entries.columns else entries.columns[0]
             for col in size.columns:
-                col_size = np.where(entries[col].values, raw_size, 0.0)
+                col_size = np.where(entries[signal_col].values, raw_size, 0.0)
                 max_units = (initial_cash * max_position_pct) / close[col].iloc[0]
                 col_size = np.minimum(col_size, max_units)
                 size[col] = col_size

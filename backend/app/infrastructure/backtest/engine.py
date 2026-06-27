@@ -110,6 +110,11 @@ class BacktestEngine:
                 duration_ms=0.0,
             )
 
+        # Handle multi-symbol case: process each symbol separately
+        if "symbol" in ohlcv.columns and len(config.symbols) > 1:
+            # For multi-symbol, process first symbol for now
+            ohlcv = ohlcv[ohlcv["symbol"] == config.symbols[0]].copy()
+
         # 2. Build signals (entries/exits)
         price = ohlcv[["close"]].copy() if "close" in ohlcv.columns else ohlcv
 
