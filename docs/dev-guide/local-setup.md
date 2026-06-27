@@ -8,9 +8,6 @@ python -m venv .venv
 source .venv/bin/activate
 uv pip install -e ".[dev,test,observability]"
 
-# Frontend
-cd frontend && npm install
-
 # Run with Docker
 docker compose up -d
 ```
@@ -29,12 +26,12 @@ docker compose up -d
 ## Docker Compose Profiles
 
 - **Default** (`docker compose up`): API, worker, frontend, redis
-- **Full Stack** (`docker compose --profile observability up`): Adds Prometheus, Grafana, Loki, Tempo, OTEL collector
+- **With Observability** (`docker compose --profile observability up`): Adds Prometheus + Grafana for API metrics
 
 ## Debugging
 
 - Backend debug port: `5678` (debugpy)
 - Frontend dev server: `http://localhost:5173`
 - API docs: `http://localhost:8000/docs`
-- Grafana: `http://localhost:3000` (admin/admin)
-- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3000` (admin/admin) — requires `--profile observability`
+- Prometheus: `http://localhost:9090` — requires `--profile observability`

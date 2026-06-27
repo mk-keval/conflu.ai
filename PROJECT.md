@@ -1,63 +1,70 @@
-# conflu.ai - Professional Multi-Asset Trading Platform
+# conflu.ai — Professional Multi-Asset Trading Platform
 
 ## Vision
-Build a **production-grade, fully vectorized multi-asset trading platform** with real-time screening, backtesting, and risk management. No loops, no lag, no compromises.
+Build a **production-grade, fully vectorized multi-asset trading platform** with TV Screener-powered discovery, confluence scoring, backtesting, and risk management. No loops, no lag, no compromises.
 
-## Core Requirements
+## Core Flow
 
-### 1. Data Layer (DuckDB + Parquet + TradingView Screener)
-- **Local-first storage**: DuckDB with partitioned Parquet files (year/month/symbol/timeframe)
-- **Source**: `tradingview-screener` for global equity/crypto/forex screening
-- **Timeframes**: 1m, 5m, 15m, 1h, 4h, 1D
-- **Assets**: US Equities, Crypto (spot/perp), Forex, Commodities, Indices
-- **Schema**: symbol, timestamp, open, high, low, close, volume, timeframe, asset_class
+```
+TV Screener Discovery (<2s, 12K+ symbols)
+  → Confluence Scoring (from TV data only)
+  → Deep Analysis (on-demand: OHLCV + backtest + risk)
+```
 
-### 2. Compute Layer (Fully Vectorized - NO LOOPS)
+## Architecture Layers
+
+### 1. Discovery Layer (TradingView Screener)
+- **Source**: `tradingview-screener` v3.2+ — free API, 12,000+ symbols, 50+ indicators
+- **Markets**: US Equities (primary, via S&P 500 index components)
+- **Timeframes**: 1m–1M, multi-TF via client-side intersection
+- **Filters**: 16 pre-built screener filters (price/RSI/MACD/EMA/volume/ATR/ADX/BB/fundamentals)
+- **Rate Limit**: ~30 req/min free tier, 15-min delayed data
+
+### 2. Scoring Layer (Confluence from TV data only)
+- **5-factor scoring** (0–100 pts): Trend (30), Momentum (25), Volume (20), Quality (15), Fundamental (10)
+- **ATR-based entry/SL/targets**: 2×ATR stop, 2:1 / 3:1 R:R
+- **Rating system**: A+ (80+) → D (<40)
+- **No OHLCV needed** — all data comes from TV columns
+
+### 3. Deep Analysis (On-Demand)
+- **Trigger**: User clicks "Analyze" on a TV-discovered ticker
+- **Pipeline**: Load OHLCV from DuckDB → compute indicators → backtest (vectorbt) → risk (VaR/beta/Kelly)
+- **Entry/Exit/SL**: ATR-based, consistent with TV confluence scoring
+
+### 4. Data Layer (DuckDB + Parquet)
+- **Local-first storage**: DuckDB with partitioned Parquet files
+- **Source for deep analysis**: Historical OHLCV for backtesting + risk
+- **Not needed for screening/discovery** — TV Screener handles that
+
+### 5. Compute Layer (Fully Vectorized)
 - **vectorbt**: All backtesting, portfolio simulation, signal generation
-- **pandas-ta**: 100+ technical indicators (RSI, MACD, EMA, ATR, VWAP, SuperTrend, etc.)
-- **Multi-timeframe vectorization**: Compute indicators across timeframes in parallel using vectorbt's broadcasting
-- **Signal Engine**: Composable signal builder (AND/OR/NOT logic, crossover, threshold, slope)
+- **pandas-ta**: 100+ technical indicators for deep analysis
+- **ZERO explicit loops** in signal/indicator computation
 
-### 3. Screener (Async + Chunked + Vectorized)
-- **Async chunked screening**: Process 500+ symbols concurrently using asyncio + semaphore
-- **Vectorized filter pipeline**: All filters applied via boolean masks on DataFrames
-- **Pre-computed indicator cache**: Store computed indicators in DuckDB for instant screening
-- **Real-time WebSocket streaming**: TradingView Lightweight Charts WebSocket feed
+### 6. Risk Engine (ATR + Beta + Correlation)
+- ATR-based position sizing, beta hedging, correlation matrix
+- Kelly Criterion / Half-Kelly, portfolio VaR / CVaR
 
-### 4. Backtest Engine (vectorbt PRO patterns)
-- **Portfolio.from_signals()**: Vectorized entry/exit, position sizing, fees, slippage
-- **Walk-forward optimization**: Rolling window parameter optimization
-- **Monte Carlo simulation**: 1000+ paths for confidence intervals
-- **Metrics**: Sharpe, Sortino, Calmar, Max DD, Win Rate, Expectancy, SQN, Ulcer Index
+### 7. API Layer (FastAPI + WebSocket)
+- REST endpoints for screening, deep analysis, backtest, risk
+- WebSocket for real-time updates
 
-### 5. Risk Engine (ATR + Beta + Correlation)
-- **ATR-based position sizing**: Risk % × Account Equity / (ATR × multiplier)
-- **Beta hedging**: Rolling 60-day beta vs SPY/BTC for crypto, SPY for equities
-- **Correlation matrix**: 30-day rolling correlation heatmap (sector/asset class)
-- **Kelly Criterion / Half-Kelly**: Optimal position sizing from backtest stats
-- **Portfolio VaR / CVaR**: 95%/99% confidence levels
-
-### 6. API Layer (FastAPI + WebSocket)
-- **REST**: Screening, backtest results, indicator data, risk metrics
-- **WebSocket**: Real-time price stream, indicator updates, signal alerts
-- **Authentication**: JWT (optional, for future multi-user)
-
-### 7. Frontend (React + TradingView Lightweight Charts + Tailwind)
-- **Charts**: Multi-timeframe synchronized charts with indicator overlays
-- **Screener Table**: Virtualized, sortable, filterable, real-time updates
-- **Backtest Dashboard**: Equity curve, drawdown, trades list, metrics table
-- **Risk Dashboard**: Correlation heatmap, position sizer, beta exposure
+### 8. Frontend (React + Tailwind)
+- Screen results table, deep analysis panels, charts, risk dashboard
 
 ## Technical Constraints (NON-NEGOTIABLE)
-1. **ZERO explicit loops** in signal/indicator computation - use vectorbt/pandas vectorization
+1. **ZERO explicit loops** in signal/indicator computation
 2. **Async-first** for all I/O (data fetching, screening, API)
-3. **Columnar storage** - Parquet partitioned by (asset_class, year, month, symbol, timeframe)
-4. **Type safety** - Full type hints, pydantic models, strict mypy
-5. **Testing** - pytest + hypothesis for property-based testing of vectorized ops
+3. **TV Screener first** — discovery always goes through TV, not local OHLCV
+4. **Type safety** — Full type hints, pydantic models, strict mypy
+5. **Testing** — pytest + hypothesis for property-based testing
 
 ## Success Criteria
-- Screen 5000+ symbols in <30 seconds (warm cache)
-- Backtest 10-year daily data in <2 seconds
-- WebSocket latency <50ms local
-- 95%+ test coverage on compute layer
+- Screen S&P 500 in <2 seconds (down from 30s+ old approach)
+- Confluence score from TV data in <100ms per ticker
+- Deep analysis (full backtest + risk) in <10s per ticker
 - Zero mypy errors (strict mode)
+
+## Project Skills (for AI Agents)
+- **tvscreener-specialist**: Deep knowledge of `tradingview-screener` package — every column, filter, timeframe, rate limit, and error mode
+- **gitnexus-***: Code intelligence (exploring, impact analysis, debugging, refactoring)

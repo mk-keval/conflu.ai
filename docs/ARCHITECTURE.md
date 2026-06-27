@@ -78,7 +78,45 @@ docker-compose.yml       # 3 services: api, worker, redis
 pyproject.toml           # Build config + deps + linting
 ```
 
-## Data Flow — Ingestion Pipeline
+## Data Flow — TV Screener Discovery (Primary)
+
+```
+User Screen Request (ScreenConfig YAML)
+    ↓
+TVScreenerSpecialist.build_query()
+  → Compiles ScreenConfig to tradingview_screener.Query
+  → Maps filters (price_above_ema, macd_bullish, etc.) to TV Column operations
+  → Sets market (america), timeframe (1D), index (SYML:SP;SPX)
+    ↓
+TVScreenEngine.screen() / screen_multi_tf()
+  → Single TF: one TV query → TVDiscoveryResult (tickers + raw TV data)
+  → Multi-TF: one query per timeframe → intersect_tickers() strict AND
+    ↓
+TVConfluenceScorer.score()
+  → 5-factor scoring from TV data only (no OHLCV)
+  → Trend (30), Momentum (25), Volume (20), Quality (15), Fundamental (10)
+  → ATR-based entry/SL/targets (2xATR stop, 2:1/3:1 R:R)
+  → Rating: A+/A/B+/B/C/D
+    ↓
+API Response → TVScreenResponse (scored tickers with analysis)
+```
+
+## Data Flow — Deep Analysis (On-Demand)
+
+```
+User clicks "Analyze" on a ticker from TV results
+    ↓
+DeepAnalysisOrchestrator.analyze(symbol, timeframe)
+  → Load OHLCV from DuckDB (ingestion pipeline)
+  → Compute indicators via pandas-ta (compute_all)
+  → Run backtest via BacktestEngine (vectorbt)
+  → Run risk via RiskEngine (VaR, beta, Kelly, position sizing)
+  → ATR-based entry/SL/targets (consistent with TV confluence)
+    ↓
+DeepAnalysisResult → API Response
+```
+
+## Data Flow — Ingestion Pipeline (for Backtest OHLCV)
 
 ```
 TradingView Scanner
@@ -114,12 +152,15 @@ ExceptionHandlers → {error: {code, message, details, request_id}}
 
 ## Key Design Decisions
 
-- DuckDB as primary store (zero-config, columnar, Parquet-native)
+- **TV Screener first**: All discovery goes through TradingView Screener, not local OHLCV — 12K+ symbols in <2s
+- **Confluence scoring from TV data only**: No OHLCV needed for initial ranking — uses TV columns directly
+- **DuckDB retained for backtest OHLCV**: Historical data still needed for deep analysis (backtest + risk)
+- **Multi-TF via client-side intersection**: TV only supports single-TF queries, so multi-TF = multiple queries + intersect
+- **ATR-based entry/SL/targets**: Available directly from TV — no local computation needed for screening
 - Append-only Parquet with idempotent incremental updates
 - TradingView free tier (no API key needed)
 - Semaphore-based concurrency (no unbounded parallelism)
-- Partial failures don't stop pipeline (D-15)
-- DuckDB 1.x has no SERIAL/GENERATED AS IDENTITY → manual id via MAX(id)+1
+- Partial failures don't stop pipeline
 
 ---
 
@@ -217,16 +258,19 @@ C4Container
 
 ```mermaid
 flowchart LR
-  TV[TradingView] -->|OHLCV Data| Ing[Data Ingestion]
-  Ing -->|Parquet Files| Duck[(DuckDB)]
-  Duck -->|Query| API[FastAPI]
-  Duck -->|Pre-computed| Cache[(Indicator Cache)]
-  API -->|Screen Results| WS[WebSocket]
+  TV[TV Screener API] -->|Screen Request| Spec[TVScreenerSpecialist]
+  Spec -->|Filter Map + Columns| Query[TV Query]
+  Query -->|12K+ symbols in <2s| Disc[TV Discovery Result]
+  Disc -->|TV Data only| Score[ConfluenceScorer]
+  Score -->|5-factor + ATR Entry/SL| Result[Scored Tickers]
+  
+  Duck[(DuckDB)] -->|OHLCV| Deep[DeepAnalysis Orchestrator]
+  Deep -->|Backtest| BT[BacktestEngine]
+  Deep -->|Risk| Risk[RiskEngine]
+  
+  Result -->|Top tickers| API[FastAPI]
+  Deep -->|Deep result| API
   API -->|REST| Frontend[React SPA]
-  Cache -->|Fast Lookup| Screen[Screener Engine]
-  Screen -->|Signals| WS
-  API -->|Risk Metrics| Risk[Risk Engine]
-  API -->|Backtest Results| Backtest[Backtest Engine]
 ```
 
 ## Technology Stack
