@@ -33,19 +33,20 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: runtime
+      target: dev
     container_name: conflu-worker
     volumes:
       - ./data:/app/data
       - ./backend:/app/backend
       - ./config.yaml:/app/config.yaml
+      - ./config/screens:/app/config/screens
     environment:
       - CONFLU_CORE__LOG_LEVEL=INFO
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/1
     command: >
       sh -c "python -c 'from backend.app.core.database import initialize_database; initialize_database()'
-      && celery -A backend.app.worker.celery_app worker --loglevel=info -Q ingestion,compute,screener"
+      && python -m celery -A backend.app.worker.celery_app worker --loglevel=info -Q ingestion,compute,screener"
     depends_on:
       redis:
         condition: service_healthy
@@ -55,19 +56,20 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: runtime
+      target: dev
     container_name: conflu-beat
     volumes:
       - ./data:/app/data
       - ./backend:/app/backend
       - ./config.yaml:/app/config.yaml
+      - ./config/screens:/app/config/screens
     environment:
       - CONFLU_CORE__LOG_LEVEL=INFO
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/1
     command: >
       sh -c "python -c 'from backend.app.core.database import initialize_database; initialize_database()'
-      && celery -A backend.app.worker.celery_app beat --loglevel=info --scheduler celery.beat.PersistentScheduler"
+      && python -m celery -A backend.app.worker.celery_app beat --loglevel=info --scheduler celery.beat.PersistentScheduler"
     depends_on:
       redis:
         condition: service_healthy
@@ -80,18 +82,13 @@ services:
       target: builder
     container_name: conflu-frontend
     ports:
-      - "80:80"
-      - "443:443"
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src
     depends_on:
       api:
         condition: service_healthy
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
 
   redis:
     image: redis:7-alpine
@@ -107,8 +104,9 @@ services:
       retries: 3
     restart: unless-stopped
 
-  # Observability Stack
+  # Observability (opt-in: docker compose --profile observability up)
   prometheus:
+    profiles: ["observability"]
     image: prom/prometheus:latest
     container_name: conflu-prometheus
     volumes:
@@ -120,10 +118,9 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
     restart: unless-stopped
-    networks:
-      - default
 
   grafana:
+    profiles: ["observability"]
     image: grafana/grafana:latest
     container_name: conflu-grafana
     volumes:
@@ -138,55 +135,8 @@ services:
     restart: unless-stopped
     depends_on:
       - prometheus
-    networks:
-      - default
-
-  loki:
-    image: grafana/loki:latest
-    container_name: conflu-loki
-    volumes:
-      - ./config/loki:/etc/loki
-      - loki_data:/loki
-    ports:
-      - "3100:3100"
-    command: -config.file=/etc/loki/loki-config.yml
-    restart: unless-stopped
-    networks:
-      - default
-
-  tempo:
-    image: grafana/tempo:latest
-    container_name: conflu-tempo
-    volumes:
-      - ./config/tempo:/etc/tempo
-      - tempo_data:/tmp/tempo
-    ports:
-      - "3200:3200"
-      - "4317:4317"
-      - "4318:4318"
-    command: -config.file=/etc/tempo/tempo-config.yml
-    restart: unless-stopped
-    networks:
-      - default
-
-  otel-collector:
-    image: otel/opentelemetry-collector-contrib:latest
-    container_name: conflu-otel-collector
-    volumes:
-      - ./config/otel-collector:/etc/otel
-    command: --config=/etc/otel/otel-collector-config.yml
-    ports:
-      - "4317:4317"
-      - "4318:4318"
-    depends_on:
-      - tempo
-    restart: unless-stopped
-    networks:
-      - default
 
 volumes:
   redis_data:
   prometheus_data:
   grafana_data:
-  loki_data:
-  tempo_data:
