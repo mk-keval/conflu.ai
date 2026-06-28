@@ -196,10 +196,6 @@ class WebSocketManager:
         self._background_tasks["price"] = asyncio.create_task(self._price_update_loop())
         # Indicator update loop (default 5s interval per D-07)
         self._background_tasks["indicator"] = asyncio.create_task(self._indicator_update_loop())
-        # Alert evaluation loop (Per D-22: singleton alert_engine, background loop)
-        from backend.app.infrastructure.screener.alerts import alert_engine
-
-        alert_engine.start_background_loop()
         self._log.info("ws_background_tasks_started")
 
     async def _price_update_loop(self) -> None:

@@ -11,7 +11,6 @@ from typing import Any
 
 from backend.app.core.database import get_db
 from backend.app.core.logging import get_logger
-from backend.app.infrastructure.screener.cache import IndicatorCache
 
 log = get_logger("conflu.api.ws.channels")
 
@@ -87,31 +86,17 @@ async def price_update_provider(symbol: str) -> dict[str, Any]:
 
 
 async def indicator_update_provider(symbol: str, indicator_name: str) -> dict[str, Any]:
-    """Fetch latest indicator value for a symbol.
+    """Fetch latest indicator value for a symbol (stub — old IndicatorCache removed).
 
-    Args:
-        symbol: Trading symbol.
-        indicator_name: Indicator name (e.g., 'rsi_14', 'macd').
-
-    Returns:
-        Dict with symbol, indicator, value, timestamp.
+    The old real-time indicator cache was superseded by the TV Screener pipeline.
+    Returns empty data with a deprecation notice.
     """
-    try:
-        cache = IndicatorCache()
-        df = await cache.get_latest(indicator_name, timeframe="1D", symbols=[symbol])
-    except Exception:
-        log.exception("indicator_update_error", symbol=symbol, indicator=indicator_name)
-        return {"symbol": symbol, "indicator": indicator_name, "value": None}
-
-    if df is None or df.empty:
-        return {"symbol": symbol, "indicator": indicator_name, "value": None}
-
-    row = df.iloc[0]
-    return {
-        "symbol": symbol,
-        "indicator": indicator_name,
-        "value": float(row["value"]) if "value" in row else None,
-        "timestamp": (
-            row["timestamp"].isoformat() if hasattr(row["timestamp"], "isoformat") else str(row["timestamp"])
-        ),
-    }
+    # Old IndicatorCache was deleted in Phase 3 cleanup; TV Screener
+    # serves indicator data on-demand via REST API endpoints.
+    log.warning(
+        "indicator_update_not_available",
+        symbol=symbol,
+        indicator=indicator_name,
+        msg="Real-time indicator streaming removed; use REST API.",
+    )
+    return {"symbol": symbol, "indicator": indicator_name, "value": None, "deprecated": True}
