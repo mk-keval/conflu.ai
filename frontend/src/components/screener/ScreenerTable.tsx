@@ -1,17 +1,212 @@
-import { useRef, useState, useMemo, useCallback } from 'react';
+import { useRef, useState, useMemo, useCallback, type ReactNode } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Minus } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { formatPrice, formatLargeNumber } from '@/lib/format';
-import type { TVScoredTicker } from '@/types/screener';
+import type { TVScoredTicker, TVDataFields } from '@/types/screener';
+
+// ── Proportional column widths (%, must sum to 100) ──────────────────────────
+
+const COL_PCT: Record<string, number> = {
+  symbol:     13,
+  price:      10,
+  score:       6,
+  change:     16,
+  entry:      13,
+  confluence: 17,
+  volume:     12,
+  rating:      6,
+  action:      7,
+};
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function changePct(price: number, change: number): number | null {
+  const prev = price - change;
+  if (prev === 0) return null;
+  return (change / prev) * 100;
+}
+
+// ── Cell renderers ───────────────────────────────────────────────────────────
+
+function CellSymbol({ symbol }: { symbol: string }) {
+  return <span className="font-semibold text-text-primary text-sm tracking-tight">{symbol}</span>;
+}
+
+function CellPrice({ value }: { value: number }) {
+  return <span className="font-mono text-sm tabular-nums text-text-primary">{formatPrice(value)}</span>;
+}
+
+function CellScore({ score }: { score: number }) {
+  const color =
+    score >= 70 ? 'bg-accent/15 text-accent' :
+    score >= 40 ? 'bg-warning/15 text-warning' :
+    'bg-loss/15 text-loss';
+  return (
+    <span className={cn('inline-flex items-center justify-center w-8 h-[18px] rounded-[3px] text-[11px] font-bold leading-none', color)}>
+      {score}
+    </span>
+  );
+}
+
+function CellChange({ change, price }: { change: number; price: number }) {
+  const pct = changePct(price, change);
+  const isGain = change >= 0;
+  return (
+    <span className={cn('font-mono text-sm tabular-nums', isGain ? 'text-gain' : 'text-loss')}>
+      <span>{isGain ? '+' : ''}{change.toFixed(2)}</span>
+      {pct != null && (
+        <span className={cn('ml-1.5 text-xs', isGain ? 'text-gain/70' : 'text-loss/70')}>
+          {isGain ? '+' : ''}{pct.toFixed(2)}%
+        </span>
+      )}
+    </span>
+  );
+}
+
+function CellEntry({ ticker }: { ticker: TVScoredTicker }) {
+  return (
+    <span className="font-mono text-sm tabular-nums text-text-primary">
+      {formatPrice(ticker.entry)}
+      <span className="text-text-muted ml-1 text-xs">/ {formatPrice(ticker.stop_loss)}</span>
+    </span>
+  );
+}
+
+function CellConfluence({ breakdown }: { breakdown: Record<string, number> }) {
+  return (
+    <span className="text-xs tabular-nums leading-none">
+      <span className="text-info">T{breakdown.trend ?? 0}</span>
+      <span className="text-text-muted mx-1">·</span>
+      <span className="text-accent">M{breakdown.momentum ?? 0}</span>
+      <span className="text-text-muted mx-1">·</span>
+      <span className="text-warning">V{breakdown.volume ?? 0}</span>
+    </span>
+  );
+}
+
+function CellVolume({ data }: { data: TVDataFields }) {
+  return (
+    <span className="font-mono text-sm tabular-nums text-volume">
+      {formatLargeNumber(data.volume ?? 0)}
+      {data.relative_volume_10d_calc != null && (
+        <span className={cn('ml-1 text-xs', data.relative_volume_10d_calc > 1.5 ? 'text-accent/80' : 'text-text-muted')}>
+          ×{data.relative_volume_10d_calc.toFixed(1)}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function CellRating({ rating }: { rating: string }) {
+  const text = rating.toLowerCase();
+  const isBuy = text.includes('buy');
+  const isSell = text.includes('sell');
+  const isStrong = text.includes('strong');
+  const color = isBuy
+    ? 'bg-accent/15 text-accent'
+    : isSell
+    ? 'bg-loss/15 text-loss'
+    : 'bg-surface-hover/50 text-text-muted';
+  const display = isStrong
+    ? (isBuy ? 'SB' : 'SS')
+    : isBuy ? 'B' : isSell ? 'S' : rating.charAt(0).toUpperCase();
+  return (
+    <span className={cn('inline-flex items-center justify-center w-6 h-[18px] rounded-[3px] text-[11px] font-bold leading-none', color)}>
+      {display}
+    </span>
+  );
+}
+
+function CellAction({ onClick }: { onClick?: () => void }) {
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+      className="px-2 py-[3px] text-[11px] font-medium rounded-[3px] border border-border/50 text-text-muted hover:border-border hover:text-text-primary hover:bg-surface-hover/40 transition-colors leading-none"
+    >
+      Details
+    </button>
+  );
+}
+
+// ── Column definition ────────────────────────────────────────────────────────
 
 interface ColumnDef {
   key: string;
   label: string;
-  width?: number;
-  align?: 'left' | 'right' | 'center';
-  render?: (ticker: TVScoredTicker) => React.ReactNode;
+  align: 'left' | 'right' | 'center';
+  render: (ticker: TVScoredTicker, data: TVDataFields, onClick?: () => void) => ReactNode;
+  noSort?: boolean;
 }
+
+const COLUMNS: ColumnDef[] = [
+  { key: 'symbol',     label: 'Symbol',     align: 'left',   render: (t) => <CellSymbol symbol={t.symbol} /> },
+  { key: 'price',      label: 'Price',      align: 'right',  render: (_, d) => <CellPrice value={d.close} /> },
+  { key: 'score',      label: 'Scr',        align: 'center', render: (t) => <CellScore score={t.score} /> },
+  { key: 'change',     label: 'Change',     align: 'right',  render: (_, d) => <CellChange change={d.change} price={d.close} /> },
+  { key: 'entry',      label: 'Entry/SL',   align: 'right',  render: (t) => <CellEntry ticker={t} /> },
+  { key: 'confluence', label: 'Confluence', align: 'center', render: (t) => <CellConfluence breakdown={t.breakdown} />, noSort: true },
+  { key: 'volume',     label: 'Volume',     align: 'right',  render: (_, d) => <CellVolume data={d} /> },
+  { key: 'rating',     label: 'Rtg',        align: 'center', render: (t) => <CellRating rating={t.rating} />, noSort: true },
+  { key: 'action',     label: '',           align: 'center', render: (_t, _d, onClick) => <CellAction onClick={onClick} />, noSort: true },
+];
+
+// ── Header (flex-based) ──────────────────────────────────────────────────────
+
+function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
+  if (!active) return <ChevronUp className="w-3 h-3 text-text-muted/20" />;
+  return dir === 'asc'
+    ? <ChevronUp className="w-3 h-3 text-accent" />
+    : <ChevronDown className="w-3 h-3 text-accent" />;
+}
+
+function ColumnHeader({ column, sortKey, sortDir, onSort }: {
+  column: ColumnDef;
+  sortKey: string | null;
+  sortDir: 'asc' | 'desc' | null;
+  onSort: (key: string) => void;
+}) {
+  const isActive = sortKey === column.key;
+  const isAction = column.key === 'action';
+  return (
+    <div
+      className={cn(
+        'flex items-center h-10 px-3 text-[11px] font-semibold uppercase tracking-wider select-none border-r border-border/20 last:border-r-0',
+        column.align === 'right' && 'justify-end',
+        column.align === 'center' && 'justify-center',
+        isAction ? 'text-transparent pointer-events-none' : 'text-text-muted cursor-pointer hover:text-text-primary transition-colors',
+        isActive && 'text-text-primary',
+      )}
+      style={{ flex: `0 0 ${COL_PCT[column.key]}%` }}
+      onClick={() => !isAction && !column.noSort && onSort(column.key)}
+    >
+      {column.label && <span className="truncate">{column.label}</span>}
+      {!column.noSort && <SortIcon active={isActive} dir={isActive && sortDir ? sortDir : 'asc'} />}
+    </div>
+  );
+}
+
+// ── Empty state ──────────────────────────────────────────────────────────────
+
+function EmptyState() {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <div className="text-center p-8">
+        <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-surface border border-border flex items-center justify-center">
+          <svg className="w-7 h-7 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+        </div>
+        <h3 className="text-base font-medium text-text-primary mb-1">No Results</h3>
+        <p className="text-sm text-text-muted max-w-xs mx-auto">
+          Configure your filters and run a screen to discover trading opportunities
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Props ────────────────────────────────────────────────────────────────────
 
 interface ScreenerTableProps {
   results: TVScoredTicker[];
@@ -24,157 +219,54 @@ interface ScreenerTableProps {
   onPageSizeChange: (size: number) => void;
 }
 
-const PAGE_SIZES = [10, 25, 50, 100];
+const ROW_H = 40;
 
-const COLUMNS: ColumnDef[] = [
-  { key: 'symbol', label: 'Symbol', width: 100, align: 'left' },
-  { key: 'price', label: 'Price', width: 100, align: 'right' },
-  { key: 'score', label: 'Score', width: 80, align: 'center' },
-  { key: 'change', label: 'Change', width: 110, align: 'right' },
-  { key: 'volume', label: 'Volume', width: 120, align: 'right' },
-  { key: 'rsi', label: 'RSI', width: 70, align: 'center' },
-  { key: 'macd', label: 'MACD', width: 100, align: 'right' },
-  { key: 'signal', label: 'Signal', width: 100, align: 'center' },
-  { key: 'rating', label: 'Rating', width: 110, align: 'center' },
-  { key: 'action', label: 'Action', width: 100, align: 'center' },
-];
+// ── Data row ─────────────────────────────────────────────────────────────────
 
-function SortIcon({ key, sortKey, sortDir }: { key: string; sortKey: string | null; sortDir: 'asc' | 'desc' | null }) {
-  if (sortKey !== key) {
-    return <Minus className="w-4 h-4 text-text-muted" />;
-  }
-  return sortDir === 'asc' ? (
-    <ChevronUp className="w-4 h-4 text-accent" />
-  ) : (
-    <ChevronDown className="w-4 h-4 text-accent" />
-  );
-}
-
-function ColumnHeader({ column, sortKey, sortDir, onSort }: { column: ColumnDef; sortKey: string | null; sortDir: 'asc' | 'desc' | null; onSort: (key: string) => void }) {
+function DataRow({
+  ticker,
+  data,
+  isEven,
+  onRowClick,
+}: {
+  ticker: TVScoredTicker;
+  data: TVDataFields;
+  isEven: boolean;
+  onRowClick: (t: TVScoredTicker) => void;
+}) {
   return (
-    <th
+    <div
       className={cn(
-        'whitespace-nowrap px-3 py-2.5 text-xs font-semibold text-text-secondary uppercase tracking-wider',
-        'cursor-pointer select-none hover:text-text-primary transition-colors',
-        column.align === 'right' && 'text-right',
-        column.align === 'center' && 'text-center'
+        'flex items-center w-full border-b border-border/30 transition-colors cursor-pointer',
+        isEven ? 'bg-background' : 'bg-surface',
+        'hover:bg-surface-hover/50',
       )}
-      style={{ width: column.width ? `${column.width}px` : undefined, minWidth: column.width ? `${column.width}px` : undefined }}
-      onClick={() => onSort(column.key)}
+      style={{ height: ROW_H }}
+      onClick={() => onRowClick(ticker)}
     >
-      <div className="flex items-center justify-center gap-1">
-        <span>{column.label}</span>
-        <SortIcon key={column.key} sortKey={sortKey} sortDir={sortDir} />
-      </div>
-    </th>
+      {COLUMNS.map((col) => {
+        const isSticky = col.key === 'symbol';
+        return (
+          <div
+            key={col.key}
+            className={cn(
+              'flex items-center h-full px-3 text-sm whitespace-nowrap border-r border-border/20 last:border-r-0',
+              isSticky && 'sticky left-0 z-10',
+              isSticky && (isEven ? 'bg-background' : 'bg-surface'),
+              col.align === 'right' && 'justify-end',
+              col.align === 'center' && 'justify-center',
+            )}
+            style={{ flex: `0 0 ${COL_PCT[col.key]}%` }}
+          >
+            {col.render(ticker, data, () => onRowClick(ticker))}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
-function RatingBadge({ rating }: { rating: string }) {
-  const config = {
-    'Strong Buy': { className: 'badge-green' },
-    'Buy': { className: 'badge-green' },
-    'Hold': { className: 'badge-neutral' },
-    'Sell': { className: 'badge-red' },
-    'Strong Sell': { className: 'badge-red' },
-  }[rating] || { className: 'badge-neutral' };
-
-  return (
-    <span className={cn('badge px-2 py-1 text-xs font-medium', config.className)}>
-      {rating}
-    </span>
-  );
-}
-
-function SignalBadge({ signal }: { signal: string }) {
-  const isBuy = signal.toLowerCase().includes('buy');
-  const isSell = signal.toLowerCase().includes('sell');
-
-  return (
-    <span
-      className={cn(
-        'badge px-2 py-1 text-xs font-medium',
-        isBuy ? 'badge-green' : isSell ? 'badge-red' : 'badge-neutral'
-      )}
-    >
-      {signal}
-    </span>
-  );
-}
-
-function ChangeCell({ change, changePct }: { change: number; changePct: number }) {
-  const isGain = change >= 0;
-  return (
-    <span className={cn('font-mono text-price', isGain ? 'text-gain' : 'text-loss')}>
-      {isGain ? '+' : ''}{change.toFixed(2)} ({isGain ? '+' : ''}{changePct.toFixed(2)}%)
-    </span>
-  );
-}
-
-function VolumeCell({ volume }: { volume: number }) {
-  return (
-    <span className="font-mono text-price text-volume">
-      {formatLargeNumber(volume)}
-    </span>
-  );
-}
-
-function PriceCell({ price }: { price: number }) {
-  return (
-    <span className="font-mono text-price tabular-nums text-text-primary">
-      {formatPrice(price)}
-    </span>
-  );
-}
-
-function ScoreCell({ score }: { score: number }) {
-  const color = score >= 80 ? 'text-gain' : score >= 60 ? 'text-warning' : score >= 40 ? 'text-info' : 'text-loss';
-  return (
-    <span className={cn('font-mono font-semibold text-price', color)}>
-      {score.toFixed(1)}
-    </span>
-  );
-}
-
-function RSI_Cell({ rsi }: { rsi: number | undefined }) {
-  if (rsi === undefined) return <span className="text-text-muted">—</span>;
-  const color = rsi >= 70 ? 'text-loss' : rsi <= 30 ? 'text-gain' : 'text-text-primary';
-  return (
-    <span className={cn('font-mono text-price font-medium', color)}>
-      {rsi.toFixed(1)}
-    </span>
-  );
-}
-
-function MACD_Cell({ macd, signal }: { macd: number | undefined; signal: number | undefined }) {
-  if (macd === undefined || signal === undefined) return <span className="text-text-muted">—</span>;
-  const isBullish = macd > signal;
-  return (
-    <span className={cn('font-mono text-price', isBullish ? 'text-gain' : 'text-loss')}>
-      {macd.toFixed(3)}
-    </span>
-  );
-}
-
-function SymbolCell({ symbol }: { symbol: string }) {
-  return (
-    <span className="font-semibold text-text-primary cursor-pointer hover:text-accent transition-colors">
-      {symbol}
-    </span>
-  );
-}
-
-function ActionButton({ onClick }: { onClick: (e: React.MouseEvent<HTMLButtonElement>) => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="btn-secondary px-3 py-1.5 text-xs gap-1"
-      aria-label="View details"
-    >
-      <span>Details</span>
-    </button>
-  );
-}
+// ── Main ─────────────────────────────────────────────────────────────────────
 
 export function ScreenerTable({
   results,
@@ -190,7 +282,6 @@ export function ScreenerTable({
   const [sortKey, setSortKey] = useState<string | null>(sortState.key);
   const [sortDir, setSortDir] = useState<'asc' | 'desc' | null>(sortState.dir);
 
-  // Sync with parent sort state
   if (sortState.key !== sortKey || sortState.dir !== sortDir) {
     setSortKey(sortState.key);
     setSortDir(sortState.dir);
@@ -199,47 +290,20 @@ export function ScreenerTable({
   const sortedData = useMemo(() => {
     if (!sortKey || !sortDir) return results;
     return [...results].sort((a, b) => {
+      const da = a.tv_data;
+      const db = b.tv_data;
       let aVal: number | string = 0;
       let bVal: number | string = 0;
-
       switch (sortKey) {
-        case 'symbol':
-          aVal = a.symbol;
-          bVal = b.symbol;
-          break;
-        case 'price':
-          aVal = a.tv_data?.close as number ?? 0;
-          bVal = b.tv_data?.close as number ?? 0;
-          break;
-        case 'score':
-          aVal = a.score;
-          bVal = b.score;
-          break;
-        case 'change':
-          aVal = a.tv_data?.change as number ?? 0;
-          bVal = b.tv_data?.change as number ?? 0;
-          break;
-        case 'volume':
-          aVal = a.tv_data?.volume as number ?? 0;
-          bVal = b.tv_data?.volume as number ?? 0;
-          break;
-        case 'rsi':
-          aVal = a.tv_data?.rsi as number ?? 0;
-          bVal = b.tv_data?.rsi as number ?? 0;
-          break;
-        case 'macd':
-          aVal = a.tv_data?.macd as number ?? 0;
-          bVal = b.tv_data?.macd as number ?? 0;
-          break;
-        case 'rating':
-          aVal = a.rating;
-          bVal = b.rating;
-          break;
-        default:
-          aVal = 0;
-          bVal = 0;
+        case 'symbol':   aVal = a.symbol; bVal = b.symbol; break;
+        case 'price':    aVal = da.close ?? 0; bVal = db.close ?? 0; break;
+        case 'score':    aVal = a.score; bVal = b.score; break;
+        case 'change':   aVal = da.change ?? 0; bVal = db.change ?? 0; break;
+        case 'entry':    aVal = a.entry; bVal = b.entry; break;
+        case 'volume':   aVal = da.volume ?? 0; bVal = db.volume ?? 0; break;
+        case 'rating':   aVal = a.rating; bVal = b.rating; break;
+        default:         aVal = 0; bVal = 0;
       }
-
       if (typeof aVal === 'string') {
         return sortDir === 'asc'
           ? aVal.localeCompare(bVal as string)
@@ -256,10 +320,7 @@ export function ScreenerTable({
       if (sortKey === key) {
         if (sortDir === null) setSortDir('asc');
         else if (sortDir === 'asc') setSortDir('desc');
-        else {
-          setSortKey(null);
-          setSortDir(null);
-        }
+        else { setSortKey(null); setSortDir(null); }
       } else {
         setSortKey(key);
         setSortDir('asc');
@@ -269,7 +330,6 @@ export function ScreenerTable({
     [sortKey, sortDir, onSort]
   );
 
-  // Pagination
   const totalPages = Math.ceil(sortedData.length / pageSize);
   const paginatedData = sortedData.slice(
     currentPage * pageSize,
@@ -279,209 +339,157 @@ export function ScreenerTable({
   const virtualizer = useVirtualizer({
     count: paginatedData.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 48,
+    estimateSize: () => ROW_H,
     overscan: 5,
   });
 
-  if (results.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-center p-8">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-surface border border-border flex items-center justify-center">
-            <svg className="w-8 h-8 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-medium text-text-primary mb-1">No Results</h3>
-          <p className="text-text-muted">
-            Configure your filters and run a screen to discover trading opportunities
-          </p>
-        </div>
-      </div>
-    );
-  }
+  if (results.length === 0) return <EmptyState />;
+
+  const virtualItems = virtualizer.getVirtualItems();
+  const totalSize = virtualizer.getTotalSize();
+  const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0;
+  const paddingBottom = virtualItems.length > 0
+    ? totalSize - virtualItems[virtualItems.length - 1].end
+    : 0;
 
   return (
     <div className="flex flex-col h-full">
-      {/* Table */}
       <div ref={parentRef} className="flex-1 overflow-auto">
-        <div className="overflow-x-auto">
-          <table className="w-full table-fixed min-w-[1060px]">
-            <thead className="sticky top-0 z-20 bg-surface/80 backdrop-blur-sm border-b border-border">
-              <tr>
-                {COLUMNS.map((col) => (
-                  <ColumnHeader
-                    key={col.key}
-                    column={col}
-                    sortKey={sortKey}
-                    sortDir={sortDir}
-                    onSort={handleSort}
-                  />
-                ))}
-              </tr>
-            </thead>
-            <tbody
-              style={{
-                position: 'relative',
-                height: `${virtualizer.getTotalSize()}px`,
-              }}
-            >
-              {virtualizer.getVirtualItems().map((virtualRow) => {
-                const ticker = paginatedData[virtualRow.index];
-                const price = ticker.tv_data?.close as number ?? ticker.entry;
-                const change = ticker.tv_data?.change as number ?? 0;
-                const changePct = ticker.tv_data?.change_percent as number ?? 0;
-                const volume = ticker.tv_data?.volume as number ?? 0;
-                const rsi = ticker.tv_data?.rsi as number | undefined;
-                const macd = ticker.tv_data?.macd as number | undefined;
-                const macdSignal = ticker.tv_data?.macd_signal as number | undefined;
-                const signal = ticker.tv_data?.signal as string ?? 'Neutral';
+        {/* Header — sticky at top */}
+        <div className="sticky top-0 z-20 flex w-full bg-background border-b border-border/50 min-w-[900px]">
+          {COLUMNS.map((col) => (
+            <ColumnHeader
+              key={col.key}
+              column={col}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSort={handleSort}
+            />
+          ))}
+        </div>
 
-                return (
-                  <tr
-                    key={ticker.symbol}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      transform: `translateY(${virtualRow.start}px)`,
-                    }}
-                    className="border-b border-border/50 transition-colors hover:bg-surface-hover/50 cursor-pointer"
-                    onClick={() => onRowClick(ticker)}
-                  >
-                    <td className="whitespace-nowrap px-3 py-2.5 text-sm sticky left-0 z-10 bg-surface/80 backdrop-blur-sm">
-                      <SymbolCell symbol={ticker.symbol} />
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-right">
-                      <PriceCell price={price} />
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-center">
-                      <ScoreCell score={ticker.score} />
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-right">
-                      <ChangeCell change={change} changePct={changePct} />
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-right">
-                      <VolumeCell volume={volume} />
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-center">
-                      <RSI_Cell rsi={rsi} />
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-right">
-                      <MACD_Cell macd={macd} signal={macdSignal} />
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-center">
-                      <SignalBadge signal={signal} />
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-center">
-                      <RatingBadge rating={ticker.rating} />
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-sm text-center">
-                      <ActionButton onClick={(e) => { e.stopPropagation(); onRowClick(ticker); }} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        {/* Virtual list body */}
+        <div className="w-full min-w-[900px]" style={{ height: totalSize }}>
+          {/* Top spacer */}
+          {paddingTop > 0 && <div style={{ height: paddingTop }} />}
+
+          {/* Visible rows */}
+          {virtualItems.map((virtualRow) => {
+            const ticker = paginatedData[virtualRow.index];
+            const data = ticker.tv_data ?? {} as TVDataFields;
+            const rowIndex = currentPage * pageSize + virtualRow.index;
+
+            return (
+              <DataRow
+                key={ticker.symbol}
+                ticker={ticker}
+                data={data}
+                isEven={rowIndex % 2 === 0}
+                onRowClick={onRowClick}
+              />
+            );
+          })}
+
+          {/* Bottom spacer */}
+          {paddingBottom > 0 && <div style={{ height: paddingBottom }} />}
         </div>
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between border-t border-border px-4 py-3 bg-surface/50">
-        <div className="flex items-center gap-2 text-sm text-text-secondary">
+      <div className="flex items-center justify-between border-t border-border px-4 py-2.5 bg-background">
+        <div className="flex items-center gap-2 text-xs text-text-muted">
           <span>Showing</span>
-          <span className="font-mono text-text-primary">
+          <span className="font-mono text-text-primary tabular-nums">
             {sortedData.length > 0 ? currentPage * pageSize + 1 : 0}
           </span>
-          <span>to</span>
-          <span className="font-mono text-text-primary">
+          <span>–</span>
+          <span className="font-mono text-text-primary tabular-nums">
             {Math.min((currentPage + 1) * pageSize, sortedData.length)}
           </span>
           <span>of</span>
-          <span className="font-mono text-text-primary">{sortedData.length}</span>
-          <span>results</span>
+          <span className="font-mono text-text-primary tabular-nums">{sortedData.length}</span>
         </div>
 
         <div className="flex items-center gap-2">
           <select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="select w-auto px-2 py-1 text-xs"
+            className="select w-auto px-2 py-1 text-xs min-w-0"
             aria-label="Results per page"
           >
-            {PAGE_SIZES.map((size) => (
-              <option key={size} value={size}>
-                {size} per page
-              </option>
+            {[10, 25, 50, 100].map((size) => (
+              <option key={size} value={size}>{size} / page</option>
             ))}
           </select>
 
-          <div className="flex items-center gap-1 ml-4">
+          <div className="flex items-center gap-0.5 ml-2">
             <button
               onClick={() => onPageChange(0)}
               disabled={currentPage === 0}
-              className="btn-ghost p-1.5 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="btn-ghost p-1 disabled:opacity-30 disabled:cursor-not-allowed"
               aria-label="First page"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <ChevronLeft className="w-3.5 h-3.5 -ml-2.5" />
             </button>
             <button
               onClick={() => onPageChange(currentPage - 1)}
               disabled={currentPage === 0}
-              className="btn-ghost p-1.5 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="btn-ghost p-1 disabled:opacity-30 disabled:cursor-not-allowed"
               aria-label="Previous page"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-3.5 h-3.5" />
             </button>
 
-            <div className="flex items-center gap-1 mx-2">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum: number;
-                if (totalPages <= 5) {
-                  pageNum = i;
-                } else if (currentPage <= 1) {
-                  pageNum = i;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 5 + i;
+            <div className="flex items-center gap-0.5 mx-1.5">
+              {(() => {
+                const buttons: number[] = [];
+                const total = totalPages;
+                const cur = currentPage;
+                if (total <= 5) {
+                  for (let i = 0; i < total; i++) buttons.push(i);
+                } else if (cur <= 1) {
+                  for (let i = 0; i < 5; i++) buttons.push(i);
+                } else if (cur >= total - 2) {
+                  for (let i = total - 5; i < total; i++) buttons.push(i);
                 } else {
-                  pageNum = currentPage - 2 + i;
+                  for (let i = cur - 2; i <= cur + 2; i++) buttons.push(i);
                 }
-                return (
+                return buttons.map((pageNum) => (
                   <button
                     key={pageNum}
                     onClick={() => onPageChange(pageNum)}
                     className={cn(
-                      'w-8 h-8 rounded-lg text-sm font-medium transition-all',
+                      'w-7 h-7 rounded text-xs font-medium transition-all',
                       pageNum === currentPage
                         ? 'bg-accent text-white'
-                        : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'
+                        : 'text-text-muted hover:bg-surface-hover hover:text-text-primary'
                     )}
                     aria-label={`Page ${pageNum + 1}`}
                     aria-current={pageNum === currentPage ? 'page' : undefined}
                   >
                     {pageNum + 1}
                   </button>
-                );
-              })}
+                ));
+              })()}
             </div>
 
             <button
               onClick={() => onPageChange(currentPage + 1)}
               disabled={currentPage >= totalPages - 1}
-              className="btn-ghost p-1.5 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="btn-ghost p-1 disabled:opacity-30 disabled:cursor-not-allowed"
               aria-label="Next page"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => onPageChange(totalPages - 1)}
               disabled={currentPage >= totalPages - 1}
-              className="btn-ghost p-1.5 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="btn-ghost p-1 disabled:opacity-30 disabled:cursor-not-allowed"
               aria-label="Last page"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-3.5 h-3.5" />
+              <ChevronRight className="w-3.5 h-3.5 -ml-2.5" />
             </button>
           </div>
         </div>
