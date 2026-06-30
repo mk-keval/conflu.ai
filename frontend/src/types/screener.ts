@@ -24,6 +24,15 @@ export interface TVScoredTicker {
   risk_reward: number;
   rating: string;
   tv_data: TVDataFields;
+  /** Per-timeframe breakdown (populated for multi-TF screens only). */
+  mtf_breakdown?: TVMTFBreakdown[];
+}
+
+export interface TVMTFBreakdown {
+  timeframe: string;
+  weight: number;
+  matched: boolean;
+  score: number;
 }
 
 /** Fields returned by TradingView screener in the `tv_data` envelope. */
