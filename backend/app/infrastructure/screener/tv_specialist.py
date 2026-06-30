@@ -33,9 +33,13 @@ FILTER_MAP: dict[str, Callable[..., Any]] = {
     # (Column has no arithmetic ops, so this is the closest proxy for squeeze detection)
     "bb_squeeze":           lambda p, col: col("BB.upper").below_pct(col("BB.lower"), p.get("threshold", 1.10)),
     "price_above_vwap":     lambda p, col: col("close") > col("VWAP"),
+    "price_below_vwap":     lambda p, col: col("close") < col("VWAP"),
+    "rvol_low":             lambda p, col: col("relative_volume_10d_calc") < p.get("threshold", 0.7),
+    "ema_cross_bearish":    lambda p, col: col(f"EMA{p['fast']}") < col(f"EMA{p['slow']}"),
     "sector_is":            lambda p, col: col("sector").isin(p["sectors"]),
     "market_cap_gt":        lambda p, col: col("market_cap_basic") > p["value"],
     "analyst_strongbuy":    lambda p, col: col("AnalystRating") == "StrongBuy",
+    "analyst_sell":         lambda p, col: col("AnalystRating").isin(["Sell", "StrongSell"]),
     "dividend_yield_gt":    lambda p, col: col("dividends_yield_current") > p.get("threshold", 0.03),
 }
 

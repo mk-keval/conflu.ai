@@ -1,0 +1,24 @@
+name: "Distribution"
+description: "Institutional distribution — heavy volume selling below VWAP with bearish MACD"
+asset_classes:
+  - equities
+timeframes:
+  - 1D
+  - 4h
+filters:
+  - category: volume
+    indicator: rvol_high
+    params:
+      threshold: 1.5
+    timeframe: "1D"
+  - category: momentum
+    indicator: macd_bearish
+    timeframe: "1D"
+  - category: volume
+    indicator: price_below_vwap
+    timeframe: "1D"
+  - category: trend
+    indicator: price_below_ema
+    params:
+      period: 20
+    timeframe: "1D"
