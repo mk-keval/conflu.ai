@@ -81,6 +81,10 @@ function CellConfluence({ breakdown }: { breakdown: Record<string, number> }) {
       <span className="text-accent">M{breakdown.momentum ?? 0}</span>
       <span className="text-text-muted mx-1">·</span>
       <span className="text-warning">V{breakdown.volume ?? 0}</span>
+      <span className="text-text-muted mx-1">·</span>
+      <span className="text-purple-400">Q{breakdown.quality ?? 0}</span>
+      <span className="text-text-muted mx-1">·</span>
+      <span className="text-cyan-400">F{breakdown.fundamental ?? 0}</span>
     </span>
   );
 }
