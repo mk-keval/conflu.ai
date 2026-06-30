@@ -71,6 +71,18 @@ export interface TVDeepAnalysisRequest {
   timeframe: string;
   include_backtest?: boolean;
   include_risk?: boolean;
+  /** TV screener row data passed as fallback when OHLCV is unavailable. */
+  tv_data?: TVDataFields;
+}
+
+export interface TVConfluenceFallback {
+  confluence_score: number;
+  breakdown: Record<string, number>;
+  entry: number;
+  stop_loss: number;
+  targets: number[];
+  risk_reward: number;
+  rating: string;
 }
 
 export interface TVDeepAnalysisResponse {
@@ -83,6 +95,10 @@ export interface TVDeepAnalysisResponse {
   backtest: Record<string, unknown> | null;
   risk: Record<string, unknown> | null;
   execution_ms: number;
+  /** Whether full OHLCV-backed deep analysis was available. */
+  has_ohlcv?: boolean;
+  /** TV-data-only fallback values (present when has_ohlcv=false). */
+  tv_fallback?: TVConfluenceFallback | null;
 }
 
 // ── Legacy Types (for old architecture) ──

@@ -173,26 +173,72 @@ class TVScreenEngine:
             "results": scored,
         }
 
-    async def deep_analyze(self, symbol: str, timeframe: str = "1D") -> dict[str, Any]:
+    async def deep_analyze(
+        self,
+        symbol: str,
+        timeframe: str = "1D",
+        tv_data: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         Stage 3: On-demand deep analysis for a single ticker.
         Fetches OHLCV, computes indicators, runs backtest, risk.
+        Falls back to TV-screener data when OHLCV is unavailable.
         """
         from backend.app.infrastructure.analysis.deep_analysis import DeepAnalysisOrchestrator
+        from backend.app.infrastructure.screener.confluence_scorer import TVConfluenceScorer
+        import pandas as pd
 
         orchestrator = DeepAnalysisOrchestrator()
         result = await orchestrator.analyze(symbol, timeframe)
 
+        has_ohlcv = result.ohlcv is not None and not result.ohlcv.empty if hasattr(result, 'ohlcv') else False
+
+        # If OHLCV analysis returned zeros and TV data is available,
+        # fall back to the TV confluence scorer (which only needs TV columns).
+        if not has_ohlcv and tv_data is not None:
+            self.log.info("deep_analysis_ohlcv_missing", symbol=symbol, fallback="tv_data")
+            tv_row = pd.Series(tv_data)
+            score = self.scorer.score(tv_row)
+            response = {
+                "symbol": result.symbol,
+                "timeframe": result.timeframe,
+                "timestamp": result.timestamp.isoformat() if hasattr(result.timestamp, 'isoformat') else str(result.timestamp),
+                "confluence_score": result.confluence_score,
+                "entry": result.entry,
+                "stop_loss": result.stop_loss,
+                "targets": result.targets,
+                "backtest": result.backtest,
+                "risk": result.risk,
+                "has_ohlcv": False,
+                "tv_fallback": {
+                    "confluence_score": score.total,
+                    "breakdown": score.breakdown,
+                    "entry": score.entry,
+                    "stop_loss": score.stop_loss,
+                    "targets": score.targets,
+                    "risk_reward": score.risk_reward,
+                    "rating": score.rating,
+                },
+            }
+            # Override zeros with TV-based values when OHLCV has nothing
+            if result.confluence_score == 0 and result.entry == 0:
+                response["entry"] = score.entry
+                response["stop_loss"] = score.stop_loss
+                response["targets"] = score.targets
+                response["confluence_score"] = float(score.total)
+            return response
+
         return {
             "symbol": result.symbol,
             "timeframe": result.timeframe,
-            "timestamp": result.timestamp.isoformat(),
+            "timestamp": result.timestamp.isoformat() if hasattr(result.timestamp, 'isoformat') else str(result.timestamp),
             "confluence_score": result.confluence_score,
             "entry": result.entry,
             "stop_loss": result.stop_loss,
             "targets": result.targets,
             "backtest": result.backtest,
             "risk": result.risk,
+            "has_ohlcv": has_ohlcv,
         }
 
     def cache_stats(self) -> dict[str, Any]:

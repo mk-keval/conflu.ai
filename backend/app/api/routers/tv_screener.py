@@ -170,7 +170,11 @@ async def deep_analyze(
 
     try:
         engine = TVScreenEngine()
-        result = await engine.deep_analyze(request.symbol, request.timeframe)
+        result = await engine.deep_analyze(
+            request.symbol,
+            request.timeframe,
+            tv_data=request.tv_data,
+        )
 
         return {
             "symbol": result.get("symbol", request.symbol),
@@ -182,6 +186,8 @@ async def deep_analyze(
             "backtest": result.get("backtest") if request.include_backtest else None,
             "risk": result.get("risk") if request.include_risk else None,
             "execution_ms": round((time.monotonic() - start) * 1000),
+            "has_ohlcv": result.get("has_ohlcv", False),
+            "tv_fallback": result.get("tv_fallback"),
         }
 
     except Exception as e:
