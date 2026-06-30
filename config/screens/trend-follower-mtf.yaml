@@ -9,30 +9,23 @@ timeframes:
   - 1W
 filters:
   - category: trend
-    indicator: ema_compare
+    indicator: ema_cross
     params:
-      fast_period: 50
-      slow_period: 200
-      operator: gt
-    operator: gt
+      fast: 50
+      slow: 200
     timeframe: "1D"
   - category: momentum
-    indicator: rsi_compare
+    indicator: rsi_overbought
     params:
       threshold: 60
-      operator: gt
-    operator: gt
     timeframe: "1D"
   - category: momentum
-    indicator: rsi_compare
+    indicator: rsi_overbought
     params:
       threshold: 55
-      operator: gt
-    operator: gt
     timeframe: "1W"
   - category: volume
     indicator: rvol_high
     params:
       threshold: 1.2
-    operator: gt
     timeframe: "4h"

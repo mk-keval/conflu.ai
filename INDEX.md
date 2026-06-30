@@ -52,5 +52,8 @@
 - [Docker Compose](docker-compose.yml) — Full stack with observability
 - [Container Builds](Dockerfile) — Multi-stage backend (uv + distroless)
 
+## Recent Activity
+- **2026-06-28** — Table visual redesign: single-line cells, proportional column widths, zebra striping, sticky column fix, 40px rows, compact confluence display. [Session Log](docs/SESSIONS/2026-06-28_table-visual-redesign.md)
+
 ## Archive: v0.1 Foundation (Legacy)
 The original 10-phase plan is archived. Phases 1–2 (Data Ingestion) retained for backtest OHLCV. Phases 3–10 replaced by TV Screener architecture. See [STATE.md](STATE.md) for details.

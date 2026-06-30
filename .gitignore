@@ -156,6 +156,9 @@ shared-screen-snapshot.yml
 after-modification.yml
 risk-fixed.yml
 
+# Playwright MCP output directory
+.playwright-output/
+
 # Playwright test results directory
 playwright-results/
 test-results/

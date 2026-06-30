@@ -58,7 +58,7 @@ interface ScreenStore {
 export const useScreenStore = create<ScreenStore>()(
   persist(
     (set, get) => ({
-      selectedConfig: 'trend-follower',
+      selectedConfig: 'Trend Follower',
       timeframes: ['1D', '4h'],
       columnVisibility: {},
       columnOrder: [],

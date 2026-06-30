@@ -23,7 +23,42 @@ export interface TVScoredTicker {
   targets: number[];
   risk_reward: number;
   rating: string;
-  tv_data: Record<string, unknown>;
+  tv_data: TVDataFields;
+}
+
+/** Fields returned by TradingView screener in the `tv_data` envelope. */
+export interface TVDataFields {
+  ticker: string;
+  /** Human-readable name (same as symbol for most stocks). */
+  name: string;
+  /** Last traded price. */
+  close: number;
+  /** Raw price change (close − previous_close). */
+  change: number;
+  /** 10-day average relative volume ratio. */
+  relative_volume_10d_calc?: number;
+  /** Total market capitalisation in USD. */
+  market_cap_basic?: number;
+  /** Trailing-twelve-months P/E ratio. */
+  price_earnings_ttm?: number;
+  /** TTM diluted EPS. */
+  earnings_per_share_diluted_ttm?: number;
+  /** Current dividend yield (%). */
+  dividends_yield_current?: number;
+  /** Sector classification. */
+  sector?: string;
+  /** TradingView-displayed exchange/country. */
+  market?: string;
+  /** Analyst consensus rating. */
+  AnalystRating?: string;
+  /** Trading currency. */
+  currency?: string;
+  /** TradingView price scale (default 100). */
+  pricescale?: number;
+  /** Number of shares traded. */
+  volume?: number;
+  /** Exchange suffix. */
+  type?: string;
 }
 
 export interface TVTemplate {

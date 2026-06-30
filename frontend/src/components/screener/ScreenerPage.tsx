@@ -28,11 +28,11 @@ function ScreenerContent() {
 
   // State
   const [templates, setTemplates] = useState<TVTemplate[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('trend-follower');
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [isRunning, setIsRunning] = useState(false);
   const [results, setResults] = useState<TVScoredTicker[]>([]);
   const [totalMatches, setTotalMatches] = useState(0);
-  const [screenName, setScreenName] = useState('Trend Follower');
+  const [screenName, setScreenName] = useState('');
   const [executionTime, setExecutionTime] = useState(0);
   const [selectedTicker, setSelectedTicker] = useState<TVScoredTicker | null>(null);
   const [sortState, setSortState] = useState<{ key: string | null; dir: 'asc' | 'desc' | null }>({ key: 'score', dir: 'desc' });
@@ -46,14 +46,33 @@ function ScreenerContent() {
       .catch(console.error);
   }, []);
 
-  // Update selected template when config changes
+  // Update selected template when config or templates change
   useEffect(() => {
-    const template = templates.find((t) => t.name === selectedConfig);
-    if (template) {
-      setSelectedTemplate(template.name);
-      setScreenName(template.name.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()));
+    if (templates.length === 0) return;
+
+    // Normalise both sides for fuzzy matching (handles old hyphenated store values)
+    const norm = (s: string) => s.toLowerCase().replace(/[-\s]+/g, '');
+
+    const exact = templates.find((t) => t.name === selectedConfig);
+    if (exact) {
+      setSelectedTemplate(exact.name);
+      setScreenName(exact.name);
+      return;
     }
-  }, [selectedConfig, templates]);
+
+    const fuzzy = templates.find((t) => norm(t.name) === norm(selectedConfig));
+    if (fuzzy) {
+      setSelectedTemplate(fuzzy.name);
+      setScreenName(fuzzy.name);
+      setConfig(fuzzy.name);
+      return;
+    }
+
+    // Fall back to first template
+    setSelectedTemplate(templates[0].name);
+    setScreenName(templates[0].name);
+    setConfig(templates[0].name);
+  }, [selectedConfig, templates, setConfig]);
 
   // Fetch screen data
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -269,21 +288,27 @@ function ScreenerHeader({
           </div>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Template Selector */}
           <div className="relative">
             <select
-              value={selectedTemplate}
+              value={selectedTemplate || templates[0]?.name || ''}
               onChange={(e) => onTemplateChange(e.target.value)}
-              className="select pr-10 min-w-[200px] bg-surface border-border"
+              className="appearance-none cursor-pointer pl-3 pr-8 py-2 text-sm bg-surface border border-border rounded-lg
+                         text-text-primary placeholder-text-muted
+                         hover:border-text-muted/30 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent
+                         transition-colors duration-150 min-w-[180px]"
             >
+              {templates.length === 0 && (
+                <option value="" disabled>Loading...</option>
+              )}
               {templates.map((template) => (
                 <option key={template.name} value={template.name}>
-                  {template.name.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                  {template.name}
                 </option>
               ))}
             </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted pointer-events-none" />
           </div>
 
           {/* Run Screen Button */}
