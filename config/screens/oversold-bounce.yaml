@@ -10,10 +10,13 @@ filters:
   - category: momentum
     indicator: rsi_oversold
     params:
-      threshold: 25
+      threshold: 30
     timeframe: "1D"
-  - category: trend
-    indicator: price_above_ema
+  - category: momentum
+    indicator: macd_bullish
+    timeframe: "1D"
+  - category: volume
+    indicator: rvol_high
     params:
-      period: 20
+      threshold: 1.2
     timeframe: "1D"
