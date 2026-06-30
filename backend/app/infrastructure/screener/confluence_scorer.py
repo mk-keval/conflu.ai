@@ -59,18 +59,47 @@ class TVConfluenceScorer:
         scores["trend"] = trend_score
 
         # 2. MOMENTUM CONFLUENCE (0-25 pts)
+        # Sub-factors: MACD direction + spread (0-10), RSI graded (0-12), RSI-MACD confluence (0-3)
         mom_score = 0
         macd = row.get("MACD.macd", 0)
         macd_signal = row.get("MACD.signal", 0)
-        macd_hist = row.get("MACD.hist", 0)
         rsi = row.get("RSI", 50)
         
+        # MACD direction + spread strength (0-10 pts)
+        # Replaces old binary macd > signal (+10) + macd_hist > 0 (+5) check.
+        # macd_hist > 0 was redundant: it's almost always true when MACD > signal.
+        # Spread ratio (macd - signal) / signal measures histogram strength directly.
         if macd > macd_signal:
-            mom_score += 10
-        if macd_hist > 0:
-            mom_score += 5
-        if 50 < rsi < 70:
-            mom_score += 10
+            mom_score += 5  # Base directional alignment
+            spread = macd - macd_signal
+            spread_ratio = spread / (abs(macd_signal) + 1e-9)
+            if spread_ratio > 1.0:
+                mom_score += 5  # Strong acceleration
+            elif spread_ratio > 0.5:
+                mom_score += 3  # Moderate acceleration
+            else:
+                mom_score += 1  # Barely positive
+        
+        # RSI graded (0-12 pts) — smooth scale, no cliff at 70
+        # Old code awarded +10 for 50 < RSI < 70, then +0 for RSI >= 70.
+        # This punished stocks breaking out into overbought territory.
+        if rsi > 90:
+            mom_score += 1   # Extreme overbought — mean reversion risk dominates
+        elif rsi > 80:
+            mom_score += 3   # Very extended — caution, momentum may snap
+        elif rsi > 75:
+            mom_score += 5   # Extended — bullish but late-stage
+        elif rsi > 65:
+            mom_score += 10  # Sweet spot: 66–75, strong momentum without being overbought
+        elif rsi > 55:
+            mom_score += 7   # Building momentum
+        elif rsi > 50:
+            mom_score += 3   # Just above neutral — weak bullish
+        # else 0 — RSI <= 50, bearish momentum
+        
+        # RSI-MACD confluence bonus (0-3 pts) — both aligned = higher conviction
+        if rsi > 50 and macd > macd_signal:
+            mom_score += 3
         scores["momentum"] = mom_score
 
         # 3. VOLUME CONFLUENCE (0-20 pts)
@@ -96,15 +125,23 @@ class TVConfluenceScorer:
         atr = row.get("ATR", 0)
         close_val = row.get("close", 0)
         
-        if adx > 25:
-            qual_score += 8
+        if adx > 45:
+            qual_score += 8   # Very strong trend
+        elif adx > 35:
+            qual_score += 6   # Strong trend
+        elif adx > 25:
+            qual_score += 4   # Trending threshold
+        elif adx > 20:
+            qual_score += 2   # Weak trend beginning
         if bb_upper and bb_lower and close_val:
             # BB width as % of price  (BB.width is not a TV column, compute from upper/lower)
             bb_width = bb_upper - bb_lower
             if bb_width > 0:
                 bb_pct = (bb_width / close_val) * 100
-                if bb_pct < 5:  # Squeeze
-                    qual_score += 7
+                if bb_pct < 2.0:
+                    qual_score += 7   # Tight squeeze — breakout imminent
+                elif bb_pct < 3.5:
+                    qual_score += 4   # Moderate squeeze — contracting
         scores["quality"] = qual_score
 
         # 5. FUNDAMENTAL BACKDROP (0-10 pts)
