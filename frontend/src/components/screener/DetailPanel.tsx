@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { X, TrendingUp, TrendingDown, Target, AlertTriangle, Play, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import { formatPrice } from '@/lib/format';
+import { formatPrice, formatPct } from '@/lib/format';
 import { fetchDeepAnalysis } from '@/api/screener';
 import type { TVScoredTicker, TVDeepAnalysisRequest } from '@/types/screener';
 import { useQuery } from '@tanstack/react-query';
@@ -98,9 +98,12 @@ export function DetailPanel({ ticker, onClose, onAnalyze }: DetailPanelProps) {
 
   if (!ticker) return null;
 
-  const change = ticker.tv_data?.change as number | undefined;
-  const changePct = ticker.tv_data?.change_percent as number | undefined;
-  const isGain = (change ?? 0) >= 0;
+  const change = ticker.tv_data?.change ?? 0;
+  const price = ticker.tv_data?.close ?? 0;
+  const changePct = price !== change
+    ? ((change / (price - change)) * 100)
+    : 0;
+  const isGain = change >= 0;
 
   return (
     <div
@@ -135,7 +138,7 @@ export function DetailPanel({ ticker, onClose, onAnalyze }: DetailPanelProps) {
                 isGain ? 'badge-green' : 'badge-red'
               )}
             >
-              {isGain ? '+' : ''}{changePct?.toFixed(2)}%
+              {formatPct(changePct)}
             </span>
           </div>
           <button
@@ -157,7 +160,7 @@ export function DetailPanel({ ticker, onClose, onAnalyze }: DetailPanelProps) {
             <div className={cn('flex items-center gap-2 font-mono text-price', isGain ? 'text-gain' : 'text-loss')}>
               {isGain ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
               <span>
-                {isGain ? '+' : ''}{change?.toFixed(2)} ({isGain ? '+' : ''}{changePct?.toFixed(2)}%)
+                {isGain ? '+' : ''}{change.toFixed(2)} ({formatPct(changePct)})
               </span>
             </div>
           </div>
