@@ -1,5 +1,32 @@
 # CHANGELOG — Decision Log
 
+## 2026-06-30 — Scoring Calibration, SHORT Screens & MTF Weighted Stacking
+
+**Prompt:** Institutional trading veteran evaluation identified scoring issues (binary thresholds, MTF strict intersection, missing SHORT screens, hidden confluence factors).
+
+**Changes:**
+- **Scoring:** Replaced binary EMA checks (close > EMA = flat +10) with percent-distance graded thresholds (4/6/8/10). Volume grading: rel_vol (1/3/6/8/10), vol_change (1/2/3/5), VWAP (1/3/5). Removes all-or-nothing scoring cliffs.
+- **UI:** Quality (purple) and Fundamental (cyan) score factors now displayed in screener table alongside Trend/Momentum/Volume.
+- **SHORT screens:** 3 new templates (Breakdown, Short Squeeze, Distribution) + 4 new FILTER_MAP entries (price_below_vwap, rvol_low, ema_cross_bearish, analyst_sell).
+- **MTF stacking:** Replaced strict intersection (must match ALL TFs) with weighted aggregation (Daily 0.50, 4h 0.25, Weekly 0.25). Tickers matching 2/3 TFs now get partial credit.
+
+**Architecture Decisions:**
+- **MTF Weighted Over Strict Intersection** — Strict intersection was too aggressive, excluding valid setups that matched most but not all timeframes. Weighted stacking with TF-appropriate weights gives smoother scoring while still rewarding multi-TF confirmation. Daily weighted highest (0.50) as primary decision timeframe; shorter timeframes reduce noise weight.
+- **Graded Thresholds Over Binary Checks** — Binary checks (rel_vol > 1.5 = +10, 1.49 = +0) create artificial cliffs that misrank tickers. Graded scales (1/3/6/8/10) better reflect the continuous nature of market signals.
+- **Screen-as-YAML Pattern** — Adding a new screen is now a pure YAML config change. No code changes needed as long as the screen uses existing FILTER_MAP entries.
+
+**Risk Level:** LOW-MEDIUM (backend scoring logic changed, but old behavior was clearly wrong per evaluation; MTF intersection → weighted is a behavioral change but strictly additive)
+
+**Verification:**
+- Backend tests: 280 passed ✅ (12/12 screener config tests pass)
+- Frontend build: clean (tsc --noEmit) ✅
+- Scorer smoke test: strong=85/A+, medium=52/B, weak=0/D ✅
+- MTF weighted formula verified: 85\*0.5 + 52\*0.25 + 0\*0.25 = 55.5 → rating B ✅
+
+**Decision ID:** D-2026-06-30-001
+
+---
+
 ## 2026-06-29 — Screener Table Alignment Fix + Template Fixes
 
 **Prompt:** Column alignment off, "Price values not under price column", "Couple of screeners not working"

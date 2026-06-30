@@ -53,6 +53,7 @@
 - [Container Builds](Dockerfile) — Multi-stage backend (uv + distroless)
 
 ## Recent Activity
+- **2026-06-30** — Scoring calibration, SHORT screens, MTF weighted stacking, all 5 factors in UI. [Session Log](docs/SESSIONS/2026-06-30_scoring-calibration-and-short-screens.md)
 - **2026-06-28** — Table visual redesign: single-line cells, proportional column widths, zebra striping, sticky column fix, 40px rows, compact confluence display. [Session Log](docs/SESSIONS/2026-06-28_table-visual-redesign.md)
 
 ## Archive: v0.1 Foundation (Legacy)
