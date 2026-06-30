@@ -23,11 +23,22 @@ Trading veteran evaluation identified scoring issues (binary thresholds, MTF str
 ### MTF Weighted Stacking
 6. **Replaced strict intersection** with weighted TF scoring: Daily 0.50, 4h 0.25, Weekly 0.25. Tickers matching 2/3 TFs now get partial credit instead of 0.
 
+### Fundamental Scoring Graded
+7. **Analyst rating** — StrongBuy(4)/Buy(3)/Outperform(2)/Hold(1)/Sell(0) instead of binary StrongBuy-or-nothing
+8. **Market cap** — Mega(3)/Large(2)/Mid(1)/Small(0) instead of binary >$10B
+9. **EPS** — Highly profitable(3)/Solid(2)/Barely(1)/Negative(0) instead of binary >0
+
+### Volatility Regime Stops
+10. **ATR% of price** determines regime: low (<1%), normal (1-3%), high (>3%)
+11. Low vol: **1.5 ATR stops** (tighter), targets at 1.5/2.5 ATR
+12. High vol: **3.0 ATR stops** (wider), targets at 3.0/4.5 ATR
+13. Normal: standard 2.0/2.0/3.0 ATR (unchanged)
+
 ### Bug Fix
-7. Fixed pre-existing `test_oversold_bounce_loads` assertion (filter count changed from 2→3 in PR #3).
+14. Fixed pre-existing `test_oversold_bounce_loads` assertion (filter count changed from 2→3 in PR #3).
 
 ## Files Modified
-- `backend/app/infrastructure/screener/confluence_scorer.py` — Graded trend & volume scoring
+- `backend/app/infrastructure/screener/confluence_scorer.py` — Graded trend, volume, fundamental; volatility regime stops
 - `backend/app/infrastructure/screener/tv_specialist.py` — New FILTER_MAP entries
 - `backend/app/infrastructure/screener/tv_engine.py` — Weighted MTF stacking
 - `frontend/src/components/screener/ScreenerTable.tsx` — Quality + Fundamental display
@@ -43,10 +54,14 @@ Trading veteran evaluation identified scoring issues (binary thresholds, MTF str
 - Frontend build: clean (tsc --noEmit)
 - Confluence scorer smoke test: strong (85/A+), medium (52/B), weak (0/D) — all correct
 - MTF weighted stacking: (85*0.5 + 52*0.25 + 0*0.25 = 55.5 → rating computes correctly)
+- Fundamental scenarios: Buy+$500B+EPS12=9 ✅, Hold+$3B-EPS0.5=2 ✅, Sell+$500M=0 ✅
+- Volatility regimes: high vol stop=44.0 ✅, low vol stop=197.75 ✅, normal=96.0 ✅
 
 ## Outcome
-✅ Scoring calibrated — binary checks replaced with graded thresholds across all 5 factors
-✅ UI shows all 5 confluence factors
-✅ 3 new SHORT screen templates — Breakdown, Short Squeeze, Distribution
-✅ MTF weighted stacking — no more strict intersection lockout
-✅ Final PR: https://github.com/mk-keval/conflu.ai/pull/5
+- Scoring calibrated — binary checks replaced with graded thresholds across all 5 factors
+- UI shows all 5 confluence factors
+- 3 new SHORT screen templates — Breakdown, Short Squeeze, Distribution
+- MTF weighted stacking — no more strict intersection lockout
+- Fundamental scoring now graded (3 sub-factors, 0-10 total)
+- Stops adapt to volatility regime (1.5/2.0/3.0 ATR based on ATR% of price)
+- PR: https://github.com/mk-keval/conflu.ai/pull/5

@@ -1,5 +1,17 @@
 # CHANGELOG — Decision Log
 
+## 2026-06-30 — v2: Fundamental Grading + Volatility Regime Stops
+
+**Prompt:** (Follow-up to scoring calibration session) Still outstanding: fundamental scoring is Grade F, volatility regime stops.
+
+**Changes:**
+- **Fundamental scoring:** Replaced binary checks with 3 graded sub-factors (0-10 total). Analyst rating: StrongBuy(4)/Buy(3)/Outperform(2)/Hold(1). Market cap: mega(3)/large(2)/mid(1). EPS: >10(3)/>2(2)/>0(1). Old: StrongBuy-or-nothing = +5, >$10B = +3, EPS>0 = +2.
+- **Volatility-regime stops:** ATR% of price determines 3 regimes. Low vol (<1%): tighter 1.5 ATR stops, 1.5/2.5 ATR targets. High vol (>3%): wider 3.0 ATR stops, 3.0/4.5 ATR targets. Normal (1-3%): standard 2.0 ATR as before.
+
+**Verification:**
+- 5 fundamental scenarios: Buy+$500B+EPS12=9 ✅, Buy+$50B+EPS3.5=7 ✅, Hold+$3B-EPS0.5=2 ✅, Sell+$500M-EPS2=0 ✅, Outperform+$300B+EPS15=8 ✅
+- 3 ATR regimes: high vol stop=44.0✅, low vol stop=197.75✅, normal stop=96.0✅, fallback=95.0✅
+
 ## 2026-06-30 — Scoring Calibration, SHORT Screens & MTF Weighted Stacking
 
 **Prompt:** Institutional trading veteran evaluation identified scoring issues (binary thresholds, MTF strict intersection, missing SHORT screens, hidden confluence factors).
