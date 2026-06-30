@@ -91,17 +91,20 @@ class TVConfluenceScorer:
         # 4. VOLATILITY/QUALITY (0-15 pts)
         qual_score = 0
         adx = row.get("ADX", 0)
-        bb_width = row.get("BB.width", 0)
+        bb_upper = row.get("BB.upper", 0)
+        bb_lower = row.get("BB.lower", 0)
         atr = row.get("ATR", 0)
         close_val = row.get("close", 0)
         
         if adx > 25:
             qual_score += 8
-        if bb_width and close_val:
-            # BB width as % of price
-            bb_pct = (bb_width / close_val) * 100
-            if bb_pct < 5:  # Squeeze
-                qual_score += 7
+        if bb_upper and bb_lower and close_val:
+            # BB width as % of price  (BB.width is not a TV column, compute from upper/lower)
+            bb_width = bb_upper - bb_lower
+            if bb_width > 0:
+                bb_pct = (bb_width / close_val) * 100
+                if bb_pct < 5:  # Squeeze
+                    qual_score += 7
         scores["quality"] = qual_score
 
         # 5. FUNDAMENTAL BACKDROP (0-10 pts)

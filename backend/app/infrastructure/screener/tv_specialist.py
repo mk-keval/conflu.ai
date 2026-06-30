@@ -95,6 +95,8 @@ class TVScreenerSpecialist:
         """Build a tradingview_screener Query from a ScreenConfig.
 
         Returns None if filters cannot be compiled.
+        Selects extra columns needed by the confluence scorer so it can
+        compute meaningful scores from real TV data (not default zeros).
         """
         from tradingview_screener.query import Query
 
@@ -106,6 +108,37 @@ class TVScreenerSpecialist:
             q.set_markets(*markets)
         if config.timeframes:
             q.set_property("interval", config.timeframes[0])
+
+        # Select columns needed by the confluence scorer
+        # NOTE: .select() replaces TV's default columns, so we must include
+        # all the default columns the scorer references here too.
+        q.select(
+            # TV defaults the scorer needs (+ frontend display columns)
+            "close",
+            "change",
+            "volume",
+            "relative_volume_10d_calc",
+            "AnalystRating",
+            "market_cap_basic",
+            "earnings_per_share_diluted_ttm",
+            # Trend
+            "EMA20",
+            "EMA50",
+            "EMA200",
+            # Momentum
+            "MACD.macd",
+            "MACD.signal",
+            "MACD.hist",
+            "RSI",
+            # Volume
+            "volume_change",
+            "VWAP",
+            # Quality/volatility
+            "ADX",
+            "ATR",
+            "BB.upper",
+            "BB.lower",
+        )
 
         # Apply filters
         condition = self.compile_filters(config.filters)

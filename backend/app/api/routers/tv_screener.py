@@ -25,6 +25,7 @@ from backend.app.infrastructure.screener.tv_models import (
     dict_to_screen_config,
 )
 from backend.app.infrastructure.screener.configs import (
+    ScreenConfig,
     load_screen_template,
     list_screen_templates,
 )
@@ -48,9 +49,30 @@ def get_tv_engine() -> TVScreenEngine:
 
 
 def _resolve_config(config: dict[str, Any] | str) -> Any:
-    """Resolve config from inline dict or template name."""
+    """Resolve config from inline dict or template name.
+
+    Tries exact filename first. If not found, searches all YAML screen
+    files for one whose ``name`` field matches *config* (handles the
+    case where the human-readable display name differs from the filename).
+    """
     if isinstance(config, str):
-        return load_screen_template(config)
+        try:
+            return load_screen_template(config)
+        except FileNotFoundError:
+            # Fallback: search screen files by their embedded name field
+            from backend.app.infrastructure.screener.configs import _resolve_screens_dir
+            import yaml
+
+            screens_dir = _resolve_screens_dir()
+            for p in sorted(screens_dir.glob("*.yaml")):
+                try:
+                    with open(p) as f:
+                        data = yaml.safe_load(f)
+                    if data and data.get("name") == config:
+                        return ScreenConfig(**data)
+                except Exception:
+                    continue
+            raise
     return dict_to_screen_config(config)
 
 
