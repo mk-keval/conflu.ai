@@ -210,31 +210,78 @@ class TVConfluenceScorer:
         scores["quality"] = qual_score
 
         # 5. FUNDAMENTAL BACKDROP (0-10 pts)
+        # Sub-factors: analyst rating graded (0-4), market cap tiered (0-3), EPS strength (0-3)
+        # Old code: StrongBuy/Buy = +5 (no distinction), mcap > $10B = +3 (binary),
+        # EPS > 0 = +2 (binary — $0.01 same as $100). Zero differentiation.
         fund_score = 0
         analyst = row.get("AnalystRating", "")
         mcap = row.get("market_cap_basic", 0)
         eps = row.get("earnings_per_share_diluted_ttm", 0)
-        
-        if analyst in ["StrongBuy", "Buy"]:
-            fund_score += 5
-        if mcap > 10_000_000_000:
+
+        # Analyst rating graded (0-4 pts)
+        if analyst in ["StrongBuy"]:
+            fund_score += 4   # Strong institutional conviction
+        elif analyst in ["Buy"]:
             fund_score += 3
-        if eps > 0:
+        elif analyst in ["Outperform", "Overweight"]:
             fund_score += 2
+        elif analyst in ["Hold", "Neutral"]:
+            fund_score += 1   # Neutral but not negative
+        # Sell/StrongSell/Underperform = 0
+
+        # Market cap tiers (0-3 pts) — larger = more stable, institutional-grade
+        if mcap > 200_000_000_000:
+            fund_score += 3   # Mega cap — most stable
+        elif mcap > 10_000_000_000:
+            fund_score += 2   # Large cap
+        elif mcap > 2_000_000_000:
+            fund_score += 1   # Mid cap
+        # Small/micro cap = 0
+
+        # EPS strength (0-3 pts)
+        if eps > 10:
+            fund_score += 3   # Highly profitable
+        elif eps > 2:
+            fund_score += 2   # Solidly profitable
+        elif eps > 0:
+            fund_score += 1   # Barely profitable
+        # Negative EPS = 0
         scores["fundamental"] = fund_score
 
         total = sum(scores.values())
 
-        # ENTRY/EXIT/SL from TV data
+        # ENTRY/EXIT/SL from TV data — volatility regime adaptive
+        # ATR% of price determines volatility regime: low (<1%), normal (1-3%), high (>3%).
+        # In low vol: tighter stops (1.5 ATR) so stops sit closer to price action.
+        # In high vol: wider stops (3 ATR) to avoid noise-driven stop-outs.
+        # Target multiples scale proportionally to maintain consistent R:R.
         atr = row.get("ATR", 0)
         close_val = row.get("close", 0)
         
         if atr and close_val:
             entry = close_val
-            stop_loss = close_val - (2 * atr)  # 2 ATR stop
-            target_1 = close_val + (2 * atr)   # 1:2 R:R
-            target_2 = close_val + (3 * atr)   # 1:3 R:R
-            risk_reward = 2.0
+            atr_pct = (atr / close_val) * 100
+
+            if atr_pct < 1.0:
+                # Low volatility regime — tighter stops, conservative targets
+                stop_mult = 1.5
+                target_mult_1 = 1.5
+                target_mult_2 = 2.5
+            elif atr_pct > 3.0:
+                # High volatility regime — wider stops, extended targets
+                stop_mult = 3.0
+                target_mult_1 = 3.0
+                target_mult_2 = 4.5
+            else:
+                # Normal volatility regime — standard 2-3 ATR
+                stop_mult = 2.0
+                target_mult_1 = 2.0
+                target_mult_2 = 3.0
+
+            stop_loss = close_val - (stop_mult * atr)
+            target_1 = close_val + (target_mult_1 * atr)
+            target_2 = close_val + (target_mult_2 * atr)
+            risk_reward = round(target_mult_1 / stop_mult, 2)
         else:
             entry = close_val
             stop_loss = close_val * 0.95  # 5% fallback
