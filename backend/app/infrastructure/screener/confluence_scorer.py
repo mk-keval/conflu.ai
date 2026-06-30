@@ -49,13 +49,49 @@ class TVConfluenceScorer:
         scores = {}
 
         # 1. TREND CONFLUENCE (0-30 pts)
+        # Sub-factors: distance above EMAs graded (0-20), EMA alignment graded (0-10)
+        # Old code: binary checks (close > EMA = +10). No differentiation between
+        # a stock barely above its EMA vs one 30% above. Now graded by percentage distance.
         trend_score = 0
-        if row.get("close", 0) > row.get("EMA200", 0):
-            trend_score += 10
-        if row.get("close", 0) > row.get("EMA50", 0):
-            trend_score += 10
-        if row.get("EMA20", 0) > row.get("EMA50", 0):
-            trend_score += 10
+        close = row.get("close", 0)
+        ema200 = row.get("EMA200", 0)
+        ema50 = row.get("EMA50", 0)
+        ema20 = row.get("EMA20", 0)
+
+        # Distance above EMA200 (0-10 pts)
+        if ema200 and close > ema200:
+            pct_above = (close - ema200) / ema200 * 100
+            if pct_above > 20:
+                trend_score += 10   # Deep in secular uptrend
+            elif pct_above > 10:
+                trend_score += 8
+            elif pct_above > 5:
+                trend_score += 6
+            else:
+                trend_score += 4    # Barely above
+
+        # Distance above EMA50 (0-10 pts)
+        if ema50 and close > ema50:
+            pct_above = (close - ema50) / ema50 * 100
+            if pct_above > 15:
+                trend_score += 10   # Strong intermediate trend
+            elif pct_above > 8:
+                trend_score += 8
+            elif pct_above > 3:
+                trend_score += 6
+            else:
+                trend_score += 4    # Barely above
+
+        # EMA alignment (EMA20 > EMA50), graded (0-10 pts)
+        if ema20 and ema50:
+            alignment_pct = (ema20 - ema50) / ema50 * 100
+            if ema20 > ema50:
+                if alignment_pct > 3:
+                    trend_score += 10   # Strong bullish alignment, steep
+                elif alignment_pct > 1:
+                    trend_score += 7    # Moderate alignment
+                else:
+                    trend_score += 4    # Barely aligned — flat EMAs
         scores["trend"] = trend_score
 
         # 2. MOMENTUM CONFLUENCE (0-25 pts)
@@ -103,18 +139,47 @@ class TVConfluenceScorer:
         scores["momentum"] = mom_score
 
         # 3. VOLUME CONFLUENCE (0-20 pts)
+        # Sub-factors: relative volume graded (0-10), volume change graded (0-5), VWAP graded (0-5)
+        # Old code: binary rel_vol > 1.5 (+10) rewarded 1.51 the same as 10.0.
+        # Binary vol_change > 0 (+5) was nearly always true for trending stocks — useless signal.
         vol_score = 0
         rel_vol = row.get("relative_volume_10d_calc", 1.0)
         vol_change = row.get("volume_change", 0)
         vwap = row.get("VWAP", 0)
-        close = row.get("close", 0)
-        
-        if rel_vol > 1.5:
-            vol_score += 10
-        if vol_change > 0:
-            vol_score += 5
-        if vwap and close > vwap:
-            vol_score += 5
+        close_val = row.get("close", 0)
+
+        # Relative volume graded (0-10 pts)
+        if rel_vol > 3.0:
+            vol_score += 10   # Massive volume surge
+        elif rel_vol > 2.0:
+            vol_score += 8    # Strong volume
+        elif rel_vol > 1.5:
+            vol_score += 6    # Above average
+        elif rel_vol > 1.2:
+            vol_score += 3    # Slight increase
+        elif rel_vol > 1.0:
+            vol_score += 1    # Barely above normal
+
+        # Volume change graded (0-5 pts)
+        # vol_change = daily volume % change (e.g., 150 = +150%)
+        if vol_change > 100:
+            vol_score += 5    # Volume doubled
+        elif vol_change > 50:
+            vol_score += 3    # Significant increase
+        elif vol_change > 20:
+            vol_score += 2    # Moderate increase
+        elif vol_change > 0:
+            vol_score += 1    # Minimal increase
+
+        # VWAP position graded (0-5 pts)
+        if vwap and close_val > vwap:
+            pct_above = (close_val - vwap) / vwap * 100
+            if pct_above > 3:
+                vol_score += 5   # Strongly above VWAP — aggressive buying
+            elif pct_above > 1:
+                vol_score += 3   # Moderately above
+            else:
+                vol_score += 1   # Barely above — noise level
         scores["volume"] = vol_score
 
         # 4. VOLATILITY/QUALITY (0-15 pts)
