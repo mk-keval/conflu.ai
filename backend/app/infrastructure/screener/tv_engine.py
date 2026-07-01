@@ -70,7 +70,7 @@ class TVScreenEngine:
         """Multi-timeframe discovery: run per-TF, return all results."""
         return await self.specialist.discover_multi_tf(config)
 
-    async def score_discovery(self, result: TVDiscoveryResult) -> list[dict]:
+    async def score_discovery(self, result: TVDiscoveryResult, direction: str = "long") -> list[dict]:
         """
         Score all discovered tickers using TV Confluence Scorer.
         Returns list of scored tickers sorted by confluence (desc).
@@ -84,7 +84,7 @@ class TVScreenEngine:
             if ticker not in result.tickers:
                 continue
 
-            score = self.scorer.score(row)
+            score = self.scorer.score(row, direction=direction)
             scored.append({
                 "symbol": ticker,
                 "tv_data": row.to_dict(),
@@ -112,7 +112,7 @@ class TVScreenEngine:
                 "results": [],
             }
 
-        scored = await self.score_discovery(result)
+        scored = await self.score_discovery(result, direction=config.direction)
         timeframe = config.timeframes[0] if config.timeframes else "1D"
 
         return {
@@ -173,7 +173,7 @@ class TVScreenEngine:
                     rows = r.raw_data[r.raw_data["ticker"].str.split(":").str[-1] == ticker]
                     if not rows.empty:
                         row = rows.iloc[0]
-                        score = self.scorer.score(row)
+                        score = self.scorer.score(row, direction=config.direction)
                         tf_scores.append((tf, weights[tf], score.total, score))
                         if primary_row is None:
                             primary_row = row
@@ -185,7 +185,7 @@ class TVScreenEngine:
             weighted_total = int(round(sum(w * s for _, w, s, _ in tf_scores)))
 
             # Skip tickers below minimum threshold
-            if weighted_total < 15:
+            if weighted_total < 30:
                 continue
 
             # Use primary TF (first matched) for entry/stop/targets/breakdown
