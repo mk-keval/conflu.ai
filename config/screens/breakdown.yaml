@@ -1,5 +1,6 @@
 name: "Breakdown"
 description: "Bearish trend breakdown — price below key EMAs, bearish MACD, weak momentum"
+direction: short
 asset_classes:
   - equities
 timeframes:

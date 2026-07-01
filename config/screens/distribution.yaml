@@ -1,5 +1,6 @@
 name: "Distribution"
 description: "Institutional distribution — heavy volume selling below VWAP with bearish MACD"
+direction: short
 asset_classes:
   - equities
 timeframes:

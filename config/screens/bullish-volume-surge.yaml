@@ -1,5 +1,6 @@
-name: "Short Squeeze"
-description: "Potential short squeeze — rising price on heavy volume above VWAP with bearish analyst sentiment"
+name: "Bullish Volume Surge"
+description: "Strong buying volume — price above VWAP and EMA20 with heavy relative volume"
+direction: long
 asset_classes:
   - equities
 timeframes:
