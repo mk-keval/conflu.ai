@@ -67,6 +67,7 @@ export function DetailPanel({ ticker, onClose, onAnalyze }: DetailPanelProps) {
         timeframe: '1D',
         include_backtest: true,
         include_risk: true,
+        tv_data: ticker.tv_data,
       };
       return fetchDeepAnalysis(req);
     },
@@ -272,10 +273,36 @@ export function DetailPanel({ ticker, onClose, onAnalyze }: DetailPanelProps) {
 
             {analysis && (
               <div className="mt-4 space-y-3 text-sm">
+                {/* Show OHLCV-unavailable banner */}
+                {analysis.has_ohlcv === false && (
+                  <div className="p-3 rounded-lg bg-warning/10 border border-warning/30 text-warning text-xs">
+                    <strong>Limited Data:</strong> No historical OHLCV available for{' '}
+                    {ticker.symbol}. Values estimated from TV screener data.
+                  </div>
+                )}
+
                 <p className="text-text-secondary">
                   <strong>Confluence Score:</strong>{' '}
-                  <span className="font-mono text-text-primary">{analysis.confluence_score.toFixed(1)}</span>
+                  <span className="font-mono text-text-primary">
+                    {analysis.confluence_score.toFixed(1)}
+                  </span>
                 </p>
+
+                {analysis.has_ohlcv === false && analysis.tv_fallback && (
+                  <>
+                    <p className="text-text-secondary">
+                      <strong>TV Rating:</strong>{' '}
+                      <span className="font-mono text-text-primary">{analysis.tv_fallback.rating}</span>
+                    </p>
+                    <p className="text-text-secondary">
+                      <strong>TV R:R:</strong>{' '}
+                      <span className="font-mono text-text-primary">
+                        {analysis.tv_fallback.risk_reward.toFixed(2)}
+                      </span>
+                    </p>
+                  </>
+                )}
+
                 {analysis.backtest && (
                   <p className="text-text-secondary">
                     <strong>Backtest Win Rate:</strong>{' '}

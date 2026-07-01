@@ -89,6 +89,7 @@ class DeepAnalysisRequest(BaseModel):
     timeframe: str = "1D"
     include_backtest: bool = True
     include_risk: bool = True
+    tv_data: dict[str, Any] | None = None  # Fallback data from TV screener row
 
 
 class DeepAnalysisResponse(BaseModel):

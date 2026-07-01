@@ -100,7 +100,7 @@ class TestScreenTemplates:
     def test_oversold_bounce_loads(self) -> None:
         config = load_screen_template("oversold-bounce")
         assert config.name == "Oversold Bounce"
-        assert len(config.filters) == 2
+        assert len(config.filters) == 3
 
     def test_list_screen_templates_returns_5(self) -> None:
         templates = list_screen_templates()

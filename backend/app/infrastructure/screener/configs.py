@@ -63,6 +63,7 @@ class ScreenConfig(BaseModel):
     filters: list[FilterRule] = Field(default_factory=list)
     universe: UniverseConfig = Field(default_factory=UniverseConfig)
     limit: int = Field(default=500, ge=1, le=2000)
+    direction: Literal["long", "short"] = "long"
 
     @field_validator("filters")
     @classmethod
