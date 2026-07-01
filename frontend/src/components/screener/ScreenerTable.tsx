@@ -94,7 +94,7 @@ function CellVolume({ data }: { data: TVDataFields }) {
     <span className="font-mono text-sm tabular-nums text-volume">
       {formatLargeNumber(data.volume ?? 0)}
       {data.relative_volume_10d_calc != null && (
-        <span className={cn('ml-1 text-xs', data.relative_volume_10d_calc > 1.5 ? 'text-accent/80' : 'text-text-muted')}>
+        <span className="ml-1 text-xs text-text-muted">
           ×{data.relative_volume_10d_calc.toFixed(1)}
         </span>
       )}
@@ -149,7 +149,7 @@ const COLUMNS: ColumnDef[] = [
   { key: 'score',      label: 'Scr',        align: 'center', render: (t) => <CellScore score={t.score} /> },
   { key: 'change',     label: 'Change',     align: 'right',  render: (_, d) => <CellChange change={d.change} price={d.close} /> },
   { key: 'entry',      label: 'Entry/SL',   align: 'right',  render: (t) => <CellEntry ticker={t} /> },
-  { key: 'confluence', label: 'Confluence', align: 'center', render: (t) => <CellConfluence breakdown={t.breakdown} />, noSort: true },
+  { key: 'confluence', label: 'Confluence', align: 'center', render: (t) => <CellConfluence breakdown={t.breakdown} /> },
   { key: 'volume',     label: 'Volume',     align: 'right',  render: (_, d) => <CellVolume data={d} /> },
   { key: 'rating',     label: 'Rtg',        align: 'center', render: (t) => <CellRating rating={t.rating} />, noSort: true },
   { key: 'action',     label: '',           align: 'center', render: (_t, _d, onClick) => <CellAction onClick={onClick} />, noSort: true },
@@ -304,6 +304,7 @@ export function ScreenerTable({
         case 'score':    aVal = a.score; bVal = b.score; break;
         case 'change':   aVal = da.change ?? 0; bVal = db.change ?? 0; break;
         case 'entry':    aVal = a.entry; bVal = b.entry; break;
+        case 'confluence': aVal = a.confluence?.total ?? 0; bVal = b.confluence?.total ?? 0; break;
         case 'volume':   aVal = da.volume ?? 0; bVal = db.volume ?? 0; break;
         case 'rating':   aVal = a.rating; bVal = b.rating; break;
         default:         aVal = 0; bVal = 0;
