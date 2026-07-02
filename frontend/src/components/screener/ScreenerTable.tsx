@@ -5,19 +5,39 @@ import { cn } from '@/lib/cn';
 import { formatPrice, formatLargeNumber } from '@/lib/format';
 import type { TVScoredTicker, TVDataFields } from '@/types/screener';
 
-// ── Proportional column widths (%, must sum to 100) ──────────────────────────
+// ── Column metadata — defines ALL available columns and their defaults ───────
 
-const COL_PCT: Record<string, number> = {
-  symbol:     13,
-  price:      10,
-  score:       6,
-  change:     16,
-  entry:      13,
-  confluence: 17,
-  volume:     12,
-  rating:      6,
-  action:      7,
-};
+export interface ColumnMeta {
+  key: string;
+  label: string;
+  /** Relative width weight — normalised to sum to 100% at render time. */
+  weight: number;
+  /** Columns the user cannot hide. */
+  alwaysOn: boolean;
+}
+
+export const ALL_COLUMNS_META: ColumnMeta[] = [
+  { key: 'symbol',     label: 'Symbol',     weight: 13, alwaysOn: true  },
+  { key: 'price',      label: 'Price',      weight: 10, alwaysOn: true  },
+  { key: 'score',      label: 'Scr',        weight: 6,  alwaysOn: true  },
+  { key: 'change',     label: 'Change',     weight: 13, alwaysOn: true  },
+  { key: 'entry',      label: 'Entry/SL',   weight: 12, alwaysOn: true  },
+  { key: 'confluence', label: 'Confluence', weight: 14, alwaysOn: true  },
+  { key: 'volume',     label: 'Volume',     weight: 10, alwaysOn: true  },
+  { key: 'market_cap', label: 'Mkt Cap',    weight: 8,  alwaysOn: false },
+  { key: 'pe_ratio',   label: 'P/E',        weight: 6,  alwaysOn: false },
+  { key: 'div_yield',  label: 'Div %',      weight: 6,  alwaysOn: false },
+  { key: 'rel_vol',    label: 'Rel Vol',    weight: 6,  alwaysOn: false },
+  { key: 'sector',     label: 'Sector',     weight: 7,  alwaysOn: false },
+  { key: 'rating',     label: 'Rtg',        weight: 6,  alwaysOn: true  },
+  { key: 'action',     label: '',           weight: 7,  alwaysOn: true  },
+];
+
+/** Default set of visible column keys (matches original layout). */
+export const DEFAULT_VISIBLE_COLUMNS: string[] = [
+  'symbol', 'price', 'score', 'change', 'entry', 'confluence',
+  'volume', 'sector', 'rating', 'action',
+];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -29,8 +49,17 @@ function changePct(price: number, change: number): number | null {
 
 // ── Cell renderers ───────────────────────────────────────────────────────────
 
-function CellSymbol({ symbol }: { symbol: string }) {
-  return <span className="font-semibold text-text-primary text-sm tracking-tight">{symbol}</span>;
+function CellSymbol({ symbol, convergenceCount }: { symbol: string; convergenceCount?: number }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="font-semibold text-text-primary text-sm tracking-tight">{symbol}</span>
+      {convergenceCount != null && convergenceCount > 1 && (
+        <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-[3px] rounded bg-accent/20 text-accent text-[10px] font-bold leading-none" title={`Matched ${convergenceCount} templates`}>
+          {convergenceCount}x
+        </span>
+      )}
+    </span>
+  );
 }
 
 function CellPrice({ value }: { value: number }) {
@@ -75,16 +104,37 @@ function CellEntry({ ticker }: { ticker: TVScoredTicker }) {
 
 function CellConfluence({ breakdown }: { breakdown: Record<string, number> }) {
   return (
-    <span className="text-xs tabular-nums leading-none">
-      <span className="text-info">T{breakdown.trend ?? 0}</span>
-      <span className="text-text-muted mx-1">·</span>
-      <span className="text-accent">M{breakdown.momentum ?? 0}</span>
-      <span className="text-text-muted mx-1">·</span>
-      <span className="text-warning">V{breakdown.volume ?? 0}</span>
-      <span className="text-text-muted mx-1">·</span>
-      <span className="text-purple-400">Q{breakdown.quality ?? 0}</span>
-      <span className="text-text-muted mx-1">·</span>
-      <span className="text-cyan-400">F{breakdown.fundamental ?? 0}</span>
+    <div className="group relative">
+      <span className="text-xs tabular-nums leading-none cursor-help">
+        <span className="text-info">T{breakdown.trend ?? 0}</span>
+        <span className="text-text-muted mx-1">·</span>
+        <span className="text-accent">M{breakdown.momentum ?? 0}</span>
+        <span className="text-text-muted mx-1">·</span>
+        <span className="text-warning">V{breakdown.volume ?? 0}</span>
+        <span className="text-text-muted mx-1">·</span>
+        <span className="text-purple-400">Q{breakdown.quality ?? 0}</span>
+        <span className="text-text-muted mx-1">·</span>
+        <span className="text-cyan-400">F{breakdown.fundamental ?? 0}</span>
+      </span>
+      {/* Tooltip */}
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
+        <div className="bg-dark-600 border border-border/50 rounded-lg px-3 py-2 text-xs text-text-secondary whitespace-nowrap shadow-xl">
+          <div className="flex items-center gap-2"><span className="text-info font-semibold">T</span> Trend</div>
+          <div className="flex items-center gap-2"><span className="text-accent font-semibold">M</span> Momentum</div>
+          <div className="flex items-center gap-2"><span className="text-warning font-semibold">V</span> Volume</div>
+          <div className="flex items-center gap-2"><span className="text-purple-400 font-semibold">Q</span> Quality</div>
+          <div className="flex items-center gap-2"><span className="text-cyan-400 font-semibold">F</span> Fundamental</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CellSector({ sector }: { sector?: string }) {
+  if (!sector) return <span className="text-xs text-text-muted">—</span>;
+  return (
+    <span className="text-xs text-text-secondary truncate max-w-[120px] block" title={sector}>
+      {sector}
     </span>
   );
 }
@@ -122,6 +172,42 @@ function CellRating({ rating }: { rating: string }) {
   );
 }
 
+function CellMarketCap({ data }: { data: TVDataFields }) {
+  if (data.market_cap_basic == null) return <span className="text-xs text-text-muted">—</span>;
+  return (
+    <span className="font-mono text-xs tabular-nums text-text-secondary">
+      {formatLargeNumber(data.market_cap_basic)}
+    </span>
+  );
+}
+
+function CellPERatio({ data }: { data: TVDataFields }) {
+  if (data.price_earnings_ttm == null) return <span className="text-xs text-text-muted">—</span>;
+  return (
+    <span className="font-mono text-xs tabular-nums text-text-secondary">
+      {data.price_earnings_ttm.toFixed(1)}
+    </span>
+  );
+}
+
+function CellDivYield({ data }: { data: TVDataFields }) {
+  if (data.dividends_yield_current == null) return <span className="text-xs text-text-muted">—</span>;
+  return (
+    <span className="font-mono text-xs tabular-nums text-text-secondary">
+      {data.dividends_yield_current.toFixed(2)}%
+    </span>
+  );
+}
+
+function CellRelVol({ data }: { data: TVDataFields }) {
+  if (data.relative_volume_10d_calc == null) return <span className="text-xs text-text-muted">—</span>;
+  return (
+    <span className="font-mono text-xs tabular-nums text-text-secondary">
+      ×{data.relative_volume_10d_calc.toFixed(1)}
+    </span>
+  );
+}
+
 function CellAction({ onClick }: { onClick?: () => void }) {
   return (
     <button
@@ -143,17 +229,60 @@ interface ColumnDef {
   noSort?: boolean;
 }
 
-const COLUMNS: ColumnDef[] = [
-  { key: 'symbol',     label: 'Symbol',     align: 'left',   render: (t) => <CellSymbol symbol={t.symbol} /> },
-  { key: 'price',      label: 'Price',      align: 'right',  render: (_, d) => <CellPrice value={d.close} /> },
-  { key: 'score',      label: 'Scr',        align: 'center', render: (t) => <CellScore score={t.score} /> },
-  { key: 'change',     label: 'Change',     align: 'right',  render: (_, d) => <CellChange change={d.change} price={d.close} /> },
-  { key: 'entry',      label: 'Entry/SL',   align: 'right',  render: (t) => <CellEntry ticker={t} /> },
-  { key: 'confluence', label: 'Confluence', align: 'center', render: (t) => <CellConfluence breakdown={t.breakdown} /> },
-  { key: 'volume',     label: 'Volume',     align: 'right',  render: (_, d) => <CellVolume data={d} /> },
-  { key: 'rating',     label: 'Rtg',        align: 'center', render: (t) => <CellRating rating={t.rating} />, noSort: true },
-  { key: 'action',     label: '',           align: 'center', render: (_t, _d, onClick) => <CellAction onClick={onClick} />, noSort: true },
-];
+/** Lookup: column key → render function. */
+const COL_RENDERERS: Record<string, (t: TVScoredTicker, d: TVDataFields, onClick?: () => void) => ReactNode> = {
+  symbol:     (t) => <CellSymbol symbol={t.symbol} />,
+  price:      (_t, d) => <CellPrice value={d.close} />,
+  score:      (t, _d) => <CellScore score={t.score} />,
+  change:     (_t, d) => <CellChange change={d.change} price={d.close} />,
+  entry:      (t, _d) => <CellEntry ticker={t} />,
+  confluence: (t, _d) => <CellConfluence breakdown={t.breakdown} />,
+  volume:     (_t, d) => <CellVolume data={d} />,
+  market_cap: (_t, d) => <CellMarketCap data={d} />,
+  pe_ratio:   (_t, d) => <CellPERatio data={d} />,
+  div_yield:  (_t, d) => <CellDivYield data={d} />,
+  rel_vol:    (_t, d) => <CellRelVol data={d} />,
+  sector:     (_t, d) => <CellSector sector={d.sector} />,
+  rating:     (t, _d) => <CellRating rating={t.rating} />,
+  action:     (_t, _d, onClick) => <CellAction onClick={onClick} />,
+};
+
+/** Build sorted ColumnDef[] for visible columns, with normalised widths. */
+function buildColumns(
+  convergenceMap: ReadonlyMap<string, number> | null,
+  visibleKeys: ReadonlySet<string>,
+): { columns: ColumnDef[]; colPct: Record<string, number> } {
+  // Filter + sort by ALL_COLUMNS_META order
+  const visible = ALL_COLUMNS_META.filter((m) => visibleKeys.has(m.key));
+  const totalWeight = visible.reduce((s, m) => s + m.weight, 0);
+
+  const colPct: Record<string, number> = {};
+  const columns: ColumnDef[] = visible.map((meta) => {
+    const pct = (meta.weight / totalWeight) * 100;
+    colPct[meta.key] = pct;
+
+    const base = COL_RENDERERS[meta.key];
+    const render = meta.key === 'symbol' && convergenceMap
+      ? (t: TVScoredTicker) =>
+          <CellSymbol symbol={t.symbol} convergenceCount={convergenceMap.get(t.symbol)} />
+      : base;
+
+    const align: 'left' | 'right' | 'center' =
+      meta.key === 'symbol' || meta.key === 'sector' ? 'left' :
+      meta.key === 'score' || meta.key === 'confluence' || meta.key === 'rating' || meta.key === 'action' ? 'center' :
+      'right';
+
+    return {
+      key: meta.key,
+      label: meta.label,
+      align,
+      render,
+      noSort: meta.key === 'sector' || meta.key === 'rating' || meta.key === 'action',
+    };
+  });
+
+  return { columns, colPct };
+}
 
 // ── Header (flex-based) ──────────────────────────────────────────────────────
 
@@ -164,8 +293,9 @@ function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
     : <ChevronDown className="w-3 h-3 text-accent" />;
 }
 
-function ColumnHeader({ column, sortKey, sortDir, onSort }: {
+function ColumnHeader({ column, colPct, sortKey, sortDir, onSort }: {
   column: ColumnDef;
+  colPct: Record<string, number>;
   sortKey: string | null;
   sortDir: 'asc' | 'desc' | null;
   onSort: (key: string) => void;
@@ -181,7 +311,7 @@ function ColumnHeader({ column, sortKey, sortDir, onSort }: {
         isAction ? 'text-transparent pointer-events-none' : 'text-text-muted cursor-pointer hover:text-text-primary transition-colors',
         isActive && 'text-text-primary',
       )}
-      style={{ flex: `0 0 ${COL_PCT[column.key]}%` }}
+      style={{ flex: `0 0 ${colPct[column.key]}%` }}
       onClick={() => !isAction && !column.noSort && onSort(column.key)}
     >
       {column.label && <span className="truncate">{column.label}</span>}
@@ -221,6 +351,9 @@ interface ScreenerTableProps {
   pageSize: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
+  convergenceMap?: ReadonlyMap<string, number> | null;
+  /** Set of visible column keys. Defaults to ALL_COLUMNS_META filterable keys. */
+  visibleColumns?: ReadonlySet<string>;
 }
 
 const ROW_H = 40;
@@ -231,11 +364,15 @@ function DataRow({
   ticker,
   data,
   isEven,
+  columns,
+  colPct,
   onRowClick,
 }: {
   ticker: TVScoredTicker;
   data: TVDataFields;
   isEven: boolean;
+  columns: ColumnDef[];
+  colPct: Record<string, number>;
   onRowClick: (t: TVScoredTicker) => void;
 }) {
   return (
@@ -248,7 +385,7 @@ function DataRow({
       style={{ height: ROW_H }}
       onClick={() => onRowClick(ticker)}
     >
-      {COLUMNS.map((col) => {
+      {columns.map((col) => {
         const isSticky = col.key === 'symbol';
         return (
           <div
@@ -260,7 +397,7 @@ function DataRow({
               col.align === 'right' && 'justify-end',
               col.align === 'center' && 'justify-center',
             )}
-            style={{ flex: `0 0 ${COL_PCT[col.key]}%` }}
+            style={{ flex: `0 0 ${colPct[col.key]}%` }}
           >
             {col.render(ticker, data, () => onRowClick(ticker))}
           </div>
@@ -281,10 +418,24 @@ export function ScreenerTable({
   pageSize,
   onPageChange,
   onPageSizeChange,
+  convergenceMap = null,
+  visibleColumns,
 }: ScreenerTableProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [sortKey, setSortKey] = useState<string | null>(sortState.key);
   const [sortDir, setSortDir] = useState<'asc' | 'desc' | null>(sortState.dir);
+
+  // Resolve which columns to show
+  const defaultVisible = useMemo(
+    () => new Set(DEFAULT_VISIBLE_COLUMNS),
+    [],
+  );
+  const vKeys = visibleColumns ?? defaultVisible;
+
+  const { columns, colPct } = useMemo(
+    () => buildColumns(convergenceMap, vKeys),
+    [convergenceMap, vKeys],
+  );
 
   if (sortState.key !== sortKey || sortState.dir !== sortDir) {
     setSortKey(sortState.key);
@@ -304,8 +455,12 @@ export function ScreenerTable({
         case 'score':    aVal = a.score; bVal = b.score; break;
         case 'change':   aVal = da.change ?? 0; bVal = db.change ?? 0; break;
         case 'entry':    aVal = a.entry; bVal = b.entry; break;
-        case 'confluence': aVal = a.confluence?.total ?? 0; bVal = b.confluence?.total ?? 0; break;
+        case 'confluence': aVal = a.score; bVal = b.score; break;
         case 'volume':   aVal = da.volume ?? 0; bVal = db.volume ?? 0; break;
+        case 'market_cap': aVal = da.market_cap_basic ?? 0; bVal = db.market_cap_basic ?? 0; break;
+        case 'pe_ratio': aVal = da.price_earnings_ttm ?? 0; bVal = db.price_earnings_ttm ?? 0; break;
+        case 'div_yield': aVal = da.dividends_yield_current ?? 0; bVal = db.dividends_yield_current ?? 0; break;
+        case 'rel_vol':  aVal = da.relative_volume_10d_calc ?? 0; bVal = db.relative_volume_10d_calc ?? 0; break;
         case 'rating':   aVal = a.rating; bVal = b.rating; break;
         default:         aVal = 0; bVal = 0;
       }
@@ -362,10 +517,11 @@ export function ScreenerTable({
       <div ref={parentRef} className="flex-1 overflow-auto">
         {/* Header — sticky at top */}
         <div className="sticky top-0 z-20 flex w-full bg-background border-b border-border/50 min-w-[900px]">
-          {COLUMNS.map((col) => (
+          {columns.map((col) => (
             <ColumnHeader
               key={col.key}
               column={col}
+              colPct={colPct}
               sortKey={sortKey}
               sortDir={sortDir}
               onSort={handleSort}
@@ -390,6 +546,8 @@ export function ScreenerTable({
                 ticker={ticker}
                 data={data}
                 isEven={rowIndex % 2 === 0}
+                columns={columns}
+                colPct={colPct}
                 onRowClick={onRowClick}
               />
             );

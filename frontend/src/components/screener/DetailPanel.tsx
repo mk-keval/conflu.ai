@@ -16,8 +16,8 @@ const BREAKDOWN_FACTORS = [
   { key: 'trend', label: 'Trend', color: 'text-info' },
   { key: 'momentum', label: 'Momentum', color: 'text-accent' },
   { key: 'volume', label: 'Volume', color: 'text-warning' },
-  { key: 'volatility', label: 'Volatility', color: 'text-purple-400' },
-  { key: 'pattern', label: 'Pattern', color: 'text-pink-400' },
+  { key: 'quality', label: 'Quality', color: 'text-purple-400' },
+  { key: 'fundamental', label: 'Fundamental', color: 'text-cyan-400' },
 ];
 
 function ScoreBar({ score, label, color }: { score: number; label: string; color: string }) {
@@ -179,9 +179,10 @@ export function DetailPanel({ ticker, onClose, onAnalyze }: DetailPanelProps) {
               <span
                 className={cn(
                   'badge px-3 py-1 text-sm font-medium',
-                  ticker.rating === 'Strong Buy' ? 'badge-green' :
-                  ticker.rating === 'Buy' ? 'badge-green' :
-                  ticker.rating === 'Hold' ? 'badge-neutral' : 'badge-red'
+                  ticker.rating === 'A+' ? 'badge-green' :
+                  ticker.rating === 'A' ? 'badge-green' :
+                  ticker.rating === 'B+' ? 'badge-neutral' :
+                  ticker.rating === 'B' ? 'badge-neutral' : 'badge-red'
                 )}
               >
                 {ticker.rating}
@@ -216,6 +217,23 @@ export function DetailPanel({ ticker, onClose, onAnalyze }: DetailPanelProps) {
               })}
             </div>
           </div>
+
+          {/* Why This Score */}
+          {ticker.rationale && ticker.rationale.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-text-secondary mb-3 uppercase tracking-wide">
+                Why This Score
+              </h3>
+              <ul className="space-y-1.5">
+                {ticker.rationale.map((point, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-text-secondary">
+                    <span className="mt-1 w-1.5 h-1.5 rounded-full bg-text-muted/30 flex-shrink-0" />
+                    {point}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Entry / Stop / Targets */}
           <div>
