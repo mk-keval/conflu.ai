@@ -1,0 +1,22 @@
+name: "Low-Vol Setup"
+description: "Low volatility stocks with steady trend and tight Bollinger Bands"
+asset_classes:
+  - equities
+timeframes:
+  - 1D
+filters:
+  - category: trend
+    indicator: price_above_ema
+    params:
+      period: 50
+    timeframe: "1D"
+  - category: volatility
+    indicator: bb_squeeze
+    params:
+      threshold: 1.15
+    timeframe: "1D"
+  - category: volume
+    indicator: rvol_high
+    params:
+      threshold: 1.0
+    timeframe: "1D"

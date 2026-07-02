@@ -17,6 +17,8 @@ export const SCREEN_TEMPLATES = [
   'mean-reversion',
   'oversold-bounce',
   'volume-surge',
+  '52week-breakout',
+  'low-vol-setup',
 ] as const;
 
 export interface FilterParam {
@@ -269,6 +271,86 @@ export const SCREEN_TEMPLATE_CONFIGS: Record<string, ScreenTemplateConfig> = {
         negate: false,
         params: {
           direction: { key: 'direction', label: 'Direction', type: 'select', defaultValue: 'bullish', options: ['bullish', 'bearish'] },
+        },
+      },
+    ],
+  },
+  '52week-breakout': {
+    name: '52-Week Breakout',
+    description: 'Stocks near 52-week highs with momentum and volume confirmation',
+    assetClasses: ['equities'],
+    timeframes: ['1D', '4h'],
+    filters: [
+      {
+        category: 'trend',
+        indicator: 'price_above_ema',
+        label: 'Price Above EMA200',
+        operator: 'gt',
+        timeframe: '1D',
+        negate: false,
+        params: {
+          period: { key: 'period', label: 'EMA Period', type: 'number', defaultValue: 200, min: 50, max: 500, step: 10 },
+        },
+      },
+      {
+        category: 'momentum',
+        indicator: 'macd_bullish',
+        label: 'MACD Bullish',
+        operator: 'gt',
+        timeframe: '1D',
+        negate: false,
+        params: {},
+      },
+      {
+        category: 'volume',
+        indicator: 'rvol_high',
+        label: 'High Relative Volume',
+        operator: 'gt',
+        timeframe: '4h',
+        negate: false,
+        params: {
+          threshold: { key: 'threshold', label: 'RVOL Threshold', type: 'number', defaultValue: 1.2, min: 0.5, max: 5, step: 0.1 },
+        },
+      },
+    ],
+  },
+  'low-vol-setup': {
+    name: 'Low-Vol Setup',
+    description: 'Low volatility stocks with steady trend and tight Bollinger Bands',
+    assetClasses: ['equities'],
+    timeframes: ['1D'],
+    filters: [
+      {
+        category: 'trend',
+        indicator: 'price_above_ema',
+        label: 'Price Above EMA50',
+        operator: 'gt',
+        timeframe: '1D',
+        negate: false,
+        params: {
+          period: { key: 'period', label: 'EMA Period', type: 'number', defaultValue: 50, min: 10, max: 200, step: 10 },
+        },
+      },
+      {
+        category: 'volatility',
+        indicator: 'bb_squeeze',
+        label: 'Bollinger Band Squeeze',
+        operator: 'eq',
+        timeframe: '1D',
+        negate: false,
+        params: {
+          threshold: { key: 'threshold', label: 'BB Width', type: 'number', defaultValue: 1.15, min: 1.05, max: 2.0, step: 0.05 },
+        },
+      },
+      {
+        category: 'volume',
+        indicator: 'rvol_high',
+        label: 'Moderate Relative Volume',
+        operator: 'gt',
+        timeframe: '1D',
+        negate: false,
+        params: {
+          threshold: { key: 'threshold', label: 'RVOL Threshold', type: 'number', defaultValue: 1.0, min: 0.5, max: 5, step: 0.1 },
         },
       },
     ],

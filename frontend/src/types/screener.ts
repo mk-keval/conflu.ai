@@ -11,6 +11,7 @@ export interface TVScreenResponse {
   total_matches: number;
   execution_ms: number;
   timeframe: string;
+  fetched_at: string;
   results: TVScoredTicker[];
 }
 
@@ -18,6 +19,7 @@ export interface TVScoredTicker {
   symbol: string;
   score: number;
   breakdown: Record<string, number>;
+  rationale?: string[];
   entry: number;
   stop_loss: number;
   targets: number[];
