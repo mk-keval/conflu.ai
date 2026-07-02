@@ -11,6 +11,7 @@ Endpoints:
 from __future__ import annotations
 
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -88,6 +89,7 @@ def _build_scored_response(scored: list[dict]) -> list[ScoredTickerResponse]:
             targets=r["confluence"].targets,
             risk_reward=r["confluence"].risk_reward,
             rating=r["confluence"].rating,
+            rationale=r["confluence"].rationale,
             tv_data=r["tv_data"],
         )
         for r in scored
@@ -125,6 +127,7 @@ async def screen_tv(
         total_matches=result["total_matches"],
         execution_ms=round((time.monotonic() - start) * 1000),
         timeframe=result.get("timeframe", config.timeframes[0] if config.timeframes else "1D"),
+        fetched_at=datetime.now(timezone.utc).isoformat(),
         results=_build_scored_response(result["results"]),
     )
 
