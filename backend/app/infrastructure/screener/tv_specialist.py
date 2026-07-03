@@ -122,9 +122,12 @@ class TVScreenerSpecialist:
             "change",
             "volume",
             "relative_volume_10d_calc",
+            "sector",
             "AnalystRating",
             "market_cap_basic",
+            "price_earnings_ttm",
             "earnings_per_share_diluted_ttm",
+            "dividends_yield_current",
             # Trend
             "EMA20",
             "EMA50",

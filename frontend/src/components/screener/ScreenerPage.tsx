@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   fetchScreenTV,
@@ -18,7 +18,9 @@ import { ScreenerTable } from './ScreenerTable';
 import { DetailPanel } from './DetailPanel';
 import { ExportButtons } from './ExportButtons';
 import type { WSMessage } from '@/types/ws';
-import { ChevronDown, Play, Loader2, RefreshCw } from 'lucide-react';
+import { ChevronDown, Play, Loader2, RefreshCw, Columns } from 'lucide-react';
+import { cn } from '@/lib/cn';
+import { ALL_COLUMNS_META, DEFAULT_VISIBLE_COLUMNS } from './ScreenerTable';
 
 function ScreenerContent() {
   const selectedConfig = useScreenStore((s) => s.selectedConfig);
@@ -34,10 +36,44 @@ function ScreenerContent() {
   const [totalMatches, setTotalMatches] = useState(0);
   const [screenName, setScreenName] = useState('');
   const [executionTime, setExecutionTime] = useState(0);
+  const [fetchedAt, setFetchedAt] = useState<string>('');
   const [selectedTicker, setSelectedTicker] = useState<TVScoredTicker | null>(null);
   const [sortState, setSortState] = useState<{ key: string | null; dir: 'asc' | 'desc' | null }>({ key: 'score', dir: 'desc' });
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
+
+  // Column visibility — persisted in localStorage
+  const COL_KEY = 'screener:visible-columns';
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem(COL_KEY);
+      if (saved) return new Set(JSON.parse(saved));
+    } catch {}
+    return new Set(DEFAULT_VISIBLE_COLUMNS);
+  });
+
+  const toggleColumn = useCallback((key: string) => {
+    setVisibleColumns((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      localStorage.setItem(COL_KEY, JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
+
+  // Multi-template convergence tracking: ticker → set of template names
+  const MAX_CONVERGENCE_RUNS = 5;
+  const [templateRuns, setTemplateRuns] = useState<{ template: string; tickers: string[] }[]>([]);
+  const convergenceMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const run of templateRuns) {
+      for (const ticker of run.tickers) {
+        map.set(ticker, (map.get(ticker) ?? 0) + 1);
+      }
+    }
+    return map;
+  }, [templateRuns]);
 
   // Fetch templates on mount
   useEffect(() => {
@@ -97,10 +133,19 @@ function ScreenerContent() {
       setResults(data.results);
       setTotalMatches(data.total_matches);
       setExecutionTime(data.execution_ms);
+      setFetchedAt(data.fetched_at);
       setScreenName(data.screen_name.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()));
       setCurrentPage(0); // Reset to first page on new results
+
+      // Update convergence tracking (keep last N runs)
+      const tickers = data.results.map((r) => r.symbol);
+      setTemplateRuns((prev) => {
+        const next = [...prev, { template: selectedTemplate, tickers }];
+        if (next.length > MAX_CONVERGENCE_RUNS) next.shift();
+        return next;
+      });
     }
-  }, [data]);
+  }, [data, selectedTemplate]);
 
   // WS subscription for real-time updates
   useEffect(() => {
@@ -181,6 +226,9 @@ function ScreenerContent() {
           isRunning={true}
           onRunScreen={handleRunScreen}
           executionTime={0}
+          fetchedAt=""
+          visibleColumns={visibleColumns}
+          onToggleColumn={toggleColumn}
         />
         <div className="flex-1 overflow-auto">
           <SkeletonTable rows={8} className="p-4" />
@@ -201,6 +249,9 @@ function ScreenerContent() {
           isRunning={false}
           onRunScreen={handleRunScreen}
           executionTime={0}
+          fetchedAt=""
+          visibleColumns={visibleColumns}
+          onToggleColumn={toggleColumn}
         />
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center">
@@ -223,16 +274,19 @@ function ScreenerContent() {
 
   return (
     <div className="flex h-full flex-col">
-      <ScreenerHeader
-        screenName={screenName}
-        totalMatches={totalMatches}
-        templates={templates}
-        selectedTemplate={selectedTemplate}
-        onTemplateChange={handleTemplateChange}
-        isRunning={isRunning}
-        onRunScreen={handleRunScreen}
-        executionTime={executionTime}
-      />
+        <ScreenerHeader
+          screenName={screenName}
+          totalMatches={totalMatches}
+          templates={templates}
+          selectedTemplate={selectedTemplate}
+          onTemplateChange={handleTemplateChange}
+          isRunning={isRunning}
+          onRunScreen={handleRunScreen}
+          executionTime={executionTime}
+          fetchedAt={fetchedAt}
+          visibleColumns={visibleColumns}
+          onToggleColumn={toggleColumn}
+        />
 
       <div className="flex-1 overflow-hidden relative">
         <ScreenerTable
@@ -244,6 +298,8 @@ function ScreenerContent() {
           pageSize={pageSize}
           onPageChange={handlePageChange}
           onPageSizeChange={handlePageSizeChange}
+          convergenceMap={convergenceMap}
+          visibleColumns={visibleColumns}
         />
 
         {/* Detail Panel */}
@@ -257,6 +313,93 @@ function ScreenerContent() {
   );
 }
 
+function formatElapsed(isoString: string): string {
+  const elapsed = Date.now() - new Date(isoString).getTime();
+  if (elapsed < 1000) return 'just now';
+  if (elapsed < 60_000) return `${Math.floor(elapsed / 1000)}s ago`;
+  if (elapsed < 3_600_000) return `${Math.floor(elapsed / 60_000)}m ago`;
+  return `${Math.floor(elapsed / 3_600_000)}h ago`;
+}
+
+function FreshnessBadge({ fetchedAt }: { fetchedAt: string }) {
+  const [label, setLabel] = useState(() => formatElapsed(fetchedAt));
+
+  useEffect(() => {
+    setLabel(formatElapsed(fetchedAt));
+    const interval = setInterval(() => setLabel(formatElapsed(fetchedAt)), 10_000);
+    return () => clearInterval(interval);
+  }, [fetchedAt]);
+
+  if (!fetchedAt) return null;
+
+  const color = label === 'just now' || label.endsWith('s ago')
+    ? 'text-accent'
+    : label.endsWith('m ago')
+    ? 'text-warning'
+    : 'text-loss';
+
+  return (
+    <span className={cn('inline-flex items-center gap-1 text-xs', color)} title={fetchedAt}>
+      <span className="w-1.5 h-1.5 rounded-full bg-current" />
+      {label}
+    </span>
+  );
+}
+
+function ColumnCustomizer({
+  visibleColumns,
+  onToggle,
+}: {
+  visibleColumns: Set<string>;
+  onToggle: (key: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const toggleable = ALL_COLUMNS_META.filter((m) => !m.alwaysOn);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((p) => !p)}
+        className="btn-ghost p-2 text-text-muted hover:text-text-primary"
+        aria-label="Customize columns"
+        title="Customize columns"
+      >
+        <Columns className="w-4 h-4" />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-50 w-44 bg-dark-600 border border-border/50 rounded-lg shadow-xl py-1">
+          {toggleable.map((meta) => (
+            <label
+              key={meta.key}
+              className="flex items-center gap-2 px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover/40 cursor-pointer select-none"
+            >
+              <input
+                type="checkbox"
+                checked={visibleColumns.has(meta.key)}
+                onChange={() => onToggle(meta.key)}
+                className="accent-accent"
+              />
+              {meta.label}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ScreenerHeader({
   screenName,
   totalMatches,
@@ -266,6 +409,9 @@ function ScreenerHeader({
   isRunning,
   onRunScreen,
   executionTime,
+  fetchedAt,
+  visibleColumns,
+  onToggleColumn,
 }: {
   screenName: string;
   totalMatches: number;
@@ -275,6 +421,9 @@ function ScreenerHeader({
   isRunning: boolean;
   onRunScreen: () => void;
   executionTime: number;
+  fetchedAt: string;
+  visibleColumns: Set<string>;
+  onToggleColumn: (key: string) => void;
 }) {
   return (
     <div className="border-b border-border bg-surface/50 backdrop-blur-sm">
@@ -282,8 +431,10 @@ function ScreenerHeader({
         <div className="flex items-center gap-4 flex-1 min-w-0">
           <div>
             <h1 className="text-xl font-bold text-text-primary">{screenName}</h1>
-            <p className="text-sm text-text-muted">
-              {totalMatches.toLocaleString()} matches {executionTime > 0 && `• ${executionTime}ms`}
+            <p className="text-sm text-text-muted flex items-center gap-2">
+              <span>{totalMatches.toLocaleString()} matches</span>
+              {executionTime > 0 && <span>• {executionTime}ms</span>}
+              <FreshnessBadge fetchedAt={fetchedAt} />
             </p>
           </div>
         </div>
@@ -303,7 +454,7 @@ function ScreenerHeader({
                 <option value="" disabled>Loading...</option>
               )}
               {templates.map((template) => (
-                <option key={template.name} value={template.name}>
+                <option key={template.name} value={template.name} title={template.description}>
                   {template.name}
                 </option>
               ))}
@@ -329,6 +480,9 @@ function ScreenerHeader({
               </>
             )}
           </button>
+
+          {/* Column Customizer */}
+          <ColumnCustomizer visibleColumns={visibleColumns} onToggle={onToggleColumn} />
 
           {/* Export Buttons */}
           <ExportButtons />

@@ -40,6 +40,7 @@ class ConfluenceScore:
     targets: list[float]
     risk_reward: float
     rating: str
+    rationale: list[str] | None = None
 
 
 # =========================================================================
@@ -69,6 +70,7 @@ class ScoredTickerResponse(BaseModel):
     targets: list[float]
     risk_reward: float
     rating: str
+    rationale: list[str] | None = None
     tv_data: dict[str, Any]
 
 
@@ -79,6 +81,7 @@ class TVScreenResponse(BaseModel):
     total_matches: int
     execution_ms: int
     timeframe: str
+    fetched_at: str  # ISO datetime for freshness badge
     results: list[ScoredTickerResponse]
 
 

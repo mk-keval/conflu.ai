@@ -27,6 +27,7 @@ class ConfluenceScore:
     targets: list[float]
     risk_reward: float
     rating: str
+    rationale: list[str] | None = None
 
 
 class TVConfluenceScorer:
@@ -153,8 +154,10 @@ class TVConfluenceScorer:
                 mom_score += 10  # Sweet spot: 66-75
             elif rsi > 55:
                 mom_score += 7   # Building momentum
+            elif rsi > 54:
+                mom_score += 6   # Nearing sweet spot (smooth bridge 5→7)
             elif rsi > 53:
-                mom_score += 5   # Cusp of momentum (bridge 3→7)
+                mom_score += 5   # Cusp of momentum
             elif rsi > 50:
                 mom_score += 3   # Weak bullish
         else:
@@ -197,7 +200,7 @@ class TVConfluenceScorer:
         elif rel_vol > 1.5:
             vol_score += 6
         elif rel_vol > 1.35:
-            vol_score += 4   # Intermediate bracket to smooth 1.2→1.5 cliff
+            vol_score += 5   # Moderate volume pickup (bridges 3→6 smoothly)
         elif rel_vol > 1.2:
             vol_score += 3
         elif rel_vol > 1.0:
@@ -248,11 +251,9 @@ class TVConfluenceScorer:
 
         # ADX graded + trend initiation bonus (0-10 pts)
         # ADX 25-35 is the sweet spot for swing entries (trend initiating).
-        # ADX > 45 means the trend is already very extended — increases confidence
-        # but makes for a later entry. Give it the top score for reliability
-        # but add a trend initiation bonus for the 25-35 zone.
-        # ADX — reward 25-35 (trend initiation sweet spot) highest,
-        # penalize extremely extended trends (>45)
+        # ADX 20-25 is the transition zone where a trend is forming — score it
+        # high enough to catch early entries before the crowd piles in.
+        # ADX > 45 means the trend is extended — reliable but late entry.
         if adx > 45:
             qual_score += 4   # Very extended trend — reliable but late entry
         elif adx > 35:
@@ -260,7 +261,7 @@ class TVConfluenceScorer:
         elif adx > 25:
             qual_score += 8   # Trend initiation sweet spot — highest score
         elif adx > 20:
-            qual_score += 4   # Weak trend beginning
+            qual_score += 6   # Trend forming transition zone (was 4)
         elif adx > 15:
             qual_score += 2   # Very early
 
@@ -350,6 +351,8 @@ class TVConfluenceScorer:
             target_2 = close_val * (1.10 if is_long else 0.90)
             risk_reward = 1.0
 
+        rationale = self.generate_rationale(scores)
+
         return ConfluenceScore(
             total=total,
             breakdown=scores,
@@ -358,7 +361,73 @@ class TVConfluenceScorer:
             targets=[target_1, target_2],
             risk_reward=risk_reward,
             rating=self._rating(total),
+            rationale=rationale,
         )
+
+    def generate_rationale(self, scores: dict[str, int]) -> list[str]:
+        """Return a list of human-readable reasoning points for the score breakdown.
+
+        Each factor maps its score bracket to a compact explanation so users
+        understand *why* a ticker scored the way it did.
+        """
+        reasons = []
+
+        # Trend
+        t = scores.get("trend", 0)
+        if t >= 25:
+            reasons.append("Strong trend alignment — price well above EMAs with bullish stacking")
+        elif t >= 15:
+            reasons.append("Moderate trend support — above key EMAs, alignment mixed")
+        elif t >= 8:
+            reasons.append("Weak trend — price near EMAs, no clear direction")
+        else:
+            reasons.append("No trend confirmation — price below key EMAs")
+
+        # Momentum
+        m = scores.get("momentum", 0)
+        if m >= 20:
+            reasons.append("Strong momentum — MACD accelerating, RSI in sweet spot (55-75)")
+        elif m >= 12:
+            reasons.append("Good momentum — RSI building, MACD directionally aligned")
+        elif m >= 6:
+            reasons.append("Moderate momentum — early signs, needs price confirmation")
+        else:
+            reasons.append("Weak momentum — RSI neutral or MACD crossing")
+
+        # Volume
+        v = scores.get("volume", 0)
+        if v >= 16:
+            reasons.append("Strong volume — well above average with VWAP confirmation")
+        elif v >= 10:
+            reasons.append("Good volume — above-average participation supporting the move")
+        elif v >= 5:
+            reasons.append("Moderate volume — some interest, but needs stronger confirmation")
+        else:
+            reasons.append("Low volume — weak participation, move lacks conviction")
+
+        # Quality
+        q = scores.get("quality", 0)
+        if q >= 12:
+            reasons.append("High quality — ADX confirms strong, healthy trend")
+        elif q >= 7:
+            reasons.append("Decent quality — measurable trend via ADX")
+        elif q >= 3:
+            reasons.append("Low quality — ADX below trending threshold")
+        else:
+            reasons.append("Poor quality — no measurable trend strength")
+
+        # Fundamental
+        f = scores.get("fundamental", 0)
+        if f >= 8:
+            reasons.append("Strong fundamentals — analyst upgrades, large-cap stability")
+        elif f >= 5:
+            reasons.append("Solid fundamentals — institutional-grade market cap")
+        elif f >= 3:
+            reasons.append("Moderate fundamentals — small-cap or neutral analyst views")
+        else:
+            reasons.append("Weak/no fundamental data available")
+
+        return reasons
 
     def _rating(self, score: int) -> str:
         if score >= 80: return "A+"
