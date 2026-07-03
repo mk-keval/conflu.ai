@@ -18,7 +18,8 @@ export function SymbolSearch() {
     staleTime: Infinity,
   });
 
-  const filtered = (symbols || [])
+  const symbolsList = Array.isArray(symbols) ? symbols : [];
+  const filtered = symbolsList
     .filter(
       (s) =>
         s.symbol.toLowerCase().includes(search.toLowerCase()) ||

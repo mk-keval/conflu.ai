@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   fetchScreenTV,
@@ -355,6 +356,7 @@ function ColumnCustomizer({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
 
   // Close on outside click
   useEffect(() => {
@@ -367,10 +369,23 @@ function ColumnCustomizer({
   }, [open]);
 
   const toggleable = ALL_COLUMNS_META.filter((m) => !m.alwaysOn);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+
+  useEffect(() => {
+    if (!open || !btnRef.current) return;
+    const rect = btnRef.current.getBoundingClientRect();
+    setDropdownStyle({
+      position: 'fixed',
+      right: document.documentElement.clientWidth - rect.right,
+      top: rect.bottom + 4,
+      zIndex: 9999,
+    });
+  }, [open]);
 
   return (
     <div ref={ref} className="relative">
       <button
+        ref={btnRef}
         onClick={() => setOpen((p) => !p)}
         className="btn-ghost p-2 text-text-muted hover:text-text-primary"
         aria-label="Customize columns"
@@ -378,8 +393,11 @@ function ColumnCustomizer({
       >
         <Columns className="w-4 h-4" />
       </button>
-      {open && (
-        <div className="absolute right-0 top-full mt-1 z-50 w-44 bg-dark-600 border border-border/50 rounded-lg shadow-xl py-1">
+      {open && createPortal(
+        <div
+          style={dropdownStyle}
+          className="w-44 bg-surface-elevated border border-border/50 rounded-lg shadow-xl py-1"
+        >
           {toggleable.map((meta) => (
             <label
               key={meta.key}
@@ -394,7 +412,8 @@ function ColumnCustomizer({
               {meta.label}
             </label>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

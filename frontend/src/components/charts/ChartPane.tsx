@@ -89,17 +89,19 @@ export function ChartPane({
     }
   }, [size.width, isMaster]);
 
-  // Update candles
+  // Update candles — ensure ASC order by time
   useEffect(() => {
     if (!candleSeriesRef.current || candles.length === 0) return;
 
-    const mappedCandles = candles.map((c) => ({
-      time: Math.floor(new Date(c.timestamp).getTime() / 1000) as UTCTimestamp,
-      open: c.open,
-      high: c.high,
-      low: c.low,
-      close: c.close,
-    }));
+    const mappedCandles = [...candles]
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      .map((c) => ({
+        time: Math.floor(new Date(c.timestamp).getTime() / 1000) as UTCTimestamp,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+      }));
 
     candleSeriesRef.current.setData(mappedCandles);
   }, [candles]);
@@ -135,10 +137,12 @@ export function ChartPane({
         currentSeries.set(indicatorName, series);
       }
 
-      const mappedData = points.map((p) => ({
-        time: Math.floor(new Date(p.timestamp).getTime() / 1000) as UTCTimestamp,
-        value: p.value,
-      }));
+      const mappedData = [...points]
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+        .map((p) => ({
+          time: Math.floor(new Date(p.timestamp).getTime() / 1000) as UTCTimestamp,
+          value: p.value,
+        }));
       series.setData(mappedData);
     }
 

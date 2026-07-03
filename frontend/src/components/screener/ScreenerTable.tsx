@@ -287,7 +287,7 @@ function buildColumns(
 // ── Header (flex-based) ──────────────────────────────────────────────────────
 
 function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
-  if (!active) return <ChevronUp className="w-3 h-3 text-text-muted/20" />;
+  if (!active) return <ChevronUp className="w-3 h-3 text-text-muted/15" />;
   return dir === 'asc'
     ? <ChevronUp className="w-3 h-3 text-accent" />
     : <ChevronDown className="w-3 h-3 text-accent" />;
@@ -305,11 +305,11 @@ function ColumnHeader({ column, colPct, sortKey, sortDir, onSort }: {
   return (
     <div
       className={cn(
-        'flex items-center h-10 px-3 text-[11px] font-semibold uppercase tracking-wider select-none border-r border-border/20 last:border-r-0',
+        'flex items-center h-10 px-3 text-[11px] font-semibold uppercase tracking-wider select-none border-r border-border/10 last:border-r-0',
         column.align === 'right' && 'justify-end',
         column.align === 'center' && 'justify-center',
-        isAction ? 'text-transparent pointer-events-none' : 'text-text-muted cursor-pointer hover:text-text-primary transition-colors',
-        isActive && 'text-text-primary',
+        isAction ? 'text-transparent pointer-events-none' : 'text-text-muted cursor-pointer hover:text-text-primary/80 transition-colors',
+        isActive && 'text-accent',
       )}
       style={{ flex: `0 0 ${colPct[column.key]}%` }}
       onClick={() => !isAction && !column.noSort && onSort(column.key)}
@@ -378,9 +378,9 @@ function DataRow({
   return (
     <div
       className={cn(
-        'flex items-center w-full border-b border-border/30 transition-colors cursor-pointer',
+        'group flex items-center w-full border-b border-border/20 transition-all duration-100 cursor-pointer',
         isEven ? 'bg-background' : 'bg-surface',
-        'hover:bg-surface-hover/50',
+        'hover:bg-accent/[0.03]',
       )}
       style={{ height: ROW_H }}
       onClick={() => onRowClick(ticker)}
@@ -391,9 +391,10 @@ function DataRow({
           <div
             key={col.key}
             className={cn(
-              'flex items-center h-full px-3 text-sm whitespace-nowrap border-r border-border/20 last:border-r-0',
+              'flex items-center h-full px-3 text-sm whitespace-nowrap border-r border-border/10 last:border-r-0',
               isSticky && 'sticky left-0 z-10',
               isSticky && (isEven ? 'bg-background' : 'bg-surface'),
+              isSticky && 'group-hover:bg-accent/[0.03]',
               col.align === 'right' && 'justify-end',
               col.align === 'center' && 'justify-center',
             )}
@@ -516,7 +517,7 @@ export function ScreenerTable({
     <div className="flex flex-col h-full">
       <div ref={parentRef} className="flex-1 overflow-auto">
         {/* Header — sticky at top */}
-        <div className="sticky top-0 z-20 flex w-full bg-background border-b border-border/50 min-w-[900px]">
+        <div className="sticky top-0 z-20 flex w-full bg-background/90 backdrop-blur-sm border-b border-border/50 shadow-[0_1px_8px_rgba(0,0,0,0.2)] min-w-[900px]">
           {columns.map((col) => (
             <ColumnHeader
               key={col.key}
