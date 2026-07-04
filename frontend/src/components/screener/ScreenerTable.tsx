@@ -2,7 +2,7 @@ import { useRef, useState, useMemo, useCallback, type ReactNode } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import { formatPrice, formatLargeNumber } from '@/lib/format';
+import { formatPrice, formatLargeNumber, changePct } from '@/lib/format';
 import type { TVScoredTicker, TVDataFields } from '@/types/screener';
 
 // ── Column metadata — defines ALL available columns and their defaults ───────
@@ -17,7 +17,7 @@ export interface ColumnMeta {
 }
 
 export const ALL_COLUMNS_META: ColumnMeta[] = [
-  { key: 'symbol',     label: 'Symbol',     weight: 13, alwaysOn: true  },
+  { key: 'symbol',     label: 'Symbol',     weight: 8,  alwaysOn: true  },
   { key: 'price',      label: 'Price',      weight: 10, alwaysOn: true  },
   { key: 'score',      label: 'Scr',        weight: 6,  alwaysOn: true  },
   { key: 'change',     label: 'Change',     weight: 13, alwaysOn: true  },
@@ -26,26 +26,23 @@ export const ALL_COLUMNS_META: ColumnMeta[] = [
   { key: 'volume',     label: 'Volume',     weight: 10, alwaysOn: true  },
   { key: 'market_cap', label: 'Mkt Cap',    weight: 8,  alwaysOn: false },
   { key: 'pe_ratio',   label: 'P/E',        weight: 6,  alwaysOn: false },
+  { key: 'eps',        label: 'EPS',        weight: 6,  alwaysOn: false },
   { key: 'div_yield',  label: 'Div %',      weight: 6,  alwaysOn: false },
   { key: 'rel_vol',    label: 'Rel Vol',    weight: 6,  alwaysOn: false },
+  { key: 'rsi',        label: 'RSI',        weight: 5,  alwaysOn: false },
+  { key: 'adx',        label: 'ADX',        weight: 5,  alwaysOn: false },
+  { key: 'vol_change', label: 'Vol %',      weight: 6,  alwaysOn: false },
+  { key: 'atr_pct',    label: 'ATR%',       weight: 6,  alwaysOn: false },
   { key: 'sector',     label: 'Sector',     weight: 7,  alwaysOn: false },
-  { key: 'rating',     label: 'Rtg',        weight: 6,  alwaysOn: true  },
-  { key: 'action',     label: '',           weight: 7,  alwaysOn: true  },
+  { key: 'rating',     label: 'Rtg',        weight: 8,  alwaysOn: true  },
 ];
 
-/** Default set of visible column keys (matches original layout). */
-export const DEFAULT_VISIBLE_COLUMNS: string[] = [
-  'symbol', 'price', 'score', 'change', 'entry', 'confluence',
-  'volume', 'sector', 'rating', 'action',
-];
+/** Default set of visible column keys — everything except Div %, Rel Vol, and Vol %. */
+export const DEFAULT_VISIBLE_COLUMNS: string[] = ALL_COLUMNS_META
+  .filter((m) => m.key !== 'div_yield' && m.key !== 'rel_vol' && m.key !== 'vol_change')
+  .map((m) => m.key);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function changePct(price: number, change: number): number | null {
-  const prev = price - change;
-  if (prev === 0) return null;
-  return (change / prev) * 100;
-}
 
 // ── Cell renderers ───────────────────────────────────────────────────────────
 
@@ -104,29 +101,17 @@ function CellEntry({ ticker }: { ticker: TVScoredTicker }) {
 
 function CellConfluence({ breakdown }: { breakdown: Record<string, number> }) {
   return (
-    <div className="group relative">
-      <span className="text-xs tabular-nums leading-none cursor-help">
-        <span className="text-info">T{breakdown.trend ?? 0}</span>
-        <span className="text-text-muted mx-1">·</span>
-        <span className="text-accent">M{breakdown.momentum ?? 0}</span>
-        <span className="text-text-muted mx-1">·</span>
-        <span className="text-warning">V{breakdown.volume ?? 0}</span>
-        <span className="text-text-muted mx-1">·</span>
-        <span className="text-purple-400">Q{breakdown.quality ?? 0}</span>
-        <span className="text-text-muted mx-1">·</span>
-        <span className="text-cyan-400">F{breakdown.fundamental ?? 0}</span>
-      </span>
-      {/* Tooltip */}
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
-        <div className="bg-dark-600 border border-border/50 rounded-lg px-3 py-2 text-xs text-text-secondary whitespace-nowrap shadow-xl">
-          <div className="flex items-center gap-2"><span className="text-info font-semibold">T</span> Trend</div>
-          <div className="flex items-center gap-2"><span className="text-accent font-semibold">M</span> Momentum</div>
-          <div className="flex items-center gap-2"><span className="text-warning font-semibold">V</span> Volume</div>
-          <div className="flex items-center gap-2"><span className="text-purple-400 font-semibold">Q</span> Quality</div>
-          <div className="flex items-center gap-2"><span className="text-cyan-400 font-semibold">F</span> Fundamental</div>
-        </div>
-      </div>
-    </div>
+    <span className="text-xs tabular-nums leading-none">
+      <span className="text-info">T{breakdown.trend ?? 0}</span>
+      <span className="text-text-muted mx-1">·</span>
+      <span className="text-accent">M{breakdown.momentum ?? 0}</span>
+      <span className="text-text-muted mx-1">·</span>
+      <span className="text-warning">V{breakdown.volume ?? 0}</span>
+      <span className="text-text-muted mx-1">·</span>
+      <span className="text-purple-400">Q{breakdown.quality ?? 0}</span>
+      <span className="text-text-muted mx-1">·</span>
+      <span className="text-cyan-400">F{breakdown.fundamental ?? 0}</span>
+    </span>
   );
 }
 
@@ -199,6 +184,15 @@ function CellDivYield({ data }: { data: TVDataFields }) {
   );
 }
 
+function CellEPS({ data }: { data: TVDataFields }) {
+  if (data.earnings_per_share_diluted_ttm == null) return <span className="text-xs text-text-muted">—</span>;
+  return (
+    <span className="font-mono text-xs tabular-nums text-text-secondary">
+      {data.earnings_per_share_diluted_ttm.toFixed(2)}
+    </span>
+  );
+}
+
 function CellRelVol({ data }: { data: TVDataFields }) {
   if (data.relative_volume_10d_calc == null) return <span className="text-xs text-text-muted">—</span>;
   return (
@@ -208,14 +202,56 @@ function CellRelVol({ data }: { data: TVDataFields }) {
   );
 }
 
-function CellAction({ onClick }: { onClick?: () => void }) {
+function CellRSI({ data }: { data: TVDataFields }) {
+  if (data.RSI == null) return <span className="text-xs text-text-muted">—</span>;
+  const color =
+    data.RSI > 70 ? 'text-loss' :
+    data.RSI < 30 ? 'text-accent' :
+    'text-text-primary';
   return (
-    <button
-      onClick={(e) => { e.stopPropagation(); onClick?.(); }}
-      className="px-2 py-[3px] text-[11px] font-medium rounded-[3px] border border-border/50 text-text-muted hover:border-border hover:text-text-primary hover:bg-surface-hover/40 transition-colors leading-none"
-    >
-      Details
-    </button>
+    <span className={cn('font-mono text-xs tabular-nums', color)}>
+      {Math.round(data.RSI)}
+    </span>
+  );
+}
+
+function CellADX({ data }: { data: TVDataFields }) {
+  if (data.ADX == null) return <span className="text-xs text-text-muted">—</span>;
+  const color =
+    data.ADX > 50 ? 'text-loss' :
+    data.ADX > 40 ? 'text-orange-400' :
+    data.ADX > 25 ? 'text-accent' :
+    data.ADX > 20 ? 'text-warning' :
+    'text-text-muted';
+  return (
+    <span className={cn('font-mono text-xs tabular-nums', color)}>
+      {Math.round(data.ADX)}
+    </span>
+  );
+}
+
+function CellVolChange({ data }: { data: TVDataFields }) {
+  if (data.volume_change == null) return <span className="text-xs text-text-muted">—</span>;
+  const isGain = data.volume_change > 0;
+  return (
+    <span className={cn('font-mono text-xs tabular-nums', isGain ? 'text-gain' : 'text-loss')}>
+      {isGain ? '+' : ''}{Math.round(data.volume_change)}%
+    </span>
+  );
+}
+
+function CellATRPct({ data }: { data: TVDataFields }) {
+  if (data.ATR == null || data.close == null) return <span className="text-xs text-text-muted">—</span>;
+  const atrPct = (data.ATR / data.close) * 100;
+  const color =
+    atrPct > 5 ? 'text-loss' :
+    atrPct > 3 ? 'text-orange-400' :
+    atrPct > 1 ? 'text-text-primary' :
+    'text-text-muted';
+  return (
+    <span className={cn('font-mono text-xs tabular-nums', color)}>
+      {atrPct.toFixed(1)}%
+    </span>
   );
 }
 
@@ -240,11 +276,15 @@ const COL_RENDERERS: Record<string, (t: TVScoredTicker, d: TVDataFields, onClick
   volume:     (_t, d) => <CellVolume data={d} />,
   market_cap: (_t, d) => <CellMarketCap data={d} />,
   pe_ratio:   (_t, d) => <CellPERatio data={d} />,
+  eps:        (_t, d) => <CellEPS data={d} />,
   div_yield:  (_t, d) => <CellDivYield data={d} />,
   rel_vol:    (_t, d) => <CellRelVol data={d} />,
+  rsi:        (_t, d) => <CellRSI data={d} />,
+  adx:        (_t, d) => <CellADX data={d} />,
+  vol_change: (_t, d) => <CellVolChange data={d} />,
+  atr_pct:    (_t, d) => <CellATRPct data={d} />,
   sector:     (_t, d) => <CellSector sector={d.sector} />,
   rating:     (t, _d) => <CellRating rating={t.rating} />,
-  action:     (_t, _d, onClick) => <CellAction onClick={onClick} />,
 };
 
 /** Build sorted ColumnDef[] for visible columns, with normalised widths. */
@@ -269,7 +309,7 @@ function buildColumns(
 
     const align: 'left' | 'right' | 'center' =
       meta.key === 'symbol' || meta.key === 'sector' ? 'left' :
-      meta.key === 'score' || meta.key === 'confluence' || meta.key === 'rating' || meta.key === 'action' ? 'center' :
+      meta.key === 'score' || meta.key === 'confluence' || meta.key === 'rating' ? 'center' :
       'right';
 
     return {
@@ -277,7 +317,7 @@ function buildColumns(
       label: meta.label,
       align,
       render,
-      noSort: meta.key === 'sector' || meta.key === 'rating' || meta.key === 'action',
+      noSort: meta.key === 'sector' || meta.key === 'rating',
     };
   });
 
@@ -301,18 +341,17 @@ function ColumnHeader({ column, colPct, sortKey, sortDir, onSort }: {
   onSort: (key: string) => void;
 }) {
   const isActive = sortKey === column.key;
-  const isAction = column.key === 'action';
   return (
     <div
       className={cn(
-        'flex items-center h-10 px-3 text-[11px] font-semibold uppercase tracking-wider select-none border-r border-border/10 last:border-r-0',
+        'flex items-center h-10 px-3 text-[11px] font-semibold uppercase select-none border-r border-border/10 last:border-r-0',
         column.align === 'right' && 'justify-end',
         column.align === 'center' && 'justify-center',
-        isAction ? 'text-transparent pointer-events-none' : 'text-text-muted cursor-pointer hover:text-text-primary/80 transition-colors',
+        'tracking-wider text-text-muted cursor-pointer hover:text-text-primary/80 transition-colors',
         isActive && 'text-accent',
       )}
       style={{ flex: `0 0 ${colPct[column.key]}%` }}
-      onClick={() => !isAction && !column.noSort && onSort(column.key)}
+      onClick={() => !column.noSort && onSort(column.key)}
     >
       {column.label && <span className="truncate">{column.label}</span>}
       {!column.noSort && <SortIcon active={isActive} dir={isActive && sortDir ? sortDir : 'asc'} />}
@@ -391,7 +430,7 @@ function DataRow({
           <div
             key={col.key}
             className={cn(
-              'flex items-center h-full px-3 text-sm whitespace-nowrap border-r border-border/10 last:border-r-0',
+              'flex items-center h-full px-3 text-sm whitespace-nowrap border-r border-border/10 last:border-r-0 overflow-hidden',
               isSticky && 'sticky left-0 z-10',
               isSticky && (isEven ? 'bg-background' : 'bg-surface'),
               isSticky && 'group-hover:bg-accent/[0.03]',
@@ -460,8 +499,13 @@ export function ScreenerTable({
         case 'volume':   aVal = da.volume ?? 0; bVal = db.volume ?? 0; break;
         case 'market_cap': aVal = da.market_cap_basic ?? 0; bVal = db.market_cap_basic ?? 0; break;
         case 'pe_ratio': aVal = da.price_earnings_ttm ?? 0; bVal = db.price_earnings_ttm ?? 0; break;
+        case 'eps': aVal = da.earnings_per_share_diluted_ttm ?? 0; bVal = db.earnings_per_share_diluted_ttm ?? 0; break;
         case 'div_yield': aVal = da.dividends_yield_current ?? 0; bVal = db.dividends_yield_current ?? 0; break;
         case 'rel_vol':  aVal = da.relative_volume_10d_calc ?? 0; bVal = db.relative_volume_10d_calc ?? 0; break;
+        case 'rsi':      aVal = da.RSI ?? 0; bVal = db.RSI ?? 0; break;
+        case 'adx':      aVal = da.ADX ?? 0; bVal = db.ADX ?? 0; break;
+        case 'vol_change': aVal = da.volume_change ?? 0; bVal = db.volume_change ?? 0; break;
+        case 'atr_pct':  aVal = da.ATR != null && da.close != null ? (da.ATR / da.close) * 100 : 0; bVal = db.ATR != null && db.close != null ? (db.ATR / db.close) * 100 : 0; break;
         case 'rating':   aVal = a.rating; bVal = b.rating; break;
         default:         aVal = 0; bVal = 0;
       }
