@@ -24,7 +24,7 @@ function NavItem({ to, label, icon }: NavItemProps) {
         cn(
           'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
           isActive
-            ? 'bg-surface-hover text-accent border-l-2 border-accent'
+            ? 'bg-accent/10 text-accent border-l-[3px] border-accent'
             : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'
         )
       }
@@ -37,28 +37,19 @@ function NavItem({ to, label, icon }: NavItemProps) {
 
 function ConnectionDot() {
   const { connectionState } = useWS();
-  const dotColors: Record<string, string> = {
-    connected: 'bg-gain',
-    disconnected: 'bg-loss',
-    connecting: 'bg-warning',
-    reconnecting: 'bg-warning',
-  };
 
-  const labels: Record<string, string> = {
-    connected: 'Connected',
-    disconnected: 'Disconnected',
-    connecting: 'Connecting...',
-    reconnecting: 'Reconnecting...',
-  };
+  const isConnected = connectionState === 'connected';
+  const label = isConnected ? 'Connected' : connectionState === 'disconnected' ? 'Disconnected' : connectionState === 'connecting' ? 'Connecting...' : 'Reconnecting...';
+  const dotColor = isConnected ? 'bg-gain' : 'bg-loss';
 
   return (
     <div className="flex items-center gap-2 px-3 py-2">
-      <span
-        className={cn('h-2 w-2 rounded-full', dotColors[connectionState] || 'bg-text-muted')}
-      />
-      <span className="text-xs text-text-muted capitalize">
-        {labels[connectionState] || connectionState}
+      <span className={cn('relative h-2 w-2 rounded-full', dotColor)}>
+        {isConnected && (
+          <span className="absolute inset-0 rounded-full bg-gain animate-ping opacity-40" />
+        )}
       </span>
+      <span className="text-xs text-text-muted">{label}</span>
     </div>
   );
 }
@@ -66,8 +57,16 @@ function ConnectionDot() {
 export function Sidebar() {
   return (
     <aside className="flex w-64 flex-col border-r border-border bg-surface">
-      <div className="flex items-center gap-2 border-b border-border px-4 py-4">
-        <span className="text-lg font-bold text-accent">conflu.ai</span>
+      {/* Top accent gradient bar */}
+      <div className="h-[3px] bg-gradient-to-r from-accent via-accent/40 to-transparent" />
+
+      <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/15">
+          <span className="text-sm font-bold text-accent">C</span>
+        </div>
+        <span className="text-base font-bold tracking-tight text-text-primary">
+          conflu<span className="text-accent/65">.ai</span>
+        </span>
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-4">
@@ -76,7 +75,7 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="border-t border-border px-3 py-3">
+      <div className="border-t border-border/50 px-3 py-3">
         <ConnectionDot />
       </div>
     </aside>

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { X, TrendingUp, TrendingDown, Target, AlertTriangle, Play, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import { formatPrice, formatPct } from '@/lib/format';
+import { formatPrice, formatPct, changePct } from '@/lib/format';
 import { fetchDeepAnalysis } from '@/api/screener';
 import type { TVScoredTicker, TVDeepAnalysisRequest } from '@/types/screener';
 import { useQuery } from '@tanstack/react-query';
@@ -9,7 +9,6 @@ import { useQuery } from '@tanstack/react-query';
 interface DetailPanelProps {
   ticker: TVScoredTicker | null;
   onClose: () => void;
-  onAnalyze?: (symbol: string) => void;
 }
 
 const BREAKDOWN_FACTORS = [
@@ -54,11 +53,11 @@ function PriceLevel({ label, value, color, icon }: { label: string; value: numbe
   );
 }
 
-export function DetailPanel({ ticker, onClose, onAnalyze }: DetailPanelProps) {
+export function DetailPanel({ ticker, onClose }: DetailPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Fetch deep analysis when ticker changes
-  const { data: analysis, isLoading, error } = useQuery({
+  const { data: analysis, isLoading, error, refetch: refetchAnalysis } = useQuery({
     queryKey: ['deep-analysis', ticker?.symbol],
     queryFn: async () => {
       if (!ticker) return null;
@@ -101,9 +100,7 @@ export function DetailPanel({ ticker, onClose, onAnalyze }: DetailPanelProps) {
 
   const change = ticker.tv_data?.change ?? 0;
   const price = ticker.tv_data?.close ?? 0;
-  const changePct = price !== change
-    ? ((change / (price - change)) * 100)
-    : 0;
+  const changePctVal = price !== change ? changePct(price, change) ?? 0 : 0;
   const isGain = change >= 0;
 
   return (
@@ -139,7 +136,7 @@ export function DetailPanel({ ticker, onClose, onAnalyze }: DetailPanelProps) {
                 isGain ? 'badge-green' : 'badge-red'
               )}
             >
-              {formatPct(changePct)}
+              {formatPct(changePctVal)}
             </span>
           </div>
           <button
@@ -161,7 +158,7 @@ export function DetailPanel({ ticker, onClose, onAnalyze }: DetailPanelProps) {
             <div className={cn('flex items-center gap-2 font-mono text-price', isGain ? 'text-gain' : 'text-loss')}>
               {isGain ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
               <span>
-                {isGain ? '+' : ''}{change.toFixed(2)} ({formatPct(changePct)})
+                {isGain ? '+' : ''}{change.toFixed(2)} ({formatPct(changePctVal)})
               </span>
             </div>
           </div>
@@ -272,7 +269,7 @@ export function DetailPanel({ ticker, onClose, onAnalyze }: DetailPanelProps) {
           {/* Deep Analysis */}
           <div className="pt-4 border-t border-border">
             <button
-              onClick={() => onAnalyze?.(ticker.symbol)}
+              onClick={() => refetchAnalysis()}
               disabled={isLoading}
               className="btn-primary w-full gap-2"
             >

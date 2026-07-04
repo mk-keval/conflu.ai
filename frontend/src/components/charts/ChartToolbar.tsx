@@ -17,7 +17,7 @@ export function ChartToolbar() {
   return (
     <div className="flex items-center gap-4">
       <div className="flex items-center gap-1">
-        <span className="mr-1 text-xs text-dark-300">TF:</span>
+        <span className="mr-1 text-xs text-text-muted">TF:</span>
         {TIMEFRAME_BUTTONS.map((tf) => (
           <button
             key={tf}
@@ -26,7 +26,7 @@ export function ChartToolbar() {
               'rounded px-2 py-1 text-xs font-medium transition-colors',
               activeTimeframes.includes(tf)
                 ? 'bg-accent text-white'
-                : 'bg-dark-600 text-dark-300 hover:bg-dark-500'
+                : 'bg-surface-hover text-text-muted hover:bg-surface-hover/70'
             )}
           >
             {tf}
@@ -34,10 +34,10 @@ export function ChartToolbar() {
         ))}
       </div>
 
-      <div className="h-4 w-px bg-dark-500" />
+      <div className="h-4 w-px bg-border/50" />
 
       <div className="flex items-center gap-1">
-        <span className="mr-1 text-xs text-dark-300">Indicators:</span>
+        <span className="mr-1 text-xs text-text-muted">Indicators:</span>
         {INDICATOR_BUTTONS.map((ind) => (
           <button
             key={ind.key}
@@ -45,8 +45,8 @@ export function ChartToolbar() {
             className={cn(
               'rounded px-2 py-1 text-xs font-medium transition-colors',
               activeIndicators.includes(ind.key)
-                ? 'bg-accent/20 text-accent-light'
-                : 'bg-dark-600 text-dark-300 hover:bg-dark-500'
+                ? 'bg-accent/15 text-accent'
+                : 'bg-surface-hover text-text-muted hover:bg-surface-hover/70'
             )}
           >
             {ind.label}

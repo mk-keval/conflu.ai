@@ -70,6 +70,16 @@ export interface TVDataFields {
   volume?: number;
   /** Exchange suffix. */
   type?: string;
+  /** Relative Strength Index (0-100). */
+  RSI?: number;
+  /** Average Directional Index (0-100) — trend strength. */
+  ADX?: number;
+  /** Average True Range — volatility in price terms. */
+  ATR?: number;
+  /** Volume-Weighted Average Price. */
+  VWAP?: number;
+  /** Volume change %. */
+  volume_change?: number;
 }
 
 export interface TVTemplate {

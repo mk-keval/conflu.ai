@@ -2,7 +2,7 @@
 
 ## Overview
 
-The conflu.ai screener evaluates technical filters across multiple timeframes (top-down: 1D → 4h → 1h) against all active symbols. Results are scored, ranked, and streamed via WebSocket.
+The conflu.ai screener evaluates technical filters across multiple timeframes (top-down: 1D → 4h → 1h) against all active symbols via the TradingView Screener API. Results are scored and ranked by the confluence scorer.
 
 ## Predefined Templates
 

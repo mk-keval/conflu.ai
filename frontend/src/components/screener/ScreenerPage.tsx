@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   fetchScreenTV,
@@ -208,12 +209,6 @@ function ScreenerContent() {
     setSelectedTicker(null);
   }, []);
 
-  const handleDeepAnalysis = useCallback((symbol: string) => {
-    // Navigate to charts page with the symbol or trigger analysis
-    console.log('Deep analysis for:', symbol);
-    // Could navigate to charts page or open analysis modal
-  }, []);
-
   if (isLoading && results.length === 0) {
     return (
       <div className="flex h-full flex-col">
@@ -306,7 +301,6 @@ function ScreenerContent() {
         <DetailPanel
           ticker={selectedTicker}
           onClose={handleCloseDetail}
-          onAnalyze={handleDeepAnalysis}
         />
       </div>
     </div>
@@ -355,22 +349,40 @@ function ColumnCustomizer({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close on outside click
+  // Close on outside click — check BOTH the parent wrapper AND the portal dropdown
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      const isOutsideParent = ref.current && !ref.current.contains(target);
+      const isOutsideDropdown = dropdownRef.current && !dropdownRef.current.contains(target);
+      if (isOutsideParent && isOutsideDropdown) setOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
   const toggleable = ALL_COLUMNS_META.filter((m) => !m.alwaysOn);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+
+  useEffect(() => {
+    if (!open || !btnRef.current) return;
+    const rect = btnRef.current.getBoundingClientRect();
+    setDropdownStyle({
+      position: 'fixed',
+      right: document.documentElement.clientWidth - rect.right,
+      top: rect.bottom + 4,
+      zIndex: 9999,
+    });
+  }, [open]);
 
   return (
     <div ref={ref} className="relative">
       <button
+        ref={btnRef}
         onClick={() => setOpen((p) => !p)}
         className="btn-ghost p-2 text-text-muted hover:text-text-primary"
         aria-label="Customize columns"
@@ -378,8 +390,12 @@ function ColumnCustomizer({
       >
         <Columns className="w-4 h-4" />
       </button>
-      {open && (
-        <div className="absolute right-0 top-full mt-1 z-50 w-44 bg-dark-600 border border-border/50 rounded-lg shadow-xl py-1">
+      {open && createPortal(
+        <div
+          ref={dropdownRef}
+          style={dropdownStyle}
+          className="w-44 bg-surface-elevated border border-border/50 rounded-lg shadow-xl py-1"
+        >
           {toggleable.map((meta) => (
             <label
               key={meta.key}
@@ -394,7 +410,8 @@ function ColumnCustomizer({
               {meta.label}
             </label>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

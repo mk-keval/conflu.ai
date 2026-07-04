@@ -5,7 +5,7 @@
 ### Documentation
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) — Project architecture & data flow
 - [SESSION LOGS](docs/SESSIONS/) — Per-session activity logs
-- [CHANGELOG.md](CHANGELOG.md) — Decision log & significant changes
+- [CHANGELOG.md](CHANGELOG.md) — Significant changes & architecture decisions
 
 ### Current GSD Phases (v1.0 — TV Screener Architecture)
 - **[Phase 1: TV Screener Specialist](.planning/phases/01-tv-screener-phase1/SUMMARY.md)** — ✅ TV Screener discovery, filter map, confluence scoring, API endpoints
@@ -53,6 +53,7 @@
 - [Container Builds](Dockerfile) — Multi-stage backend (uv + distroless)
 
 ## Recent Activity
+- **2026-07-03** — Fixed chart crash (React hooks violation) and 4H black space (height inconsistency). Docs cleanup: removed stale references to old DuckDB screener, dead API routers, deleted CLAUDE.md duplicate. [Session Log](docs/SESSIONS/ses_20260703213318.md)
 - **2026-06-30** — Scoring calibration, SHORT screens, MTF weighted stacking, all 5 factors in UI. [Session Log](docs/SESSIONS/2026-06-30_scoring-calibration-and-short-screens.md)
 - **2026-06-28** — Table visual redesign: single-line cells, proportional column widths, zebra striping, sticky column fix, 40px rows, compact confluence display. [Session Log](docs/SESSIONS/2026-06-28_table-visual-redesign.md)
 
