@@ -8,7 +8,6 @@ import { INDICATOR_COLORS } from '@/lib/constants';
 interface ChartPaneProps {
   timeframe: string;
   symbol: string;
-  isMaster: boolean;
   candles: OHLCVCandle[];
   indicators: Record<string, IndicatorPoint[]>;
   onChartReady: (tf: string, chart: IChartApi) => void;
@@ -17,7 +16,6 @@ interface ChartPaneProps {
 export function ChartPane({
   timeframe,
   symbol,
-  isMaster,
   candles,
   indicators,
   onChartReady,
@@ -36,7 +34,7 @@ export function ChartPane({
 
     const chart = createChart(containerRef.current, {
       width: size.width || 600,
-      height: isMaster ? 400 : 300,
+      height: 350,
       layout: {
         background: { color: '#1a1a2e' },
         textColor: '#d1d4dc',
@@ -85,9 +83,9 @@ export function ChartPane({
   // Resize
   useEffect(() => {
     if (chartRef.current && size.width > 0) {
-      chartRef.current.resize(size.width, isMaster ? 400 : 300);
+      chartRef.current.resize(size.width, 350);
     }
-  }, [size.width, isMaster]);
+  }, [size.width]);
 
   // Update candles — ensure ASC order by time
   useEffect(() => {
