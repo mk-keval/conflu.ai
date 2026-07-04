@@ -60,12 +60,13 @@ export function Sidebar() {
       {/* Top accent gradient bar */}
       <div className="h-[3px] bg-gradient-to-r from-accent via-accent/40 to-transparent" />
 
-      <div className="flex items-center gap-2.5 border-b border-border px-4 py-4">
+      <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/15">
           <span className="text-sm font-bold text-accent">C</span>
         </div>
-        <span className="text-base font-bold tracking-tight text-text-primary">conflu</span>
-        <span className="text-base font-light text-text-muted">.ai</span>
+        <span className="text-base font-bold tracking-tight text-text-primary">
+          conflu<span className="text-accent/65">.ai</span>
+        </span>
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-4">

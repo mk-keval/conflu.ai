@@ -42,8 +42,8 @@ export function IndicatorPanel({ symbol, indicatorValues }: IndicatorPanelProps)
   }
 
   return (
-    <div className="w-48 border-l border-dark-600 bg-dark-900 p-3 text-sm">
-      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-dark-300">
+    <div className="w-48 border-l border-border bg-surface p-3 text-sm">
+      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-muted">
         {symbol} — Indicators
       </h3>
       <div className="space-y-2">
@@ -55,7 +55,7 @@ export function IndicatorPanel({ symbol, indicatorValues }: IndicatorPanelProps)
 
           return (
             <div key={name} className="space-y-0.5">
-              <div className="text-xs text-dark-400">
+              <div className="text-xs text-text-secondary">
                 {INDICATOR_LABELS[name] || name}
               </div>
               <div
