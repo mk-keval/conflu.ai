@@ -25,7 +25,8 @@ docker compose up -d
 
 ## Docker Compose Profiles
 
-- **Default** (`docker compose up`): API, worker, frontend, redis
+- **Default** (`docker compose up`): API, frontend, redis
+- **With Workers** (`docker compose --profile workers up`): Adds Celery worker + beat for scheduled ingestion
 - **With Observability** (`docker compose --profile observability up`): Adds Prometheus + Grafana for API metrics
 
 ## Debugging

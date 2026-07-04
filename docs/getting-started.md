@@ -61,16 +61,9 @@ python -m backend.app.infrastructure.ingest.cli --asset-class crypto --timeframe
 
 # Ingest all asset classes & timeframes
 python -m backend.app.infrastructure.ingest.cli
-
-# Update indicator cache (pre-computes RSI, MACD, EMA, etc. for fast screening)
-python -c "
-import asyncio
-from backend.app.infrastructure.screener.cache import IndicatorCache
-asyncio.run(IndicatorCache().update_cache())
-"
 ```
 
-### 5. Verify Installation
+### 6. Verify Installation
 
 ```bash
 # Health check
