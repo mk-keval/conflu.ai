@@ -13,6 +13,17 @@ This section contains Architecture Decision Records (ADRs) for significant proje
 - [ADR-007: React + TypeScript Frontend](0007-react-typescript-frontend.md)
 - [ADR-008: Prometheus + Grafana Observability](0008-prometheus-grafana-observability.md)
 
+- [D-16: Prometheus Metrics](D-16-prometheus-metrics.md)
+- [D-17: OpenTelemetry Optional](D-17-opentelemetry-optional.md)
+- [D-19: Error Response Envelope](D-19-error-response-envelope.md)
+- [D-20: Scoring Evaluation Round 2](D-20-scoring-evaluation-round2.md)
+- [D-21: Scoring Smoothing & Rationale](D-21-scoring-smoothing-and-rationale.md)
+- [D-22: ColumnCustomizer Portal for Z-Index Escape](D-22-column-customizer-portal-stacking.md)
+- [D-23: IndicatorCache Backend for Screener Indicators](D-23-indicator-cache-backend.md)
+
+## Other Decision Records
+- [Phase 9: Advanced Backtest](2026-06-19-phase9-advanced-backtest.md) — ATR-based sizing, vectorized signals, parameter optimization, monte carlo, multi-symbol backtest
+
 ## Template
 
 ```markdown

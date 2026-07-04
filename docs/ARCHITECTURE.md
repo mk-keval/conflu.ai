@@ -64,14 +64,6 @@ backend/
 │   ├── test_risk_position_sizing.py   # 4 tests
 │   ├── test_risk_streaming.py         # 7 tests
 │   └── test_risk_engine.py            # 9 tests
-│   ├── test_risk_models.py            # 16 tests
-│   ├── test_risk_beta.py              # 6 tests
-│   ├── test_risk_correlation.py       # 5 tests
-│   ├── test_risk_var.py               # 8 tests
-│   ├── test_risk_kelly.py             # 7 tests
-│   ├── test_risk_position_sizing.py   # 4 tests
-│   ├── test_risk_streaming.py         # 7 tests
-│   └── test_risk_engine.py            # 9 tests
 config.yaml              # Shared YAML configuration
 Dockerfile               # Multi-stage Python build
 docker-compose.yml       # 3 services: api, worker, redis
@@ -164,27 +156,16 @@ ExceptionHandlers → {error: {code, message, details, request_id}}
 
 ---
 
-## ⚠️ Known Automation Gaps (Not Yet Implemented)
+## ⚠️ Known Automation Gaps (Intentionally Deferred)
 
-The architecture includes config and docker-compose for automation, but the following are **NOT YET IMPLEMENTED**:
+The architecture includes config and docker-compose for optional automation, but the following are **not actively implemented**:
 
-| Component | Status | Config Exists | Code Exists |
-|-----------|--------|---------------|-------------|
-| **Ingestion Scheduler** | ❌ Missing | `ingestion.daily_schedule_utc`, `ingestion.intraday_interval_s` | No APScheduler/Celery Beat |
-| **Celery Worker** | ❌ Missing | docker-compose `worker` service | No `backend/app/worker/` module |
-| **Celery Beat (Periodic Tasks)** | ❌ Missing | — | No beat schedule |
-| **Auto-indicator cache refresh** | ❌ Missing | `compute.indicator_cache_enabled` | No periodic task |
-| **Auto-screener streaming** | ❌ Missing | `screen.stream_interval_s` | Only on-demand via WebSocket |
-
-**Current State:** Ingestion runs manually via CLI (`python -m backend.app.infrastructure.ingest.cli`). The `worker` service in docker-compose will fail to start because there's no Celery app/tasks module.
-
-**To Enable Automation:**
-1. Create `backend/app/worker/tasks.py` with Celery app
-2. Add APScheduler or Celery Beat for periodic ingestion
-3. Schedule `IndicatorCache.update_cache()` after ingestion completes
-4. Add beat schedule for `daily_schedule_utc` and `intraday_interval_s`
-
-See [Phase 2 Plan](.planning/phases/02-data-ingestion-pipeline/02-PLAN.md) and [Phase 10](.planning/phases/10-production-hardening/10-PLAN.md) for detailed implementation tasks.
+| Component | Status | Notes |
+|-----------|--------|-------|
+| **Ingestion Scheduler** | ❌ Manual CLI | Ingestion runs via `python -m backend.app.infrastructure.ingest.cli`. No APScheduler/Celery Beat. |
+| **Celery Worker/Beat** | 🔌 Profile-only | Docker compose `worker`/`beat` services exist in `profiles: ["workers"]`. Never started by default. |
+| **Auto-indicator cache refresh** | ❌ Not needed | TV Screener doesn't use local indicator cache. Only deep analysis needs it. |
+| **Auto-screener streaming** | ❌ On-demand only | WebSocket streaming for price/signal updates only (not screener results). |
 
 ## API Design Decisions
 
