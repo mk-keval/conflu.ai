@@ -35,6 +35,25 @@ export function formatNumber(value: number, decimals: number = 2): string {
   });
 }
 
+/**
+ * Calculate percentage change from current price and absolute change.
+ *
+ * Formula: change / (price - change) * 100
+ *
+ * When change > price, the hypothetical previous close would be negative
+ * (impossible for real instruments). In that case, falls back to using price
+ * as the base to ensure the result always carries the correct sign.
+ */
+export function changePct(price: number, change: number): number | null {
+  const prev = price - change;
+  if (prev === 0) return null;
+  if (prev < 0) {
+    // Data inconsistency: prev close would be negative. Use price as base.
+    return (change / price) * 100;
+  }
+  return (change / prev) * 100;
+}
+
 export function formatLargeNumber(value: number): string {
   if (Math.abs(value) >= 1_000_000_000) {
     return `${(value / 1_000_000_000).toFixed(1)}B`;
