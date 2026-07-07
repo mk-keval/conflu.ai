@@ -53,6 +53,7 @@
 - [Container Builds](Dockerfile) — Multi-stage backend (uv + distroless)
 
 ## Recent Activity
+- **2026-07-07** — Added Sector Rotation Smart Money Tracker: backend API for 11 sector ETFs with 1D/1W relative strength, momentum scoring, volume divergence analysis, rotation phase detection, and smart money flow signals. Frontend with heatmap grid, detail panel, rotation flows visualization, and educational content. [Session Log](docs/SESSIONS/2026-07-07_sector-rotation-feature.md)
 - **2026-07-03** — Fixed chart crash (React hooks violation) and 4H black space (height inconsistency). Docs cleanup: removed stale references to old DuckDB screener, dead API routers, deleted CLAUDE.md duplicate. [Session Log](docs/SESSIONS/ses_20260703213318.md)
 - **2026-06-30** — Scoring calibration, SHORT screens, MTF weighted stacking, all 5 factors in UI. [Session Log](docs/SESSIONS/2026-06-30_scoring-calibration-and-short-screens.md)
 - **2026-06-28** — Table visual redesign: single-line cells, proportional column widths, zebra striping, sticky column fix, 40px rows, compact confluence display. [Session Log](docs/SESSIONS/2026-06-28_table-visual-redesign.md)

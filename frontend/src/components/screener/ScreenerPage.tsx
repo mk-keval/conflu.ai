@@ -4,10 +4,12 @@ import { useQuery } from '@tanstack/react-query';
 import {
   fetchScreenTV,
   fetchTVTemplates,
+  fetchTVTemplate,
 } from '@/api/screener';
 import type {
   TVScoredTicker,
   TVTemplate,
+  ScreenTemplateDetail,
 } from '@/types/screener';
 import { useScreenStore } from '@/store/screen';
 import { useWS } from '@/ws/WebSocketProvider';
@@ -18,8 +20,10 @@ import { SkeletonTable } from '@/components/layout/LoadingSkeleton';
 import { ScreenerTable } from './ScreenerTable';
 import { DetailPanel } from './DetailPanel';
 import { ExportButtons } from './ExportButtons';
+import { TemplateInfoStrip } from './TemplateInfoStrip';
+import { ScreenerEducation } from './ScreenerEducation';
 import type { WSMessage } from '@/types/ws';
-import { ChevronDown, Play, Loader2, RefreshCw, Columns } from 'lucide-react';
+import { ChevronDown, Play, Loader2, RefreshCw, Columns, List, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { ALL_COLUMNS_META, DEFAULT_VISIBLE_COLUMNS } from './ScreenerTable';
 
@@ -42,6 +46,8 @@ function ScreenerContent() {
   const [sortState, setSortState] = useState<{ key: string | null; dir: 'asc' | 'desc' | null }>({ key: 'score', dir: 'desc' });
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
+  const [activeTab, setActiveTab] = useState<'results' | 'learn'>('results');
+  const [templateDetails, setTemplateDetails] = useState<ScreenTemplateDetail | null>(null);
 
   // Column visibility — persisted in localStorage
   const COL_KEY = 'screener:visible-columns';
@@ -110,6 +116,14 @@ function ScreenerContent() {
     setScreenName(templates[0].name);
     setConfig(templates[0].name);
   }, [selectedConfig, templates, setConfig]);
+
+  // Fetch template details for the info strip + learn tab
+  useEffect(() => {
+    if (!selectedTemplate) return;
+    fetchTVTemplate(selectedTemplate)
+      .then((data) => setTemplateDetails(data as unknown as ScreenTemplateDetail))
+      .catch(() => setTemplateDetails(null));
+  }, [selectedTemplate]);
 
   // Fetch screen data
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -269,40 +283,72 @@ function ScreenerContent() {
 
   return (
     <div className="flex h-full flex-col">
-        <ScreenerHeader
-          screenName={screenName}
-          totalMatches={totalMatches}
-          templates={templates}
-          selectedTemplate={selectedTemplate}
-          onTemplateChange={handleTemplateChange}
-          isRunning={isRunning}
-          onRunScreen={handleRunScreen}
-          executionTime={executionTime}
-          fetchedAt={fetchedAt}
-          visibleColumns={visibleColumns}
-          onToggleColumn={toggleColumn}
-        />
+      <ScreenerHeader
+        screenName={screenName}
+        totalMatches={totalMatches}
+        templates={templates}
+        selectedTemplate={selectedTemplate}
+        onTemplateChange={handleTemplateChange}
+        isRunning={isRunning}
+        onRunScreen={handleRunScreen}
+        executionTime={executionTime}
+        fetchedAt={fetchedAt}
+        visibleColumns={visibleColumns}
+        onToggleColumn={toggleColumn}
+      />
 
-      <div className="flex-1 overflow-hidden relative">
-        <ScreenerTable
-          results={results}
-          onRowClick={handleRowClick}
-          sortState={sortState}
-          onSort={handleSort}
-          currentPage={currentPage}
-          pageSize={pageSize}
-          onPageChange={handlePageChange}
-          onPageSizeChange={handlePageSizeChange}
-          convergenceMap={convergenceMap}
-          visibleColumns={visibleColumns}
-        />
+      {/* Template info strip — always visible */}
+      <TemplateInfoStrip template={templateDetails} />
 
-        {/* Detail Panel */}
-        <DetailPanel
-          ticker={selectedTicker}
-          onClose={handleCloseDetail}
-        />
+      {/* Tab navigation */}
+      <div className="flex border-b border-border bg-surface/20 px-4">
+        {([
+          { key: 'results' as const, label: 'Results', icon: <List className="h-4 w-4" /> },
+          { key: 'learn' as const, label: 'Learn', icon: <BookOpen className="h-4 w-4" /> },
+        ]).map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={cn(
+              'flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-semibold transition-colors',
+              activeTab === tab.key
+                ? 'border-accent text-accent'
+                : 'border-transparent text-text-muted hover:text-text-primary hover:border-border'
+            )}
+          >
+            {tab.icon}
+            {tab.label}
+          </button>
+        ))}
       </div>
+
+      {/* Tab content */}
+      {activeTab === 'results' ? (
+        <div className="flex-1 overflow-hidden relative">
+          <ScreenerTable
+            results={results}
+            onRowClick={handleRowClick}
+            sortState={sortState}
+            onSort={handleSort}
+            currentPage={currentPage}
+            pageSize={pageSize}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+            convergenceMap={convergenceMap}
+            visibleColumns={visibleColumns}
+          />
+
+          {/* Detail Panel */}
+          <DetailPanel
+            ticker={selectedTicker}
+            onClose={handleCloseDetail}
+          />
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto p-4">
+          <ScreenerEducation template={templateDetails} />
+        </div>
+      )}
     </div>
   );
 }

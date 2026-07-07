@@ -206,12 +206,28 @@ async def list_templates() -> list[dict[str, str]]:
 
 @router.get("/templates/{name}", response_model=dict[str, Any])
 async def get_template(name: str) -> dict[str, Any]:
-    """Load a screen template by name."""
+    """Load a screen template by name (supports both filename and display name)."""
     try:
         config = load_screen_template(name)
         return config.model_dump()
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except FileNotFoundError:
+        pass
+
+    # Fallback: search screen files by their embedded name field
+    from backend.app.infrastructure.screener.configs import _resolve_screens_dir
+    import yaml
+
+    screens_dir = _resolve_screens_dir()
+    for p in sorted(screens_dir.glob("*.yaml")):
+        try:
+            with open(p) as f:
+                data = yaml.safe_load(f)
+            if data and data.get("name") == name:
+                return ScreenConfig(**data).model_dump()
+        except Exception:
+            continue
+
+    raise HTTPException(status_code=404, detail=f"Screen template '{name}' not found")
 
 
 # =========================================================================
