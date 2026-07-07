@@ -39,6 +39,14 @@ export type {
 } from './risk';
 
 export type {
+  SectorPerformance,
+  SectorRotationResponse,
+  SectorDetail,
+  RotationHistoryPoint,
+  TimeframeOption,
+} from './sector';
+
+export type {
   ConnectionState,
   WSChannelType,
   WSMessage,
