@@ -5,6 +5,7 @@ import { SharedScreenerView } from './components/screener/SharedScreenerView';
 import { ChartsPage } from './components/charts';
 import { BacktestPage, BacktestResultPage, ComparisonDashboard } from './components/backtest';
 import { RiskPage } from './components/risk';
+import { SectorRotationPage } from './components/sector-rotation';
 
 export function App() {
   return (
@@ -12,6 +13,7 @@ export function App() {
       <Route element={<AppShell />}>
         <Route path="/" element={<Navigate to="/screener" replace />} />
         <Route path="/screener" element={<ScreenerPage />} />
+        <Route path="/sector-rotation" element={<SectorRotationPage />} />
         <Route path="/charts" element={<ChartsPage />} />
         <Route path="/backtest" element={<BacktestPage />} />
         <Route path="/backtest/result/:runId" element={<BacktestResultPage />} />
