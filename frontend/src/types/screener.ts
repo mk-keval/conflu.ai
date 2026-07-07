@@ -87,6 +87,32 @@ export interface TVTemplate {
   description: string;
 }
 
+export interface TemplateFilterRule {
+  category: string;
+  indicator: string;
+  params: Record<string, number | string>;
+  operator: string;
+  timeframe: string;
+  negate: boolean;
+  compare_timeframe?: string | null;
+}
+
+export interface TemplateUniverse {
+  markets: string[];
+  index?: string | null;
+}
+
+export interface ScreenTemplateDetail {
+  name: string;
+  description: string;
+  asset_classes: string[];
+  timeframes: string[];
+  filters: TemplateFilterRule[];
+  universe: TemplateUniverse;
+  limit: number;
+  direction: string;
+}
+
 export interface TVDeepAnalysisRequest {
   symbol: string;
   timeframe: string;
