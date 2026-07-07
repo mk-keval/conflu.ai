@@ -1,6 +1,6 @@
 # API Reference — conflu.ai
 
-**Last Updated:** 2026-07-03
+**Last Updated:** 2026-07-07
 
 ## Base URL
 `/api/v1`
@@ -87,6 +87,77 @@ Get indicator values.
 | POST | `/kelly` | Kelly fraction from backtest |
 | POST | `/position-size` | Position sizing |
 | GET | `/summary` | Portfolio risk summary |
+
+## Sector Rotation API (`/api/v1/sector-rotation`)
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/` | All sector performance with 1D/1W returns, RS Z-scores, momentum, flow signals, rotation phase, market regime |
+| GET | `/history` | Historical daily sector rankings for charting |
+| GET | `/{symbol}` | Deep-dive: price history (3mo), relative strength, volume analysis for a single sector ETF |
+
+**Supported sectors:** XLF (Financials), XLK (Technology), XLV (Health Care), XLI (Industrials), XLB (Materials), XLE (Energy), XLU (Utilities), XLRE (Real Estate), XLY (Consumer Cyclical), XLP (Consumer Staples), XLC (Communication Services)
+
+**Response:** `ApiResponse<SectorRotationResponse>`
+```json
+{
+  "data": {
+    "sectors": [
+      {
+        "symbol": "XLK",
+        "name": "Technology",
+        "price": 218.45,
+        "change_1d": 1.25,
+        "change_1w": 3.42,
+        "relative_strength_1d": 0.85,
+        "relative_strength_1w": 1.12,
+        "momentum_score": 72.3,
+        "trend": "bullish",
+        "flow_signal": "inflow",
+        "flow_strength": 65.5
+      }
+    ],
+    "leaders": ["XLK", "XLC", "XLY"],
+    "laggards": ["XLU", "XLP", "XLRE"],
+    "rotation_phase": "growth_lead",
+    "market_regime": "broad_market_strength"
+  }
+}
+```
+
+---
+
+## Market Regime API (`/api/v1/market`)
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/regime` | Composite market regime snapshot: VIX analysis, risk appetite SPY/TLT spread, sector breadth, safe haven demand (GLD), yield curve signal (TLT/SHY). Returns 0-100 score with 5 sub-indicators. |
+
+**Response:** `ApiResponse<MarketRegimeResponse>`
+```json
+{
+  "data": {
+    "composite_score": 52.1,
+    "regime_label": "Neutral",
+    "regime_color": "#facc15",
+    "vix": { "name": "VIX", "value": 16.46, "score": 60.0, "weight": 0.3, "status": "normal" },
+    "risk_appetite": { "name": "Risk Appetite", "value": 0.5, "score": 27.5, "weight": 0.25, "status": "risk_off" },
+    "sector_breadth": { "name": "Sector Breadth", "value": 50.0, "score": 45.0, "weight": 0.2, "status": "mixed" },
+    "safe_haven": { "name": "Safe Haven", "value": -4.13, "score": 85.0, "weight": 0.15, "status": "risk_on" },
+    "yield_curve": { "name": "Yield Curve", "value": 0.37, "score": 55.0, "weight": 0.1, "status": "normal" }
+  }
+}
+```
+
+**Regime Labels (by score):**
+| Score Range | Label | Color |
+|-------------|-------|-------|
+| 80-100 | Exuberance | `#22c55e` |
+| 65-79 | Risk-On | `#4ade80` |
+| 50-64 | Neutral | `#facc15` |
+| 35-49 | Cautious | `#fb923c` |
+| 20-34 | Risk-Off | `#f87171` |
+| 0-19 | Crisis | `#dc2626` |
+
+---
 
 ## Health (`/health`)
 | Method | Route | Description |

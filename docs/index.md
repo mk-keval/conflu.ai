@@ -16,4 +16,6 @@ Welcome to the conflu.ai documentation. conflu.ai is a professional multi-asset 
 - **Vectorized Backtesting** — Fast backtesting with vectorbt portfolio simulation
 - **Risk Management** — ATR position sizing, VaR, beta hedging, Kelly optimization
 - **Real-Time Streaming** — WebSocket-based price and indicator streaming
+- **Sector Rotation** — Smart money flow tracking across 11 sector ETFs with 1D/1W relative strength, momentum, flow signals, and rotation phase detection
+- **Market Regime Detection** — Real-time composite market regime analysis (VIX, risk appetite, sector breadth, safe haven demand, yield curve) with global header indicator
 - **Advanced Analytics** — Parameter optimization, regime detection, report generation
