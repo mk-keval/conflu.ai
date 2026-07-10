@@ -179,3 +179,7 @@ test-results/
 
 # Backend test scripts (use scripts/ at root instead)
 backend/scripts/
+
+# OpenCode/Claude local config (per-developer, not project-owned)
+AGENTS.md
+CLAUDE.md

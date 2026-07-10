@@ -1,0 +1,39 @@
+name: "Bull Flag Continuation"
+description: "Price in strong uptrend with a tight consolidation — tight Bollinger Bands during the flag, MACD showing momentum preservation. Catches the continuation of established trends after a healthy pause"
+direction: long
+asset_classes:
+  - equities
+  - crypto
+timeframes:
+  - 1D
+  - 4h
+filters:
+  - category: trend
+    indicator: ema_stack_bullish
+    timeframe: "1D"
+  - category: trend
+    indicator: price_above_ema
+    params:
+      period: 20
+    timeframe: "1D"
+  - category: momentum
+    indicator: macd_bullish
+    timeframe: "1D"
+  - category: volume
+    indicator: rvol_high
+    params:
+      threshold: 1.5
+    timeframe: "4h"
+  - category: volatility
+    indicator: bb_squeeze
+    params:
+      threshold: 1.05
+    timeframe: "1D"
+  - category: volatility
+    indicator: adx_trending
+    params:
+      threshold: 25
+    timeframe: "1D"
+  - category: volume
+    indicator: price_above_vwap
+    timeframe: "1D"

@@ -1,5 +1,5 @@
 name: "Bullish Volume Surge"
-description: "Strong buying volume — price above VWAP and EMA20 with heavy relative volume"
+description: "Strong buying volume — price above VWAP and EMA20 with heavy relative volume and trend confirmation"
 direction: long
 asset_classes:
   - equities
@@ -8,9 +8,9 @@ timeframes:
   - 4h
 filters:
   - category: momentum
-    indicator: rsi_overbought
+    indicator: rsi_gt
     params:
-      threshold: 50
+      threshold: 55
     timeframe: "1D"
   - category: volume
     indicator: rvol_high
@@ -24,4 +24,9 @@ filters:
     indicator: price_above_ema
     params:
       period: 20
+    timeframe: "1D"
+  - category: volatility
+    indicator: adx_trending
+    params:
+      threshold: 22
     timeframe: "1D"

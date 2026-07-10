@@ -77,7 +77,8 @@ User Screen Request (ScreenConfig YAML)
     ↓
 TVScreenerSpecialist.build_query()
   → Compiles ScreenConfig to tradingview_screener.Query
-  → Maps filters (price_above_ema, macd_bullish, etc.) to TV Column operations
+  → Maps 56 filters (price_above_ema, macd_bullish, trend_stack, etc.) to TV Column operations
+  → Uses _and()/_or() for composable multi-filter logic
   → Sets market (america), timeframe (1D), index (SYML:SP;SPX)
     ↓
 TVScreenEngine.screen() / screen_multi_tf()
@@ -87,10 +88,20 @@ TVScreenEngine.screen() / screen_multi_tf()
 TVConfluenceScorer.score()
   → 5-factor scoring from TV data only (no OHLCV)
   → Trend (30), Momentum (25), Volume (20), Quality (15), Fundamental (10)
+  → Adaptive regime-aware weights: strong_trend / ranging / high_vol / low_vol
+  → RS rating >60 → +5 Quality bonus
   → ATR-based entry/SL/targets (2xATR stop, 2:1/3:1 R:R)
   → Rating: A+/A/B+/B/C/D
     ↓
-API Response → TVScreenResponse (scored tickers with analysis)
+EliteSignalProcessor.enrich()
+  → RS Rating (1-99 percentile across screen cohort)
+  → Institutional Quality (0-100): market cap, volume, analyst, dividend
+  → Signal Conviction (high/medium/low): RS + quality + factor conflict check
+  → Wyckoff Phase Proxy: accumulation/markup/distribution/markdown
+  → Factor conflict flags: trend/momentum/volume divergence detection
+  → Regime tag passthrough
+    ↓
+API Response → TVScreenResponse (scored tickers with elite enrichment)
 ```
 
 ## Data Flow — Deep Analysis (On-Demand)
@@ -149,6 +160,14 @@ ExceptionHandlers → {error: {code, message, details, request_id}}
 - **DuckDB retained for backtest OHLCV**: Historical data still needed for deep analysis (backtest + risk)
 - **Multi-TF via client-side intersection**: TV only supports single-TF queries, so multi-TF = multiple queries + intersect
 - **ATR-based entry/SL/targets**: Available directly from TV — no local computation needed for screening
+- **56 TV filters** across trend, momentum, volume, volatility, pattern, and fundamental categories
+- **9 elite screen templates**: Sector Rotation Leader, Institutional Accumulation, RS Leader, High-Conviction Stack, Bull Flag, Volatility Expansion, Statistical Mean Reversion, Earnings Momentum, Short Squeeze
+- **21 total screen templates** available
+- **4 adaptive regime weight tables**: strong_trend, ranging, high_vol, low_vol — each with different factor emphasis
+- **Post-TV signal enrichment**: EliteSignalProcessor adds RS rating, institutional quality, signal conviction, Wyckoff phase proxy
+- **RS rating is relative percentile** within the current screen cohort, not an absolute score
+- **Signal conviction** = RS rating + institutional quality + factor conflict absence
+- **Wyckoff phase is a heuristic proxy** based on price + volume trend combination
 - Append-only Parquet with idempotent incremental updates
 - TradingView free tier (no API key needed)
 - Semaphore-based concurrency (no unbounded parallelism)

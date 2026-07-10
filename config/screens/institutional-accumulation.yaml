@@ -1,0 +1,50 @@
+name: "Institutional Accumulation"
+description: "Smart money accumulation signals — heavy volume, rising OBV, price holding above VWAP with bullish analyst consensus. Catches institutional positioning before the big move"
+direction: long
+asset_classes:
+  - equities
+timeframes:
+  - 1D
+  - 4h
+filters:
+  - category: volume
+    indicator: obv_rising
+    params:
+      periods: 5
+    timeframe: "1D"
+  - category: volume
+    indicator: rvol_high
+    params:
+      threshold: 1.3
+    timeframe: "1D"
+  - category: volume
+    indicator: price_above_vwap
+    timeframe: "1D"
+  - category: trend
+    indicator: price_above_ema
+    params:
+      period: 50
+    timeframe: "1D"
+  - category: momentum
+    indicator: rsi_in_range
+    params:
+      min: 55
+      max: 70
+    timeframe: "1D"
+  - category: volatility
+    indicator: adx_trending
+    params:
+      threshold: 22
+    timeframe: "1D"
+  - category: fundamental
+    indicator: market_cap_gt
+    params:
+      value: 2000000000
+  - category: fundamental
+    indicator: eps_positive
+  - category: fundamental
+    indicator: analyst_rating_in
+    params:
+      ratings:
+        - StrongBuy
+        - Buy

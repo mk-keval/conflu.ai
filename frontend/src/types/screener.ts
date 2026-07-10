@@ -15,6 +15,14 @@ export interface TVScreenResponse {
   results: TVScoredTicker[];
 }
 
+export interface TVEliteEnrichment {
+  rs_rating: number;
+  inst_quality: number;
+  signal_conviction: 'high' | 'medium' | 'low';
+  wyckoff_phase: string | null;
+  factor_conflicts: string[];
+}
+
 export interface TVScoredTicker {
   symbol: string;
   score: number;
@@ -28,6 +36,8 @@ export interface TVScoredTicker {
   tv_data: TVDataFields;
   /** Per-timeframe breakdown (populated for multi-TF screens only). */
   mtf_breakdown?: TVMTFBreakdown[];
+  /** Elite signal enrichment from post-TV processing. */
+  elite?: TVEliteEnrichment;
 }
 
 export interface TVMTFBreakdown {

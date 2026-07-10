@@ -19,6 +19,8 @@ const INDICATOR_LABELS: Record<string, (params: Record<string, number | string>)
   macd_bearish:        ()  => 'MACD bearish crossover',
   rsi_oversold:        (p) => `RSI < ${p.threshold ?? 30} (oversold)`,
   rsi_overbought:      (p) => `RSI > ${p.threshold ?? 70} (overbought)`,
+  rsi_gt:              (p) => `RSI > ${p.threshold ?? 50}`,
+  rsi_lt:              (p) => `RSI < ${p.threshold ?? 50}`,
   rvol_high:           (p) => `Volume > ${p.threshold ?? 1.5}x average`,
   bb_squeeze:          (p) => `BB width ratio < ${p.threshold ?? 1.15} (squeeze)`,
   ema_cross:           (p) => `EMA${p.fast ?? 50} > EMA${p.slow ?? 200}`,

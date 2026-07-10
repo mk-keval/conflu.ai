@@ -1,5 +1,5 @@
 name: "Oversold Bounce"
-description: "Deeply oversold with RSI confirmation for reversal"
+description: "RSI < 30 with MACD bullish crossover and volume confirmation — catching reversals from deeply sold-off conditions"
 asset_classes:
   - equities
   - crypto
@@ -13,10 +13,17 @@ filters:
       threshold: 30
     timeframe: "1D"
   - category: momentum
-    indicator: macd_bullish
+    indicator: macd_cross_above
     timeframe: "1D"
   - category: volume
     indicator: rvol_high
     params:
-      threshold: 1.2
+      threshold: 1.3
+    timeframe: "4h"
+  - category: volatility
+    indicator: bb_breakout_lower
     timeframe: "1D"
+  - category: fundamental
+    indicator: market_cap_gt
+    params:
+      value: 500000000

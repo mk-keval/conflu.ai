@@ -1,6 +1,6 @@
 # API Reference — conflu.ai
 
-**Last Updated:** 2026-07-07
+**Last Updated:** 2026-07-09
 
 ## Base URL
 `/api/v1`
@@ -30,12 +30,28 @@ Run a TV Screener-based screen against 12,000+ symbols.
       "symbol": "AAPL",
       "score": 85.5,
       "matched_filters": ["price_above_ema", "adx_trending", "macd_bullish"],
-      "indicator_values": { "ema_200": 145.2, "rsi": 58.3, "macd_line": 2.1 }
+      "indicator_values": { "ema_200": 145.2, "rsi": 58.3, "macd_line": 2.1 },
+      "elite": {
+        "rs_rating": 85,
+        "inst_quality": 78,
+        "signal_conviction": "high",
+        "wyckoff_phase": "accumulation",
+        "factor_conflicts": []
+      }
     }
   ],
   "meta": { "timestamp": "2026-07-03T12:00:00Z", "duration_ms": 1120.5 }
 }
 ```
+
+**Elite enrichment fields:**
+| Field | Type | Range | Description |
+|-------|------|-------|-------------|
+| `rs_rating` | int | 1-99 | Multi-factor relative strength percentile vs screen cohort |
+| `inst_quality` | int | 0-100 | Institutional quality score (market cap, volume, analyst, dividend) |
+| `signal_conviction` | string | high/medium/low | Combined RS + quality + factor conflict assessment |
+| `wyckoff_phase` | string | accumulation/markup/distribution/markdown | Price-volume heuristic Wyckoff phase proxy |
+| `factor_conflicts` | string[] | — | Detected divergences between trend/momentum/volume factors |
 
 **Filter Structure:**
 - `config`: Predefined template name (e.g., `trend-follower`, `breakout`, `mean-reversion`, `oversold-bounce`, `volume-surge`, `breakdown`, `short-squeeze`, `distribution`) OR custom config object
@@ -123,6 +139,78 @@ Get indicator values.
   }
 }
 ```
+
+## Ticker Analysis (`/api/v1/ticker/{symbol}/analyze`)
+
+### POST `/ticker/{symbol}/analyze`
+Run the full elite-trader-grade ticker analysis pipeline — technical, fundamental, earnings, sentiment, and risk — and return a synthesized actionable verdict.
+
+**Request Body:**
+```json
+{
+  "symbol": "QGEN",
+  "timeframe": "1D",
+  "tv_data": {
+    "close": 41.34,
+    "RSI": 65.36,
+    "ADX": 26.46,
+    "ATR": 1.37,
+    "change": 8.79,
+    "relative_volume_10d_calc": 3.82,
+    "volume": 10619030,
+    "SMA20": 39.50,
+    "SMA50": 38.20,
+    "SMA200": 36.80,
+    "VWAP": 40.50,
+    "sector": "Health Technology"
+  }
+}
+```
+
+**Response 200:** `ApiResponse<TickerAnalysisResponse>`
+```json
+{
+  "data": {
+    "symbol": "QGEN",
+    "price": 41.92,
+    "change_pct": 8.79,
+    "sector": "Health Technology",
+    "technical": { "score": 0.79, "ma_alignment": "bullish", ... },
+    "fundamental": { "score": 0.04, ... },
+    "earnings": { "score": -0.07, ... },
+    "sentiment": { "score": 0.20, ... },
+    "risk": { "score": 0.07, ... },
+    "verdict": {
+      "action": "WATCH",
+      "conviction": 3,
+      "entry_zone_low": 41.01,
+      "entry_zone_high": 42.27,
+      "stop_loss": 39.08,
+      "targets": [47.06, 51.84],
+      "risk_reward": 1.5,
+      "position_size_pct": 0,
+      "key_red_flags": [],
+      "buy_triggers": ["Trend is up — buy on pullbacks to rising MA support."],
+      "sell_triggers": ["Monitor earnings next quarter."],
+      "thesis": "Neutral outlook (score 25%). Bull case: Bullish MA stack..."
+    },
+    "execution_ms": 377
+  },
+  "meta": { "timestamp": "2026-07-09T19:35:08.688Z" }
+}
+```
+
+**Modules:**
+| Module | Input Source | Output |
+|--------|-------------|--------|
+| Technical | `tv_data` (SMA, RSI, ADX, ATR, volume) | MA alignment, RSI regime, ADX strength, ATR volatility, BB position, MACD |
+| Fundamental | yfinance info dict | P/E, EPS, margins, D/E, revenue growth, FCF yield, div yield |
+| Earnings | yfinance earnings data | Surprise %, beat rate, EPS trend, next earnings date |
+| Sentiment | yfinance info (analyst, ownership, short interest) | Consensus, PT upside, insider status, short interest |
+| Risk | ATR + beta (yfinance) | Volatility regime, stop loss, position sizing |
+| Synthesis | All 5 module scores + regime weights | Action + conviction + entry/stop/targets + triggers + thesis |
+
+**Yfinance Data:** 5-minute in-memory TTL cache. Fresh data fetched on cache miss.
 
 ---
 

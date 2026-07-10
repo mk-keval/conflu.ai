@@ -17,24 +17,27 @@ export interface ColumnMeta {
 }
 
 export const ALL_COLUMNS_META: ColumnMeta[] = [
-  { key: 'symbol',     label: 'Symbol',     weight: 8,  alwaysOn: true  },
-  { key: 'price',      label: 'Price',      weight: 10, alwaysOn: true  },
-  { key: 'score',      label: 'Scr',        weight: 6,  alwaysOn: true  },
-  { key: 'change',     label: 'Change',     weight: 13, alwaysOn: true  },
-  { key: 'entry',      label: 'Entry/SL',   weight: 12, alwaysOn: true  },
-  { key: 'confluence', label: 'Confluence', weight: 14, alwaysOn: true  },
-  { key: 'volume',     label: 'Volume',     weight: 10, alwaysOn: true  },
-  { key: 'market_cap', label: 'Mkt Cap',    weight: 8,  alwaysOn: false },
-  { key: 'pe_ratio',   label: 'P/E',        weight: 6,  alwaysOn: false },
-  { key: 'eps',        label: 'EPS',        weight: 6,  alwaysOn: false },
-  { key: 'div_yield',  label: 'Div %',      weight: 6,  alwaysOn: false },
-  { key: 'rel_vol',    label: 'Rel Vol',    weight: 6,  alwaysOn: false },
-  { key: 'rsi',        label: 'RSI',        weight: 5,  alwaysOn: false },
-  { key: 'adx',        label: 'ADX',        weight: 5,  alwaysOn: false },
-  { key: 'vol_change', label: 'Vol %',      weight: 6,  alwaysOn: false },
-  { key: 'atr_pct',    label: 'ATR%',       weight: 6,  alwaysOn: false },
-  { key: 'sector',     label: 'Sector',     weight: 7,  alwaysOn: false },
-  { key: 'rating',     label: 'Rtg',        weight: 8,  alwaysOn: true  },
+  { key: 'symbol',      label: 'Symbol',      weight: 8,  alwaysOn: true  },
+  { key: 'price',       label: 'Price',       weight: 10, alwaysOn: true  },
+  { key: 'score',       label: 'Scr',         weight: 6,  alwaysOn: true  },
+  { key: 'change',      label: 'Change',      weight: 13, alwaysOn: true  },
+  { key: 'entry',       label: 'Entry/SL',    weight: 12, alwaysOn: true  },
+  { key: 'confluence',  label: 'Confluence',  weight: 14, alwaysOn: true  },
+  { key: 'volume',      label: 'Volume',      weight: 10, alwaysOn: true  },
+  { key: 'rs_rating',   label: 'RS Rtg',      weight: 6,  alwaysOn: false },
+  { key: 'inst_qual',   label: 'Inst Q',      weight: 6,  alwaysOn: false },
+  { key: 'conviction',  label: 'Conv',        weight: 6,  alwaysOn: false },
+  { key: 'market_cap',  label: 'Mkt Cap',     weight: 8,  alwaysOn: false },
+  { key: 'pe_ratio',    label: 'P/E',         weight: 6,  alwaysOn: false },
+  { key: 'eps',         label: 'EPS',         weight: 6,  alwaysOn: false },
+  { key: 'div_yield',   label: 'Div %',       weight: 6,  alwaysOn: false },
+  { key: 'rel_vol',     label: 'Rel Vol',     weight: 6,  alwaysOn: false },
+  { key: 'rsi',         label: 'RSI',         weight: 5,  alwaysOn: false },
+  { key: 'adx',         label: 'ADX',         weight: 5,  alwaysOn: false },
+  { key: 'vol_change',  label: 'Vol %',       weight: 6,  alwaysOn: false },
+  { key: 'atr_pct',     label: 'ATR%',        weight: 6,  alwaysOn: false },
+  { key: 'sector',      label: 'Sector',      weight: 7,  alwaysOn: false },
+  { key: 'rating',      label: 'Rtg',         weight: 8,  alwaysOn: true  },
 ];
 
 /** Default set of visible column keys — everything except Div %, Rel Vol, and Vol %. */
@@ -240,6 +243,49 @@ function CellVolChange({ data }: { data: TVDataFields }) {
   );
 }
 
+function CellRSRating({ rating }: { rating?: number }) {
+  if (rating == null) return <span className="text-xs text-text-muted">—</span>;
+  const color =
+    rating >= 80 ? 'text-accent' :
+    rating >= 60 ? 'text-info' :
+    rating >= 40 ? 'text-warning' :
+    'text-loss';
+  return (
+    <span className={cn('font-mono text-xs tabular-nums font-bold', color)}>
+      {rating}
+    </span>
+  );
+}
+
+function CellInstQuality({ quality }: { quality?: number }) {
+  if (quality == null) return <span className="text-xs text-text-muted">—</span>;
+  const color =
+    quality >= 80 ? 'text-accent' :
+    quality >= 60 ? 'text-info' :
+    quality >= 40 ? 'text-warning' :
+    'text-loss';
+  return (
+    <span className={cn('font-mono text-xs tabular-nums', color)}>
+      {quality}
+    </span>
+  );
+}
+
+function CellConviction({ ticker }: { ticker: TVScoredTicker }) {
+  const verdict = ticker.elite?.signal_conviction;
+  if (!verdict) return <span className="text-xs text-text-muted">—</span>;
+  const dotColor =
+    verdict === 'high' ? 'bg-accent' :
+    verdict === 'medium' ? 'bg-warning' :
+    'bg-loss';
+  return (
+    <span className="flex items-center gap-1">
+      <span className={cn('w-1.5 h-1.5 rounded-full', dotColor)} />
+      <span className="text-xs font-medium text-text-secondary capitalize">{verdict}</span>
+    </span>
+  );
+}
+
 function CellATRPct({ data }: { data: TVDataFields }) {
   if (data.ATR == null || data.close == null) return <span className="text-xs text-text-muted">—</span>;
   const atrPct = (data.ATR / data.close) * 100;
@@ -274,6 +320,9 @@ const COL_RENDERERS: Record<string, (t: TVScoredTicker, d: TVDataFields, onClick
   entry:      (t, _d) => <CellEntry ticker={t} />,
   confluence: (t, _d) => <CellConfluence breakdown={t.breakdown} />,
   volume:     (_t, d) => <CellVolume data={d} />,
+  rs_rating:  (t, _d) => <CellRSRating rating={t.elite?.rs_rating} />,
+  inst_qual:  (t, _d) => <CellInstQuality quality={t.elite?.inst_quality} />,
+  conviction: (t, _d) => <CellConviction ticker={t} />,
   market_cap: (_t, d) => <CellMarketCap data={d} />,
   pe_ratio:   (_t, d) => <CellPERatio data={d} />,
   eps:        (_t, d) => <CellEPS data={d} />,
@@ -507,6 +556,8 @@ export function ScreenerTable({
         case 'vol_change': aVal = da.volume_change ?? 0; bVal = db.volume_change ?? 0; break;
         case 'atr_pct':  aVal = da.ATR != null && da.close != null ? (da.ATR / da.close) * 100 : 0; bVal = db.ATR != null && db.close != null ? (db.ATR / db.close) * 100 : 0; break;
         case 'rating':   aVal = a.rating; bVal = b.rating; break;
+        case 'rs_rating': aVal = a.elite?.rs_rating ?? 0; bVal = b.elite?.rs_rating ?? 0; break;
+        case 'inst_qual': aVal = a.elite?.inst_quality ?? 0; bVal = b.elite?.inst_quality ?? 0; break;
         default:         aVal = 0; bVal = 0;
       }
       if (typeof aVal === 'string') {

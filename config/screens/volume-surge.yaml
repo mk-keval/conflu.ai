@@ -1,5 +1,5 @@
 name: "Volume Surge"
-description: "High relative volume with momentum confirmation"
+description: "High relative volume with momentum, trend, and market cap filters — catching institutional volume surges in trending stocks"
 asset_classes:
   - equities
   - crypto
@@ -15,3 +15,17 @@ filters:
   - category: momentum
     indicator: macd_bullish
     timeframe: "1h"
+  - category: trend
+    indicator: price_above_ema
+    params:
+      period: 50
+    timeframe: "1D"
+  - category: momentum
+    indicator: rsi_gt
+    params:
+      threshold: 50
+    timeframe: "1D"
+  - category: fundamental
+    indicator: market_cap_gt
+    params:
+      value: 500000000

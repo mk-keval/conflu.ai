@@ -96,8 +96,8 @@ class TVScreenEngine:
 
     async def screen(self, config: ScreenConfig, limit: int = 500) -> dict[str, Any]:
         """
-        Complete Stage 1: Discover + Score.
-        Returns ranked tickers with confluence scores from TV data ONLY.
+        Complete Stage 1: Discover + Enrich + Score.
+        Returns ranked tickers with confluence scores + elite signal enrichment.
         No OHLCV, no database, no backtest.
         """
         start = time.monotonic()
@@ -112,8 +112,30 @@ class TVScreenEngine:
                 "results": [],
             }
 
+        # ── Elite signal enrichment (post-TV, no OHLCV needed) ──
+        from backend.app.infrastructure.screener.elite_signal import EliteSignalProcessor
+
+        esp = EliteSignalProcessor()
+        enrichments = esp.enrich(
+            result.raw_data,
+            direction=config.direction,
+            regime=None,  # set by caller if known, or passed via config
+        )
+
         scored = await self.score_discovery(result, direction=config.direction)
         timeframe = config.timeframes[0] if config.timeframes else "1D"
+
+        # Attach enrichment data to each scored ticker
+        for item in scored:
+            sym = item["symbol"]
+            e = enrichments.get(sym, {})
+            item["elite"] = {
+                "rs_rating": e.get("rs_rating", 50),
+                "inst_quality": e.get("inst_quality", 50),
+                "signal_conviction": e.get("signal_conviction", "low"),
+                "wyckoff_phase": e.get("wyckoff_phase"),
+                "factor_conflicts": e.get("factor_conflicts", []),
+            }
 
         return {
             "screen_name": config.name,
@@ -164,7 +186,7 @@ class TVScreenEngine:
         scored: list[dict] = []
 
         for ticker in all_tickers:
-            tf_scores: list[tuple[str, float, int, object]] = []  # (tf, weight, raw_score, score_obj)
+            tf_scores: list[tuple[str, float, int, ConfluenceScore]] = []  # (tf, weight, raw_score, score_obj)
             primary_row: pd.Series | None = None
 
             for tf in tfs:
@@ -219,6 +241,29 @@ class TVScreenEngine:
             })
 
         scored.sort(key=lambda x: x["confluence"].total, reverse=True)
+
+        # ── Elite signal enrichment on primary TF data ──
+        from backend.app.infrastructure.screener.elite_signal import EliteSignalProcessor
+
+        esp = EliteSignalProcessor()
+        # Use the primary timeframe result for enrichment
+        primary_tf = tfs[0] if tfs else "1D"
+        primary_result = next((r for r in results if r.timeframe == primary_tf), results[0] if results else None)
+        if primary_result and primary_result.raw_data is not None:
+            enrichments = esp.enrich(
+                primary_result.raw_data,
+                direction=config.direction,
+            )
+            for item in scored:
+                sym = item["symbol"]
+                e = enrichments.get(sym, {})
+                item["elite"] = {
+                    "rs_rating": e.get("rs_rating", 50),
+                    "inst_quality": e.get("inst_quality", 50),
+                    "signal_conviction": e.get("signal_conviction", "low"),
+                    "wyckoff_phase": e.get("wyckoff_phase"),
+                    "factor_conflicts": e.get("factor_conflicts", []),
+                }
 
         return {
             "screen_name": config.name,

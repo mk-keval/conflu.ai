@@ -28,15 +28,53 @@ class ConfluenceScore:
     risk_reward: float
     rating: str
     rationale: list[str] | None = None
+    regime_adjusted_total: int | None = None  # Set when regime-adaptive scoring used
+    rs_rating: int | None = None  # Relative strength percentile (0-100)
+    regime: str | None = None  # Market regime used for weighting
 
 
 class TVConfluenceScorer:
     """
     Scores tickers using ONLY TV Screener data (no OHLCV needed).
     Returns entry, exit, stop_loss, confluence_score from TV columns.
+
+    Supports regime-adaptive weighting: when `regime` is passed, each
+    factor is normalised to 0-100 and weighted per market regime.
+    When omitted, the original fixed-range scoring is used (backward
+    compatible).
     """
 
-    def score(self, row: pd.Series, config: Any = None, direction: str = "long") -> ConfluenceScore:
+    # Regime-adaptive weight maps (factor → weight as percentage of total)
+    # Each factor is scored 0-100, then weighted by these percentages.
+    # Designed from elite-trader research: factor importance shifts
+    # dramatically across market regimes.
+    REGIME_WEIGHTS: dict[str, dict[str, int]] = {
+        # Strong trend (ADX > 25, price > EMA200): trend + momentum dominate
+        "strong_trend": {
+            "trend": 40, "momentum": 30, "volume": 15, "quality": 10, "fundamental": 5,
+        },
+        # Ranging / choppy (ADX < 20, BB narrow): volume + quality matter most
+        "ranging": {
+            "trend": 15, "momentum": 20, "volume": 25, "quality": 25, "fundamental": 15,
+        },
+        # High vol / crisis (VIX > 30, ATR% > 3%): volume confirms, quality protects
+        "high_vol": {
+            "trend": 20, "momentum": 15, "volume": 30, "quality": 25, "fundamental": 10,
+        },
+        # Low vol / complacency (VIX < 15, ATR% < 1%): momentum leads, trend steady
+        "low_vol": {
+            "trend": 25, "momentum": 25, "volume": 15, "quality": 20, "fundamental": 15,
+        },
+    }
+
+    def score(
+        self,
+        row: pd.Series,
+        config: Any = None,
+        direction: str = "long",
+        regime: str | None = None,
+        rs_rating: int | None = None,
+    ) -> ConfluenceScore:
         """
         Score a single ticker from TV Screener row data.
 
@@ -46,6 +84,11 @@ class TVConfluenceScorer:
             direction: "long" (default) or "short". When "short", inverts the
                 sign of directional factors (EMA distance, RSI, MACD, VWAP)
                 so bearish setups score high instead of low.
+            regime: Optional market regime for adaptive weighting.
+                One of: "strong_trend", "ranging", "high_vol", "low_vol".
+                When None, uses original fixed-range scoring (backward compat).
+            rs_rating: Optional relative strength rating (0-100) from
+                post-TV processing. Boosts the momentum factor when present.
 
         Returns:
             ConfluenceScore with entry, stop_loss, targets, rating
@@ -309,7 +352,39 @@ class TVConfluenceScorer:
             fund_score += 1
         scores["fundamental"] = fund_score
 
-        total = sum(scores.values())
+        # ── Apply regime-adaptive weighting when regime is provided ──
+        # Each factor is normalised to 0-100, then multiplied by its regime weight.
+        # This prevents trend-following weights in choppy markets (and vice versa).
+        raw_total = sum(scores.values())
+        regime_total: int | None = None
+        active_regime: str | None = None
+
+        if regime and regime in self.REGIME_WEIGHTS:
+            active_regime = regime
+            weights = self.REGIME_WEIGHTS[regime]
+
+            # Normalise each factor to 0-100 scale
+            factor_max = {
+                "trend": 30, "momentum": 25, "volume": 20,
+                "quality": 15, "fundamental": 10,
+            }
+            pcts: dict[str, float] = {}
+            for factor, raw_score in scores.items():
+                mx = factor_max.get(factor, 1)
+                pcts[factor] = min(100.0, (raw_score / mx) * 100.0)
+
+            # Boost momentum by RS rating when available (max +15%)
+            if rs_rating is not None and "momentum" in pcts:
+                rs_bonus = min(15, rs_rating * 0.15)
+                pcts["momentum"] = min(100, pcts["momentum"] + rs_bonus)
+
+            # Weighted total with applied percentages
+            regime_total = int(round(
+                sum(pcts[f] * weights.get(f, 0) / 100.0 for f in pcts)
+            ))
+
+        # Choose the display total: regime-adjusted wins if available
+        total = regime_total if regime_total is not None else raw_total
 
         # ENTRY/EXIT/SL from TV data — volatility regime adaptive + direction aware
         # ATR% of price determines volatility regime: low (<1%), normal (1-3%), high (>3%).
@@ -353,6 +428,23 @@ class TVConfluenceScorer:
 
         rationale = self.generate_rationale(scores)
 
+        # Add RS-based rationale when available
+        if rs_rating is not None:
+            if rs_rating >= 80:
+                rationale.append(f"Elite RS rating ({rs_rating}) — top-quartile relative strength vs peers")
+            elif rs_rating >= 60:
+                rationale.append(f"Strong RS rating ({rs_rating}) — above-median relative strength")
+            elif rs_rating >= 40:
+                rationale.append(f"Moderate RS rating ({rs_rating}) — inline with sector peers")
+            else:
+                rationale.append(f"Weak RS rating ({rs_rating}) — lagging sector peers")
+
+        # Add regime-awareness insight
+        if active_regime:
+            rationale.append(
+                f"Weights adapted for {active_regime.replace('_', ' ')} regime"
+            )
+
         return ConfluenceScore(
             total=total,
             breakdown=scores,
@@ -362,6 +454,9 @@ class TVConfluenceScorer:
             risk_reward=risk_reward,
             rating=self._rating(total),
             rationale=rationale,
+            regime_adjusted_total=regime_total,
+            rs_rating=rs_rating,
+            regime=active_regime,
         )
 
     def generate_rationale(self, scores: dict[str, int]) -> list[str]:

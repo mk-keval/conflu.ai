@@ -6,6 +6,7 @@ import { ChartsPage } from './components/charts';
 import { BacktestPage, BacktestResultPage, ComparisonDashboard } from './components/backtest';
 import { RiskPage } from './components/risk';
 import { SectorRotationPage } from './components/sector-rotation';
+import { TickerAnalysisPage } from './components/ticker-analysis/TickerAnalysisPage';
 
 export function App() {
   return (
@@ -19,6 +20,8 @@ export function App() {
         <Route path="/backtest/result/:runId" element={<BacktestResultPage />} />
         <Route path="/backtest/compare" element={<ComparisonDashboard />} />
         <Route path="/risk" element={<RiskPage />} />
+        <Route path="/ticker" element={<TickerAnalysisPage />} />
+        <Route path="/ticker/:symbol" element={<TickerAnalysisPage />} />
         <Route path="/shared/screen" element={<SharedScreenerView />} />
         <Route path="/shared/screen/:token" element={<SharedScreenerView />} />
       </Route>

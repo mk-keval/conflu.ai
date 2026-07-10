@@ -48,6 +48,10 @@ tags_metadata = [
         "name": "streaming",
         "description": "WebSocket real-time streaming — price, indicators, signals",
     },
+    {
+        "name": "ticker",
+        "description": "Elite-trader-grade ticker analysis — technical, fundamental, earnings, sentiment, risk, with actionable verdict",
+    },
 ]
 
 
@@ -160,6 +164,7 @@ def create_app() -> FastAPI:
         regime_router,
         risk_router,
         sector_rotation_router,
+        ticker_analysis_router,
         tv_screener_router,
     )
 
@@ -169,6 +174,7 @@ def create_app() -> FastAPI:
     app.include_router(regime_router, prefix="/api/v1")
     app.include_router(risk_router, prefix="/api/v1")
     app.include_router(sector_rotation_router, prefix="/api/v1")
+    app.include_router(ticker_analysis_router, prefix="/api/v1")
     app.include_router(tv_screener_router, prefix="/api/v1")
 
     # ── WebSocket ──

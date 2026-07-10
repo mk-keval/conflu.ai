@@ -1,5 +1,5 @@
 name: "Breakdown"
-description: "Bearish trend breakdown — price below key EMAs, bearish MACD, weak momentum"
+description: "Bearish trend breakdown — price below key EMAs, bearish MACD, weak momentum, and distribution volume"
 direction: short
 asset_classes:
   - equities
@@ -17,6 +17,9 @@ filters:
     params:
       period: 200
     timeframe: "1D"
+  - category: trend
+    indicator: ema_stack_bearish
+    timeframe: "1D"
   - category: momentum
     indicator: macd_bearish
     timeframe: "1D"
@@ -28,5 +31,10 @@ filters:
   - category: volume
     indicator: rvol_high
     params:
-      threshold: 1.0
+      threshold: 1.5
+    timeframe: "1D"
+  - category: volatility
+    indicator: adx_trending
+    params:
+      threshold: 25
     timeframe: "1D"
