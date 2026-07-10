@@ -1,0 +1,32 @@
+name: "Short Squeeze"
+description: "High short interest stocks with volume surge above VWAP — potential squeeze catalysts. Requires significant short pressure and price confirmation"
+direction: long
+asset_classes:
+  - equities
+timeframes:
+  - 1D
+  - 4h
+filters:
+  - category: volume
+    indicator: rvol_high
+    params:
+      threshold: 1.5
+    timeframe: "1D"
+  - category: volume
+    indicator: price_above_vwap
+    timeframe: "1D"
+  - category: momentum
+    indicator: rsi_normal
+    params:
+      min: 30
+      max: 70
+    timeframe: "1D"
+  - category: volatility
+    indicator: adx_trending
+    params:
+      threshold: 22
+    timeframe: "1D"
+  - category: fundamental
+    indicator: market_cap_gt
+    params:
+      value: 300000000

@@ -47,6 +47,12 @@ async def get_screen_sharing() -> object:
     return ScreenSharing()
 
 
+async def get_ticker_analysis_engine() -> object:
+    """Dependency that provides a TickerAnalysisService instance."""
+    from backend.app.domain.ticker_analysis.orchestrator import TickerAnalysisService
+    return TickerAnalysisService()
+
+
 # Typed Annotated aliases for cleaner route signatures
 ScreenEngineDep = Annotated[object, Depends(get_screen_engine)]
 BacktestEngineDep = Annotated[object, Depends(get_backtest_engine)]
@@ -54,3 +60,4 @@ RiskEngineDep = Annotated[object, Depends(get_risk_engine)]
 IndicatorCacheDep = Annotated[object, Depends(get_indicator_cache)]
 ScreenReplayDep = Annotated[object, Depends(get_screen_replay)]
 ScreenSharingDep = Annotated[object, Depends(get_screen_sharing)]
+TickerAnalysisDep = Annotated[object, Depends(get_ticker_analysis_engine)]

@@ -70,6 +70,7 @@ class TestTVScreenResponse:
             total_matches=1,
             execution_ms=100,
             timeframe="1D",
+            fetched_at="2026-07-09T12:00:00",
             results=[ticker],
         )
         assert resp.screen_name == "Test"

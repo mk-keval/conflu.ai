@@ -1,0 +1,42 @@
+name: "RS Leader"
+description: "Relative strength leaders — stocks with strong uptrend alignment, bullish EMA stack, and momentum confirmation. Designed to catch stocks that are outperforming their peers and have further to run"
+direction: long
+asset_classes:
+  - equities
+timeframes:
+  - 1D
+  - 4h
+filters:
+  - category: trend
+    indicator: ema_stack_bullish
+    timeframe: "1D"
+  - category: trend
+    indicator: price_above_emas
+    params:
+      periods:
+        - 20
+        - 50
+        - 200
+    timeframe: "1D"
+  - category: momentum
+    indicator: rsi_in_range
+    params:
+      min: 58
+      max: 85
+    timeframe: "1D"
+  - category: momentum
+    indicator: macd_bullish
+    timeframe: "1D"
+  - category: volume
+    indicator: rvol_high
+    params:
+      threshold: 1.3
+    timeframe: "1D"
+  - category: volume
+    indicator: price_above_vwap
+    timeframe: "1D"
+  - category: volatility
+    indicator: adx_trending
+    params:
+      threshold: 25
+    timeframe: "1D"

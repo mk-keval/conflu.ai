@@ -1,5 +1,5 @@
 name: "52-Week Breakout"
-description: "Stocks near 52-week highs with momentum and volume confirmation"
+description: "Stocks near 52-week highs with momentum, volume, and trend strength confirmation"
 asset_classes:
   - equities
 timeframes:
@@ -11,11 +11,19 @@ filters:
     params:
       period: 200
     timeframe: "1D"
+  - category: trend
+    indicator: ema_stack_bullish
+    timeframe: "1D"
   - category: momentum
     indicator: macd_bullish
     timeframe: "1D"
   - category: volume
     indicator: rvol_high
     params:
-      threshold: 1.2
+      threshold: 1.5
     timeframe: "4h"
+  - category: volatility
+    indicator: adx_trending
+    params:
+      threshold: 25
+    timeframe: "1D"

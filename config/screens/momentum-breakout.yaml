@@ -1,5 +1,5 @@
 name: "Momentum Breakout"
-description: "Strong momentum breakouts with volume surge and trend confirmation"
+description: "Strong momentum breakouts with volume surge, trend structure, and multi-timeframe confirmation"
 asset_classes:
   - equities
   - crypto
@@ -13,19 +13,24 @@ filters:
       period: 20
     operator: gt
     timeframe: "1D"
+  - category: trend
+    indicator: ema_stack_bullish
+    timeframe: "1D"
   - category: momentum
     indicator: macd_bullish
     timeframe: "1D"
   - category: momentum
-    indicator: rsi_oversold
+    indicator: rsi_lt
     params:
       threshold: 70
-    operator: lt
     timeframe: "1D"
   - category: volume
     indicator: rvol_high
     params:
       threshold: 2.0
+    timeframe: "1D"
+  - category: volume
+    indicator: price_above_vwap
     timeframe: "1D"
   - category: momentum
     indicator: macd_bullish

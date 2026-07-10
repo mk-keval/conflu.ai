@@ -24,6 +24,8 @@ class TestFILTER_MAP:
             ("price_below_ema", {"period": 50}),
             ("rsi_oversold", {"threshold": 30}),
             ("rsi_overbought", {"threshold": 70}),
+            ("rsi_gt", {"threshold": 50}),
+            ("rsi_lt", {"threshold": 50}),
             ("macd_bullish", {}),
             ("macd_bearish", {}),
             ("macd_hist_rising", {}),

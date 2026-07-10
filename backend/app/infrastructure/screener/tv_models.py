@@ -59,6 +59,17 @@ class TVScreenRequest(BaseModel):
     multi_timeframe: bool = False
 
 
+class EliteEnrichment(BaseModel):
+    """Elite signal enrichment data from post-TV processing."""
+    model_config = ConfigDict(extra="forbid")
+
+    rs_rating: int = 50
+    inst_quality: int = 50
+    signal_conviction: str = "low"
+    wyckoff_phase: str | None = None
+    factor_conflicts: list[str] = Field(default_factory=list)
+
+
 class ScoredTickerResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -72,6 +83,7 @@ class ScoredTickerResponse(BaseModel):
     rating: str
     rationale: list[str] | None = None
     tv_data: dict[str, Any]
+    elite: EliteEnrichment | None = None
 
 
 class TVScreenResponse(BaseModel):

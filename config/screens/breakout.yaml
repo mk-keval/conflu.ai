@@ -1,5 +1,5 @@
 name: "Breakout"
-description: "Price breaking out with momentum and volume confirmation"
+description: "Price breaking out with momentum, volume, and trend structure confirmation"
 asset_classes:
   - equities
   - crypto
@@ -13,6 +13,9 @@ filters:
       period: 20
     operator: gt
     timeframe: "1D"
+  - category: trend
+    indicator: ema_stack_bullish
+    timeframe: "1D"
   - category: momentum
     indicator: macd_bullish
     timeframe: "1D"
@@ -21,3 +24,11 @@ filters:
     params:
       threshold: 1.5
     timeframe: "4h"
+  - category: volume
+    indicator: price_above_vwap
+    timeframe: "1D"
+  - category: volatility
+    indicator: adx_trending
+    params:
+      threshold: 25
+    timeframe: "1D"

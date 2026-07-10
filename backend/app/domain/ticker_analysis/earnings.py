@@ -1,0 +1,135 @@
+"""Earnings analysis module — evaluates earnings quality and surprise history."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from backend.app.domain.ticker_analysis.models import EarningsAnalysis
+
+
+def analyze(info: dict[str, Any]) -> EarningsAnalysis:
+    """Analyse earnings quality from yfinance info dict.
+
+    Fields used: earningsQuarterly (DataFrame), earningsTimestamp,
+    earningsSurprisePct, revenueSurprisePct, lastSplitDate, etc.
+    Also falls back to averages from info where quarterly breakdown
+    is unavailable.
+    """
+    findings: list[str] = []
+    score = 0.0
+    weight_count = 0
+
+    # ── Last Quarter Surprise ──
+    surprise_pct = info.get("earningsSurprisePct") or info.get("surprisePct")
+    rev_surprise_pct = info.get("revenueSurprisePct")
+
+    if surprise_pct is not None:
+        if surprise_pct > 10:
+            findings.append(f"✅ Last quarter BEAT by {surprise_pct:.1f}% — strong earnings momentum")
+            score += 0.4
+        elif surprise_pct > 3:
+            findings.append(f"✅ Beat by {surprise_pct:.1f}% — solid print")
+            score += 0.2
+        elif surprise_pct > 0:
+            findings.append(f"📊 Beat by {surprise_pct:.1f}% — marginal")
+            score += 0.1
+        elif surprise_pct > -3:
+            findings.append(f"⚠️ Missed by {abs(surprise_pct):.1f}% — narrow miss, within noise")
+            score -= 0.1
+        elif surprise_pct > -10:
+            findings.append(f"⚠️ Missed by {abs(surprise_pct):.1f}% — concerning miss")
+            score -= 0.3
+        else:
+            findings.append(f"🚨 Missed by {abs(surprise_pct):.1f}% — significant earnings failure")
+            score -= 0.6
+    weight_count += 1
+
+    if rev_surprise_pct is not None:
+        if rev_surprise_pct > 5:
+            score += 0.2
+        elif rev_surprise_pct < -5:
+            score -= 0.2
+
+    # ── Beat Rate (how many of last 4 quarters beat) ──
+    eps_trend = info.get("epsTrailingTwelveMonths")
+    eps_forward = info.get("epsForward")
+
+    # Construct beat rate from available data
+    quarterly = info.get("earningsQuarterly")
+    beat_rate_str = None
+    if quarterly and isinstance(quarterly, list):
+        beats = sum(1 for q in quarterly if q.get("surprisePercent", 0) > 0)
+        total = len(quarterly)
+        if total > 0:
+            beat_rate_str = f"{beats}/{total}"
+            if beats / total >= 0.75:
+                findings.append(f"✅ Beat rate {beat_rate_str} — consistently beating estimates")
+                score += 0.3
+            elif beats / total >= 0.5:
+                findings.append(f"📊 Beat rate {beat_rate_str} — mixed track record")
+            else:
+                findings.append(f"⚠️ Beat rate {beat_rate_str} — consistently missing")
+                score -= 0.3
+        weight_count += 1
+
+    # ── EPS Trend (growing or shrinking) ──
+    if eps_trend and eps_forward:
+        if eps_forward > eps_trend:
+            findings.append("✅ Forward EPS > TTM EPS — earnings expected to grow")
+            score += 0.2
+        elif eps_forward < eps_trend:
+            findings.append("⚠️ Forward EPS < TTM EPS — earnings expected to decline")
+            score -= 0.2
+    weight_count += 1
+
+    # ── Next Earnings Date ──
+    next_date = info.get("earningsTimestampStart") or info.get("earningsTimestamp")
+    next_date_str = None
+    if next_date:
+        from datetime import datetime
+
+        try:
+            if isinstance(next_date, (int, float)):
+                dt = datetime.fromtimestamp(next_date)
+            else:
+                dt = datetime.fromisoformat(str(next_date).replace("Z", "+00:00"))
+            next_date_str = dt.strftime("%b %d, %Y")
+            days_until = (dt - datetime.now().astimezone()).days
+            if 0 <= days_until <= 14:
+                findings.append(f"⚠️ Earnings in {days_until}d ({next_date_str}) — earnings risk window")
+                score -= 0.1  # Uncertainty premium
+            elif days_until < 0:
+                findings.append(f"📊 Last earnings: {next_date_str}")
+            else:
+                findings.append(f"📊 Next earnings: {next_date_str} ({days_until}d away)")
+        except (ValueError, TypeError):
+            pass
+
+    # ── Growth Rate ──
+    growth = info.get("earningsGrowth")
+    if growth is not None:
+        growth_pct = growth * 100
+        if growth_pct > 25:
+            findings.append(f"✅ Earnings growth {growth_pct:.1f}% — exceptional")
+            score += 0.3
+        elif growth_pct > 10:
+            findings.append(f"✅ Earnings growth {growth_pct:.1f}% — strong")
+            score += 0.2
+        elif growth_pct > 0:
+            findings.append(f"📊 Earnings growth {growth_pct:.1f}% — positive but modest")
+            score += 0.1
+        else:
+            findings.append(f"⚠️ Earnings declining {growth_pct:.1f}% — contraction")
+            score -= 0.3
+        weight_count += 1
+
+    normalised = max(-1.0, min(1.0, score / max(weight_count, 1) * 2))
+
+    return EarningsAnalysis(
+        score=round(normalised, 2),
+        last_surprise_pct=round(surprise_pct, 2) if surprise_pct is not None else None,
+        beat_rate=beat_rate_str,
+        avg_reaction_pct=None,
+        next_earnings_date=next_date_str,
+        findings=findings,
+    )

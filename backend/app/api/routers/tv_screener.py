@@ -21,6 +21,7 @@ from backend.app.infrastructure.screener.tv_models import (
     TVScreenRequest,
     TVScreenResponse,
     ScoredTickerResponse,
+    EliteEnrichment,
     DeepAnalysisRequest,
     DeepAnalysisResponse,
     dict_to_screen_config,
@@ -78,7 +79,7 @@ def _resolve_config(config: dict[str, Any] | str) -> Any:
 
 
 def _build_scored_response(scored: list[dict]) -> list[ScoredTickerResponse]:
-    """Build typed response from scored tickers."""
+    """Build typed response from scored tickers (includes elite enrichment)."""
     return [
         ScoredTickerResponse(
             symbol=r["symbol"],
@@ -91,6 +92,7 @@ def _build_scored_response(scored: list[dict]) -> list[ScoredTickerResponse]:
             rating=r["confluence"].rating,
             rationale=r["confluence"].rationale,
             tv_data=r["tv_data"],
+            elite=EliteEnrichment(**r.get("elite", {})) if r.get("elite") else None,
         )
         for r in scored
     ]
