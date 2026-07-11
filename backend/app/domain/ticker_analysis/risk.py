@@ -133,11 +133,73 @@ def analyze(data_fields: dict[str, Any], info: dict[str, Any]) -> RiskAssessment
     if risk_per_unit > 0:
         # Fixed fraction: maximum position = max_risk / stop_percentage
         suggested_size = round(DEFAULT_MAX_RISK_PCT / risk_per_unit, 1)
-        # Cap at reasonable max
+        # Default cap
         suggested_size = min(suggested_size, 20.0)
         suggested_size = max(suggested_size, 0.5)
     else:
         suggested_size = 2.0
+
+    # ── Risk-Class-Based Position Sizing Caps ──
+    # Different instrument types and market cap ranges warrant different
+    # maximum position sizes regardless of what the Kelly formula suggests.
+    instrument_type = info.get("instrument_type", "equity")
+    mkt_cap = info.get("marketCap") or info.get("market_cap") or 0
+
+    if instrument_type == "spac":
+        # SPACs are binary event-driven instruments — never > 3%
+        suggested_size = min(suggested_size, 3.0)
+        findings.append(f"⚠️ SPAC risk cap: max 3% of portfolio (binary event risk)")
+    elif instrument_type == "etf":
+        # ETFs are diversified — standard cap applies
+        suggested_size = min(suggested_size, 20.0)
+    elif instrument_type == "etn":
+        # ETNs carry issuer credit risk — cap at 10%
+        suggested_size = min(suggested_size, 10.0)
+        findings.append(f"⚠️ ETN credit risk cap: max 10% of portfolio")
+    elif instrument_type == "bdc":
+        # BDCs are levered loan portfolios — cap at 10%
+        suggested_size = min(suggested_size, 10.0)
+        findings.append(f"⚠️ BDC leverage risk cap: max 10% of portfolio")
+    elif instrument_type == "preferred":
+        # Preferred stocks are fixed-income hybrids — cap at 10%
+        suggested_size = min(suggested_size, 10.0)
+        findings.append(f"⚠️ Preferred stock risk cap: max 10% of portfolio (credit/hybrid risk)")
+
+    # OTC/Pink listing penalty — low liquidity, wide spreads, limited disclosure
+    exchange = info.get("exchange") or info.get("exchangeCode") or ""
+    exchange_upper = exchange.upper() if exchange else ""
+    otc_codes = {"OTC", "PNK", "OQB", "OQX", "OTCQX", "OTCQB"}
+    is_otc = exchange_upper in otc_codes or exchange_upper.startswith("OTC")
+    if is_otc:
+        suggested_size = min(suggested_size, 3.0)
+        findings.append(f"⚠️ OTC-listed risk cap: max 3% of portfolio (low liquidity, wide spreads)")
+
+    # Market-cap-based position caps don't apply to ETFs/CEFs.
+    # Their market cap reflects fund AUM (null for many fund listings),
+    # not company size risk. GDX ($30B+ AUM) and TLT ($50B+ AUM) should
+    # never get a micro-cap cap.
+    if instrument_type not in ("etf", "cef", "preferred"):
+        if mkt_cap < 50_000_000:
+            # Micro-cap: extreme risk
+            suggested_size = min(suggested_size, 2.0)
+            findings.append(f"⚠️ Micro-cap risk cap: max 2% of portfolio")
+        elif mkt_cap < 300_000_000:
+            # Small-cap: higher risk
+            suggested_size = min(suggested_size, 5.0)
+            findings.append(f"⚠️ Small-cap risk cap: max 5% of portfolio")
+        elif mkt_cap < 1_000_000_000:
+            # Mid-small-cap
+            suggested_size = min(suggested_size, 10.0)
+        else:
+            # Established companies: standard cap
+            suggested_size = min(suggested_size, 15.0)
+
+    # Volatility-based cap override: extreme vol = smaller positions
+    if volatility_regime == "extreme":
+        suggested_size = min(suggested_size, 3.0)
+        findings.append(f"⚠️ Extreme volatility cap: max 3% of portfolio")
+    elif volatility_regime == "high":
+        suggested_size = min(suggested_size, 8.0)
 
     findings.append(f"📐 Suggested position: {suggested_size}% of portfolio ({DEFAULT_MAX_RISK_PCT}% risk @ {suggested_stop_pct}% stop)")
 
