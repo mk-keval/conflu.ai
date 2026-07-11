@@ -84,6 +84,8 @@ class ScoredTickerResponse(BaseModel):
     rationale: list[str] | None = None
     tv_data: dict[str, Any]
     elite: EliteEnrichment | None = None
+    probable_fund: bool = False  # Heuristic flag: TV data suggests this is an ETF/CEF/fund
+    probable_fund_reason: str | None = None  # Why we think it's a fund
 
 
 class TVScreenResponse(BaseModel):
