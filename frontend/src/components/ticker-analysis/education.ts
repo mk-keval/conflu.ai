@@ -200,6 +200,48 @@ export const FUNDAMENTAL_LESSONS: Record<string, MetricLesson> = {
     whyMatters: "Dividends are like rent on your stock. Some investors want regular income (retirees). Others prefer companies that reinvest for growth. Neither is better — it depends on your goals.",
     scoringImpact: "High dividend yield with sustainable earnings = positive. No dividend = neutral (expected for growth stocks). Suspended dividend = negative flag.",
   },
+  return_on_equity: {
+    label: "ROE (Return on Equity)",
+    what: "ROE measures how efficiently the company uses its shareholders' money to generate profit. If a company has $100 of shareholder equity and earns $15 per year, its ROE is 15%.",
+    readValue: (v) => {
+      const num = parseFloat(v);
+      if (num > 30) return `${v}% — exceptional! The company generates outstanding returns from its shareholders' money. Often a hallmark of a competitive advantage.`;
+      if (num > 15) return `${v}% — strong ROE. The company is effectively deploying capital to generate profits.`;
+      if (num > 10) return `${v}% — decent. In line with the overall market average.`;
+      if (num > 0) return `${v}% — positive but below average. The company earns a return, but less than what investors might get elsewhere.`;
+      return `${v}% — negative. The company is destroying shareholder value. A serious red flag if persistent.`;
+    },
+    whyMatters: "ROE tells you if the company is a good steward of investor money. High ROE suggests the business has a 'moat' — something that lets it earn above-average profits. It's Warren Buffett's favorite metric.",
+    scoringImpact: "High ROE (>15%) contributes positively to the fundamental score. Negative ROE is a concern. It's used alongside other metrics to gauge overall financial health.",
+  },
+  price_to_book: {
+    label: "P/B Ratio (Price to Book)",
+    what: "Compares the company's stock price to its 'book value' — what would be left if the company sold everything and paid all debts. It's like comparing a house's market price to its rebuild cost.",
+    readValue: (v) => {
+      const num = parseFloat(v);
+      if (num > 5) return `${v} — high premium. Investors are paying far more than the company's assets are worth. Common for tech and service companies where value is in intangibles.`;
+      if (num > 2) return `${v} — above book value. The market believes the company is worth more than its physical assets. Normal for most profitable companies.`;
+      if (num > 1) return `${v} — reasonable. Stock price roughly in line with asset value. Could be undervalued or just a capital-intensive business.`;
+      if (num > 0) return `${v} — below book value. Potentially UNDERVALUED — the market is pricing the company below its asset value. Could be a bargain or a value trap.`;
+      return `${v} — negative book value. The company has more liabilities than assets. High risk.`;
+    },
+    whyMatters: "P/B is useful for valuing banks, insurance companies, and asset-heavy businesses. A low P/B can indicate a bargain, but only if the company is still profitable. Very high P/B is normal for tech companies with few physical assets.",
+    scoringImpact: "Contributes to the overall fundamental picture but weighted less than P/E and profit margin. Very low P/B with good profitability = positive value signal.",
+  },
+  operating_margin: {
+    label: "Operating Margin",
+    what: "The percentage of revenue that remains after paying for production costs and operating expenses (salaries, rent, R&D), but before interest and taxes. It's a narrower measure than profit margin.",
+    readValue: (v) => {
+      const num = parseFloat(v);
+      if (num > 20) return `${v}% — excellent. The company's core business is highly efficient at turning revenue into operating profit.`;
+      if (num > 10) return `${v}% — good. Healthy operating efficiency with room to invest in growth.`;
+      if (num > 5) return `${v}% — adequate. The core business is profitable but not highly efficient.`;
+      if (num > 0) return `${v}% — thin. The company makes a small operating profit on each sale. Vulnerable to cost increases.`;
+      return `${v}% — negative. The core business operations are losing money. Different from net loss which could include one-time items.`;
+    },
+    whyMatters: "Operating margin focuses on the CORE business, excluding interest and taxes. It tells you if the company's products/services are fundamentally profitable, regardless of how the company is financed or its tax situation.",
+    scoringImpact: "Strong operating margins (>15%) bolster the fundamental score. Negative operating margins over multiple periods indicate the business model may not be viable.",
+  },
 };
 
 export const EARNINGS_LESSONS: Record<string, MetricLesson> = {
@@ -276,6 +318,59 @@ export const SENTIMENT_LESSONS: Record<string, MetricLesson> = {
     whyMatters: "High short interest is controversial — it means many smart investors think the stock will fall. But if they're wrong, they're forced to buy back shares, creating a 'squeeze' that pushes prices even higher. It's a double-edged sword.",
     scoringImpact: "Very high short interest (>30%) is flagged as a dealbreaker — it signals serious doubt about the company. Moderate levels add interest but don't change the score much.",
   },
+  days_to_cover: {
+    label: "Days to Cover",
+    what: "How many trading days it would take for ALL the short sellers to buy back their borrowed shares, based on average daily trading volume. It shows how 'crowded' the short side is.",
+    readValue: (v) => {
+      const num = parseFloat(v);
+      if (num > 10) return `${v} days — extremely high. Would take over 10 days of normal trading to cover all shorts. If a squeeze starts, it'll be VIOLENT.`;
+      if (num > 5) return `${v} days — high. Significant squeeze potential. Any positive catalyst could trigger forced buying.`;
+      if (num > 2) return `${v} days — moderate. Short sellers could exit relatively quickly if needed.`;
+      return `${v} days — low. Short sellers can cover positions easily. Less squeeze potential.`;
+    },
+    whyMatters: "Days to Cover tells you how 'trapped' short sellers are. The higher the number, the more painful a short squeeze would be. When a heavily-shorted stock with high days to cover gets positive news, the forced buying can push the price up 50-100%+.",
+    scoringImpact: "High days to cover (>5) doesn't directly change the score but is flagged as a notable risk. Combined with high short interest, it signals potential squeeze dynamics.",
+  },
+  institutional_ownership: {
+    label: "Institutional Ownership",
+    what: "The percentage of shares owned by large institutions like mutual funds, pension funds, and hedge funds. These are the 'smart money' professional investors.",
+    readValue: (v) => {
+      const num = parseFloat(v);
+      if (num > 60) return `${v}% — strong institutional confidence. The big money players are heavily invested. This usually means they've done deep research and like what they see.`;
+      if (num > 30) return `${v}% — moderate. Respectable institutional interest but not overwhelming.`;
+      if (num > 10) return `${v}% — light. Few institutions have taken a position. Could be because the company is too small for them, or they're not convinced.`;
+      return `${v}% — minimal. Very little institutional interest. This can be a red flag — professionals tend to avoid stocks with serious problems.`;
+    },
+    whyMatters: "Institutions do extensive research before buying. High institutional ownership means the stock has passed rigorous scrutiny. But be careful: if institutions all decide to sell at once, the stock can drop fast (no one to catch the falling knife).",
+    scoringImpact: "High institutional ownership adds to the sentiment score. Very low institutional ownership is a concern. This is a moderate-weight factor.",
+  },
+  beta: {
+    label: "Beta (Market Correlation)",
+    what: "Beta measures how much the stock moves compared to the overall market. A beta of 1 means the stock moves in line with the market. A beta of 1.5 means it moves 50% more than the market.",
+    readValue: (v) => {
+      const num = parseFloat(v);
+      if (num > 1.5) return `${v} — high beta. The stock amplifies market moves. If the market goes up 1%, this stock often goes up 1.5%+. But it also falls harder.`;
+      if (num > 0.8) return `${v} — market-like. The stock moves roughly in line with the overall market. Typical for most stocks.`;
+      if (num > 0.3) return `${v} — low beta. The stock is more stable than the market. Good for defensive/conservative positioning.`;
+      return `${v} — very low or negative. The stock barely reacts to the market or moves opposite to it. Rare — found in gold stocks, deep-value, or heavily distressed companies.`;
+    },
+    whyMatters: "Beta helps you understand a stock's risk profile. High beta = high risk, high reward. Low beta = stable but less upside. If you're building a portfolio, mixing high and low beta stocks balances risk.",
+    scoringImpact: "High beta (>1.5) is a slight negative (more risk). Low beta (<0.8) is a slight positive (more stable). Market-line beta (0.8-1.3) is neutral. Combined with other risk metrics.",
+  },
+  target_upside_pct: {
+    label: "Price Target Upside",
+    what: "The difference between the current stock price and the average price target set by professional analysts. A positive number means analysts expect the stock to go UP from here.",
+    readValue: (v) => {
+      const num = parseFloat(v);
+      if (num > 30) return `${v}% — huge upside. Analysts see massive potential. But very high targets can also mean high uncertainty — be skeptical.`;
+      if (num > 10) return `${v}% — meaningful upside. Analysts believe there's room to run. A solid positive signal.`;
+      if (num > 0) return `${v}% — slight upside. The stock is considered fairly valued or slightly cheap.`;
+      if (num > -10) return `${v}% — slight downside. The stock may be slightly overvalued. Analysts expect a modest pullback.`;
+      return `${v}% — significant downside. Analysts think the stock is overvalued and expect it to fall. A bearish signal.`;
+    },
+    whyMatters: "Price targets give you a sense of the 'consensus destination' for the stock. But remember: analysts are often too optimistic. Use targets as one input, not the deciding factor. A stock hitting its target isn't guaranteed.",
+    scoringImpact: "Strong upside (>15%) contributes positively. Downside is negative. The conviction is tempered by how many analysts cover the stock (more analysts = more reliable).",
+  },
 };
 
 export const RISK_LESSONS: Record<string, MetricLesson> = {
@@ -336,7 +431,7 @@ export const MODULE_LESSONS: Record<string, ModuleLesson> = {
     title: "Fundamental Analysis",
     whatItIs: "Fundamental analysis looks at the COMPANY's financial health: how much money it makes, how fast it's growing, how much debt it has. It answers: 'Is this a good business?'",
     whyItMatters: "A stock's price eventually follows its earnings. Good fundamentals don't guarantee the stock will go up tomorrow, but they strongly predict where it'll be in 1-3 years. Technical + fundamental together give you the complete picture.",
-    howScoreWorks: "We score 8 factors: market cap (size), P/E (valuation), EPS (profitability), profit margin (efficiency), debt/equity (financial risk), revenue growth (expansion), free cash flow yield (cash generation), and dividend yield (shareholder returns). Positive values = good. Negative values = concerning. The final score combines these into -1.0 to +1.0.",
+    howScoreWorks: "We score 11 factors: market cap (size), P/E (valuation), EPS (profitability), profit margin (efficiency), debt/equity (financial risk), revenue growth (expansion), free cash flow yield (cash generation), dividend yield (shareholder returns), return on equity (capital efficiency), price-to-book (asset valuation), and operating margin (core business efficiency). Positive values = good. Negative values = concerning. The final score combines these into -1.0 to +1.0.",
   },
   earnings: {
     title: "Earnings Analysis",
@@ -348,7 +443,7 @@ export const MODULE_LESSONS: Record<string, ModuleLesson> = {
     title: "Market Sentiment",
     whatItIs: "Sentiment measures what OTHER market participants think about the stock: professional analysts, company insiders, and short sellers. It's like getting a 'consensus opinion' from everyone watching the stock.",
     whyItMatters: "When everyone is bullish, the stock usually goes up — until it doesn't. When insiders are buying heavily, it's one of the most reliable signals. When short interest is extreme, be careful.",
-    howScoreWorks: "We combine: analyst consensus (weighted heavily), insider buying/selling activity, institutional ownership, short interest percentage, days to cover, and beta (how much the stock moves relative to the market). The overall range is -1.0 to +1.0.",
+    howScoreWorks: "We combine: analyst consensus (weighted heavily), insider buying/selling activity, institutional ownership percentage, short interest and days to cover, price target upside potential, and beta (how much the stock moves relative to the market). The overall range is -1.0 to +1.0.",
   },
   risk: {
     title: "Risk Assessment",
