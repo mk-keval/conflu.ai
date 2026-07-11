@@ -14,7 +14,6 @@ import type {
 import { useScreenStore } from '@/store/screen';
 import { useWS } from '@/ws/WebSocketProvider';
 import { screenerChannel } from '@/ws/channels';
-import { STALE_TIMES } from '@/lib/constants';
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary';
 import { SkeletonTable } from '@/components/layout/LoadingSkeleton';
 import { ScreenerTable } from './ScreenerTable';
@@ -137,8 +136,9 @@ function ScreenerContent() {
         setIsRunning(false);
       }
     },
-    staleTime: STALE_TIMES.screen,
-    refetchInterval: 30_000,
+    staleTime: Infinity,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
     enabled: !!selectedConfig,
   });
 
@@ -504,26 +504,11 @@ function ScreenerHeader({
 
         <div className="flex items-center gap-2 flex-wrap">
           {/* Template Selector */}
-          <div className="relative">
-            <select
-              value={selectedTemplate || templates[0]?.name || ''}
-              onChange={(e) => onTemplateChange(e.target.value)}
-              className="appearance-none cursor-pointer pl-3 pr-8 py-2 text-sm bg-surface border border-border rounded-lg
-                         text-text-primary placeholder-text-muted
-                         hover:border-text-muted/30 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent
-                         transition-colors duration-150 min-w-[180px]"
-            >
-              {templates.length === 0 && (
-                <option value="" disabled>Loading...</option>
-              )}
-              {templates.map((template) => (
-                <option key={template.name} value={template.name} title={template.description}>
-                  {template.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted pointer-events-none" />
-          </div>
+          <TemplateDropdown
+            templates={templates}
+            selected={selectedTemplate || templates[0]?.name || ''}
+            onChange={onTemplateChange}
+          />
 
           {/* Run Screen Button */}
           <button
@@ -551,6 +536,90 @@ function ScreenerHeader({
           <ExportButtons />
         </div>
       </div>
+    </div>
+  );
+}
+
+function TemplateDropdown({
+  templates,
+  selected,
+  onChange,
+}: {
+  templates: TVTemplate[];
+  selected: string;
+  onChange: (name: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const selectedTemplate = templates.find((t) => t.name === selected);
+  const direction = selectedTemplate?.direction;
+  const isLong = direction === 'long';
+  const isShort = direction === 'short';
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 cursor-pointer pl-3 pr-8 py-2 text-sm bg-surface border border-border rounded-lg
+                   text-text-primary
+                   hover:border-text-muted/30 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent
+                   transition-colors duration-150 min-w-[180px] w-full text-left"
+      >
+        {direction && (
+          <span
+            className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
+              isLong ? 'bg-green-500' : isShort ? 'bg-red-500' : 'bg-gray-500'
+            }`}
+          />
+        )}
+        <span className="flex-1 truncate">{selectedTemplate?.name || selected || 'Select template'}</span>
+        <ChevronDown className={`absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted pointer-events-none transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-surface border border-border rounded-lg shadow-xl max-h-[320px] overflow-y-auto">
+          {templates.map((t) => {
+            const tLong = t.direction === 'long';
+            const tShort = t.direction === 'short';
+            return (
+              <button
+                key={t.name}
+                onClick={() => { onChange(t.name); setOpen(false); }}
+                className={`flex items-center gap-2 w-full text-left px-3 py-2 text-sm transition-colors hover:bg-border/30 ${
+                  t.name === selected ? 'bg-accent/10 text-accent' : 'text-text-primary'
+                }`}
+                title={t.description}
+              >
+                {t.direction ? (
+                  <span
+                    className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
+                      tLong ? 'bg-green-500' : tShort ? 'bg-red-500' : 'bg-gray-500'
+                    }`}
+                  />
+                ) : (
+                  <span className="inline-block w-2 h-2 flex-shrink-0" />
+                )}
+                <span className="flex-1 truncate">{t.name}</span>
+                {t.direction && (
+                  <span className={`text-[10px] font-semibold uppercase flex-shrink-0 ${
+                    tLong ? 'text-green-500' : tShort ? 'text-red-500' : 'text-gray-500'
+                  }`}>
+                    {tLong ? 'LONG' : tShort ? 'SHORT' : t.direction}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
