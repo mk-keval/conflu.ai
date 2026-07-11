@@ -29,7 +29,7 @@ export const ScreenerRow = React.memo(function ScreenerRow({
         <span
           className={cn(
             'font-mono font-semibold',
-            score >= 80 ? 'text-gain' : score >= 50 ? 'text-yellow-400' : 'text-dark-200'
+            score >= 80 ? 'text-gain' : score >= 50 ? 'text-yellow-400' : 'text-text-secondary'
           )}
         >
           {score.toFixed(1)}
@@ -38,7 +38,7 @@ export const ScreenerRow = React.memo(function ScreenerRow({
     }
     if (col.key === 'matched_filters') {
       return (
-        <span className="text-dark-200">{data.matched_filters?.join(', ') || '—'}</span>
+        <span className="text-text-secondary">{data.matched_filters?.join(', ') || '—'}</span>
       );
     }
 
@@ -55,23 +55,23 @@ export const ScreenerRow = React.memo(function ScreenerRow({
       ) {
         return <span className="font-mono">{formatPct(value)}</span>;
       }
-      return <span className="font-mono">{value.toFixed(2)}</span>;
-    }
+        return <span className="font-mono">{value.toFixed(2)}</span>;
+      }
 
-    return <span className="text-dark-400">—</span>;
+    return <span className="text-text-muted">—</span>;
   };
 
   return (
     <tr
       style={style}
-      className="border-b border-dark-600 transition-colors hover:bg-dark-700/50"
+      className="border-b border-border transition-colors hover:bg-surface/50"
     >
       {columns.map((col) => (
         <td
           key={col.key}
           className={cn(
             'whitespace-nowrap px-3 py-2 text-sm',
-            col.key === 'symbol' && 'sticky left-0 z-10 bg-dark-700'
+            col.key === 'symbol' && 'sticky left-0 z-10 bg-surface'
           )}
           title={
             col.key === 'symbol' || col.key === 'score'
