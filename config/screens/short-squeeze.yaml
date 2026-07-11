@@ -16,7 +16,7 @@ filters:
     indicator: price_above_vwap
     timeframe: "1D"
   - category: momentum
-    indicator: rsi_normal
+    indicator: rsi_in_range
     params:
       min: 30
       max: 70
