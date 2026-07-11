@@ -93,6 +93,8 @@ def _build_scored_response(scored: list[dict]) -> list[ScoredTickerResponse]:
             rationale=r["confluence"].rationale,
             tv_data=r["tv_data"],
             elite=EliteEnrichment(**r.get("elite", {})) if r.get("elite") else None,
+            probable_fund=r.get("probable_fund", False),
+            probable_fund_reason=r.get("probable_fund_reason"),
         )
         for r in scored
     ]

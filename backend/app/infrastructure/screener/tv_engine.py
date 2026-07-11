@@ -22,6 +22,30 @@ from backend.app.core.logging import get_logger
 log = get_logger("conflu.screener.tv_engine")
 
 
+def _detect_probable_fund(item: dict) -> tuple[bool, str | None]:
+    """Heuristic fund detection from TV data alone.
+
+    ETFs/CEFs/ETNs often show as "Miscellaneous" sector with no EPS
+    and no market cap in TV data. This is a lightweight check that
+    flags probable funds at screener time (no yfinance call needed).
+    The definitive check happens in ticker analysis (fundamentals.py)
+    using yfinance quoteType/fundFamily/morningstar fields.
+    """
+    tv_row = item.get("tv_data", {})
+    sector = (tv_row.get("sector") or "").strip()
+    tv_eps = tv_row.get("earnings_per_share_diluted_ttm")
+    tv_mcap = tv_row.get("market_cap_basic", 0)
+    has_fund_data = not sector or sector == "Miscellaneous"
+    has_no_eps = not tv_eps or tv_eps == 0 or tv_eps == "-"
+    has_no_mcap = not tv_mcap or tv_mcap == 0
+    if has_fund_data and has_no_eps and has_no_mcap:
+        return True, (
+            f"Miscellaneous sector with no EPS and no market cap — "
+            f"likely an ETF/CEF/fund, not an individual equity"
+        )
+    return False, None
+
+
 class TVScreenEngine:
     """
     Two-stage screening engine:
@@ -136,6 +160,11 @@ class TVScreenEngine:
                 "wyckoff_phase": e.get("wyckoff_phase"),
                 "factor_conflicts": e.get("factor_conflicts", []),
             }
+
+            # ── Heuristic fund detection from TV data ──
+            pf_flag, pf_reason = _detect_probable_fund(item)
+            item["probable_fund"] = pf_flag
+            item["probable_fund_reason"] = pf_reason
 
         return {
             "screen_name": config.name,
@@ -264,6 +293,10 @@ class TVScreenEngine:
                     "wyckoff_phase": e.get("wyckoff_phase"),
                     "factor_conflicts": e.get("factor_conflicts", []),
                 }
+                # ── Heuristic fund detection from TV data ──
+                pf_flag, pf_reason = _detect_probable_fund(item)
+                item["probable_fund"] = pf_flag
+                item["probable_fund_reason"] = pf_reason
 
         return {
             "screen_name": config.name,
