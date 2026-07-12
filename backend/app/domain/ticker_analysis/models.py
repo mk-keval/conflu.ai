@@ -48,6 +48,11 @@ class FundamentalAnalysis(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     score: float  # -1.0 to 1.0
+    instrument_type: str = "equity"  # equity / spac / etf / etn / mutual_fund / reit / preferred
+    listing_exchange: str | None = None  # Raw exchange code from yfinance (NYQ, NMS, OTC, PNK, etc.)
+    exchange_category: str = "unknown"  # primary / otc / foreign / unknown
+    asset_category: str = "operating"  # operating / treasury_asset / holding_company / ip_royalty
+    lifecycle_stage: str = "operating"  # operating / development / clinical_stage / pre_revenue / distressed / cash_shell
     market_cap: float | None = None
     pe_ratio: float | None = None
     eps: float | None = None
@@ -56,6 +61,9 @@ class FundamentalAnalysis(BaseModel):
     revenue_growth_yoy: float | None = None
     fcf_yield: float | None = None
     dividend_yield: float | None = None
+    return_on_equity: float | None = None
+    price_to_book: float | None = None
+    operating_margin: float | None = None
     findings: list[str]
 
 
@@ -80,6 +88,11 @@ class SentimentAnalysis(BaseModel):
     insider_status: str = "neutral"  # buying / selling / neutral
     short_interest_pct: float | None = None
     days_to_cover: float | None = None
+    institutional_ownership: float | None = None
+    beta: float | None = None
+    target_price: float | None = None
+    target_upside_pct: float | None = None
+    undervalued: bool = False
     findings: list[str]
 
 
@@ -134,3 +147,5 @@ class TickerAnalysisResponse(BaseModel):
     risk: RiskAssessment | None = None
     verdict: AnalysisVerdict
     execution_ms: int
+    analysis_timestamp: str | None = None
+    data_age_hours: float | None = None

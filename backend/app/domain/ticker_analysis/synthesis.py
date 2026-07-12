@@ -110,6 +110,17 @@ def synthesise(
             dealbreakers.append("Micro-cap with thin/no profitability — high risk of total loss")
             weighted_score -= 0.3
 
+    # Micro-cap with critical illiquidity — dollar volume < $100K makes it
+    # impossible to execute meaningful positions without moving the market
+    if tv_data:
+        dollar_vol = tv_data.get("dollar_volume") or tv_data.get("DollarVolume")
+        if dollar_vol is not None and dollar_vol < 100_000:
+            dealbreakers.append(
+                f"Dollar volume ${dollar_vol:,.0f} — critically illiquid. "
+                "Cannot execute meaningful positions without moving price 10%+."
+            )
+            weighted_score -= 0.5
+
     # Cash burn rate — FCF loss exceeds 30% of market cap annually (LCID/RIVN risk)
     if fundamental and fundamental.fcf_yield is not None and fundamental.fcf_yield < -30:
         burn_pct = abs(fundamental.fcf_yield)
@@ -126,13 +137,34 @@ def synthesise(
             fundamental.pe_ratio > 50 or fundamental.pe_ratio < 0
         )
         if margin_bad and fcf_bad and pe_bad:
-            dealbreakers.append(
-                "Negative margins, negative cash flow, and extreme valuation — "
-                "multiple distress signals, avoid until turnaround visible"
+            # ── Trajectory weighting: is this a high-growth turnaround? ──
+            # Pre-profit growth companies (e.g., oncology, biotech, SaaS) have
+            # negative margins + negative FCF + extreme P/E BY DEFINITION during
+            # their growth phase. Don't apply the full dealbreaker penalty.
+            rev_growth = fundamental.revenue_growth_yoy
+            is_high_growth_turnaround = (
+                rev_growth is not None
+                and rev_growth > 15  # strong revenue growth
+                and fundamental.market_cap is not None
+                and fundamental.market_cap > 50_000_000  # not a micro-cap
             )
-            weighted_score -= 0.5
-            # Floor weighted_score so it cannot escape AVOID territory
-            weighted_score = min(weighted_score, -0.5)
+            if is_high_growth_turnaround:
+                # Reduced penalty: trajectory matters, not just point-in-time
+                dealbreakers.append(
+                    f"Negative margins and cash flow, but high revenue growth "
+                    f"({rev_growth:.0f}% YoY) suggests pre-profit growth stage "
+                    f"rather than terminal decline — monitor trajectory"
+                )
+                weighted_score -= 0.25  # Reduced from 0.5
+                # Don't floor at -0.5 — allow recovery if other modules are bullish
+            else:
+                dealbreakers.append(
+                    "Negative margins, negative cash flow, and extreme valuation — "
+                    "multiple distress signals, avoid until turnaround visible"
+                )
+                weighted_score -= 0.5
+                # Floor weighted_score so it cannot escape AVOID territory
+                weighted_score = min(weighted_score, -0.5)
 
     # Extreme RSI overbought + no strong fundamental backing
     if technical and technical.rsi is not None and technical.rsi > 85:
@@ -162,6 +194,299 @@ def synthesise(
     if risk and risk.volatility_regime == "extreme":
         dealbreakers.append("Extreme volatility regime — widen stops significantly or skip")
         weighted_score -= 0.2
+
+    # ── 3a. Development-Stage Company Override ──
+    # Companies with no revenue, negative earnings, or pre-profit clinical
+    # stage should not be evaluated using standard equity metrics.
+    # Their value is driven by binary outcomes (pipeline, trials, resource discovery).
+    if fundamental and fundamental.lifecycle_stage != "operating" and fundamental.instrument_type not in ("spac", "etf", "cef", "etn", "mutual_fund", "preferred"):
+        stage_labels = {
+            "clinical_stage": "Clinical-stage biotechnology",
+            "pre_revenue": "Pre-revenue technology",
+            "development": "Development-stage company",
+            "distressed": "Distressed company",
+            "cash_shell": "Cash shell",
+        }
+        stage_label = stage_labels.get(fundamental.lifecycle_stage, "Development-stage company")
+
+        # Different conviction/action based on stage severity
+        if fundamental.lifecycle_stage in ("clinical_stage", "pre_revenue"):
+            # Development-stage with potential upside but binary risk
+            return AnalysisVerdict(
+                action="WATCH",
+                conviction=3,
+                entry_zone_low=None,
+                entry_zone_high=None,
+                stop_loss=None,
+                targets=[],
+                risk_reward=None,
+                position_size_pct=0,
+                key_red_flags=[
+                    f"{stage_label} — no operating revenue, no meaningful P/E or margins. "
+                    "Value driven by binary pipeline/milestone outcomes. Standard equity "
+                    "analysis (P/E, margins, FCF) does not apply. Evaluate cash runway, "
+                    "milestone catalysts, and probability-adjusted potential instead."
+                ],
+                buy_triggers=[
+                    "Only position after positive catalyst (trial data, product launch, "
+                    "partnership) — do not buy purely on valuation."
+                ],
+                sell_triggers=[
+                    "Sell on trial failure, funding gap, or missed milestone timeline.",
+                    "Monitor cash runway quarterly — if < 12 months, de-risk position.",
+                ],
+                thesis=f"{stage_label} — no operating revenue. Standard fundamental "
+                       "metrics (P/E, margins, FCF yield) are not applicable. Value "
+                       "derived from pipeline, milestones, and cash runway. This is "
+                       f"a {fundamental.lifecycle_stage.replace('_', ' ')} investment "
+                       "with binary outcome risk. Position with strict size limits.",
+            )
+        else:
+            # Generic development / distressed — lower conviction
+            return AnalysisVerdict(
+                action="WATCH",
+                conviction=2,
+                entry_zone_low=None,
+                entry_zone_high=None,
+                stop_loss=None,
+                targets=[],
+                risk_reward=None,
+                position_size_pct=0,
+                key_red_flags=[
+                    f"{stage_label} — no operating revenue or earnings. "
+                    "Standard equity analysis does not apply. Binary outcome risk. "
+                    "Evaluate based on cash runway and development milestones."
+                ],
+                buy_triggers=[],
+                sell_triggers=[
+                    "Sell on missed milestones or funding gaps.",
+                    "Monitor cash runway — less than 12 months requires capital raise risk.",
+                ],
+                thesis=f"{stage_label} with no operating revenue. Standard valuation "
+                       "metrics are not meaningful. Position based on milestone thesis "
+                       "with strict size limits and catalyst-based exit plan.",
+            )
+
+    # ── 3b. Extreme Short Interest / Squeeze Override ──
+    # When short interest exceeds 30% of float, normal fundamental and technical
+    # analysis breaks down. Squeeze dynamics (gamma, covering, FOMO) dominate
+    # price action. The stock's behavior becomes detached from its fundamentals.
+    # Skip for fund instruments — short interest in CEFs/ETFs reflects arbitrage
+    # or hedging activity, not directional bearish sentiment.
+    fund_types = {"etf", "cef", "etn", "mutual_fund", "preferred"}
+    is_fund_inst = fundamental and fundamental.instrument_type in fund_types
+    if sentiment and sentiment.short_interest_pct is not None and sentiment.short_interest_pct > 30 and not is_fund_inst:
+        squeeze_thesis = (
+            f"⚠️ Short interest is {sentiment.short_interest_pct:.1f}% of float — "
+            "extremely elevated. Normal fundamental and technical analysis is "
+            "unreliable under squeeze dynamics. Price action may be driven by "
+            "short covering, gamma pressure, and retail/social sentiment rather "
+            "than company fundamentals. Treat as a speculative squeeze event, "
+            "not an investment thesis."
+        )
+        return AnalysisVerdict(
+            action="WATCH",
+            conviction=3,
+            entry_zone_low=None,
+            entry_zone_high=None,
+            stop_loss=None,
+            targets=[],
+            risk_reward=None,
+            position_size_pct=0,
+            key_red_flags=[squeeze_thesis],
+            buy_triggers=[
+                "Only enter if short interest is still climbing AND price is breaking "
+                "above key resistance with volume confirmation.",
+                "Use tight stops — squeeze can reverse violently when covering completes.",
+            ],
+            sell_triggers=[
+                "Exit immediately if short interest drops sharply (covering complete).",
+                "Sell if daily volume drops below 50% of average — momentum fading.",
+                f"Set stop-loss at recent swing low — if SI drops below 20%, reassess.",
+            ],
+            thesis=squeeze_thesis,
+        )
+
+    # ── 3c. M&A / Acquisition Override ──
+    # If the stock is in a pending acquisition, switch to merger arb analysis.
+    # Detected by orchestrator via price-pinning, low-vol, and near-zero-beta heuristic.
+    td = tv_data or {}
+    ma_offer = td.get("ma_offer_price")
+    if ma_offer is not None:
+        ma_confidence = td.get("ma_confidence", "potential")
+        ma_spread = td.get("ma_spread_pct", 0)
+        ma_spread_str = f"{ma_spread:+.2f}%" if ma_spread else "N/A"
+
+        if ma_confidence == "confirmed":
+            # Confirmed deal via signed definitive agreement — merger arb mode
+            deal_thesis = (
+                f"Signed definitive acquisition agreement at ${ma_offer:.2f}/share. "
+                f"Upside remaining: {ma_spread_str}. "
+                "This is a merger arbitrage position, not a directional equity trade. "
+                "Entry/stop/target levels from standard analysis do not apply — "
+                "the stock is capped at the offer price. Evaluate deal risk "
+                "(regulatory approval, shareholder vote, financing) to size position."
+            )
+            return AnalysisVerdict(
+                action="BUY",
+                conviction=8,
+                entry_zone_low=None,
+                entry_zone_high=None,
+                stop_loss=None,
+                targets=[round(float(ma_offer), 2)],
+                risk_reward=None,
+                position_size_pct=0,
+                key_red_flags=[deal_thesis],
+                buy_triggers=[
+                    "Deal spread provides near-risk-free return to offer price.",
+                    "Hold through close for deal consideration.",
+                ],
+                sell_triggers=[
+                    "Sell immediately if deal faces regulatory/approval issues.",
+                    f"If stock exceeds ${ma_offer:.2f}, the deal spread may widen — reassess.",
+                ],
+                thesis=deal_thesis,
+            )
+        else:
+            # Potential M&A detected via heuristics (price-pinning + low-vol + low-beta)
+            deal_thesis = (
+                f"⚠️ Potential acquisition target at ${ma_offer:.2f}/share. "
+                f"Upside remaining: {ma_spread_str}. "
+                "This is NOT a confirmed deal — detected via heuristic signals "
+                "(price pinned near analyst target, unusually low volatility, "
+                "near-zero beta). Treat as speculation. Standard analysis may "
+                "not apply if a deal is imminent."
+            )
+            return AnalysisVerdict(
+                action="WATCH",
+                conviction=5,
+                entry_zone_low=None,
+                entry_zone_high=None,
+                stop_loss=None,
+                targets=[round(float(ma_offer), 2)],
+                risk_reward=None,
+                position_size_pct=0,
+                key_red_flags=[deal_thesis],
+                buy_triggers=[
+                    "Monitor for news of definitive agreement. Only position after signed deal.",
+                ],
+                sell_triggers=[
+                    "Sell if volatility returns (false signal — no deal).",
+                    f"Take profits if stock approaches ${ma_offer:.2f} before deal confirmation.",
+                ],
+                thesis=deal_thesis,
+            )
+
+    # ── 3d. Treasury Asset Company Override ──
+    # Bitcoin treasury companies (e.g., MPLT, MSTR) derive value from their
+    # primary reserve asset, not from operating earnings. Standard fundamental
+    # analysis (P/E, margins, growth rates) is misleading for these instruments.
+    is_treasury_asset = fundamental is not None and fundamental.asset_category == "treasury_asset"
+    if is_treasury_asset:
+        return AnalysisVerdict(
+            action="WATCH",
+            conviction=3,
+            entry_zone_low=None,
+            entry_zone_high=None,
+            stop_loss=None,
+            targets=[],
+            risk_reward=None,
+            position_size_pct=0,
+            key_red_flags=[
+                "Bitcoin/treasury asset company — value derived from primary reserve "
+                "asset (BTC), not operating earnings. Standard P/E/margin analysis "
+                "does not apply. Evaluate based on BTC holdings per share and "
+                "premium/discount to NAV."
+            ],
+            buy_triggers=[],
+            sell_triggers=[
+                "Monitor BTC holdings per share dilution (equity issuance for BTC buys).",
+                "Track premium/discount to NAV — wide premium increases downside risk.",
+            ],
+            thesis="Bitcoin treasury company — value tracks primary reserve asset (BTC) "
+                   "rather than operating earnings. Standard equity metrics (P/E, margins, "
+                   "growth) are not applicable. Position based on BTC thesis, not company "
+                   "fundamentals. Use position sizing limits from risk module.",
+        )
+
+    # ── 3e. ETF / CEF / ETN / Preferred Override ──
+    # Exchange-traded funds, closed-end funds, exchange-traded notes, and
+    # preferred stocks are not individual equities. Standard fundamental analysis
+    # (P/E, margins, growth rates) doesn't apply.
+    fund_inst_type: str | None = fundamental.instrument_type if fundamental else None
+    is_fund_instrument = fund_inst_type in ("etf", "cef", "etn", "mutual_fund", "preferred")
+    if is_fund_instrument:
+        fund_type_label = {
+            "etf": "ETF", "cef": "Closed-End Fund",
+            "etn": "ETN", "mutual_fund": "Mutual Fund",
+        }.get(fund_inst_type or "", "Fund")
+        thesis_parts = [
+            f"{fund_type_label} — not an individual equity.",
+        ]
+        if fund_inst_type == "etn":
+            thesis_parts.append(
+                "ETNs carry issuer credit risk in addition to underlying index exposure. "
+                "Standard equity metrics (P/E, margins, growth) do not apply."
+            )
+        elif fund_inst_type == "cef":
+            thesis_parts.append(
+                "CEFs can trade at premiums/discounts to NAV. Distribution yield and "
+                "discount/premium history are the relevant metrics, not P/E or earnings growth."
+            )
+        else:
+            thesis_parts.append(
+                "Fund performance tracks its underlying holdings. Evaluate the fund's "
+                "sector exposure, expense ratio, and tracking error — not individual "
+                "equity metrics."
+            )
+        thesis_parts.append(
+            "This instrument is not suitable for the equity-focused ticker analysis and "
+            "should be evaluated using fund-specific tools instead."
+        )
+        return AnalysisVerdict(
+            action="WATCH",
+            conviction=2,
+            entry_zone_low=None,
+            entry_zone_high=None,
+            stop_loss=None,
+            targets=[],
+            risk_reward=None,
+            position_size_pct=0,
+            key_red_flags=[
+                f"{fund_type_label} detected — this is not a single equity. "
+                "Standard stock analysis metrics (P/E, margins, growth) do not apply. "
+                "Remove from equity screeners for accurate results."
+            ],
+            buy_triggers=[],
+            sell_triggers=[],
+            thesis=" ".join(thesis_parts),
+        )
+
+    # ── 3f. SPAC override ──
+    # Pre-deal SPACs have no operating business — standard fundamental analysis
+    # doesn't apply. Override with SPAC-specific framework.
+    is_spac = fundamental is not None and fundamental.instrument_type == "spac"
+    if is_spac:
+        return AnalysisVerdict(
+            action="WATCH",
+            conviction=3,
+            entry_zone_low=None,
+            entry_zone_high=None,
+            stop_loss=None,
+            targets=[],
+            risk_reward=None,
+            position_size_pct=0,
+            key_red_flags=[
+                "Pre-deal SPAC — no operating business. Tracks trust value (~$10). "
+                "Binary outcome: either acquires target (volatile post-deal) or liquidates."
+            ],
+            buy_triggers=[],
+            sell_triggers=[],
+            thesis="Pre-deal SPAC (blank-check company). No operating business, no revenue, "
+                   "no earnings to analyze. Value derived from trust account (~$10/share). "
+                   "WATCH as speculative event-driven instrument: evaluate any announced "
+                   "target independently. Position size strictly limited — see risk module.",
+        )
 
     # ── 4. Map score to action ──
     base_action: str
@@ -276,7 +601,57 @@ def synthesise(
             # Risk/reward to first target
             rr = round(1.5, 2)
 
-    # ── 7. Generate thesis ──
+    # ── 7. Verdict Consistency Cross-check ──
+    # AVOID/REDUCE should never have trading levels — contradictory signals.
+    if action in ("AVOID", "REDUCE"):
+        entry_low = None
+        entry_high = None
+        stop_loss = None
+        targets = []
+        rr = None
+        position_size = 0.0
+        buy_triggers = []
+    else:
+        position_size = risk.suggested_position_size_pct if risk else 0
+
+    # Meme/retail stock position cap: elevated short interest + high beta
+    # + bearish technicals = dangerous combination for retail-driven volatility.
+    # Detected stocks get capped at 5% regardless of what the risk model suggests.
+    if position_size > 5.0 and action not in ("AVOID", "REDUCE"):
+        is_meme_candidate = (
+            sentiment is not None
+            and sentiment.short_interest_pct is not None and sentiment.short_interest_pct > 10
+            and sentiment.beta is not None and sentiment.beta > 1.5
+        )
+        has_bearish_technicals = (
+            technical is not None
+            and technical.ma_alignment == "bearish"
+        )
+        has_negative_margins = (
+            fundamental is not None
+            and fundamental.profit_margin is not None and fundamental.profit_margin < -5
+        )
+        if is_meme_candidate and (has_bearish_technicals or has_negative_margins):
+            position_size = min(position_size, 5.0)
+
+    # BUY/ACCUMULATE should have minimum conviction of 3
+    if action in ("BUY", "ACCUMULATE") and conviction < 3:
+        conviction = 3
+
+    # ── Conviction Calibration ──
+    # AVOID/REDUCE: cap at 8 — no automated system should express c:9 or c:10
+    # conviction on a bearish call. Reserve 9-10 for near-certain BUY setups.
+    if action in ("AVOID", "REDUCE"):
+        conviction = min(conviction, 8)
+
+    # BUY/ACCUMULATE: cap at 8 for speculative/pre-profit small caps
+    if action in ("BUY", "ACCUMULATE") and fundamental:
+        mcap = fundamental.market_cap or 0
+        is_pre_profit = fundamental.pe_ratio is None or fundamental.pe_ratio < 0
+        if mcap < 1_000_000_000 and is_pre_profit:
+            conviction = min(conviction, 8)
+
+    # ── 8. Generate thesis ──
     thesis = _generate_thesis(action, weighted_score, modules, dealbreakers, regime)
 
     return AnalysisVerdict(
@@ -287,7 +662,7 @@ def synthesise(
         stop_loss=stop_loss,
         targets=targets,
         risk_reward=rr,
-        position_size_pct=risk.suggested_position_size_pct if risk else 0,
+        position_size_pct=position_size,
         key_red_flags=dealbreakers + [f for f in all_red_flags if f not in dealbreakers][:5],
         buy_triggers=buy_triggers[:3],
         sell_triggers=sell_triggers[:3],

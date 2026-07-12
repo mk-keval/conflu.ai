@@ -49,10 +49,19 @@ export const DEFAULT_VISIBLE_COLUMNS: string[] = ALL_COLUMNS_META
 
 // ── Cell renderers ───────────────────────────────────────────────────────────
 
-function CellSymbol({ symbol, convergenceCount }: { symbol: string; convergenceCount?: number }) {
+function CellSymbol({ symbol, ticker, convergenceCount }: {
+  symbol: string;
+  ticker?: TVScoredTicker;
+  convergenceCount?: number;
+}) {
   return (
     <span className="flex items-center gap-1.5">
       <span className="font-semibold text-text-primary text-sm tracking-tight">{symbol}</span>
+      {ticker?.probable_fund && (
+        <span className="inline-flex items-center justify-center h-[14px] px-[4px] rounded bg-warning/20 text-warning text-[9px] font-bold leading-none uppercase" title={ticker.probable_fund_reason ?? 'Probable fund'}>
+          Fund
+        </span>
+      )}
       {convergenceCount != null && convergenceCount > 1 && (
         <span className="inline-flex items-center justify-center min-w-[14px] h-[14px] px-[3px] rounded bg-accent/20 text-accent text-[10px] font-bold leading-none" title={`Matched ${convergenceCount} templates`}>
           {convergenceCount}x
@@ -313,7 +322,7 @@ interface ColumnDef {
 
 /** Lookup: column key → render function. */
 const COL_RENDERERS: Record<string, (t: TVScoredTicker, d: TVDataFields, onClick?: () => void) => ReactNode> = {
-  symbol:     (t) => <CellSymbol symbol={t.symbol} />,
+  symbol:     (t) => <CellSymbol symbol={t.symbol} ticker={t} />,
   price:      (_t, d) => <CellPrice value={d.close} />,
   score:      (t, _d) => <CellScore score={t.score} />,
   change:     (_t, d) => <CellChange change={d.change} price={d.close} />,
@@ -353,7 +362,7 @@ function buildColumns(
     const base = COL_RENDERERS[meta.key];
     const render = meta.key === 'symbol' && convergenceMap
       ? (t: TVScoredTicker) =>
-          <CellSymbol symbol={t.symbol} convergenceCount={convergenceMap.get(t.symbol)} />
+          <CellSymbol symbol={t.symbol} ticker={t} convergenceCount={convergenceMap.get(t.symbol)} />
       : base;
 
     const align: 'left' | 'right' | 'center' =

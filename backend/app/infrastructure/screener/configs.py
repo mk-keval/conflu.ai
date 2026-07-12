@@ -115,7 +115,7 @@ def list_screen_templates() -> list[dict[str, str]]:
     for p in sorted(screens_dir.glob("*.yaml")):
         try:
             cfg = load_screen_template(p.stem)
-            templates.append({"name": cfg.name, "description": cfg.description})
+            templates.append({"name": cfg.name, "description": cfg.description, "direction": cfg.direction})
         except Exception:
             log.warning("failed_to_load_template", template=str(p))
             templates.append({"name": p.stem, "description": ""})

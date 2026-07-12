@@ -17,6 +17,11 @@ export interface TechnicalAnalysis {
 
 export interface FundamentalAnalysis {
   score: number;
+  instrument_type: string;
+  listing_exchange: string | null;
+  exchange_category: string;
+  asset_category: string;
+  lifecycle_stage: string;
   market_cap: number | null;
   pe_ratio: number | null;
   eps: number | null;
@@ -25,6 +30,9 @@ export interface FundamentalAnalysis {
   revenue_growth_yoy: number | null;
   fcf_yield: number | null;
   dividend_yield: number | null;
+  return_on_equity: number | null;
+  price_to_book: number | null;
+  operating_margin: number | null;
   findings: string[];
 }
 
@@ -43,6 +51,11 @@ export interface SentimentAnalysis {
   insider_status: string;
   short_interest_pct: number | null;
   days_to_cover: number | null;
+  institutional_ownership: number | null;
+  beta: number | null;
+  target_price: number | null;
+  target_upside_pct: number | null;
+  undervalued: boolean;
   findings: string[];
 }
 
@@ -82,6 +95,8 @@ export interface TickerAnalysisResponse {
   risk: RiskAssessment | null;
   verdict: AnalysisVerdict;
   execution_ms: number;
+  analysis_timestamp: string | null;
+  data_age_hours: number | null;
 }
 
 export interface TickerAnalysisRequest {

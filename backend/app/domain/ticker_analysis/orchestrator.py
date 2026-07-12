@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from datetime import UTC, datetime
 from typing import Any
 
 import yfinance as yf
@@ -114,6 +115,83 @@ def _compute_missing_technicals(symbol: str, tv_data: dict[str, Any]) -> dict[st
     except Exception:
         log.warning("technical_data_fallback_failed", symbol=symbol)
         return {}
+
+
+def _detect_acquisition(info: dict[str, Any], tv_data: dict[str, Any]) -> dict[str, Any] | None:
+    """Detect if a stock is in a pending acquisition using heuristic signals.
+
+    Checks for the classic "deal-locked" signature:
+    - Price pinned within 3% of analyst mean target
+    - Ultra-low volatility (ATR < 1%)
+    - Near-zero beta (decoupled from market)
+
+    Returns dict with deal data, or None if no acquisition detected.
+    """
+    price = info.get("currentPrice") or info.get("regularMarketPrice") or tv_data.get("close")
+    mean_target = info.get("targetMeanPrice")
+    atr = tv_data.get("ATR")
+    beta = info.get("beta")
+    hi52 = info.get("fiftyTwoWeekHigh")
+
+    if not price or price <= 0:
+        return None
+    if not mean_target or mean_target <= 0:
+        return None
+
+    # Cost of sales / purchase field from yfinance — check for acquisition hint
+    # Some tickers have corporate action data indicating M&A
+    corp_actions = info.get("corporateActions")
+    has_merger_flag = False
+    if corp_actions and isinstance(corp_actions, dict):
+        for action_type in corp_actions:
+            if action_type and "merger" in str(action_type).lower():
+                has_merger_flag = True
+
+    # Heuristic 1: Price pinned within 3% of analyst target
+    upside_remaining = (mean_target / price - 1) * 100  # positive = still room to target
+    price_near_target = abs(upside_remaining) < 3.0 and upside_remaining > 0
+
+    # Heuristic 2: Very low volatility (typical of deal-locked stocks)
+    low_vol = False
+    atr_pct: float | None = None
+    if atr and price:
+        atr_pct = atr / price * 100
+        low_vol = atr_pct < 1.0
+
+    # Heuristic 3: Near-zero beta (decoupled from market moves)
+    low_beta = beta is not None and beta < 0.5
+
+    # Heuristic 4: Price pinned at 52-week high (deal price = high watermark)
+    near_52w_high = hi52 and price >= hi52 * 0.97
+
+    # Score the detection signals
+    signal_strength = int(price_near_target) + int(low_vol) + int(low_beta) + int(near_52w_high) + int(has_merger_flag)
+
+    if signal_strength >= 3:
+        spread_pct = round((mean_target / price - 1) * 100, 2)
+
+        # Determine confidence level:
+        #   "confirmed" — all 5 signals OR very tight spread (< 1%) + 3+ signals
+        #   "potential" — 3-4 signals without tight spread confirmation
+        is_confirmed = (
+            signal_strength >= 5
+            or (signal_strength >= 3 and spread_pct < 1.0)
+        )
+        # Additional confirmation: if beta is near-zero AND ATR is very low,
+        # the stock is likely under a signed definitive agreement
+        has_tight_spread = spread_pct < 1.0
+        is_deal_locked = has_tight_spread and (beta is not None and beta < 0.3) and (atr_pct is not None and atr_pct < 0.5)
+
+        confidence = "confirmed" if (is_confirmed or is_deal_locked) else "potential"
+
+        return {
+            "offer_price": round(mean_target, 2),
+            "spread_pct": spread_pct,
+            "upside_remaining": round(upside_remaining, 2),
+            "ma_confidence": confidence,
+        }
+
+    return None
 
 
 class TickerAnalysisService:
@@ -277,6 +355,9 @@ class TickerAnalysisService:
 
         try:
             fund = fundamentals.analyze(info)
+            # Pass instrument type to risk module via info dict
+            if fund:
+                info["instrument_type"] = fund.instrument_type
         except Exception:
             self.log.exception("fundamental_analysis_failed", symbol=symbol)
 
@@ -295,6 +376,17 @@ class TickerAnalysisService:
         except Exception:
             self.log.exception("risk_analysis_failed", symbol=symbol)
 
+        # ── 2b. M&A Detection ──
+        # Heuristic: if price is pinned near analyst target with ultra-low volatility
+        # and near-zero beta, the stock is likely in a pending acquisition.
+        # When detected, switch to merger arb analysis mode.
+        ma_data = _detect_acquisition(info, tv_data)
+        if ma_data:
+            tv_data["ma_offer_price"] = ma_data["offer_price"]
+            tv_data["ma_spread_pct"] = ma_data["spread_pct"]
+            tv_data["ma_upside_remaining"] = ma_data["upside_remaining"]
+            tv_data["ma_confidence"] = ma_data.get("ma_confidence", "potential")
+
         # ── 3. Synthesise verdict ──
         verdict: AnalysisVerdict = synthesis.synthesise(
             technical=tech,
@@ -310,6 +402,19 @@ class TickerAnalysisService:
         # ── 4. Build response ──
         duration_ms = round((time.monotonic() - start) * 1000)
 
+        # Data freshness: yfinance provides market time; fall back to analysis time
+        now_utc = datetime.now(UTC)
+        analysis_ts = now_utc.isoformat()
+        data_age_hours: float | None = None
+        mkt_time = info.get("regularMarketTime") or info.get("marketTime")
+        if mkt_time:
+            try:
+                if isinstance(mkt_time, (int, float)):
+                    market_dt = datetime.fromtimestamp(mkt_time, tz=UTC)
+                    data_age_hours = round((now_utc - market_dt).total_seconds() / 3600, 1)
+            except (ValueError, OSError):
+                pass
+
         return TickerAnalysisResponse(
             symbol=symbol,
             price=price,
@@ -322,4 +427,6 @@ class TickerAnalysisService:
             risk=risk,
             verdict=verdict,
             execution_ms=duration_ms,
+            analysis_timestamp=analysis_ts,
+            data_age_hours=data_age_hours,
         )

@@ -46,6 +46,7 @@ def analyze(info: dict[str, Any]) -> SentimentAnalysis:
         score -= 0.3
     weight_count += 1
 
+    upside = None
     # ── Price Target Upside ──
     if mean_target and current_price and current_price > 0:
         upside = (mean_target / current_price - 1) * 100
@@ -80,6 +81,7 @@ def analyze(info: dict[str, Any]) -> SentimentAnalysis:
             score -= 0.1
     weight_count += 1
 
+    inst = None
     # ── Institutional Holdings ──
     inst_pct = info.get("heldPercentInstitutions")
     if inst_pct is not None:
@@ -129,6 +131,16 @@ def analyze(info: dict[str, Any]) -> SentimentAnalysis:
         else:
             findings.append(f"📊 Beta {beta:.2f} — low volatility relative to market")
 
+    # ── Undervalued flag ──
+    undervalued = upside is not None and upside > 0
+    if undervalued:
+        findings.append(f"💰 Price below analyst target — potential value opportunity")
+
+    inst_val = round(inst, 2) if inst is not None else None
+    beta_val = round(beta, 2) if beta is not None else None
+    target_val = round(mean_target, 2) if mean_target is not None else None
+    upside_val = round(upside, 2) if upside is not None else None
+
     normalised = max(-1.0, min(1.0, score / max(weight_count, 1) * 2))
 
     return SentimentAnalysis(
@@ -137,5 +149,10 @@ def analyze(info: dict[str, Any]) -> SentimentAnalysis:
         insider_status=insider_status,
         short_interest_pct=round(short_pct * 100, 2) if short_pct is not None else None,
         days_to_cover=round(short_ratio, 2) if short_ratio is not None else None,
+        institutional_ownership=inst_val,
+        beta=beta_val,
+        target_price=target_val,
+        target_upside_pct=upside_val,
+        undervalued=undervalued,
         findings=findings,
     )

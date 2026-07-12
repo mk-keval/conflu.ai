@@ -288,6 +288,12 @@ export function DetailPanel({ ticker, onClose }: DetailPanelProps) {
 
             {analysis && (
               <div className="mt-4 space-y-3 text-sm">
+                {/* Show fund warning at screener level */}
+                {ticker.probable_fund && (
+                  <div className="p-3 rounded-lg bg-warning/10 border border-warning/30 text-warning text-xs">
+                    <strong>⚠️ Fund Detected:</strong> {ticker.probable_fund_reason}
+                  </div>
+                )}
                 {/* Show OHLCV-unavailable banner */}
                 {analysis.has_ohlcv === false && (
                   <div className="p-3 rounded-lg bg-warning/10 border border-warning/30 text-warning text-xs">

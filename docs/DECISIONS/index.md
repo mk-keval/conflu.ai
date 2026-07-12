@@ -20,6 +20,7 @@ This section contains Architecture Decision Records (ADRs) for significant proje
 - [D-21: Scoring Smoothing & Rationale](D-21-scoring-smoothing-and-rationale.md)
 - [D-22: ColumnCustomizer Portal for Z-Index Escape](D-22-column-customizer-portal-stacking.md)
 - [D-23: IndicatorCache Backend for Screener Indicators](D-23-indicator-cache-backend.md)
+- [D-24: Fund Instrument Detection Framework](D-24-synthesis-fund-instrument-detection.md)
 
 ## Other Decision Records
 - [Phase 9: Advanced Backtest](2026-06-19-phase9-advanced-backtest.md) — ATR-based sizing, vectorized signals, parameter optimization, monte carlo, multi-symbol backtest

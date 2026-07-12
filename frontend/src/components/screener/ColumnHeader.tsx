@@ -20,7 +20,7 @@ export function ColumnHeader({ column, sortKey, sortDir, onSort }: ColumnHeaderP
       onClick={() => onSort(column.key)}
       className={cn(
         'cursor-pointer select-none px-3 py-2 text-left text-xs font-medium uppercase tracking-wider transition-colors',
-        'border-b border-dark-600 text-dark-300 hover:text-dark-100'
+        'border-b border-border text-text-muted hover:text-text-primary'
       )}
     >
       <div className="flex items-center gap-1">

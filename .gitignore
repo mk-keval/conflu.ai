@@ -152,6 +152,10 @@ TRADING-EVALUATION-ROUND2.md
 # Sisyphus artifacts
 .sisyphus/
 
+# Graph export artifacts
+oversold-bounce-screener
+screener-page
+
 # Screenshot artifacts
 *.png
 

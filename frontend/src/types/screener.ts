@@ -38,6 +38,10 @@ export interface TVScoredTicker {
   mtf_breakdown?: TVMTFBreakdown[];
   /** Elite signal enrichment from post-TV processing. */
   elite?: TVEliteEnrichment;
+  /** Heuristic flag: TV data suggests this is an ETF/CEF/fund, not an individual equity. */
+  probable_fund?: boolean;
+  /** Why the fund detection heuristic triggered. */
+  probable_fund_reason?: string | null;
 }
 
 export interface TVMTFBreakdown {
@@ -95,6 +99,7 @@ export interface TVDataFields {
 export interface TVTemplate {
   name: string;
   description: string;
+  direction?: string;
 }
 
 export interface TemplateFilterRule {
