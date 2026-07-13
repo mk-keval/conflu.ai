@@ -1,5 +1,5 @@
 name: "Volatility Expansion"
-description: "Stocks that experienced a Bollinger Band squeeze (low vol contraction) and are now breaking out with volume and momentum. Captures the explosive expansion phase that follows coiling price action"
+description: "Stocks that experienced a Bollinger Band squeeze (low vol contraction) and are now expanding with volume and momentum. Captures the explosive expansion phase that follows coiling price action"
 direction: long
 asset_classes:
   - equities
@@ -14,11 +14,6 @@ filters:
       threshold: 1.06
     timeframe: "4h"
   - category: momentum
-    indicator: cross_above_ma
-    params:
-      period: 20
-    timeframe: "1D"
-  - category: momentum
     indicator: rsi_in_range
     params:
       min: 60
@@ -29,11 +24,8 @@ filters:
     params:
       threshold: 1.5
     timeframe: "1D"
-  - category: volume
-    indicator: price_above_vwap
-    timeframe: "1D"
   - category: volatility
     indicator: adx_trending
     params:
-      threshold: 22
+      threshold: 25
     timeframe: "1D"

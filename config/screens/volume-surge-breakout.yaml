@@ -1,5 +1,5 @@
-name: "Short Squeeze"
-description: "High short interest stocks with volume surge above VWAP — potential squeeze catalysts. Requires significant short pressure and price confirmation"
+name: "Volume Surge Breakout"
+description: "Price breaking above VWAP with heavy relative volume — potential momentum continuation. No short interest data available on TV."
 direction: long
 asset_classes:
   - equities
@@ -18,7 +18,7 @@ filters:
   - category: momentum
     indicator: rsi_in_range
     params:
-      min: 30
+      min: 50
       max: 70
     timeframe: "1D"
   - category: volatility
@@ -29,4 +29,4 @@ filters:
   - category: fundamental
     indicator: market_cap_gt
     params:
-      value: 300000000
+      value: 500000000

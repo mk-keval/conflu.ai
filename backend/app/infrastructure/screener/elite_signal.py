@@ -223,6 +223,11 @@ class EliteSignalProcessor:
           vol > 10, quality > 7, fund > 5)
         - MEDIUM: 3 factors >50%, no critical conflicts
         - LOW: anything else
+
+        Fundamental floors:
+        - Negative EPS + cap < $1B → max Medium
+        - ATR% > 5% → reduce by one notch
+        - Cap < $500M → max Medium
         """
         thresholds = {"trend": 20, "momentum": 15, "volume": 12, "quality": 8, "fundamental": 6}
         strong = sum(1 for k, t in thresholds.items() if scores.get(k, 0) >= t)
@@ -250,11 +255,39 @@ class EliteSignalProcessor:
 
         has_conflict = len(conflicts) >= 2
 
+        # Determine base conviction
         if strong >= 4 and not has_conflict:
-            return "high"
-        if strong >= 3 and not has_conflict:
-            return "medium"
-        return "low"
+            base_conviction = "high"
+        elif strong >= 3 and not has_conflict:
+            base_conviction = "medium"
+        else:
+            base_conviction = "low"
+
+        # Apply fundamental floors and penalties
+        eps = row.get("earnings_per_share_diluted_ttm", 0) or 0
+        mcap = row.get("market_cap_basic", 0) or 0
+        atr = row.get("ATR", 0) or 0
+        close = row.get("close", 0) or 0
+        atr_pct = (atr / close * 100) if close and atr else 0
+
+        # Fundamental floor: negative EPS + cap < $1B → max Medium
+        if eps < 0 and mcap < 1_000_000_000:
+            if base_conviction == "high":
+                base_conviction = "medium"
+
+        # ATR penalty: >5% → reduce by one notch
+        if atr_pct > 5.0:
+            if base_conviction == "high":
+                base_conviction = "medium"
+            elif base_conviction == "medium":
+                base_conviction = "low"
+
+        # Micro-cap discount: cap < $500M → max Medium
+        if mcap < 500_000_000:
+            if base_conviction == "high":
+                base_conviction = "medium"
+
+        return base_conviction
 
     # ── Wyckoff Phase Proxy ───────────────────────────────────────────
 

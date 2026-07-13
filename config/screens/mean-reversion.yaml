@@ -1,5 +1,5 @@
 name: "Mean Reversion"
-description: "Oversold with RSI < 30, volume confirmation, and price below lower Bollinger Band — catching potential bounce setups from exhausted selling"
+description: "Oversold with RSI < 30, price below lower Bollinger Band, and volume confirmation — catching potential bounce setups from exhausted selling"
 asset_classes:
   - equities
   - crypto
@@ -13,14 +13,12 @@ filters:
       threshold: 30
     timeframe: "1D"
   - category: volatility
-    indicator: bb_squeeze
-    params:
-      threshold: 1.08
+    indicator: price_below_bb_lower
     timeframe: "1D"
   - category: volume
     indicator: rvol_high
     params:
-      threshold: 1.2
+      threshold: 1.0
     timeframe: "4h"
   - category: fundamental
     indicator: market_cap_gt

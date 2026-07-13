@@ -10,16 +10,6 @@ filters:
   - category: trend
     indicator: ema_stack_bullish
     timeframe: "1D"
-  - category: trend
-    indicator: price_above_ema
-    params:
-      period: 50
-    timeframe: "1D"
-  - category: trend
-    indicator: price_above_ema
-    params:
-      period: 200
-    timeframe: "1D"
   - category: momentum
     indicator: rsi_in_range
     params:

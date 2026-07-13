@@ -1,5 +1,5 @@
 name: "Statistical Mean Reversion"
-description: "Oversold conditions with technical confirmation — RSI deeply oversold, stochastic bullish cross forming, and volume contraction suggesting exhaustion of selling pressure. Captures classic mean-reversion bounces from statistical extremes"
+description: "Oversold conditions with technical confirmation — RSI deeply oversold, CCI oversold, and volume surge suggesting exhaustion of selling pressure. Captures classic mean-reversion bounces from statistical extremes"
 direction: long
 asset_classes:
   - equities
@@ -14,7 +14,9 @@ filters:
       threshold: 32
     timeframe: "1D"
   - category: momentum
-    indicator: stoch_bullish_cross
+    indicator: cci_oversold
+    params:
+      threshold: -100
     timeframe: "1D"
   - category: volatility
     indicator: atr_pct_below
@@ -22,14 +24,7 @@ filters:
       threshold: 0.04
     timeframe: "1D"
   - category: volume
-    indicator: rvol_low
+    indicator: rvol_high
     params:
-      threshold: 0.8
+      threshold: 1.5
     timeframe: "1D"
-  - category: volume
-    indicator: price_above_vwap
-    timeframe: "1D"
-  - category: fundamental
-    indicator: market_cap_gt
-    params:
-      value: 1000000000

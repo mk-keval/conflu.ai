@@ -25,5 +25,11 @@ filters:
   - category: volatility
     indicator: adx_trending
     params:
-      threshold: 25
+      threshold: 30
+    timeframe: "1D"
+  - category: trend
+    indicator: vwap_band
+    params:
+      side: "above"
+      upper: 1.02
     timeframe: "1D"

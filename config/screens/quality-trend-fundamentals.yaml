@@ -1,5 +1,5 @@
-name: "Earnings Momentum"
-description: "Stocks with strong fundamental quality and technical momentum — positive EPS, bullish EMA stack, MACD confirming, and above-average volume. Targets quality companies with institutional-grade fundamentals that are also showing technical strength"
+name: "Quality Trend + Fundamentals"
+description: "Quality companies with institutional-grade fundamentals showing technical strength. No earnings surprise/date data on TV."
 direction: long
 asset_classes:
   - equities
@@ -12,17 +12,11 @@ filters:
   - category: fundamental
     indicator: market_cap_gt
     params:
-      value: 1000000000
+      value: 500000000
   - category: fundamental
     indicator: pe_max
     params:
       max_pe: 60
-  - category: fundamental
-    indicator: analyst_rating_in
-    params:
-      ratings:
-        - StrongBuy
-        - Buy
   - category: trend
     indicator: ema_stack_bullish
     timeframe: "1D"

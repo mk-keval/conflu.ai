@@ -10,19 +10,29 @@ filters:
     params:
       period: 50
     timeframe: "1D"
+  - category: trend
+    indicator: price_above_ema
+    params:
+      period: 200
+    timeframe: "1D"
   - category: volatility
     indicator: bb_squeeze
     params:
-      threshold: 1.08
+      threshold: 1.015
     timeframe: "1D"
   - category: momentum
     indicator: rsi_in_range
     params:
       min: 45
-      max: 60
+      max: 55
     timeframe: "1D"
   - category: volatility
     indicator: atr_pct_below
     params:
-      threshold: 0.03
+      threshold: 0.02
+    timeframe: "1D"
+  - category: volume
+    indicator: rvol_low
+    params:
+      threshold: 0.7
     timeframe: "1D"

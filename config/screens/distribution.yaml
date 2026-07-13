@@ -34,5 +34,5 @@ filters:
   - category: volatility
     indicator: adx_trending
     params:
-      threshold: 22
+      threshold: 25
     timeframe: "1D"

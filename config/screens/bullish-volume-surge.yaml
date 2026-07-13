@@ -1,5 +1,5 @@
-name: "Bullish Volume Surge"
-description: "Strong buying volume — price above VWAP and EMA20 with heavy relative volume and trend confirmation"
+name: "Volume-Confirmed Uptrend"
+description: "Strong buying volume with trend confirmation — price above VWAP and EMA20, elevated relative volume, and trending ADX. Not a volume spike; a volume-confirmed trend."
 direction: long
 asset_classes:
   - equities
@@ -15,7 +15,7 @@ filters:
   - category: volume
     indicator: rvol_high
     params:
-      threshold: 1.5
+      threshold: 2.0
     timeframe: "1D"
   - category: volume
     indicator: price_above_vwap
@@ -28,5 +28,5 @@ filters:
   - category: volatility
     indicator: adx_trending
     params:
-      threshold: 22
+      threshold: 25
     timeframe: "1D"

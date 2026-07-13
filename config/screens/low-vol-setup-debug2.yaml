@@ -1,0 +1,12 @@
+name: "Low-Vol Setup Debug BB Only"
+description: "Debug BB squeeze filter alone"
+asset_classes:
+  - equities
+timeframes:
+  - 1D
+filters:
+  - category: volatility
+    indicator: bb_squeeze
+    params:
+      threshold: 1.05
+    timeframe: "1D"

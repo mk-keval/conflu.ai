@@ -63,6 +63,10 @@ FILTER_MAP: dict[str, Callable[..., Any]] = {
     "bb_breakout_upper":    lambda p, col: col("close").crosses_above(col("BB.upper")),
     "bb_breakout_lower":    lambda p, col: col("close").crosses_below(col("BB.lower")),
 
+    # Price position relative to Bollinger Bands (state, not fresh cross)
+    "price_below_bb_lower": lambda p, col: col("close") < col("BB.lower"),
+    "price_above_bb_upper": lambda p, col: col("close") > col("BB.upper"),
+
     # =====================================================================
     # TREND QUALITY
     # =====================================================================

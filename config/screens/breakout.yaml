@@ -22,10 +22,7 @@ filters:
   - category: volume
     indicator: rvol_high
     params:
-      threshold: 1.5
-    timeframe: "4h"
-  - category: volume
-    indicator: price_above_vwap
+      threshold: 2.0
     timeframe: "1D"
   - category: volatility
     indicator: adx_trending
