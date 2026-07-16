@@ -1,14 +1,22 @@
 import { useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { fetchTickerAnalysis } from '@/api/tickerAnalysis';
+import { 
+  fetchTickerAnalysis, 
+  fetchOptionsChain, 
+  fetchNews,
+  type OptionsChainResponse,
+  type NewsResponse,
+} from '@/api/tickerAnalysis';
 import type { TickerAnalysisResponse } from '@/types/tickerAnalysis';
 import { cn } from '@/lib/cn';
 import { formatPrice, formatPct, formatLargeNumber } from '@/lib/format';
 import {
   TrendingUp, Activity, DollarSign, AlertTriangle,
-  Shield, Info, Loader2, Search, Brain, BookOpen,
+  Shield, Info, Brain, BookOpen,
   ArrowUp, ArrowDown, Minus, ChevronDown, ChevronUp, HelpCircle,
+  FileText, Newspaper, BarChart2, Search,
+  Loader2, ExternalLink,
 } from 'lucide-react';
 import type { MetricLesson, ModuleLesson } from './education';
 import {
@@ -148,8 +156,10 @@ function ConvictionRing({ conviction }: { conviction: number }) {
   const circumference = 2 * Math.PI * 16;
   const offset = circumference * (1 - pct);
   const color = conviction >= 7 ? '#22c55e' : conviction >= 4 ? '#eab308' : '#ef4444';
+  const tooltip = `Conviction: ${conviction}/10 — How strongly the multi-factor analysis supports the verdict.
+≥7 = High confidence, 4–6 = Moderate, ≤3 = Low confidence / mixed signals.`;
   return (
-    <svg width="40" height="40" viewBox="0 0 40 40" className="shrink-0">
+    <svg width="40" height="40" viewBox="0 0 40 40" className="shrink-0" title={tooltip}>
       <circle cx="20" cy="20" r="16" fill="none" stroke="currentColor" strokeWidth="3" className="text-surface-hover" />
       <circle cx="20" cy="20" r="16" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round"
         strokeDasharray={circumference} strokeDashoffset={offset} transform="rotate(-90 20 20)"
@@ -220,22 +230,29 @@ function VerdictBanner({ data }: { data: TickerAnalysisResponse }) {
         <KeyLevel label="Entry Zone" value={
           v.entry_zone_low != null && v.entry_zone_high != null
             ? `${formatPrice(v.entry_zone_low)} – ${formatPrice(v.entry_zone_high)}`
-            : '—'
-        } />
-        <KeyLevel label="Stop Loss" value={v.stop_loss != null ? formatPrice(v.stop_loss) : '—'} />
+            : 'N/A'
+        } note={v.entry_zone_low == null && v.entry_zone_high == null ? 'Binary outcome stock — no technical entry zones. Position on catalyst confirmation.' : undefined} />
+        <KeyLevel label="Stop Loss" value={v.stop_loss != null ? formatPrice(v.stop_loss) : 'N/A'} note={v.stop_loss == null ? 'Binary outcome stock — stop set at portfolio risk limit.' : undefined} />
         <KeyLevel label="Targets" value={
-          v.targets.length > 0 ? v.targets.map((t) => formatPrice(t)).join(', ') : '—'
-        } />
-        <KeyLevel label="Risk/Reward" value={v.risk_reward != null ? `${v.risk_reward.toFixed(1)}:1` : '—'} />
+          v.targets.length > 0 ? v.targets.map((t) => formatPrice(t)).join(', ') : 'N/A'
+        } note={v.targets.length === 0 ? 'Binary outcome stock — targets depend on milestone outcomes.' : undefined} />
+        <KeyLevel label="Risk/Reward" value={v.risk_reward != null ? `${v.risk_reward.toFixed(1)}:1` : 'N/A'} note={v.risk_reward == null ? 'Binary outcome stock — R:R varies by scenario.' : undefined} />
       </div>
     </div>
   );
 }
 
-function KeyLevel({ label, value }: { label: string; value: string }) {
+function KeyLevel({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
     <div className="bg-surface/50 rounded px-3 py-2">
-      <div className="text-xs text-text-muted mb-0.5">{label}</div>
+      <div className="text-xs text-text-muted mb-0.5 flex items-center gap-1">
+        {label}
+        {note && (
+          <span className="text-text-muted hover:text-text-primary cursor-help underline underline-dotted" title={note}>
+            (?)
+          </span>
+        )}
+      </div>
       <div className="text-sm font-mono font-semibold text-text-primary">{value}</div>
     </div>
   );
@@ -671,9 +688,177 @@ function MetricBox({ label, value, explainer }: {
   );
 }
 
+function OptionsDetail({ data }: { data: OptionsChainResponse; explain: boolean }) {
+  const OPTIONS_EXPLANATION = "IV Rank >80 favors premium selling (credit spreads). IV Rank <20 favors buying (debit spreads/long options). Negative GEX = dealers short gamma (destabilizing, expect big moves). Positive GEX = stabilizing. Max Pain = magnetic price level at expiry. Put/Call Ratio >1.2 = excessive fear (contrarian bullish). <0.7 = complacency.";
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-accent/5 border border-accent/10 rounded-lg p-3 text-sm text-text-secondary leading-relaxed">
+        <strong className="text-text-primary">Options Signals:</strong>{' '}
+        <span>{OPTIONS_EXPLANATION}</span>
+      </div>
+      
+      <div className="bg-surface/30 border border-border/50 rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-text-primary mb-3">Options Overview</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <MetricBox label="Spot Price" value={formatPrice(data.spot)} />
+          <MetricBox label="Max Pain" value={formatPrice(data.maxPain)} />
+          <MetricBox label="IV Rank" value={`${data.ivRank}%`} />
+          <MetricBox label="Put/Call Ratio" value={data.putCallRatio.toFixed(2)} />
+          <MetricBox label="Gamma Exposure" value={`${(data.gammaExposure / 1e6).toFixed(1)}M`} />
+          <MetricBox label="Call OI" value={formatLargeNumber(data.totalCallOI)} />
+          <MetricBox label="Put OI" value={formatLargeNumber(data.totalPutOI)} />
+          <MetricBox label="Expiry" value={data.expiry} />
+        </div>
+      </div>
+
+      <div className="bg-surface/30 border border-border/50 rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-text-primary mb-3">Calls (Top 10 by OI)</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left text-text-muted border-b border-border/30">
+                <th className="pb-1 pr-3">Strike</th>
+                <th className="pb-1 pr-3">Bid</th>
+                <th className="pb-1 pr-3">Ask</th>
+                <th className="pb-1 pr-3">IV</th>
+                <th className="pb-1 pr-3">Vol</th>
+                <th className="pb-1 pr-3">OI</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.calls
+                .sort((a, b) => b.openInterest - a.openInterest)
+                .slice(0, 10)
+                .map((c) => (
+                  <tr key={c.strike} className="border-b border-border/20">
+                    <td className="py-1 pr-3 font-mono">{formatPrice(c.strike)}</td>
+                    <td className="py-1 pr-3 font-mono">{c.bid > 0 ? formatPrice(c.bid) : '—'}</td>
+                    <td className="py-1 pr-3 font-mono">{c.ask > 0 ? formatPrice(c.ask) : '—'}</td>
+                    <td className="py-1 pr-3 font-mono">{(c.impliedVolatility * 100).toFixed(1)}%</td>
+                    <td className="py-1 pr-3 font-mono">{formatLargeNumber(c.volume)}</td>
+                    <td className="py-1 pr-3 font-mono">{formatLargeNumber(c.openInterest)}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="bg-surface/30 border border-border/50 rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-text-primary mb-3">Puts (Top 10 by OI)</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left text-text-muted border-b border-border/30">
+                <th className="pb-1 pr-3">Strike</th>
+                <th className="pb-1 pr-3">Bid</th>
+                <th className="pb-1 pr-3">Ask</th>
+                <th className="pb-1 pr-3">IV</th>
+                <th className="pb-1 pr-3">Vol</th>
+                <th className="pb-1 pr-3">OI</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.puts
+                .sort((a, b) => b.openInterest - a.openInterest)
+                .slice(0, 10)
+                .map((p) => (
+                  <tr key={p.strike} className="border-b border-border/20">
+                    <td className="py-1 pr-3 font-mono">{formatPrice(p.strike)}</td>
+                    <td className="py-1 pr-3 font-mono">{p.bid > 0 ? formatPrice(p.bid) : '—'}</td>
+                    <td className="py-1 pr-3 font-mono">{p.ask > 0 ? formatPrice(p.ask) : '—'}</td>
+                    <td className="py-1 pr-3 font-mono">{(p.impliedVolatility * 100).toFixed(1)}%</td>
+                    <td className="py-1 pr-3 font-mono">{formatLargeNumber(p.volume)}</td>
+                    <td className="py-1 pr-3 font-mono">{formatLargeNumber(p.openInterest)}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="bg-surface/30 border border-border/50 rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-text-primary mb-3">Available Expiries</h3>
+        <div className="flex flex-wrap gap-2">
+          {data.availableExpiries.map((exp) => (
+            <span
+              key={exp}
+              className={`px-2 py-1 rounded text-xs font-mono ${
+                exp === data.expiry
+                  ? 'bg-accent/20 text-accent border border-accent/30'
+                  : 'bg-surface-hover text-text-secondary hover:bg-surface-hover/80'
+              }`}
+            >
+              {exp}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NewsDetail({ data }: { data: NewsResponse; explain: boolean }) {
+  return (
+    <div className="space-y-4">
+      <div className="bg-accent/5 border border-accent/10 rounded-lg p-3 text-sm text-text-secondary leading-relaxed">
+        <strong className="text-text-primary">News Feed:</strong> Green = positive catalysts (earnings beats, upgrades, partnerships). 
+        Red = negative (misses, downgrades, investigations). Neutral = routine filings, dividends. 
+        Click headlines to read full articles.
+      </div>
+
+      {data.items.length === 0 ? (
+        <div className="text-center py-8 text-text-muted">
+          No recent news found for {data.symbol}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {data.items.map((item, index) => (
+            <div
+              key={index}
+              className={`bg-surface/30 border border-border/50 rounded-lg p-3 ${
+                item.sentiment === 'positive' ? 'border-gain/30' :
+                item.sentiment === 'negative' ? 'border-loss/30' : ''
+              }`}
+            >
+              <div className="flex items-start gap-2">
+                <span className={`flex-shrink-0 w-5 h-5 rounded-full mt-0.5 ${
+                  item.sentiment === 'positive' ? 'bg-gain/20 text-gain' :
+                  item.sentiment === 'negative' ? 'bg-loss/20 text-loss' : 'bg-text-muted/20 text-text-muted'
+                } flex items-center justify-center`}>
+                  {item.sentiment === 'positive' && <TrendingUp className="w-3 h-3" />}
+                  {item.sentiment === 'negative' && <ArrowDown className="w-3 h-3" />}
+                  {item.sentiment === 'neutral' && <Minus className="w-3 h-3" />}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <a
+                    href={item.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-text-primary hover:text-accent font-medium block truncate"
+                  >
+                    {item.title}
+                  </a>
+                  <div className="flex items-center gap-2 mt-1 text-xs text-text-muted">
+                    <span>{item.publisher}</span>
+                    <span>•</span>
+                    <span>{item.date ? new Date(item.date).toLocaleDateString() : 'Unknown date'}</span>
+                    <ExternalLink className="w-3 h-3 opacity-50" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Page ──
 
-type TabKey = 'verdict' | 'technical' | 'fundamental' | 'earnings' | 'sentiment' | 'risk';
+type TabKey = 'verdict' | 'technical' | 'fundamental' | 'earnings' | 'sentiment' | 'risk' | 'options' | 'news';
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
   { key: 'verdict', label: 'Verdict', icon: <Info className="w-4 h-4" /> },
@@ -682,6 +867,8 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
   { key: 'earnings', label: 'Earnings', icon: <Activity className="w-4 h-4" /> },
   { key: 'sentiment', label: 'Sentiment', icon: <Activity className="w-4 h-4" /> },
   { key: 'risk', label: 'Risk', icon: <Shield className="w-4 h-4" /> },
+  { key: 'options', label: 'Options', icon: <FileText className="w-4 h-4" /> },
+  { key: 'news', label: 'News', icon: <Newspaper className="w-4 h-4" /> },
 ];
 
 export function TickerAnalysisPage() {
@@ -699,6 +886,24 @@ export function TickerAnalysisPage() {
     queryFn: () => fetchTickerAnalysis(symbol),
     enabled: symbol.length > 0,
     staleTime: 30_000,
+    retry: 1,
+  });
+
+  // Fetch options chain data
+  const { data: optionsData, isLoading: optionsLoading } = useQuery({
+    queryKey: ['ticker-options', symbol],
+    queryFn: () => fetchOptionsChain(symbol),
+    enabled: symbol.length > 0 && activeTab === 'options',
+    staleTime: 60_000,
+    retry: 1,
+  });
+
+  // Fetch news data
+  const { data: newsData, isLoading: newsLoading } = useQuery({
+    queryKey: ['ticker-news', symbol],
+    queryFn: () => fetchNews(symbol),
+    enabled: symbol.length > 0 && activeTab === 'news',
+    staleTime: 300_000, // 5 minutes
     retry: 1,
   });
 
@@ -791,18 +996,30 @@ export function TickerAnalysisPage() {
           <span className="text-text-muted text-sm">/</span>
           <span className="text-sm font-semibold text-text-primary">{symbol}</span>
         </div>
-        <button
-          onClick={() => setExplain(!explain)}
-          className={cn(
-            'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full border transition-colors',
-            explain
-              ? 'bg-accent/10 border-accent/30 text-accent'
-              : 'bg-surface border-border/50 text-text-muted hover:text-text-primary hover:border-text-muted',
-          )}
-        >
-          <Brain className="w-3.5 h-3.5" />
-          <span>{explain ? 'Explain On' : 'Explain'}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            to={`/charts?symbol=${symbol}&timeframe=1D`}
+            className={cn(
+              'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full border transition-colors',
+              'bg-surface border-border/50 text-text-muted hover:text-text-primary hover:border-text-muted'
+            )}
+          >
+            <BarChart2 className="w-3.5 h-3.5" />
+            <span>View Chart</span>
+          </Link>
+          <button
+            onClick={() => setExplain(!explain)}
+            className={cn(
+              'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full border transition-colors',
+              explain
+                ? 'bg-accent/10 border-accent/30 text-accent'
+                : 'bg-surface border-border/50 text-text-muted hover:text-text-primary hover:border-text-muted',
+            )}
+          >
+            <Brain className="w-3.5 h-3.5" />
+            <span>{explain ? 'Explain On' : 'Explain'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Verdict Banner */}
@@ -838,6 +1055,38 @@ export function TickerAnalysisPage() {
         {activeTab === 'earnings' && data.earnings && <EarningsDetail data={data.earnings} explain={explain} />}
         {activeTab === 'sentiment' && data.sentiment && <SentimentDetail data={data.sentiment} explain={explain} />}
         {activeTab === 'risk' && data.risk && <RiskDetail data={data.risk} explain={explain} />}
+        {activeTab === 'options' && (
+          optionsLoading ? (
+            <div className="flex items-center justify-center min-h-[30vh]">
+              <Loader2 className="w-8 h-8 text-accent animate-spin" />
+              <span className="ml-3 text-text-muted">Loading options chain...</span>
+            </div>
+          ) : optionsData ? (
+            <OptionsDetail data={optionsData} explain={explain} />
+          ) : (
+            <div className="bg-loss/10 border border-loss/20 rounded-lg p-6 text-center">
+              <AlertTriangle className="w-10 h-10 text-loss mx-auto mb-3" />
+              <h3 className="text-lg font-semibold text-text-primary mb-1">No Options Data</h3>
+              <p className="text-sm text-text-muted mb-4">No options chain available for {symbol}</p>
+            </div>
+          )
+        )}
+        {activeTab === 'news' && (
+          newsLoading ? (
+            <div className="flex items-center justify-center min-h-[30vh]">
+              <Loader2 className="w-8 h-8 text-accent animate-spin" />
+              <span className="ml-3 text-text-muted">Loading news...</span>
+            </div>
+          ) : newsData ? (
+            <NewsDetail data={newsData} explain={explain} />
+          ) : (
+            <div className="bg-loss/10 border border-loss/20 rounded-lg p-6 text-center">
+              <AlertTriangle className="w-10 h-10 text-loss mx-auto mb-3" />
+              <h3 className="text-lg font-semibold text-text-primary mb-1">No News Data</h3>
+              <p className="text-sm text-text-muted mb-4">No news available for {symbol}</p>
+            </div>
+          )
+        )}
       </div>
     </div>
   );

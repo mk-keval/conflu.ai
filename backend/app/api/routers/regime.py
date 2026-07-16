@@ -59,7 +59,8 @@ class MarketRegimeResponse(BaseModel):
     sector_breadth: RegimeIndicator
     safe_haven: RegimeIndicator
     yield_curve: RegimeIndicator
-    timestamp: str = ""
+    timestamp: str
+    data_fetched_at: str = ""
 
 
 # ── TTL Cache (timestamp-based, no external deps) ──
@@ -435,6 +436,7 @@ async def get_market_regime() -> ApiResponse[MarketRegimeResponse]:
                 status=yield_status,
             ),
             timestamp=now.isoformat(),
+            data_fetched_at=datetime.fromtimestamp(_MACRO_CACHE_TIME, UTC).isoformat(),
         ),
         meta=MetaInfo(request_id="", duration_ms=round(duration, 1)),
     )

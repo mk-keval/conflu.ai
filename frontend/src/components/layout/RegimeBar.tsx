@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useMarketStore } from '@/store/market';
 import { fetchMarketRegime } from '@/api/sectorRotation';
 import { cn } from '@/lib/cn';
-import { TrendingUp, TrendingDown, Activity, ChevronDown, AlertCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, ChevronDown, AlertCircle, RefreshCw } from 'lucide-react';
 
 function scoreToColor(score: number): string {
   if (score >= 80) return 'bg-green-500';
@@ -35,6 +35,7 @@ export function RegimeBar() {
   const { regime, isLoading, error, setRegime, setIsLoading, setError } = useMarketStore();
   const [expanded, setExpanded] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -55,8 +56,14 @@ export function RegimeBar() {
       }
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   }, [setRegime, setIsLoading, setError, regime]);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await loadRegime();
+  }, [loadRegime]);
 
   // Fetch on mount and every 1 hr — daily data only changes at market close
   useEffect(() => {
@@ -117,41 +124,55 @@ export function RegimeBar() {
   return (
     <div ref={panelRef} className="relative">
       {/* Pill button */}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className={cn(
-          'flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-all duration-150',
-          'border border-border/60 hover:border-border hover:bg-surface-hover'
-        )}
-        title={`Market Regime: ${regime_label} (${composite_score}/100)`}
-      >
-        <span className={cn('flex items-center gap-1', scoreToTextColor(composite_score))}>
-          {regimeIcon(regime_label)}
-          <span>{composite_score.toFixed(0)}</span>
-        </span>
-
-        {/* Mini score bar */}
-        <div className="h-1.5 w-12 overflow-hidden rounded-full bg-border">
-          <div
-            className={cn('h-full rounded-full transition-all duration-500', scoreToColor(composite_score))}
-            style={{ width: `${composite_score}%` }}
-          />
-        </div>
-
-        <span className="text-text-muted max-w-[80px] truncate">{regime_label}</span>
-        {/* "As of" timestamp — daily data reference */}
-        {regime.timestamp && (
-          <span className="text-[10px] text-text-muted/50 tabular-nums whitespace-nowrap">
-            {new Date(regime.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-          </span>
-        )}
-        <ChevronDown
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => setExpanded(!expanded)}
           className={cn(
-            'h-3 w-3 text-text-muted transition-transform duration-150',
-            expanded && 'rotate-180'
+            'flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-all duration-150',
+            'border border-border/60 hover:border-border hover:bg-surface-hover'
           )}
-        />
-      </button>
+          title={`Market Regime: ${regime_label} (${composite_score}/100)`}
+        >
+          <span className={cn('flex items-center gap-1', scoreToTextColor(composite_score))}>
+            {regimeIcon(regime_label)}
+            <span>{composite_score.toFixed(0)}</span>
+          </span>
+
+          {/* Mini score bar */}
+          <div className="h-1.5 w-12 overflow-hidden rounded-full bg-border">
+            <div
+              className={cn('h-full rounded-full transition-all duration-500', scoreToColor(composite_score))}
+              style={{ width: `${composite_score}%` }}
+            />
+          </div>
+
+          <span className="text-text-muted max-w-[80px] truncate">{regime_label}</span>
+          {/* "As of" timestamp — daily data reference */}
+          {regime.timestamp && (
+            <span className="text-[10px] text-text-muted/50 tabular-nums whitespace-nowrap">
+              {new Date(regime.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+            </span>
+          )}
+          <ChevronDown
+            className={cn(
+              'h-3 w-3 text-text-muted transition-transform duration-150',
+              expanded && 'rotate-180'
+            )}
+          />
+        </button>
+        {/* Manual refresh button */}
+        <button
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className={cn(
+            'p-1 rounded-full text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors',
+            isRefreshing && 'animate-spin opacity-50 cursor-wait'
+          )}
+          title="Refresh market regime"
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+        </button>
+      </div>
 
       {/* Stale indicator tooltip */}
       {fetchError && !expanded && (

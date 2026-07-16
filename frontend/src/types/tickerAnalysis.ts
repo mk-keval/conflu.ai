@@ -105,3 +105,65 @@ export interface TickerAnalysisRequest {
   tv_data?: Record<string, unknown> | null;
   regime?: string | null;
 }
+
+// ── Yahoo Finance Supplemental Types ──
+
+export interface OptionsChainResponse {
+  symbol: string;
+  expiry: string;
+  spot: number;
+  calls: OptionsContract[];
+  puts: OptionsContract[];
+  ivRank: number;
+  maxPain: number;
+  gammaExposure: number;
+  putCallRatio: number;
+  totalCallOI: number;
+  totalPutOI: number;
+  availableExpiries: string[];
+}
+
+export interface OptionsContract {
+  strike: number;
+  lastPrice: number;
+  bid: number;
+  ask: number;
+  impliedVolatility: number;
+  volume: number;
+  openInterest: number;
+  delta?: number | null;
+  gamma?: number | null;
+  theta?: number | null;
+  vega?: number | null;
+}
+
+export interface NewsResponse {
+  symbol: string;
+  items: NewsItem[];
+  count: number;
+}
+
+export interface NewsItem {
+  title: string;
+  publisher: string;
+  link: string;
+  timestamp: number;
+  date: string | null;
+  sentiment: 'positive' | 'negative' | 'neutral';
+}
+
+export interface ChartDataResponse {
+  symbol: string;
+  interval: string;
+  range: string;
+  data: ChartDataPoint[];
+}
+
+export interface ChartDataPoint {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
