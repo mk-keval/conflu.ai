@@ -1,5 +1,5 @@
 name: "Volume Surge Breakout"
-description: "Price breaking above VWAP with heavy relative volume — potential momentum continuation. No short interest data available on TV."
+description: "Price breaking above VWAP with heavy relative volume — potential momentum continuation. No short interest data available on TV. Filters: $500M+ mcap, NYSE/NASDAQ, US, $5+, 1M avg vol, 500K vol."
 direction: long
 asset_classes:
   - equities
@@ -7,6 +7,41 @@ timeframes:
   - 1D
   - 4h
 filters:
+  # Institutional quality gates
+  - category: fundamental
+    indicator: market_cap_gt
+    params:
+      value: 500000000
+    timeframe: "1D"
+  - category: fundamental
+    indicator: exchange_in
+    params:
+      exchanges:
+        - "NYSE"
+        - "NASDAQ"
+    timeframe: "1D"
+  - category: fundamental
+    indicator: country_in
+    params:
+      countries:
+        - "United States"
+    timeframe: "1D"
+  - category: fundamental
+    indicator: close_above
+    params:
+      threshold: 5.0
+    timeframe: "1D"
+  - category: volume
+    indicator: avg_volume_gt
+    params:
+      threshold: 1000000
+    timeframe: "1D"
+  - category: volume
+    indicator: volume_gt
+    params:
+      threshold: 500000
+    timeframe: "1D"
+  # Breakout criteria
   - category: volume
     indicator: rvol_high
     params:
@@ -24,9 +59,5 @@ filters:
   - category: volatility
     indicator: adx_trending
     params:
-      threshold: 22
+      threshold: 25
     timeframe: "1D"
-  - category: fundamental
-    indicator: market_cap_gt
-    params:
-      value: 500000000

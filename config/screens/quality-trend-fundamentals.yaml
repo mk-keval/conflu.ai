@@ -1,5 +1,5 @@
 name: "Quality Trend + Fundamentals"
-description: "Quality companies with institutional-grade fundamentals showing technical strength. No earnings surprise/date data on TV."
+description: "Quality companies with institutional-grade fundamentals showing technical strength. Filters: $500M+ mcap, NYSE/NASDAQ, US, $5+, IPO>1yr, EPS>0, PE<60, 30% inst ownership, 1M avg vol."
 direction: long
 asset_classes:
   - equities
@@ -7,16 +7,44 @@ timeframes:
   - 1D
   - 4h
 filters:
-  - category: fundamental
-    indicator: eps_positive
+  # Institutional quality gates
   - category: fundamental
     indicator: market_cap_gt
     params:
       value: 500000000
+    timeframe: "1D"
+  - category: fundamental
+    indicator: exchange_in
+    params:
+      exchanges:
+        - "NYSE"
+        - "NASDAQ"
+    timeframe: "1D"
+  - category: fundamental
+    indicator: country_in
+    params:
+      countries:
+        - "United States"
+    timeframe: "1D"
+  - category: fundamental
+    indicator: close_above
+    params:
+      threshold: 5.0
+    timeframe: "1D"
+  - category: fundamental
+    indicator: eps_positive
+    timeframe: "1D"
   - category: fundamental
     indicator: pe_max
     params:
       max_pe: 60
+    timeframe: "1D"
+  - category: volume
+    indicator: avg_volume_gt
+    params:
+      threshold: 1000000
+    timeframe: "1D"
+  # Technical confluence
   - category: trend
     indicator: ema_stack_bullish
     timeframe: "1D"

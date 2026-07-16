@@ -291,6 +291,34 @@ class TestInstrumentType:
         })
         assert result.instrument_type == "cef"
 
+    def test_major_financial_not_cef(self):
+        """JPMorgan Chase and other major banks should NEVER be classified as CEF/fund."""
+        for name in [
+            "JPMorgan Chase & Co.",
+            "JPMorgan Chase",
+            "Bank of America Corporation",
+            "Wells Fargo & Company",
+            "Citigroup Inc.",
+            "Goldman Sachs Group Inc.",
+            "Morgan Stanley",
+            "Barclays PLC",
+            "Deutsche Bank AG",
+            "UBS Group AG",
+            "Charles Schwab Corporation",
+            "Vanguard Group Inc.",
+            "BlackRock Inc.",
+        ]:
+            result = _analyze_fundamentals({
+                "shortName": name,
+                "longName": name,
+                "sector": "Financial Services",
+                "trailingPE": 15.0,
+                "eps": 5.0,
+                "fundFamily": None,
+                "legalType": None,
+            })
+            assert result.instrument_type == "equity", f"{name} should be equity, got {result.instrument_type}"
+
     def test_spac_detection(self):
         """SPAC via name keywords + no revenue + no PE."""
         result = _analyze_fundamentals({
@@ -509,6 +537,69 @@ class TestAssetCategory:
         })
         assert result.asset_category == "mining_royalty"
         assert result.lifecycle_stage == "operating"
+
+    def test_de_sanity_check_recalculates_from_balance_sheet(self):
+        """AAPL-style: yfinance returns bogus D/E (79.5) when equity missing; should recalculate from balance sheet."""
+        result = _analyze_fundamentals({
+            "shortName": "Apple Inc.",
+            "longName": "Apple Inc.",
+            "longBusinessSummary": "Apple designs, manufactures, and markets smartphones, personal computers, tablets, wearables, and accessories.",
+            "sector": "Technology",
+            "industry": "Consumer Electronics",
+            "quoteType": "EQUITY",
+            "exchange": "NMS",
+            "marketCap": 3_000_000_000_000,
+            "totalRevenue": 390_000_000_000,
+            "trailingPE": 30.0,
+            "trailingEps": 6.0,
+            "profitMargins": 0.25,
+            "operatingMargins": 0.30,
+            "freeCashflow": 100_000_000_000,
+            "debtToEquity": 79.55,  # Bogus yfinance value when equity is missing
+            "revenueGrowth": 0.05,
+            "totalDebt": 120_000_000_000,      # $120B total debt
+            "totalStockholderEquity": 65_000_000_000,  # $65B equity → D/E = 1.85
+            "dividendYield": 0.005,
+            "returnOnEquity": 1.5,
+            "priceToBook": 45.0,
+            "beta": 1.2,
+        })
+        # Should recalculate D/E to ~1.85, not use the bogus 79.55
+        assert result.debt_to_equity is not None
+        assert result.debt_to_equity < 5.0, f"Expected recalculated D/E < 5, got {result.debt_to_equity}"
+        assert abs(result.debt_to_equity - 1.85) < 0.5, f"Expected ~1.85, got {result.debt_to_equity}"
+        # Should have a finding about the recalculation
+        assert any("recalculated" in f.lower() for f in result.findings)
+
+    def test_de_sanity_check_excludes_when_no_balance_sheet(self):
+        """If balance sheet data also missing, D/E should be excluded (set to None)."""
+        result = _analyze_fundamentals({
+            "shortName": "Mystery Corp",
+            "longName": "Mystery Corp",
+            "longBusinessSummary": "A company with no balance sheet data.",
+            "sector": "Technology",
+            "industry": "Software - Application",
+            "quoteType": "EQUITY",
+            "exchange": "NMS",
+            "marketCap": 10_000_000_000,
+            "totalRevenue": 1_000_000_000,
+            "trailingPE": 25.0,
+            "trailingEps": 2.0,
+            "profitMargins": 0.15,
+            "operatingMargins": 0.20,
+            "freeCashflow": 200_000_000,
+            "debtToEquity": 79.55,  # Bogus value
+            "revenueGrowth": 0.10,
+            "totalDebt": None,  # Missing balance sheet data
+            "totalStockholderEquity": None,
+            "dividendYield": 0.01,
+            "returnOnEquity": 0.20,
+            "priceToBook": 5.0,
+            "beta": 1.1,
+        })
+        # Should exclude the bogus D/E (set to None) since can't recalculate
+        assert result.debt_to_equity is None
+        assert any("excluding" in f.lower() or "incorrect" in f.lower() for f in result.findings)
 
 
 # ── Risk: Position Sizing Tests ──

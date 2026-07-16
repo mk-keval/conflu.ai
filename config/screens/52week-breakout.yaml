@@ -1,11 +1,46 @@
 name: "52-Week Breakout"
-description: "Stocks near 52-week highs with momentum, volume, and trend strength confirmation"
+description: "Stocks near 52-week highs with momentum, volume, and trend strength confirmation. Filters: $500M+ mcap, NYSE/NASDAQ, $5+, IPO>1yr, 30% inst ownership, 1M avg vol, 500K volume."
 asset_classes:
   - equities
 timeframes:
   - 1D
   - 4h
 filters:
+  # Institutional quality gates
+  - category: fundamental
+    indicator: market_cap_gt
+    params:
+      value: 500000000
+    timeframe: "1D"
+  - category: fundamental
+    indicator: exchange_in
+    params:
+      exchanges:
+        - "NYSE"
+        - "NASDAQ"
+    timeframe: "1D"
+  - category: fundamental
+    indicator: country_in
+    params:
+      countries:
+        - "United States"
+    timeframe: "1D"
+  - category: fundamental
+    indicator: close_above
+    params:
+      threshold: 5.0
+    timeframe: "1D"
+  - category: volume
+    indicator: avg_volume_gt
+    params:
+      threshold: 1000000
+    timeframe: "1D"
+  - category: volume
+    indicator: volume_gt
+    params:
+      threshold: 500000
+    timeframe: "1D"
+  # Technical breakout criteria
   - category: trend
     indicator: price_above_ema
     params:
@@ -28,8 +63,5 @@ filters:
       threshold: 30
     timeframe: "1D"
   - category: trend
-    indicator: vwap_band
-    params:
-      side: "above"
-      upper: 1.02
+    indicator: price_above_vwap
     timeframe: "1D"

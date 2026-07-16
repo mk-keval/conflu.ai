@@ -22,7 +22,7 @@ REGIME_WEIGHTS: dict[str, list[float]] = {
     "low_vol":      [0.30, 0.20, 0.10, 0.25, 0.15],
 }
 
-DEFAULT_WEIGHTS = [0.25, 0.25, 0.15, 0.20, 0.15]
+DEFAULT_WEIGHTS = [0.30, 0.22, 0.12, 0.20, 0.16]
 
 
 def synthesise(
@@ -189,6 +189,11 @@ def synthesise(
         elif technical.rsi > 95:
             dealbreakers.append(f"RSI {technical.rsi:.0f} — statistical outlier, likely unsustainable move")
             weighted_score -= 0.2
+
+    # Extreme P/E — valuation dislocation regardless of other factors
+    if fundamental and fundamental.pe_ratio is not None and fundamental.pe_ratio > 100:
+        dealbreakers.append(f"P/E {fundamental.pe_ratio:.0f} — extreme valuation dislocation, multiple compression risk")
+        weighted_score -= 0.4
 
     # Extreme volatility
     if risk and risk.volatility_regime == "extreme":
@@ -507,12 +512,12 @@ def synthesise(
         conviction = 2 + int((weighted_score - 0.1) * 10) if weighted_score > 0 else 2
         conviction = min(conviction, 4)
     elif weighted_score > -0.1:
-        base_action = "HOLD" if not dealbreaker_active else "WATCH"
-        conviction = 3
+        base_action = "WATCH" if not dealbreaker_active else "WATCH"
+        conviction = 2
     elif weighted_score > -0.3:
         base_action = "HOLD"
-        conviction = 4 + int(abs(weighted_score) * 10)
-        conviction = min(conviction, 6)
+        conviction = 2 + int(abs(weighted_score) * 6)  # Lower conviction for negative scores
+        conviction = min(conviction, 4)  # Cap at 4 for cautious hold
     elif weighted_score > -0.5:
         base_action = "REDUCE"
         conviction = 5 + int(abs(weighted_score) * 10)
@@ -613,6 +618,19 @@ def synthesise(
         buy_triggers = []
     else:
         position_size = risk.suggested_position_size_pct if risk else 0
+
+    # Conviction-based position size caps: lower conviction = smaller max position
+    # This prevents taking large positions on low-conviction setups
+    # Caps are generous at reasonable conviction levels; only very low conviction gets restrictive
+    conviction_caps = {
+        1: 10.0, 2: 10.0, 3: 10.0, 4: 12.0, 5: 15.0,
+        6: 18.0, 7: 20.0, 8: 22.0, 9: 25.0, 10: 25.0
+    }
+    if conviction in conviction_caps:
+        cap = conviction_caps[conviction]
+        if position_size > cap:
+            all_findings.append(f"⚠️ Position size {position_size:.1f}% capped to {cap}% (conviction {conviction}/10)")
+            position_size = cap
 
     # Meme/retail stock position cap: elevated short interest + high beta
     # + bearish technicals = dangerous combination for retail-driven volatility.

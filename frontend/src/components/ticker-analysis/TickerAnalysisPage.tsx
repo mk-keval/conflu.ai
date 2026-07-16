@@ -99,6 +99,13 @@ const VERDICT_MAP: Record<string, VerdictConfig> = {
     text: 'text-gain',
     icon: <ArrowUp className="w-8 h-8" />,
   },
+  ACCUMULATE: {
+    label: 'ACCUMULATE',
+    bg: 'bg-gain/10',
+    border: 'border-gain',
+    text: 'text-gain',
+    icon: <ArrowUp className="w-8 h-8" />,
+  },
   WATCH: {
     label: 'WATCH',
     bg: 'bg-warning/10',

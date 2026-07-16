@@ -89,12 +89,28 @@ def analyze(info: dict[str, Any]) -> FundamentalAnalysis:
     # (e.g., PIMCO Dynamic Income Fund PDI, Voya Global Equity IGD)
     if not is_fund and not is_etn and not is_spac:
         name_lower = (short_name + " " + long_name + " " + business_summary).lower()
+        
+        # EXCLUSION: Major financial institutions that should NEVER be classified as CEF/funds
+        # These are well-known banks, broker-dealers, investment banks, and universal banks
+        MAJOR_FINANCIAL_INSTITUTIONS = {
+            "jpmorgan", "jp morgan", "chase", "bank of america", "wells fargo",
+            "citigroup", "citi", "goldman sachs", "morgan stanley", "barclays",
+            "deutsche bank", "ubs", "credit suisse", "hsbc", "bnp paribas",
+            "societe generale", "standard chartered", "royal bank of canada",
+            "toronto dominion", "bank of montreal", "scotiabank", "cibc",
+            "charles schwab", "schwab", "etrade", "td ameritrade", "fidelity",
+            "vanguard", "blackrock", "state street", "northern trust", "bny mellon",
+            "intercontinental exchange", "cme group", "nasdaq", "ice",
+        }
+        is_major_financial = any(inst in name_lower for inst in MAJOR_FINANCIAL_INSTITUTIONS)
+        
         name_has_fund_keywords = any(kw in name_lower for kw in [
             " fund", "funds", "income fund", "growth fund", "dividend fund",
             "dynamic income", "global equity", "municipal fund", "bond fund",
         ])
         # Strong signal: name says "Fund" + Financial Services sector + no P/E or no EPS
-        is_name_fund = name_has_fund_keywords and sector in ("Financial Services", "Financial")
+        # EXCLUDE major financial institutions from this heuristic
+        is_name_fund = name_has_fund_keywords and sector in ("Financial Services", "Financial") and not is_major_financial
         has_fund_like_data = (info.get("trailingPE") is None or info.get("eps") is None)
         if is_name_fund and has_fund_like_data:
             is_fund = True
@@ -524,32 +540,55 @@ def analyze(info: dict[str, Any]) -> FundamentalAnalysis:
     # High-growth companies (>50% YoY revenue growth) often carry elevated
     # leverage to fund expansion — halve the D/E penalty since the growth
     # trajectory makes the debt serviceable.
+
+    # Pre-calculate sector flags (needed regardless of D/E validity)
+    financial_sectors = {"Financial Services", "Banks", "Insurance", "Capital Markets"}
+    energy_sectors = {"Energy", "Oil & Gas", "Oil & Gas E&P", "Oil & Gas Equipment & Services"}
+    is_financial = sector in financial_sectors
+    is_energy = sector in energy_sectors
+    is_high_growth = rev_growth is not None and rev_growth > 0.50
+
     if dte is not None:
-        financial_sectors = {"Financial Services", "Banks", "Insurance", "Capital Markets"}
-        energy_sectors = {"Energy", "Oil & Gas", "Oil & Gas E&P", "Oil & Gas Equipment & Services"}
-        is_financial = sector in financial_sectors
-        is_energy = sector in energy_sectors
-        is_high_growth = rev_growth is not None and rev_growth > 0.50
-        dte_mult = 8 if is_financial else (3 if is_energy else 1)
-        growth_discount = 0.5 if is_high_growth else 1.0
-        if dte < 0.3 * dte_mult:
-            findings.append(f"✅ D/E {dte:.2f} — conservative balance sheet (low debt)")
-            score += 0.2
-        elif dte < 1.0 * dte_mult:
-            findings.append(f"✅ D/E {dte:.2f} — healthy leverage")
-            score += 0.1
-        elif dte < 2.0 * dte_mult:
-            findings.append(f"📊 D/E {dte:.2f} — moderate leverage, manageable")
-        elif dte < 4.0 * dte_mult:
-            penalty = 0.1 if (is_financial or is_energy) else 0.2
-            findings.append(f"⚠️ D/E {dte:.2f} — elevated debt, monitor")
-            score -= penalty * growth_discount
-        else:
-            sector_normal = is_financial or is_energy
-            suffix = " (normal for sector)" if sector_normal else ", financial risk"
-            suffix += " — moderated by exceptional growth" if is_high_growth else ""
-            findings.append(f"🚨 D/E {dte:.2f} — highly leveraged{suffix}")
-            score -= (0.4 if not sector_normal else 0.1) * growth_discount
+        # SANITY CHECK: yfinance sometimes returns bogus D/E (e.g., 79.5 for AAPL)
+        # when totalStockholderEquity is None. Flag and attempt recalculation.
+        # Also catch moderate bogus values (e.g., NVDA 6.55) that are too high for non-financials.
+        if dte > 5 and not is_financial:
+            # Try to recalculate from raw balance sheet data
+            total_debt = info.get("totalDebt")
+            total_equity = info.get("totalStockholderEquity")
+            if total_debt and total_equity and total_equity > 0:
+                recalculated = total_debt / total_equity
+                if recalculated < 20:  # Sanity check on recalculated value
+                    findings.append(f"⚠️ yfinance D/E {dte:.2f} appears incorrect; recalculated to {recalculated:.2f} from balance sheet")
+                    dte = recalculated
+                else:
+                    findings.append(f"⚠️ yfinance D/E {dte:.2f} appears incorrect (likely missing equity data); excluding from analysis")
+                    dte = None
+            else:
+                findings.append(f"⚠️ yfinance D/E {dte:.2f} appears incorrect (likely missing equity data); excluding from analysis")
+                dte = None
+
+        if dte is not None:
+            dte_mult = 8 if is_financial else (3 if is_energy else 1)
+            growth_discount = 0.5 if is_high_growth else 1.0
+            if dte < 0.3 * dte_mult:
+                findings.append(f"✅ D/E {dte:.2f} — conservative balance sheet (low debt)")
+                score += 0.2
+            elif dte < 1.0 * dte_mult:
+                findings.append(f"✅ D/E {dte:.2f} — healthy leverage")
+                score += 0.1
+            elif dte < 2.0 * dte_mult:
+                findings.append(f"📊 D/E {dte:.2f} — moderate leverage, manageable")
+            elif dte < 4.0 * dte_mult:
+                penalty = 0.1 if (is_financial or is_energy) else 0.2
+                findings.append(f"⚠️ D/E {dte:.2f} — elevated debt, monitor")
+                score -= penalty * growth_discount
+            else:
+                sector_normal = is_financial or is_energy
+                suffix = " (normal for sector)" if sector_normal else ", financial risk"
+                suffix += " — moderated by exceptional growth" if is_high_growth else ""
+                findings.append(f"🚨 D/E {dte:.2f} — highly leveraged{suffix}")
+                score -= (0.4 if not sector_normal else 0.1) * growth_discount
     weight_count += 1
 
     # ── Revenue Growth ──

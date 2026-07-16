@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -16,6 +17,7 @@ from backend.app.domain.ticker_analysis import (
     sentiment,
     synthesis,
     technical,
+    macro_overlay,
 )
 from backend.app.domain.ticker_analysis.models import (
     EarningsAnalysis,
@@ -27,12 +29,40 @@ from backend.app.domain.ticker_analysis.models import (
     TickerAnalysisResponse,
     AnalysisVerdict,
 )
+from backend.app.api.routers.regime import get_market_regime, MarketRegimeResponse
+from backend.app.api.schemas import ApiResponse
 
 log = get_logger("conflu.ticker_analysis")
 
 # Simple in-memory TTL cache for yfinance results
 _INFO_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 _CACHE_TTL = 300  # 5 minutes
+
+# Macro regime cache
+_MACRO_REGIME_CACHE: MarketRegimeResponse | None = None
+_MACRO_REGIME_CACHE_TIME: float = 0.0
+_MACRO_REGIME_CACHE_TTL = 3600.0  # 1 hour cache for market regime
+
+
+async def _fetch_market_regime() -> MarketRegimeResponse | None:
+    """Fetch current market regime, using cache if available."""
+    global _MACRO_REGIME_CACHE, _MACRO_REGIME_CACHE_TIME
+    
+    now = time.monotonic()
+    if _MACRO_REGIME_CACHE is not None and (now - _MACRO_REGIME_CACHE_TIME) < _MACRO_REGIME_CACHE_TTL:
+        return _MACRO_REGIME_CACHE
+    
+    try:
+        # Call the regime endpoint internally
+        response: ApiResponse = await get_market_regime()
+        if response.data:
+            _MACRO_REGIME_CACHE = response.data
+            _MACRO_REGIME_CACHE_TIME = now
+            return response.data
+    except Exception:
+        log.exception("macro_regime_fetch_failed")
+    
+    return None
 
 
 def _fetch_info(symbol: str) -> dict[str, Any]:
@@ -398,6 +428,32 @@ class TickerAnalysisService:
             regime=request.regime,
             tv_data=tv_data,
         )
+
+        # ── 3b. Apply macro regime overlay ──
+        try:
+            from backend.app.api.routers.regime import get_market_regime_sync
+            regime = get_market_regime_sync()
+            if regime:
+                from backend.app.domain.ticker_analysis.macro_overlay import get_macro_adjustment, apply_macro_adjustment
+                # Calculate weighted score from verdict action/conviction for macro overlay
+                action_to_score = {
+                    "BUY": 0.8, "ACCUMULATE": 0.4, "WATCH": 0.1, 
+                    "HOLD": -0.1, "REDUCE": -0.4, "AVOID": -0.8
+                }
+                weighted_score = action_to_score.get(verdict.action, 0.0)
+                adjustment = macro_overlay.get_macro_adjustment(
+                    vix=regime.vix.value,
+                    composite_score=regime.composite_score,
+                    risk_appetite_score=regime.risk_appetite.score,
+                    sector_breadth_pct=regime.sector_breadth.value,
+                    safe_haven_score=regime.safe_haven.score,
+                    weighted_score=weighted_score,
+                    verdict=verdict,
+                )
+                verdict = macro_overlay.apply_macro_adjustment(verdict, adjustment)
+                log.info("macro_overlay_applied", symbol=symbol, adjustment=adjustment.notes)
+        except Exception:
+            self.log.exception("macro_overlay_failed", symbol=symbol)
 
         # ── 4. Build response ──
         duration_ms = round((time.monotonic() - start) * 1000)

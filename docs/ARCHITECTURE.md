@@ -160,9 +160,8 @@ ExceptionHandlers → {error: {code, message, details, request_id}}
 - **DuckDB retained for backtest OHLCV**: Historical data still needed for deep analysis (backtest + risk)
 - **Multi-TF via client-side intersection**: TV only supports single-TF queries, so multi-TF = multiple queries + intersect
 - **ATR-based entry/SL/targets**: Available directly from TV — no local computation needed for screening
-- **56 TV filters** across trend, momentum, volume, volatility, pattern, and fundamental categories
-- **9 elite screen templates**: Sector Rotation Leader, Institutional Accumulation, RS Leader, High-Conviction Stack, Bull Flag, Volatility Expansion, Statistical Mean Reversion, Earnings Momentum, Short Squeeze
-- **21 total screen templates** available
+- **26 TV filters** across trend, momentum, volume, volatility, pattern, and fundamental categories
+- **21 total screen templates** available (Low-Vol Setup, Mean Reversion, Oversold Bounce, Statistical Mean Reversion, Momentum Breakout, Breakout, Quality Trend + Fundamentals, Volume-Confirmed Uptrend, Bull Flag Continuation, 52-Week Breakout, Trend Follower, Trend Follower MTF, High-Conviction Stack, Volatility Expansion, Institutional Swing Quality, Institutional Trend Follower MTF, Volume-Confirmed Uptrend, Volume Surge, Volume Surge Breakout, Volume+Trend Accumulation, Trend Leader)
 - **4 adaptive regime weight tables**: strong_trend, ranging, high_vol, low_vol — each with different factor emphasis
 - **Post-TV signal enrichment**: EliteSignalProcessor adds RS rating, institutional quality, signal conviction, Wyckoff phase proxy
 - **RS rating is relative percentile** within the current screen cohort, not an absolute score

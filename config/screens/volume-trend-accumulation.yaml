@@ -1,5 +1,5 @@
-name: "Volume + Trend Accumulation"
-description: "OBV proxy (price > SMA20 + above-avg volume) with bullish trend structure. Note: no real 13F/insider data on TV."
+name: "Institutional Accumulation"
+description: "Smart money accumulation signals — heavy volume, rising OBV, price holding above VWAP with bullish analyst consensus. Catches institutional positioning before the breakout. Filters: $2B+ mcap, NYSE/NASDAQ, $5+, EPS>0, 1M avg vol."
 direction: long
 asset_classes:
   - equities
@@ -7,6 +7,33 @@ timeframes:
   - 1D
   - 4h
 filters:
+  # Institutional quality gates
+  - category: fundamental
+    indicator: market_cap_gt
+    params:
+      value: 2000000000
+    timeframe: "1D"
+  - category: fundamental
+    indicator: exchange_in
+    params:
+      exchanges:
+        - "NYSE"
+        - "NASDAQ"
+    timeframe: "1D"
+  - category: fundamental
+    indicator: close_above
+    params:
+      threshold: 5.0
+    timeframe: "1D"
+  - category: fundamental
+    indicator: eps_positive
+    timeframe: "1D"
+  - category: fundamental
+    indicator: pe_max
+    params:
+      max_pe: 60
+    timeframe: "1D"
+  # Volume & trend confirmation
   - category: volume
     indicator: obv_rising
     params:
@@ -37,8 +64,9 @@ filters:
       threshold: 25
     timeframe: "1D"
   - category: fundamental
-    indicator: market_cap_gt
+    indicator: analyst_rating_in
     params:
-      value: 1000000000
-  - category: fundamental
-    indicator: eps_positive
+      ratings:
+        - StrongBuy
+        - Buy
+    timeframe: "1D"

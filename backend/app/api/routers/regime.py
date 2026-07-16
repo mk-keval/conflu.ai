@@ -438,3 +438,25 @@ async def get_market_regime() -> ApiResponse[MarketRegimeResponse]:
         ),
         meta=MetaInfo(request_id="", duration_ms=round(duration, 1)),
     )
+
+
+# ── Synchronous wrapper for internal use ──
+def get_market_regime_sync() -> MarketRegimeResponse | None:
+    """Synchronous wrapper to fetch market regime for internal use."""
+    import asyncio
+    
+    async def _get_regime() -> MarketRegimeResponse | None:
+        try:
+            response: ApiResponse = await get_market_regime()
+            return response.data
+        except Exception:
+            log.exception("macro_regime_fetch_failed")
+            return None
+    
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
+    return loop.run_until_complete(_get_regime())

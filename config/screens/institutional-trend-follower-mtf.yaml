@@ -1,0 +1,58 @@
+name: "Institutional Trend Follower (Multi-Timeframe)"
+description: "EMA50 above EMA200 on daily with 4h confirmation — captures established trends with institutional-grade filters: quality fundamentals, liquidity, no ETFs/penny stocks"
+asset_classes:
+  - equities
+timeframes:
+  - 1D
+  - 4h
+filters:
+  # Quality floors (run on TV servers)
+  - category: fundamental
+    indicator: market_cap_gt
+    params:
+      value: 500000000      # $500M minimum — filters penny stocks, most micro-caps
+    timeframe: "1D"
+  - category: fundamental
+    indicator: exchange_in
+    params:
+      exchanges:
+        - "NYSE"
+        - "NASDAQ"
+    timeframe: "1D"
+  - category: fundamental
+    indicator: close_above
+    params:
+      threshold: 3.0
+    timeframe: "1D"
+  - category: volume
+    indicator: avg_volume_gt
+    params:
+      threshold: 1000000    # 1M avg daily volume — institutional liquidity floor
+    timeframe: "1D"
+  # Technical criteria
+  - category: trend
+    indicator: ema_stack_bullish
+    timeframe: "1D"
+  - category: trend
+    indicator: price_above_ema
+    params:
+      period: 20
+    timeframe: "4h"
+  - category: momentum
+    indicator: rsi_gt
+    params:
+      threshold: 60
+    timeframe: "4h"
+  - category: momentum
+    indicator: macd_bullish
+    timeframe: "4h"
+  - category: volume
+    indicator: rvol_high
+    params:
+      threshold: 1.5
+    timeframe: "4h"
+  - category: volatility
+    indicator: adx_trending
+    params:
+      threshold: 25
+    timeframe: "1D"

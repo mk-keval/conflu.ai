@@ -1,5 +1,5 @@
 name: "Trend Leader"
-description: "Strong trending stocks with aligned EMAs, RSI momentum sweet spot, MACD bullish, and volume confirmation — ideal for riding institutional trend flows"
+description: "Strong trending stocks with aligned EMAs, RSI momentum sweet spot, MACD bullish, and volume confirmation — ideal for riding institutional trend flows. Filters: $2B+ mcap, NYSE/NASDAQ, US, $5+, 1M avg vol."
 direction: long
 asset_classes:
   - equities
@@ -7,6 +7,41 @@ timeframes:
   - 1D
   - 4h
 filters:
+  # Institutional quality gates
+  - category: fundamental
+    indicator: market_cap_gt
+    params:
+      value: 2000000000
+    timeframe: "1D"
+  - category: fundamental
+    indicator: exchange_in
+    params:
+      exchanges:
+        - "NYSE"
+        - "NASDAQ"
+    timeframe: "1D"
+  - category: fundamental
+    indicator: country_in
+    params:
+      countries:
+        - "United States"
+    timeframe: "1D"
+  - category: fundamental
+    indicator: close_above
+    params:
+      threshold: 5.0
+    timeframe: "1D"
+  - category: volume
+    indicator: avg_volume_gt
+    params:
+      threshold: 1000000
+    timeframe: "1D"
+  - category: volume
+    indicator: rvol_high
+    params:
+      threshold: 1.5
+    timeframe: "4h"
+  # Technical criteria
   - category: trend
     indicator: ema_stack_bullish
     timeframe: "1D"

@@ -1,0 +1,67 @@
+name: "Institutional Swing Quality"
+description: "High-quality equities for 2d-2wk swing trades — institutional-grade liquidity, fundamental health, technical momentum, no ETFs/penny stocks/OTC"
+direction: long
+asset_classes:
+  - equities
+timeframes:
+  - 1D
+  - 4h
+filters:
+  # Institutional quality gates
+  - category: fundamental
+    indicator: market_cap_gt
+    params:
+      value: 2000000000          # $2B minimum — institutional position sizing
+    timeframe: "1D"
+  - category: fundamental
+    indicator: exchange_in
+    params:
+      exchanges:
+        - "NYSE"
+        - "NASDAQ"
+    timeframe: "1D"
+  - category: fundamental
+    indicator: close_above
+    params:
+      threshold: 5.0
+    timeframe: "1D"
+  - category: fundamental
+    indicator: eps_positive
+    timeframe: "1D"
+  - category: fundamental
+    indicator: pe_max
+    params:
+      max_pe: 60
+    timeframe: "1D"
+  # Liquidity gates
+  - category: volume
+    indicator: avg_volume_gt
+    params:
+      threshold: 1000000        # 1M avg daily volume
+    timeframe: "1D"
+  - category: volume
+    indicator: rvol_high
+    params:
+      threshold: 1.2            # Above-average volume
+    timeframe: "1D"
+  # Technical momentum
+  - category: trend
+    indicator: ema_stack_bullish
+    timeframe: "1D"
+  - category: momentum
+    indicator: rsi_macd_bullish
+    timeframe: "1D"
+  - category: momentum
+    indicator: rsi_in_range
+    params:
+      min: 55
+      max: 80
+    timeframe: "1D"
+  - category: volume
+    indicator: price_above_vwap
+    timeframe: "1D"
+  - category: volatility
+    indicator: adx_trending
+    params:
+      threshold: 25
+    timeframe: "1D"

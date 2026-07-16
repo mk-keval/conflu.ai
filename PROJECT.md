@@ -17,7 +17,7 @@ TV Screener Discovery (<2s, 12K+ symbols)
 - **Source**: `tradingview-screener` v3.2+ — free API, 12,000+ symbols, 50+ indicators
 - **Markets**: US Equities (primary, via S&P 500 index components)
 - **Timeframes**: 1m–1M, multi-TF via client-side intersection
-- **Filters**: 16 pre-built screener filters (price/RSI/MACD/EMA/volume/ATR/ADX/BB/fundamentals)
+- **Filters**: 26 pre-built screener filters (price/RSI/MACD/EMA/volume/ATR/ADX/BB/fundamentals)
 - **Rate Limit**: ~30 req/min free tier, 15-min delayed data
 
 ### 2. Scoring Layer (Confluence from TV data only)
