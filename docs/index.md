@@ -27,9 +27,9 @@ Welcome to the conflu.ai documentation. conflu.ai is a professional multi-asset 
 
 | Date | Change |
 |------|--------|
+| 2026-07-16 | **Ticker Analysis Yahoo Finance Integration**: Added `/options` (chain, Greeks, max pain, GEX, IV Rank, PCR), `/news` (sentiment feed), `/chart` (5m/15m/1h/4h/1d intraday) endpoints + 3 new frontend tabs (Options, News, Chart redirect) + UX fixes (conviction tooltip, binary outcome N/A tooltips, market regime refresh, Explain toggle) |
 | 2026-07-14 | Screener dropdown pointer-events fix: converted TemplateDropdown to portal-based fixed positioning (same pattern as ColumnCustomizer D-22) — dropdown items at any scroll position now clickable |
 | 2026-07-09 | Elite screener pipeline: 56 filters, 9 new screen templates, adaptive regime scoring, EliteSignalProcessor (RS Rating, Inst Quality, Signal Conviction, Wyckoff Phase) + frontend elite columns |
-| 2026-07-09 | **Ticker Analysis Engine**: `POST /api/v1/ticker/{symbol}/analyze` — 5-module analysis (technical, fundamental, earnings, sentiment, risk) with regime-weighted synthesis → verdict (BUY/SELL/HOLD/WATCH) + entry/stop/targets/triggers/thesis + frontend page at `/ticker/:symbol` |
 | 2026-07-07 | Sector rotation smart money tracker + market regime detection system + caching fixes + timeframe-aware volume metrics |
 | 2026-07-03 | UI audit fixes: table visual improvements, column customizer, portal stacking, indicator cache backend |
 | 2026-07-02 | Screener improvements: scoring calibration, short screens, filter descriptions, Learn tab |

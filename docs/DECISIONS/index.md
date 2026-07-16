@@ -13,6 +13,7 @@ This section contains Architecture Decision Records (ADRs) for significant proje
 - [ADR-007: React + TypeScript Frontend](0007-react-typescript-frontend.md)
 - [ADR-008: Prometheus + Grafana Observability](0008-prometheus-grafana-observability.md)
 - [ADR-009: Comprehensive Validation Infrastructure](0009-validation-infrastructure.md)
+- [ADR-010: Ticker Analysis Yahoo Finance Endpoints](0010-options-news-chart-endpoints-ux.md)
 
 - [D-16: Prometheus Metrics](D-16-prometheus-metrics.md)
 - [D-17: OpenTelemetry Optional](D-17-opentelemetry-optional.md)
