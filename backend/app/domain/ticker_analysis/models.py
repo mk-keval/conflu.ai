@@ -40,6 +40,14 @@ class TechnicalAnalysis(BaseModel):
     volume_ratio: float | None = None
     bb_position: str | None = None  # below_lower / inside / above_upper
     macd_status: str | None = None  # bullish / bearish / neutral
+    # Market structure (new)
+    structure: str | None = None  # bullish / bearish / ranging / transition
+    swing_highs: list[float] | None = None
+    swing_lows: list[float] | None = None
+    key_resistance: list[float] | None = None
+    key_support: list[float] | None = None
+    pullback_quality: str | None = None  # A+ / A / B / C / D / F
+    pullback_score: float | None = None  # 0-100
     findings: list[str]
 
 
@@ -111,6 +119,35 @@ class RiskAssessment(BaseModel):
 # ── Synthesis Output ──
 
 
+class TradePlan(BaseModel):
+    """Dynamic trade management plan — scale in/out, trail stops, breakeven rules."""
+    model_config = ConfigDict(extra="forbid")
+
+    # Scale-in plan
+    scale_in: list[dict] = []  # [{"price": float, "size_pct": float, "reason": str}]
+    
+    # Scale-out (partial profit taking)
+    scale_out: list[dict] = []  # [{"r_multiple": float, "size_pct": float, "reason": str}]
+    
+    # Trailing stop rules
+    trail_type: str = "atr"  # "atr" / "structure" / "percent"
+    trail_value: float = 2.0  # ATR multiplier or percent
+    trail_activation_r: float = 1.0  # Start trailing after this R-multiple
+    
+    # Breakeven rules
+    move_to_breakeven_at_r: float = 1.0  # Move stop to entry after this R
+    
+    # Time-based exit
+    max_hold_days: int | None = None  # Optional time stop
+    
+    # Risk management
+    max_position_pct: float = 10.0  # Hard cap on position size
+    daily_loss_limit_pct: float = 2.0  # Stop trading if daily loss exceeds this
+    
+    # Notes
+    notes: list[str] = []
+
+
 class AnalysisVerdict(BaseModel):
     """Final actionable verdict synthesised from all modules."""
     model_config = ConfigDict(extra="forbid")
@@ -127,9 +164,8 @@ class AnalysisVerdict(BaseModel):
     buy_triggers: list[str] = []
     sell_triggers: list[str] = []
     thesis: str = ""
-
-
-# ── Full Response ──
+    # Dynamic trade management (new)
+    trade_plan: TradePlan | None = None
 
 
 class TickerAnalysisResponse(BaseModel):
@@ -149,3 +185,5 @@ class TickerAnalysisResponse(BaseModel):
     execution_ms: int
     analysis_timestamp: str | None = None
     data_age_hours: float | None = None
+    # Data source attribution
+    data_sources: dict[str, str] | None = None
