@@ -8,7 +8,7 @@ import {
   type OptionsChainResponse,
   type NewsResponse,
 } from '@/api/tickerAnalysis';
-import type { TickerAnalysisResponse } from '@/types/tickerAnalysis';
+import type { TickerAnalysisResponse, TechnicalAnalysis } from '@/types/tickerAnalysis';
 import { cn } from '@/lib/cn';
 import { formatPrice, formatPct, formatLargeNumber } from '@/lib/format';
 import {
@@ -100,6 +100,13 @@ interface VerdictConfig {
   icon: React.ReactNode;
 }
 const VERDICT_MAP: Record<string, VerdictConfig> = {
+  STRONG_BUY: {
+    label: 'STRONG BUY',
+    bg: 'bg-gain/20',
+    border: 'border-gain/50',
+    text: 'text-gain',
+    icon: <ArrowUp className="w-8 h-8" />,
+  },
   BUY: {
     label: 'BUY',
     bg: 'bg-gain/10',
@@ -150,29 +157,75 @@ function verdictConfig(action: string): VerdictConfig {
   return VERDICT_MAP[base] ?? VERDICT_MAP.WATCH;
 }
 
-function ConvictionRing({ conviction }: { conviction: number }) {
+function ConvictionRing({ conviction, weightedScore }: { conviction: number; weightedScore?: number }) {
   const clamped = Math.max(1, Math.min(10, conviction));
   const pct = clamped / 10;
   const circumference = 2 * Math.PI * 16;
   const offset = circumference * (1 - pct);
   const color = conviction >= 7 ? '#22c55e' : conviction >= 4 ? '#eab308' : '#ef4444';
-  const tooltip = `Conviction: ${conviction}/10 — How strongly the multi-factor analysis supports the verdict.
-≥7 = High confidence, 4–6 = Moderate, ≤3 = Low confidence / mixed signals.`;
+  const [open, setOpen] = useState(false);
+
+  const getConvictionExplanation = () => {
+    if (conviction >= 7) {
+      return {
+        title: "High Conviction (7-10)",
+        meaning: "Strong alignment across multiple analysis modules. Technical, fundamental, earnings, sentiment, and risk signals all point in the same direction.",
+        action: "Consider position sizing at upper end of risk limits. High conviction setups warrant larger positions.",
+      };
+    } else if (conviction >= 4) {
+      return {
+        title: "Moderate Conviction (4-6)",
+        meaning: "Mixed signals — some modules bullish, others neutral or slightly bearish. Not a clear-cut setup but has merit.",
+        action: "Size position conservatively. Wait for confirming price action or additional catalysts before committing full size.",
+      };
+    } else {
+      return {
+        title: "Low Conviction (1-3)",
+        meaning: "Conflicting signals or weak overall score. Analysis modules disagree significantly, or most factors are neutral/negative.",
+        action: "Avoid or position very small (≤1-2%). Treat as watchlist candidate only — wait for clearer setup.",
+      };
+    }
+  };
+
+  const explanation = getConvictionExplanation();
+
   return (
-    <svg width="40" height="40" viewBox="0 0 40 40" className="shrink-0" title={tooltip}>
-      <circle cx="20" cy="20" r="16" fill="none" stroke="currentColor" strokeWidth="3" className="text-surface-hover" />
-      <circle cx="20" cy="20" r="16" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round"
-        strokeDasharray={circumference} strokeDashoffset={offset} transform="rotate(-90 20 20)"
-        className="transition-all duration-500"
-      />
-      <text x="20" y="20" textAnchor="middle" dominantBaseline="central" fontSize="10" fontWeight="bold" fill="currentColor" className="text-text-primary">
-        {conviction}
-      </text>
-    </svg>
+    <div className="flex items-center gap-1.5">
+      <div className="relative" title="Click for conviction explanation" onClick={() => setOpen(!open)}>
+        <svg width="40" height="40" viewBox="0 0 40 40" className="shrink-0 cursor-pointer">
+          <circle cx="20" cy="20" r="16" fill="none" stroke="currentColor" strokeWidth="3" className="text-surface-hover" />
+          <circle cx="20" cy="20" r="16" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round"
+            strokeDasharray={circumference} strokeDashoffset={offset} transform="rotate(-90 20 20)"
+            className="transition-all duration-500"
+          />
+          <text x="20" y="20" textAnchor="middle" dominantBaseline="central" fontSize="10" fontWeight="bold" fill="currentColor" className="text-text-primary">
+            {conviction}
+          </text>
+        </svg>
+      </div>
+      {open && (
+        <div className="absolute z-10 ml-2 bg-background border border-accent/20 rounded-lg p-3 text-xs min-w-[220px] animate-in slide-in-from-top-1 duration-150 shadow-lg">
+          <div className="font-semibold text-accent mb-1.5">{explanation.title}</div>
+          <div className="text-text-secondary mb-2 leading-relaxed">{explanation.meaning}</div>
+          <div className="pt-2 border-t border-border/30">
+            <div className="font-semibold text-text-primary mb-0.5">Action:</div>
+            <div className="text-text-secondary leading-relaxed">{explanation.action}</div>
+          </div>
+          {weightedScore !== undefined && (
+            <div className="mt-2 pt-2 border-t border-border/30">
+              <div className="font-semibold text-text-primary mb-0.5">Weighted Score:</div>
+              <div className="text-text-secondary font-mono">
+                {weightedScore >= 0 ? '+' : ''}{weightedScore.toFixed(2)} (range: -1.0 to +1.0)
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
-function VerdictBanner({ data }: { data: TickerAnalysisResponse }) {
+function VerdictBanner({ data, weightedScore }: { data: TickerAnalysisResponse; weightedScore?: number }) {
   const v = data.verdict;
   const cfg = verdictConfig(v.action);
   const changeStr = data.change_pct != null ? formatPct(data.change_pct) : null;
@@ -200,7 +253,7 @@ function VerdictBanner({ data }: { data: TickerAnalysisResponse }) {
                 {cfg.label}
               </span>
               <div className="flex items-center gap-1.5 text-sm text-text-muted">
-                <ConvictionRing conviction={v.conviction} />
+                <ConvictionRing conviction={v.conviction} weightedScore={weightedScore} />
               </div>
               {data.sector && (
                 <span className="text-sm text-text-muted">{data.sector}</span>
@@ -238,6 +291,9 @@ function VerdictBanner({ data }: { data: TickerAnalysisResponse }) {
         } note={v.targets.length === 0 ? 'Binary outcome stock — targets depend on milestone outcomes.' : undefined} />
         <KeyLevel label="Risk/Reward" value={v.risk_reward != null ? `${v.risk_reward.toFixed(1)}:1` : 'N/A'} note={v.risk_reward == null ? 'Binary outcome stock — R:R varies by scenario.' : undefined} />
       </div>
+
+      {/* Data Source Attribution */}
+      <DataSourceAttribution data={data} />
     </div>
   );
 }
@@ -254,6 +310,44 @@ function KeyLevel({ label, value, note }: { label: string; value: string; note?:
         )}
       </div>
       <div className="text-sm font-mono font-semibold text-text-primary">{value}</div>
+    </div>
+  );
+}
+
+function DataSourceAttribution({ data }: { data: TickerAnalysisResponse }) {
+  const sources = data.data_sources;
+  if (!sources) return null;
+  
+  const ageHours = data.data_age_hours;
+  const freshnessLabel = ageHours != null 
+    ? (ageHours < 1 ? '<1h' : ageHours > 24 ? `${ageHours.toFixed(0)}h ⚠️ Stale` : `${ageHours.toFixed(0)}h`)
+    : 'Unknown';
+  
+  const sourceItems = [
+    { label: 'Technical (Daily)', value: sources.technical_daily, icon: <TrendingUp className="w-3 h-3" />, freshness: freshnessLabel },
+    { label: 'Technical (Weekly)', value: sources.technical_weekly, icon: <TrendingUp className="w-3 h-3" />, freshness: freshnessLabel },
+    { label: 'Fundamental', value: sources.fundamental, icon: <DollarSign className="w-3 h-3" />, freshness: freshnessLabel },
+    { label: 'Earnings', value: sources.earnings, icon: <Activity className="w-3 h-3" />, freshness: freshnessLabel },
+    { label: 'Sentiment', value: sources.sentiment, icon: <Activity className="w-3 h-3" />, freshness: freshnessLabel },
+  ].filter(item => item.value);
+
+  return (
+    <div className="mt-4 p-3 bg-surface/30 border border-border/30 rounded-lg">
+      <div className="text-xs font-semibold text-text-primary uppercase tracking-wider mb-2">Data Sources & Freshness</div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2 text-xs">
+        {sourceItems.map((item, i) => (
+          <div key={i} className="flex flex-col gap-0.5 text-text-secondary">
+            <div className="flex items-center gap-1.5">
+              <span className="text-accent">{item.icon}</span>
+              <span className="font-medium text-text-primary">{item.label}</span>
+            </div>
+            <div className="flex items-center gap-1.5 ml-5">
+              <span className="font-mono text-text-secondary">{item.value}</span>
+              <span className="text-text-muted">({item.freshness})</span>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -285,8 +379,13 @@ function VerdictTab({ data, explain }: { data: TickerAnalysisResponse; explain: 
   const v = data.verdict;
   const [walkthroughOpen, setWalkthroughOpen] = useState(false);
   const [glossaryOpen, setGlossaryOpen] = useState(false);
+  // Handle both old format (TechnicalAnalysis) and new format (MultiTimeframeTechnical)
+  const getTechnicalScore = (tech: any) => {
+    if (!tech) return 0;
+    return tech.daily?.score ?? tech.score ?? 0;
+  };
   const moduleScores = [
-    { label: 'Technical', score: data.technical?.score ?? 0 },
+    { label: 'Technical', score: getTechnicalScore(data.technical) },
     { label: 'Fundamentals', score: data.fundamental?.score ?? 0 },
     { label: 'Earnings', score: data.earnings?.score ?? 0 },
     { label: 'Sentiment', score: data.sentiment?.score ?? 0 },
@@ -373,6 +472,118 @@ function VerdictTab({ data, explain }: { data: TickerAnalysisResponse; explain: 
           <p className="text-sm text-text-secondary">
             Suggested position size: <span className="font-mono font-semibold text-text-primary">{v.position_size_pct}%</span> of portfolio
           </p>
+        </div>
+      )}
+
+      {/* Trade Plan Panel */}
+      {v.trade_plan && (
+        <div className="bg-surface/50 rounded-lg p-4 border border-accent/20">
+          <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-2">
+            <Shield className="w-4 h-4" /> Trade Plan
+          </h3>
+          <div className="space-y-4 text-sm">
+            {/* Scale In */}
+            {v.trade_plan.scale_in && v.trade_plan.scale_in.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="font-semibold text-text-primary flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-gain" /> Scale In
+                </h4>
+                <div className="space-y-1 ml-4">
+                  {v.trade_plan.scale_in.map((step: any, i: number) => (
+                    <div key={i} className="text-sm text-text-secondary flex items-center gap-2">
+                      <span className="font-mono text-text-primary">{formatPrice(step.price)}</span>
+                      <span className="text-text-muted">({step.size_pct}% of portfolio)</span>
+                      <span className="text-text-muted">— {step.reason}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Scale Out */}
+            {v.trade_plan.scale_out && v.trade_plan.scale_out.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="font-semibold text-text-primary flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-gain" /> Scale Out (Partial Profits)
+                </h4>
+                <div className="space-y-1 ml-4">
+                  {v.trade_plan.scale_out.map((step: any, i: number) => (
+                    <div key={i} className="text-sm text-text-secondary flex items-center gap-2">
+                      <span className="font-mono text-text-primary">{step.r_multiple}R</span>
+                      <span className="text-text-muted">({step.size_pct}% of position)</span>
+                      <span className="text-text-muted">— {step.reason}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Trailing Stop */}
+            {v.trade_plan.trail_type && (
+              <div className="space-y-2">
+                <h4 className="font-semibold text-text-primary flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-warning" /> Trailing Stop
+                </h4>
+                <div className="ml-4 space-y-1 text-sm">
+                  <div className="text-text-secondary">
+                    Type: <span className="font-mono text-text-primary capitalize">{v.trade_plan.trail_type}</span>
+                    {v.trade_plan.trail_type === 'atr' && (
+                      <span className="text-text-muted"> — {v.trade_plan.trail_value}x ATR</span>
+                    )}
+                    {v.trade_plan.trail_type === 'structure' && (
+                      <span className="text-text-muted"> — trail below structure</span>
+                    )}
+                    {v.trade_plan.trail_type === 'percent' && (
+                      <span className="text-text-muted"> — {v.trade_plan.trail_value}%</span>
+                    )}
+                  </div>
+                  <div className="text-text-secondary">
+                    Activate after: <span className="font-mono text-text-primary">{v.trade_plan.trail_activation_r}R</span>
+                  </div>
+                  <div className="text-text-secondary">
+                    Move to breakeven at: <span className="font-mono text-text-primary">{v.trade_plan.move_to_breakeven_at_r}R</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Time Stop */}
+            {v.trade_plan.max_hold_days && (
+              <div className="space-y-2">
+                <h4 className="font-semibold text-text-primary flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-warning" /> Time Stop
+                </h4>
+                <div className="ml-4 text-sm text-text-secondary">
+                  Maximum hold: <span className="font-mono text-text-primary">{v.trade_plan.max_hold_days} days</span>
+                </div>
+              </div>
+            )}
+            
+            {/* Risk Limits */}
+            <div className="space-y-2 pt-2 border-t border-border/30">
+              <h4 className="font-semibold text-text-primary flex items-center gap-2">
+                <Shield className="w-4 h-4" /> Risk Limits
+              </h4>
+              <div className="ml-4 space-y-1 text-sm text-text-secondary">
+                <div>Max position: <span className="font-mono text-text-primary">{v.trade_plan.max_position_pct}%</span></div>
+                <div>Daily loss limit: <span className="font-mono text-text-primary">{v.trade_plan.daily_loss_limit_pct}%</span></div>
+              </div>
+            </div>
+            
+            {/* Notes */}
+            {v.trade_plan.notes && v.trade_plan.notes.length > 0 && (
+              <div className="space-y-1 pt-2 border-t border-border/30">
+                <h4 className="font-semibold text-text-primary flex items-center gap-2">
+                  <BookOpen className="w-4 h-4" /> Notes
+                </h4>
+                <ul className="ml-4 space-y-1 text-sm text-text-secondary list-disc">
+                  {v.trade_plan.notes.map((note: string, i: number) => (
+                    <li key={i}>{note}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -508,22 +719,25 @@ function SectionCard({ title, icon, children, explain, description }: {
 }
 
 function TechnicalDetail({ data, explain }: { data: NonNullable<TickerAnalysisResponse['technical']>; explain: boolean }) {
-  return (
-    <div className="space-y-4">
-      {explain && (
-        <div className="bg-accent/5 border border-accent/10 rounded-lg p-3 text-sm text-text-secondary leading-relaxed">
-          <strong className="text-text-primary">What to look for:</strong> Strong uptrend (MA alignment = bullish, RSI 50-70, MACD bullish) with good volume confirmation and moderate volatility. A clean trend with volume support is the ideal setup.
-        </div>
-      )}
-      <ScoreCard title="Technical Analysis" icon={<TrendingUp className="w-4 h-4" />} score={data.score} findings={data.findings} lesson={explain ? MODULE_LESSONS.technical : undefined} />
+  // Handle both old format (direct TechnicalAnalysis) and new format (MultiTimeframeTechnical)
+  const isMulti = data && 'daily' in data;
+  const daily = isMulti ? data.daily : data;
+  const weekly = isMulti ? data.weekly : null;
 
+  const renderTimeframe = (tf: TechnicalAnalysis, label: string) => (
+    <div className="space-y-4 border-l-2 border-accent/20 pl-4">
+      <h4 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+        <span className="px-2 py-0.5 bg-accent/10 rounded text-xs font-mono">{label}</span>
+        <span className="text-xs text-text-muted">({tf.score >= 0.3 ? 'Bullish' : tf.score <= -0.3 ? 'Bearish' : 'Neutral'} • {tf.score >= 0 ? '+' : ''}{tf.score.toFixed(2)})</span>
+      </h4>
+      
       {/* Trend Section */}
       <SectionCard title="Trend" icon={<TrendingUp className="w-3.5 h-3.5" />} explain={explain}
         description="Moving Average alignment tells you the direction of the trend. ADX measures how strong that trend is — higher values = stronger trend."
       >
         <div className="grid grid-cols-2 gap-3">
-          <MetricBox label="MA Alignment" value={data.ma_alignment} explainer={explain ? { lesson: TECHNICAL_LESSONS.ma_alignment, rawValue: data.ma_alignment } : undefined} />
-          <MetricBox label="ADX" value={data.adx != null ? `${data.adx.toFixed(1)} (${data.adx_verdict})` : '—'} explainer={explain ? { lesson: TECHNICAL_LESSONS.adx, rawValue: `${data.adx?.toFixed(1) ?? ''} (${data.adx_verdict})` } : undefined} />
+          <MetricBox label="MA Alignment" value={tf.ma_alignment} explainer={explain ? { lesson: TECHNICAL_LESSONS.ma_alignment, rawValue: tf.ma_alignment } : undefined} />
+          <MetricBox label="ADX" value={tf.adx != null ? `${tf.adx.toFixed(1)} (${tf.adx_verdict})` : '—'} explainer={explain ? { lesson: TECHNICAL_LESSONS.adx, rawValue: `${tf.adx?.toFixed(1) ?? ''} (${tf.adx_verdict})` } : undefined} />
         </div>
       </SectionCard>
 
@@ -532,8 +746,8 @@ function TechnicalDetail({ data, explain }: { data: NonNullable<TickerAnalysisRe
         description="Momentum measures the speed of price changes. RSI shows if the stock is overbought or oversold. MACD tracks whether buying or selling pressure is building."
       >
         <div className="grid grid-cols-2 gap-3">
-          <MetricBox label="RSI" value={data.rsi != null ? `${data.rsi.toFixed(1)} (${data.rsi_regime})` : '—'} explainer={explain ? { lesson: TECHNICAL_LESSONS.rsi, rawValue: `${data.rsi?.toFixed(1) ?? ''} (${data.rsi_regime})` } : undefined} />
-          <MetricBox label="MACD" value={data.macd_status ?? '—'} explainer={explain ? { lesson: TECHNICAL_LESSONS.macd_status, rawValue: data.macd_status ?? '' } : undefined} />
+          <MetricBox label="RSI" value={tf.rsi != null ? `${tf.rsi.toFixed(1)} (${tf.rsi_regime})` : '—'} explainer={explain ? { lesson: TECHNICAL_LESSONS.rsi, rawValue: `${tf.rsi?.toFixed(1) ?? ''} (${tf.rsi_regime})` } : undefined} />
+          <MetricBox label="MACD" value={tf.macd_status ?? '—'} explainer={explain ? { lesson: TECHNICAL_LESSONS.macd_status, rawValue: tf.macd_status ?? '' } : undefined} />
         </div>
       </SectionCard>
 
@@ -542,7 +756,7 @@ function TechnicalDetail({ data, explain }: { data: NonNullable<TickerAnalysisRe
         description="Volume tells you how much interest there is in the stock. High volume confirms price moves are real. Low volume moves are unreliable — they can reverse quickly."
       >
         <div className="grid grid-cols-1 gap-3">
-          <MetricBox label="Volume Ratio" value={data.volume_ratio != null ? `${data.volume_ratio.toFixed(2)}x` : '—'} explainer={explain ? { lesson: TECHNICAL_LESSONS.volume_ratio, rawValue: data.volume_ratio?.toFixed(2) ?? '' } : undefined} />
+          <MetricBox label="Volume Ratio" value={tf.volume_ratio != null ? `${tf.volume_ratio.toFixed(2)}x` : '—'} explainer={explain ? { lesson: TECHNICAL_LESSONS.volume_ratio, rawValue: tf.volume_ratio?.toFixed(2) ?? '' } : undefined} />
         </div>
       </SectionCard>
 
@@ -551,10 +765,35 @@ function TechnicalDetail({ data, explain }: { data: NonNullable<TickerAnalysisRe
         description="Volatility measures how much the stock price swings. ATR tells you the average daily range. Bollinger Bands show if the price is at an extreme relative to recent movement."
       >
         <div className="grid grid-cols-2 gap-3">
-          <MetricBox label="ATR" value={data.atr_pct != null ? `${data.atr_pct.toFixed(1)}% (${data.volatility_regime})` : '—'} explainer={explain ? { lesson: TECHNICAL_LESSONS.atr_pct, rawValue: `${data.atr_pct?.toFixed(1) ?? ''}% (${data.volatility_regime})` } : undefined} />
-          <MetricBox label="BB Position" value={data.bb_position ?? '—'} explainer={explain ? { lesson: TECHNICAL_LESSONS.bb_position, rawValue: data.bb_position ?? '' } : undefined} />
+          <MetricBox label="ATR" value={tf.atr_pct != null ? `${tf.atr_pct.toFixed(1)}% (${tf.volatility_regime})` : '—'} explainer={explain ? { lesson: TECHNICAL_LESSONS.atr_pct, rawValue: `${tf.atr_pct?.toFixed(1) ?? ''}% (${tf.volatility_regime})` } : undefined} />
+          <MetricBox label="BB Position" value={tf.bb_position ?? '—'} explainer={explain ? { lesson: TECHNICAL_LESSONS.bb_position, rawValue: tf.bb_position ?? '' } : undefined} />
         </div>
       </SectionCard>
+      
+      {/* Key Findings */}
+      <div className="mt-3">
+        <FindingList items={tf.findings} max={5} />
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      {explain && (
+        <div className="bg-accent/5 border border-accent/10 rounded-lg p-3 text-sm text-text-secondary leading-relaxed">
+          <strong className="text-text-primary">Multi-Timeframe Analysis:</strong> Professional traders analyze multiple timeframes. 
+          <strong>Weekly</strong> shows the primary trend and major support/resistance — the "big picture." 
+          <strong>Daily</strong> shows entry timing, pullback structure, and volume confirmation. 
+          Both should align for highest conviction setups. Weekly bullish + Daily pullback = ideal entry.
+        </div>
+      )}
+      
+      <ScoreCard title="Technical Analysis (Multi-Timeframe)" icon={<TrendingUp className="w-4 h-4" />} score={daily.score} findings={daily.findings} lesson={explain ? MODULE_LESSONS.technical : undefined} />
+      
+      <div className="grid md:grid-cols-2 gap-4">
+        {renderTimeframe(daily, 'Daily')}
+        {weekly && renderTimeframe(weekly, 'Weekly')}
+      </div>
     </div>
   );
 }
@@ -985,6 +1224,28 @@ export function TickerAnalysisPage() {
     );
   }
 
+  // Weighted score calculation for conviction tooltip
+  const getTechnicalScore = (tech: any) => {
+    if (!tech) return 0;
+    return tech.daily?.score ?? tech.score ?? 0;
+  };
+  const moduleScores = [
+    { label: 'Technical', score: getTechnicalScore(data.technical) },
+    { label: 'Fundamentals', score: data.fundamental?.score ?? 0 },
+    { label: 'Earnings', score: data.earnings?.score ?? 0 },
+    { label: 'Sentiment', score: data.sentiment?.score ?? 0 },
+    { label: 'Risk', score: data.risk?.score ?? 0 },
+  ];
+  // Default weights matching backend: [tech, fund, earn, sent, risk]
+  const weights = [0.30, 0.22, 0.12, 0.20, 0.16];
+  const available = moduleScores
+    .map((m, i) => ({ score: m.score, weight: weights[i] }))
+    .filter(m => m.score !== 0 || data.technical || data.fundamental || data.earnings || data.sentiment || data.risk);
+  const totalWeight = available.reduce((sum, m) => sum + m.weight, 0);
+  const weightedScore = totalWeight > 0
+    ? available.reduce((sum, m) => sum + m.score * (m.weight / totalWeight), 0)
+    : 0;
+
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
       {/* Header bar */}
@@ -1023,11 +1284,11 @@ export function TickerAnalysisPage() {
       </div>
 
       {/* Verdict Banner */}
-      <VerdictBanner data={data} />
+      <VerdictBanner data={data} weightedScore={weightedScore} />
 
       {/* Module Score Overview */}
       <div className="grid grid-cols-5 gap-3">
-        <MiniScore label="Technical" score={data.technical?.score ?? 0} />
+        <MiniScore label="Technical" score={getTechnicalScore(data.technical)} />
         <MiniScore label="Fundamentals" score={data.fundamental?.score ?? 0} />
         <MiniScore label="Earnings" score={data.earnings?.score ?? 0} />
         <MiniScore label="Sentiment" score={data.sentiment?.score ?? 0} />

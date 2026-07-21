@@ -502,6 +502,7 @@ export function verdictWalkthrough(
   }
 
   const actionExplanations: Record<string, string> = {
+    STRONG_BUY: "Exceptional setup with high conviction. All modules strongly aligned with no major dealbreakers. High-confidence entry with wider targets justified.",
     BUY: "Strong positive signal. All indicators align favorably. Consider entering a position within the suggested entry zone.",
     WATCH: "Mixed or mildly positive signals. The setup has potential but needs more confirmation. Wait for better entry or more data.",
     HOLD: "Neutral signals. No strong reason to buy or sell. If you own it, keep it. If not, wait for a clearer signal.",
