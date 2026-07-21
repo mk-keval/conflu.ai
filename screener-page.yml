@@ -1,0 +1,367 @@
+- generic [ref=f8e3]:
+  - complementary [ref=f8e4]:
+    - generic [ref=f8e6]:
+      - generic [ref=f8e7]: C
+      - generic [ref=f8e9]: conflu.ai
+    - navigation [ref=f8e10]:
+      - link "Screener" [ref=f8e11] [cursor=pointer]:
+        - /url: /screener
+      - link "Sector Rotation" [ref=f8e19] [cursor=pointer]:
+        - /url: /sector-rotation
+      - link "Ticker Analysis" [ref=f8e25] [cursor=pointer]:
+        - /url: /ticker
+      - link "Charts" [ref=f8e31] [cursor=pointer]:
+        - /url: /charts
+      - link "Backtest" [ref=f8e37] [cursor=pointer]:
+        - /url: /backtest
+      - link "Risk" [ref=f8e41] [cursor=pointer]:
+        - /url: /risk
+    - generic [ref=f8e46]: Connected
+  - generic [ref=f8e50]:
+    - banner [ref=f8e51]:
+      - textbox "Search symbols... (/)" [ref=f8e57]
+      - button "50 Cautious 7:32 PM" [ref=f8e141] [cursor=pointer]:
+        - generic [ref=f8e142]: "50"
+        - generic [ref=f8e148]: Cautious
+        - generic [ref=f8e149]: 7:32 PM
+    - main [ref=f8e62]:
+      - generic [ref=f8e63]:
+        - generic [ref=f8e65]:
+          - generic [ref=f8e67]:
+            - heading "Trend Follower" [level=1] [ref=f8e152]
+            - paragraph [ref=f8e68]:
+              - generic [ref=f8e69]: 8 matches
+              - generic [ref=f8e153]: • 876ms
+              - generic "2026-07-14T23:32:15.645487+00:00" [ref=f8e154]: just now
+          - generic [ref=f8e70]:
+            - button "Trend Follower" [ref=f8e156] [cursor=pointer]
+            - button "Run Screen" [ref=f8e158] [cursor=pointer]
+            - button "Customize columns" [ref=f8e79] [cursor=pointer]
+            - generic [ref=f8e82]:
+              - button "CSV" [ref=f8e83] [cursor=pointer]
+              - button "JSON" [ref=f8e88] [cursor=pointer]
+        - generic [ref=f8e162]:
+          - generic [ref=f8e165]:
+            - paragraph [ref=f8e166]: "Uptrending assets with momentum, volume, and trend structure confirmation. Filters: $2B+ mcap, NYSE/NASDAQ, US, $5+, 1M avg vol."
+            - button "View filters" [ref=f8e167] [cursor=pointer]
+          - generic [ref=f8e171]:
+            - generic [ref=f8e172]: long
+            - generic [ref=f8e173]: 1D
+            - generic [ref=f8e174]: 4h
+        - generic [ref=f8e175]:
+          - button "Results" [ref=f8e176] [cursor=pointer]
+          - button "Learn" [ref=f8e178] [cursor=pointer]
+        - generic [ref=f8e182]:
+          - generic [ref=f8e183]:
+            - generic [ref=f8e184]:
+              - generic [ref=f8e185] [cursor=pointer]: Symbol
+              - generic [ref=f8e189] [cursor=pointer]: Price
+              - generic [ref=f8e193] [cursor=pointer]: Scr
+              - generic [ref=f8e197] [cursor=pointer]: Change
+              - generic [ref=f8e201] [cursor=pointer]: Entry/SL
+              - generic [ref=f8e205] [cursor=pointer]: Confluence
+              - generic [ref=f8e209] [cursor=pointer]: Volume
+              - generic [ref=f8e213] [cursor=pointer]: RS Rtg
+              - generic [ref=f8e217] [cursor=pointer]: Inst Q
+              - generic [ref=f8e221] [cursor=pointer]: Conv
+              - generic [ref=f8e225] [cursor=pointer]: Mkt Cap
+              - generic [ref=f8e229] [cursor=pointer]: P/E
+              - generic [ref=f8e233] [cursor=pointer]: EPS
+              - generic [ref=f8e237] [cursor=pointer]: RSI
+              - generic [ref=f8e241] [cursor=pointer]: ADX
+              - generic [ref=f8e245] [cursor=pointer]: ATR%
+              - generic [ref=f8e249] [cursor=pointer]: Sector
+              - generic [ref=f8e251] [cursor=pointer]: Rtg
+            - generic [ref=f8e253]:
+              - generic [ref=f8e254] [cursor=pointer]:
+                - generic [ref=f8e255]: ERAS
+                - generic [ref=f8e258]: $19.50
+                - generic [ref=f8e260]: "76"
+                - generic [ref=f8e263]:
+                  - generic [ref=f8e264]: "+8.94"
+                  - generic [ref=f8e265]: +84.63%
+                - generic [ref=f8e267]:
+                  - text: $19.50
+                  - generic [ref=f8e268]: / $15.85
+                - generic [ref=f8e270]:
+                  - generic [ref=f8e271]: T26
+                  - text: ·
+                  - generic [ref=f8e272]: M19
+                  - text: ·
+                  - generic [ref=f8e273]: V16
+                  - text: ·
+                  - generic [ref=f8e274]: Q10
+                  - text: ·
+                  - generic [ref=f8e275]: F5
+                - generic [ref=f8e277]:
+                  - text: 10.7M
+                  - generic [ref=f8e278]: ×2.3
+                - generic [ref=f8e279]: "88"
+                - generic [ref=f8e281]: "100"
+                - generic [ref=f8e283]: high
+                - generic [ref=f8e287]: 6.1B
+                - generic [ref=f8e289]: —
+                - generic [ref=f8e291]: "-0.93"
+                - generic [ref=f8e293]: "68"
+                - generic [ref=f8e295]: "33"
+                - generic [ref=f8e297]: 6.2%
+                - generic "Health Technology" [ref=f8e300]
+                - generic [ref=f8e301]: A
+              - generic [ref=f8e303] [cursor=pointer]:
+                - generic [ref=f8e304]: MS
+                - generic [ref=f8e307]: $227.67
+                - generic [ref=f8e309]: "74"
+                - generic [ref=f8e312]:
+                  - generic [ref=f8e313]: "+2.98"
+                  - generic [ref=f8e314]: +1.32%
+                - generic [ref=f8e316]:
+                  - text: $227.67
+                  - generic [ref=f8e317]: / $215.59
+                - generic [ref=f8e319]:
+                  - generic [ref=f8e320]: T26
+                  - text: ·
+                  - generic [ref=f8e321]: M16
+                  - text: ·
+                  - generic [ref=f8e322]: V13
+                  - text: ·
+                  - generic [ref=f8e323]: Q10
+                  - text: ·
+                  - generic [ref=f8e324]: F9
+                - generic [ref=f8e326]:
+                  - text: 9.3M
+                  - generic [ref=f8e327]: ×2.0
+                - generic [ref=f8e328]: "38"
+                - generic [ref=f8e330]: "100"
+                - generic [ref=f8e332]: high
+                - generic [ref=f8e336]: 359.1B
+                - generic [ref=f8e338]: "20.6"
+                - generic [ref=f8e340]: "11.04"
+                - generic [ref=f8e342]: "64"
+                - generic [ref=f8e344]: "27"
+                - generic [ref=f8e346]: 2.7%
+                - generic "Finance" [ref=f8e349]
+                - generic [ref=f8e350]: A
+              - generic [ref=f8e352] [cursor=pointer]:
+                - generic [ref=f8e353]: OKTA
+                - generic [ref=f8e356]: $154.62
+                - generic [ref=f8e358]: "74"
+                - generic [ref=f8e361]:
+                  - generic [ref=f8e362]: "+10.81"
+                  - generic [ref=f8e363]: +7.52%
+                - generic [ref=f8e365]:
+                  - text: $154.62
+                  - generic [ref=f8e366]: / $130.49
+                - generic [ref=f8e368]:
+                  - generic [ref=f8e369]: T26
+                  - text: ·
+                  - generic [ref=f8e370]: M19
+                  - text: ·
+                  - generic [ref=f8e371]: V15
+                  - text: ·
+                  - generic [ref=f8e372]: Q8
+                  - text: ·
+                  - generic [ref=f8e373]: F6
+                - generic [ref=f8e375]:
+                  - text: 4.7M
+                  - generic [ref=f8e376]: ×1.5
+                - generic [ref=f8e377]: "50"
+                - generic [ref=f8e379]: "100"
+                - generic [ref=f8e381]: medium
+                - generic [ref=f8e385]: 26.9B
+                - generic [ref=f8e387]: "112.3"
+                - generic [ref=f8e389]: "1.38"
+                - generic [ref=f8e391]: "72"
+                - generic [ref=f8e393]: "44"
+                - generic [ref=f8e395]: 5.2%
+                - generic "Technology Services" [ref=f8e398]
+                - generic [ref=f8e399]: A
+              - generic [ref=f8e401] [cursor=pointer]:
+                - generic [ref=f8e402]: S
+                - generic [ref=f8e405]: $19.92
+                - generic [ref=f8e407]: "74"
+                - generic [ref=f8e410]:
+                  - generic [ref=f8e411]: "+7.39"
+                  - generic [ref=f8e412]: +58.92%
+                - generic [ref=f8e414]:
+                  - text: $19.92
+                  - generic [ref=f8e415]: / $16.85
+                - generic [ref=f8e417]:
+                  - generic [ref=f8e418]: T26
+                  - text: ·
+                  - generic [ref=f8e419]: M21
+                  - text: ·
+                  - generic [ref=f8e420]: V13
+                  - text: ·
+                  - generic [ref=f8e421]: Q10
+                  - text: ·
+                  - generic [ref=f8e422]: F4
+                - generic [ref=f8e424]:
+                  - text: 13.5M
+                  - generic [ref=f8e425]: ×1.8
+                - generic [ref=f8e426]: "75"
+                - generic [ref=f8e428]: "93"
+                - generic [ref=f8e430]: medium
+                - generic [ref=f8e434]: 6.8B
+                - generic [ref=f8e436]: —
+                - generic [ref=f8e438]: "-0.95"
+                - generic [ref=f8e440]: "70"
+                - generic [ref=f8e442]: "33"
+                - generic [ref=f8e444]: 5.1%
+                - generic "Technology Services" [ref=f8e447]
+                - generic [ref=f8e448]: A
+              - generic [ref=f8e450] [cursor=pointer]:
+                - generic [ref=f8e451]: BAC
+                - generic [ref=f8e454]: $60.62
+                - generic [ref=f8e456]: "73"
+                - generic [ref=f8e459]:
+                  - generic [ref=f8e460]: "+1.88"
+                  - generic [ref=f8e461]: +3.20%
+                - generic [ref=f8e463]:
+                  - text: $60.62
+                  - generic [ref=f8e464]: / $58.12
+                - generic [ref=f8e466]:
+                  - generic [ref=f8e467]: T26
+                  - text: ·
+                  - generic [ref=f8e468]: M19
+                  - text: ·
+                  - generic [ref=f8e469]: V11
+                  - text: ·
+                  - generic [ref=f8e470]: Q8
+                  - text: ·
+                  - generic [ref=f8e471]: F9
+                - generic [ref=f8e473]:
+                  - text: 49.4M
+                  - generic [ref=f8e474]: ×1.6
+                - generic [ref=f8e475]: "25"
+                - generic [ref=f8e477]: "100"
+                - generic [ref=f8e479]: medium
+                - generic [ref=f8e483]: 430.2B
+                - generic [ref=f8e485]: "15.0"
+                - generic [ref=f8e487]: "4.03"
+                - generic [ref=f8e489]: "70"
+                - generic [ref=f8e491]: "39"
+                - generic [ref=f8e493]: 2.1%
+                - generic "Finance" [ref=f8e496]
+                - generic [ref=f8e497]: A
+              - generic [ref=f8e499] [cursor=pointer]:
+                - generic [ref=f8e500]: ELV
+                - generic [ref=f8e503]: $426.79
+                - generic [ref=f8e505]: "70"
+                - generic [ref=f8e508]:
+                  - generic [ref=f8e509]: "+0.38"
+                  - generic [ref=f8e510]: +0.09%
+                - generic [ref=f8e512]:
+                  - text: $426.79
+                  - generic [ref=f8e513]: / $404.00
+                - generic [ref=f8e515]:
+                  - generic [ref=f8e516]: T26
+                  - text: ·
+                  - generic [ref=f8e517]: M16
+                  - text: ·
+                  - generic [ref=f8e518]: V10
+                  - text: ·
+                  - generic [ref=f8e519]: Q10
+                  - text: ·
+                  - generic [ref=f8e520]: F8
+                - generic [ref=f8e522]:
+                  - text: 2.2M
+                  - generic [ref=f8e523]: ×1.6
+                - generic [ref=f8e524]: "12"
+                - generic [ref=f8e526]: "100"
+                - generic [ref=f8e528]: medium
+                - generic [ref=f8e532]: 92.7B
+                - generic [ref=f8e534]: "18.2"
+                - generic [ref=f8e536]: "23.50"
+                - generic [ref=f8e538]: "63"
+                - generic [ref=f8e540]: "29"
+                - generic [ref=f8e542]: 2.7%
+                - generic "Health Services" [ref=f8e545]
+                - generic [ref=f8e546]: A
+              - generic [ref=f8e548] [cursor=pointer]:
+                - generic [ref=f8e549]: SYRE
+                - generic [ref=f8e552]: $98.95
+                - generic [ref=f8e554]: "70"
+                - generic [ref=f8e557]:
+                  - generic [ref=f8e558]: "+5.57"
+                  - generic [ref=f8e559]: +5.96%
+                - generic [ref=f8e561]:
+                  - text: $98.95
+                  - generic [ref=f8e562]: / $81.51
+                - generic [ref=f8e564]:
+                  - generic [ref=f8e565]: T26
+                  - text: ·
+                  - generic [ref=f8e566]: M16
+                  - text: ·
+                  - generic [ref=f8e567]: V13
+                  - text: ·
+                  - generic [ref=f8e568]: Q10
+                  - text: ·
+                  - generic [ref=f8e569]: F5
+                - generic [ref=f8e571]:
+                  - text: 2.8M
+                  - generic [ref=f8e572]: ×2.1
+                - generic [ref=f8e573]: "62"
+                - generic [ref=f8e575]: "95"
+                - generic [ref=f8e577]: medium
+                - generic [ref=f8e581]: 8.6B
+                - generic [ref=f8e583]: —
+                - generic [ref=f8e585]: "-2.36"
+                - generic [ref=f8e587]: "64"
+                - generic [ref=f8e589]: "26"
+                - generic [ref=f8e591]: 5.9%
+                - generic "Health Technology" [ref=f8e594]
+                - generic [ref=f8e595]: A
+              - generic [ref=f8e597] [cursor=pointer]:
+                - generic [ref=f8e598]: VRNS
+                - generic [ref=f8e601]: $48.19
+                - generic [ref=f8e603]: "64"
+                - generic [ref=f8e606]:
+                  - generic [ref=f8e607]: "+6.19"
+                  - generic [ref=f8e608]: +14.74%
+                - generic [ref=f8e610]:
+                  - text: $48.19
+                  - generic [ref=f8e611]: / $40.75
+                - generic [ref=f8e613]:
+                  - generic [ref=f8e614]: T26
+                  - text: ·
+                  - generic [ref=f8e615]: M14
+                  - text: ·
+                  - generic [ref=f8e616]: V14
+                  - text: ·
+                  - generic [ref=f8e617]: Q6
+                  - text: ·
+                  - generic [ref=f8e618]: F4
+                - generic [ref=f8e620]:
+                  - text: 3.6M
+                  - generic [ref=f8e621]: ×1.8
+                - generic [ref=f8e622]: "100"
+                - generic [ref=f8e624]: "88"
+                - generic [ref=f8e626]: medium
+                - generic [ref=f8e630]: 5.5B
+                - generic [ref=f8e632]: —
+                - generic [ref=f8e634]: "-1.13"
+                - generic [ref=f8e636]: "80"
+                - generic [ref=f8e638]: "54"
+                - generic [ref=f8e640]: 5.1%
+                - generic "Technology Services" [ref=f8e643]
+                - generic [ref=f8e644]: B
+          - generic [ref=f8e646]:
+            - generic [ref=f8e647]:
+              - generic [ref=f8e648]: Showing
+              - generic [ref=f8e649]: "1"
+              - generic [ref=f8e650]: –
+              - generic [ref=f8e651]: "8"
+              - generic [ref=f8e652]: of
+              - generic [ref=f8e653]: "8"
+            - generic [ref=f8e654]:
+              - combobox "Results per page" [ref=f8e655] [cursor=pointer]:
+                - option "10 / page"
+                - option "25 / page" [selected]
+                - option "50 / page"
+                - option "100 / page"
+              - generic [ref=f8e656]:
+                - button "First page" [disabled] [ref=f8e657]
+                - button "Previous page" [disabled] [ref=f8e662]
+                - button "Page 1" [ref=f8e666] [cursor=pointer]: "1"
+                - button "Next page" [disabled] [ref=f8e667]
+                - button "Last page" [disabled] [ref=f8e670]

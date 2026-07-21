@@ -1,0 +1,140 @@
+- generic [ref=f10e3]:
+  - complementary [ref=f10e4]:
+    - generic [ref=f10e6]:
+      - generic [ref=f10e7]: C
+      - generic [ref=f10e9]: conflu.ai
+    - navigation [ref=f10e10]:
+      - link "Screener" [ref=f10e11] [cursor=pointer]:
+        - /url: /screener
+      - link "Sector Rotation" [ref=f10e19] [cursor=pointer]:
+        - /url: /sector-rotation
+      - link "Ticker Analysis" [ref=f10e25] [cursor=pointer]:
+        - /url: /ticker
+      - link "Charts" [ref=f10e31] [cursor=pointer]:
+        - /url: /charts
+      - link "Backtest" [ref=f10e37] [cursor=pointer]:
+        - /url: /backtest
+      - link "Risk" [ref=f10e41] [cursor=pointer]:
+        - /url: /risk
+    - generic [ref=f10e46]: Connected
+  - generic [ref=f10e50]:
+    - banner [ref=f10e51]:
+      - textbox "Search symbols... (/)" [ref=f10e57]
+      - button "50 Cautious 7:35 PM" [ref=f10e74] [cursor=pointer]:
+        - generic [ref=f10e75]: "50"
+        - generic [ref=f10e81]: Cautious
+        - generic [ref=f10e82]: 7:35 PM
+    - main [ref=f10e62]:
+      - generic [ref=f10e63]:
+        - generic [ref=f10e64]:
+          - generic [ref=f10e85]:
+            - link [ref=f10e86] [cursor=pointer]:
+              - /url: /ticker
+            - generic [ref=f10e90]: /
+            - generic [ref=f10e91]: NVDA
+          - button "Explain On" [ref=f10e92] [cursor=pointer]
+        - generic [ref=f10e102]:
+          - generic [ref=f10e103]:
+            - generic [ref=f10e108]:
+              - generic [ref=f10e109]:
+                - heading "NVDA" [level=1] [ref=f10e110]
+                - generic [ref=f10e111]: $211.80
+              - generic [ref=f10e112]:
+                - generic [ref=f10e113]: WATCH
+                - img [ref=f10e115]:
+                  - generic [ref=f10e118]: "3"
+                - generic [ref=f10e119]: Technology
+            - generic [ref=f10e120]: 644ms
+            - generic [ref=f10e121]: "Data: 4h ago"
+          - paragraph [ref=f10e122]: "Mixed signals (score 23%). Monitoring for setup to develop. Bull case: Price above 3/3 key MAs — strong uptrend. Bear case: ATR 3.18% — high volatility, wider stops needed."
+          - generic [ref=f10e123]:
+            - generic [ref=f10e124]:
+              - generic [ref=f10e125]: Entry Zone
+              - generic [ref=f10e126]: $207.56 – $213.92
+            - generic [ref=f10e127]:
+              - generic [ref=f10e128]: Stop Loss
+              - generic [ref=f10e129]: $198.33
+            - generic [ref=f10e130]:
+              - generic [ref=f10e131]: Targets
+              - generic [ref=f10e132]: $237.30, $260.69
+            - generic [ref=f10e133]:
+              - generic [ref=f10e134]: Risk/Reward
+              - generic [ref=f10e135]: 1.5:1
+        - generic [ref=f10e136]:
+          - generic [ref=f10e137]:
+            - generic [ref=f10e138]: Technical
+            - generic [ref=f10e141]: "+0.40"
+          - generic [ref=f10e142]:
+            - generic [ref=f10e143]: Fundamentals
+            - generic [ref=f10e146]: "+0.25"
+          - generic [ref=f10e147]:
+            - generic [ref=f10e148]: Earnings
+            - generic [ref=f10e151]: "+0.33"
+          - generic [ref=f10e152]:
+            - generic [ref=f10e153]: Sentiment
+            - generic [ref=f10e156]: "+0.32"
+          - generic [ref=f10e157]:
+            - generic [ref=f10e158]: Risk
+            - generic [ref=f10e161]: "-0.33"
+        - generic [ref=f10e162]:
+          - button "Verdict" [ref=f10e163] [cursor=pointer]
+          - button "Technical" [ref=f10e167] [cursor=pointer]
+          - button "Fundamentals" [ref=f10e172] [cursor=pointer]
+          - button "Earnings" [ref=f10e176] [cursor=pointer]
+          - button "Sentiment" [ref=f10e180] [cursor=pointer]
+          - button "Risk" [ref=f10e184] [cursor=pointer]
+        - generic [ref=f10e189]:
+          - generic [ref=f10e190]:
+            - heading "Module Scores" [level=3] [ref=f10e191]
+            - generic [ref=f10e192]:
+              - generic [ref=f10e193]:
+                - generic [ref=f10e194]: Technical
+                - generic [ref=f10e195]: "+0.40"
+              - generic [ref=f10e198]:
+                - generic [ref=f10e199]: Fundamentals
+                - generic [ref=f10e200]: "+0.25"
+              - generic [ref=f10e203]:
+                - generic [ref=f10e204]: Earnings
+                - generic [ref=f10e205]: "+0.33"
+              - generic [ref=f10e208]:
+                - generic [ref=f10e209]: Sentiment
+                - generic [ref=f10e210]: "+0.32"
+              - generic [ref=f10e213]:
+                - generic [ref=f10e214]: Risk
+                - generic [ref=f10e215]: "-0.33"
+            - paragraph [ref=f10e218]: Most modules are positive — strong overall alignment.
+          - generic [ref=f10e219]:
+            - heading "Sell Triggers" [level=3] [ref=f10e220]
+            - list [ref=f10e224]:
+              - listitem [ref=f10e225]:
+                - generic [ref=f10e226]: •
+                - generic [ref=f10e227]: Premium P/E requires consistent earnings beats to sustain. Miss → re-rate lower.
+          - generic [ref=f10e228]:
+            - heading "Red Flags" [level=3] [ref=f10e229]
+            - list [ref=f10e232]:
+              - listitem [ref=f10e233]:
+                - generic [ref=f10e234]: •
+                - generic [ref=f10e235]: ⚠️ ATR 3.18% — high volatility, wider stops needed
+              - listitem [ref=f10e236]:
+                - generic [ref=f10e237]: •
+                - generic [ref=f10e238]: ⚠️ P/E 32.4 — premium valuation, priced for growth
+              - listitem [ref=f10e239]:
+                - generic [ref=f10e240]: •
+                - generic [ref=f10e241]: 🚨 D/E 6.55 — highly leveraged, financial risk — moderated by exceptional growth
+              - listitem [ref=f10e242]:
+                - generic [ref=f10e243]: •
+                - generic [ref=f10e244]: ⚠️ High volatility (ATR 3.18%) — wider stops needed
+              - listitem [ref=f10e245]:
+                - generic [ref=f10e246]: •
+                - generic [ref=f10e247]: ⚠️ Beta 2.21 — very high systematic risk (2x+ market swings)
+          - generic [ref=f10e248]:
+            - heading "Detailed Analysis" [level=3] [ref=f10e249]
+            - paragraph [ref=f10e252]: "Mixed signals (score 23%). Monitoring for setup to develop. Bull case: Price above 3/3 key MAs — strong uptrend. Bear case: ATR 3.18% — high volatility, wider stops needed."
+          - generic [ref=f10e253]:
+            - heading "Position Sizing" [level=3] [ref=f10e254]
+            - paragraph [ref=f10e257]:
+              - text: "Suggested position size:"
+              - generic [ref=f10e258]: 8%
+              - text: of portfolio
+          - button "Show step-by-step reasoning" [ref=f10e259] [cursor=pointer]
+          - button "View trading terms glossary" [ref=f10e265] [cursor=pointer]

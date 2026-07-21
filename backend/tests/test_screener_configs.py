@@ -80,27 +80,27 @@ class TestScreenTemplates:
     def test_trend_follower_loads(self) -> None:
         config = load_screen_template("trend-follower")
         assert config.name == "Trend Follower"
-        assert len(config.filters) == 5
+        assert len(config.filters) == 11
 
     def test_mean_reversion_loads(self) -> None:
         config = load_screen_template("mean-reversion")
         assert config.name == "Mean Reversion"
-        assert len(config.filters) == 4
+        assert len(config.filters) == 9
 
     def test_breakout_loads(self) -> None:
         config = load_screen_template("breakout")
         assert config.name == "Breakout"
-        assert len(config.filters) == 6
+        assert len(config.filters) == 12
 
     def test_volume_surge_loads(self) -> None:
         config = load_screen_template("volume-surge")
         assert config.name == "Volume Surge"
-        assert len(config.filters) == 5
+        assert len(config.filters) == 9
 
     def test_oversold_bounce_loads(self) -> None:
         config = load_screen_template("oversold-bounce")
         assert config.name == "Oversold Bounce"
-        assert len(config.filters) == 5
+        assert len(config.filters) == 9
 
     def test_list_screen_templates_returns_5(self) -> None:
         templates = list_screen_templates()

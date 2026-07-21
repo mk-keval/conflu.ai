@@ -29,7 +29,8 @@ Professional dark theme, virtualized screener table, detail panel, multi-templat
 **Status:** Complete
 Graded thresholds (replaced binary checks), MTF weighted stacking (replaced strict intersection), 3 SHORT screen templates, fundamental grading, volatility-regime stops.
 
-## Current Work (ui-audit-fixes branch)
+## Current Work
+- Screen config fixes: Fixed all 21 screen configs to use only available TradingView Screener filters (removed non-existent: ipo_date_age_days_gt, institutional_ownership_gt, price_above/below → close_above/below, country "US" → "United States")
 - UI audit fixes: z-index stacking, chart crash (React hooks violation), chart height inconsistencies, brand refresh
 - See [Session Log](docs/SESSIONS/ses_20260703213318.md)
 

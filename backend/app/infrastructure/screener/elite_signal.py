@@ -1,25 +1,24 @@
-"""Elite Signal Processor — post-TV signal enrichment that adds edge TV cannot provide.
-
-TradingView Screener returns current-snapshot data (no multi-bar history),
-so true divergence detection and sequential-pattern recognition are impossible
-server-side. This module bridges that gap:
-
-1. **Relative Strength Ranking** — percentile rank vs peer universe (single most
-   persistent anomaly in equity markets)
-2. **Institutional Quality Score** — composite of market cap, volume consistency,
-   analyst consensus, and sector positioning
-3. **Factor Conflict Detection** — flags contradictory signals (e.g., bullish
-   trend + bearish volume = low conviction)
-4. **Wyckoff Phase Proxy** — accumulation/distribution inference from volume-price
-   relationships on the snapshot
-5. **Regime Signal Feed** — provides the current market regime string to the
-   adaptive confluence scorer, derived from SPY ADX + VIX + sector breadth
-
-Usage:
-    processor = EliteSignalProcessor()
-    enriched_df = processor.enrich(result.raw_data, direction="long", regime="strong_trend")
-    # enriched_df now has columns: rs_rating, inst_quality, signal_conviction, wyckoff_phase
-"""
+# Elite Signal Processor — post-TV signal enrichment that adds edge TV cannot provide.
+#
+# TradingView Screener returns current-snapshot data (no multi-bar history),
+# so true divergence detection and sequential-pattern recognition are impossible
+# server-side. This module bridges that gap:
+#
+# 1. Relative Strength Ranking — percentile rank vs peer universe (single most
+#    persistent anomaly in equity markets)
+# 2. Institutional Quality Score — composite of market cap, volume consistency,
+#    analyst consensus, and sector positioning
+# 3. Factor Conflict Detection — flags contradictory signals (e.g., bullish
+#    trend + bearish volume = low conviction)
+# 4. Wyckoff Phase Proxy — accumulation/distribution inference from volume-price
+#    relationships on the snapshot
+# 5. Regime Signal Feed — provides the current market regime string to the
+#    adaptive confluence scorer, derived from SPY ADX + VIX + sector breadth
+#
+# Usage:
+#     processor = EliteSignalProcessor()
+#     enriched_df = processor.enrich(result.raw_data, direction="long", regime="strong_trend")
+#     # enriched_df now has columns: rs_rating, inst_quality, signal_conviction, wyckoff_phase
 
 from __future__ import annotations
 
@@ -71,10 +70,11 @@ class EliteSignalProcessor:
         - Distance above EMA200 (trend quality)
         - RSI bullishness (momentum quality)
         - Relative volume (participation quality)
+        - MACD alignment
 
         Each ticker gets a percentile rank 0-100 vs its peers in the result set.
         This is INTERNAL RS (ranking within discovered candidates), not external
-        RS vs the broad market (which requires sector ETF data).
+        RS vs the broad market (which would require sector ETF data).
 
         Returns dict of {ticker: rs_percentile_0_100}.
         """
@@ -156,10 +156,39 @@ class EliteSignalProcessor:
 
         Returns score 0-100.
         """
+# Extract scalar values from pandas Series
+        def get_scalar(key, default=0):
+            val = row.get(key, default)
+            if isinstance(val, pd.Series):
+                # Handle case where Series might have multiple elements
+                if len(val) == 1:
+                    val = val.iloc[0]
+                elif len(val) == 0:
+                    return default
+                else:
+                    val = val.iloc[0]  # take first element
+            # Handle NaN values
+            if val is None or (isinstance(val, float) and pd.isna(val)):
+                return default
+            return val
+
+        def get_scalar_str(key, default=""):
+            val = row.get(key, default)
+            if isinstance(val, pd.Series):
+                if len(val) == 1:
+                    val = val.iloc[0]
+                elif len(val) == 0:
+                    return default
+                else:
+                    val = val.iloc[0]
+            if val is None or (isinstance(val, float) and pd.isna(val)):
+                return default
+            return str(val)
+
         score = 50  # baseline
 
         # Market cap (0-30 pts) — large caps have institutional liquidity
-        mcap = row.get("market_cap_basic", 0) or 0
+        mcap = get_scalar("market_cap_basic", 0)
         if mcap > 200_000_000_000:
             score += 30  # mega-cap
         elif mcap > 50_000_000_000:
@@ -174,7 +203,7 @@ class EliteSignalProcessor:
             score += 5
 
         # Volume liquidity (0-20 pts)
-        volume = row.get("volume", 0) or 0
+        volume = get_scalar("volume", 0)
         if volume > 5_000_000:
             score += 20  # highly liquid
         elif volume > 1_000_000:
@@ -185,7 +214,7 @@ class EliteSignalProcessor:
             score += 5
 
         # Analyst coverage (0-25 pts)
-        analyst = row.get("AnalystRating", "")
+        analyst = get_scalar_str("AnalystRating", "")
         if analyst in ("StrongBuy",):
             score += 25
         elif analyst in ("Buy", "Outperform", "Overweight"):
@@ -196,7 +225,7 @@ class EliteSignalProcessor:
             score -= 10
 
         # EPS profitability (0-25 pts)
-        eps = row.get("earnings_per_share_diluted_ttm", 0) or 0
+        eps = get_scalar("earnings_per_share_diluted_ttm", 0)
         if eps > 10:
             score += 25
         elif eps > 5:
@@ -216,7 +245,7 @@ class EliteSignalProcessor:
         """Assess overall signal conviction: high / medium / low.
 
         Based on factor ALIGNMENT. When factors agree, conviction is high.
-        When they contradict (e.g., strong trend + poor quality), conviction drops.
+        When they contradict (e.g., strong trend + bearish volume), conviction drops.
 
         Rules:
         - HIGH: 4+ factors score >50% of their max (trend > 15, mom > 12,
@@ -271,10 +300,10 @@ class EliteSignalProcessor:
           MACD bullish, price well above EMAs = Phase D
         - **distribution**: Volume elevated, price stalling near resistance,
           bearish divergences forming = Phase A
-        - **markdown**: Price below key EMAs, heavy volume but no recovery,
+        - **markdown**: Price below EMAs, heavy volume but no recovery,
           bearish MACD = Phase E
 
-        Returns one of: accumulation / markup / distribution / markdown / None
+        Returns one of: accumulation / markup / distribution / markdown / unknown
         """
         close = row.get("close", 0) or 0
         ema50 = row.get("EMA50", 0) or 0
@@ -290,7 +319,7 @@ class EliteSignalProcessor:
         near_high = bb_upper and close >= bb_upper * 0.98
         near_low = bb_lower and close <= bb_lower * 1.02
 
-        # Markup (Phase D) — trending up, expanding volume, bullish MACD
+        # Markup (Phase D) — trending up, expanding volume and volatility
         if (close > ema50 > ema200 and macd > macd_sig and rsi > 55
                 and rvol > 1.2 and near_high):
             return "markup"
@@ -305,7 +334,7 @@ class EliteSignalProcessor:
                 and macd_sig > macd and vwap and close >= vwap * 0.98):
             return "accumulation"
 
-        # Markdown (Phase E) — below EMAs, heavy volume selling, bearish
+        # Markdown (Phase E) — below EMAs, heavy volume selling, bearish MACD
         if (close < ema50 and rvol > 1.3 and rsi < 40
                 and macd < macd_sig and near_low):
             return "markdown"
@@ -315,7 +344,7 @@ class EliteSignalProcessor:
     # ── Factor Conflicts ──────────────────────────────────────────────
 
     def detect_conflicts(self, row: pd.Series, scores: dict[str, int]) -> list[str]:
-        """Detect contradictory signals that reduce trade quality.
+        """Detect contradictory signals that reduce conviction.
 
         Returns human-readable conflict descriptions.
         """
@@ -329,23 +358,18 @@ class EliteSignalProcessor:
         # Trend up but momentum weakening
         if scores.get("trend", 0) >= 15 and macd <= macd_sig:
             conflicts.append("Trend bullish but MACD bearish — momentum divergence")
-        elif scores.get("trend", 0) <= 5 and macd > macd_sig:
-            conflicts.append("MACD bullish but trend weak — needs price confirmation")
 
-        # Volume says bullish but VWAP says bearish
+        # Volume says up but price below VWAP
         if scores.get("volume", 0) >= 10 and vwap and close < vwap:
-            conflicts.append("Volume elevated but below VWAP — distribution risk")
+            conflicts.append("Volume elevated but price below VWAP — distribution risk")
 
         # RSI extreme + MACD still bullish = extended, not strong
         if macd > macd_sig and rsi > 80:
-            conflicts.append("RSI overbought (>80) despite MACD bullish — extended, not entry")
+            conflicts.append("RSI overbought (>80) despite bullish MACD — extended, not strong")
 
-        # Price below EMA200 but volume surging — possible capitulation, not accumulation
-        ema200 = row.get("EMA200", 0) or 0
-        if ema200 and close < ema200:
-            rvol = row.get("relative_volume_10d_calc", 1.0) or 1.0
-            if rvol > 2.0:
-                conflicts.append("Price below EMA200 with heavy volume — distribution/capitulation risk")
+        # RSI oversold but MACD bearish = falling knife
+        if rsi < 30 and macd < macd_sig:
+            conflicts.append("RSI oversold but MACD bearish — falling knife risk")
 
         return conflicts
 
@@ -381,7 +405,7 @@ class EliteSignalProcessor:
             if not ticker:
                 continue
 
-            # ConfluenceScore-like scores dict for conviction + conflicts
+            # ConfluenceScore-like scores dict for conflict detection
             scores = self._compute_scores_snapshot(row, direction)
 
             rs = rs_ratings.get(ticker, 50)
@@ -422,51 +446,63 @@ class EliteSignalProcessor:
             pct = (close - ema200) / ema200 * 100
             trend += 10 if pct > 10 else (8 if pct > 5 else (4 if pct > 2 else 2))
         if ema50 and close > ema50:
-            pct = (close - ema50) / ema50 * 100
-            trend += 10 if pct > 8 else (6 if pct > 3 else (4 if pct > 1 else 2))
-        scores["trend"] = trend if is_long else max(0, 30 - trend)
+            trend += 10 if (close - ema50) / ema50 * 100 > 5 else (6 if (close - ema50) / ema50 * 100 > 2 else 3)
+        scores["trend"] = min(30, trend)
 
-        # Quick momentum score (0-25)
+        # Momentum (0-25)
         macd = row.get("MACD.macd", 0) or 0
         macd_sig = row.get("MACD.signal", 0) or 0
         rsi = row.get("RSI", 50) or 50
-        mom = 0
-        if (macd > macd_sig) if is_long else (macd < macd_sig):
-            mom += 8
-            spread = abs(macd - macd_sig) / (abs(macd_sig) + 1e-9)
-            mom += 7 if spread > 1.0 else (4 if spread > 0.5 else 1)
-        if (rsi > 55) if is_long else (rsi < 45):
-            mom += 10 if rsi > 65 else (5 if rsi > 55 else 3)
-        scores["momentum"] = min(25, mom)
+        momentum = 0
+        if macd > macd_sig:
+            momentum += 10
+            spread = abs(macd - macd_sig)
+            momentum += 5 if spread > 0.5 else 2
+        if is_long:
+            if rsi > 65:
+                momentum += 8
+            elif rsi > 55:
+                momentum += 4
+        else:
+            if rsi < 35:
+                momentum += 8
+            elif rsi < 45:
+                momentum += 3
+        scores["momentum"] = min(25, momentum)
 
-        # Quick volume score (0-20)
-        vol = 0
-        rvol = row.get("relative_volume_10d_calc", 1.0) or 1.0
-        vwap = row.get("VWAP", 0) or 0
-        vol += 8 if rvol > 2.0 else (5 if rvol > 1.5 else (3 if rvol > 1.2 else 1))
-        if vwap and close:
-            if (close > vwap) if is_long else (close < vwap):
-                vol += 7
-        scores["volume"] = min(20, vol)
+        # Volume (0-20)
+        vol = row.get("relative_volume_10d_calc", 1.0) or 1.0
+        volume = 0
+        if vol > 3.0:
+            volume = 20
+        elif vol > 2.0:
+            volume = 15
+        elif vol > 1.5:
+            volume = 10
+        elif vol > 1.0:
+            volume = 5
+        scores["volume"] = volume
 
-        # Quick quality score (0-15)
+        # Quality (0-15)
         adx = row.get("ADX", 0) or 0
-        qual = 0
-        qual += 8 if adx > 25 else (5 if adx > 20 else (2 if adx > 15 else 0))
-        scores["quality"] = min(15, qual)
+        quality = 0
+        if adx > 30:
+            quality = 10
+        elif adx > 25:
+            quality = 7
+        elif adx > 20:
+            quality = 4
+        scores["quality"] = quality
 
-        # Quick fundamental score (0-10)
-        fund = 0
-        analyst = row.get("AnalystRating", "")
-        if analyst in ("StrongBuy",):
-            fund += 5
-        elif analyst in ("Buy", "Outperform"):
-            fund += 3
-        mcap = row.get("market_cap_basic", 0) or 0
-        if mcap > 10_000_000_000:
-            fund += 3
-        elif mcap > 1_000_000_000:
-            fund += 1
-        scores["fundamental"] = min(10, fund)
+        # Fundamental (0-10)
+        fundamental = 0
+        eps = row.get("earnings_per_share_diluted_ttm", 0) or 0
+        if eps > 10:
+            fundamental = 8
+        elif eps > 5:
+            fundamental = 6
+        elif eps > 0:
+            fundamental = 4
+        scores["fundamental"] = fundamental
 
         return scores

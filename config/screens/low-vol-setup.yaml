@@ -1,4 +1,4 @@
-name: "Low-Vol Setup"
+name: "Low-Vol Setup Simple"
 description: "Low volatility stocks with steady trend, tight Bollinger Bands, and neutral momentum — positioned for the next expansion"
 asset_classes:
   - equities
@@ -13,7 +13,7 @@ filters:
   - category: volatility
     indicator: bb_squeeze
     params:
-      threshold: 1.08
+      threshold: 1.05
     timeframe: "1D"
   - category: momentum
     indicator: rsi_in_range
@@ -25,4 +25,9 @@ filters:
     indicator: atr_pct_below
     params:
       threshold: 0.03
+    timeframe: "1D"
+  - category: volume
+    indicator: rvol_low
+    params:
+      threshold: 0.8
     timeframe: "1D"

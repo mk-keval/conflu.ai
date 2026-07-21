@@ -12,7 +12,31 @@ export interface TechnicalAnalysis {
   volume_ratio: number | null;
   bb_position: string | null;
   macd_status: string | null;
+  // Market structure (new)
+  structure: string | null;  // bullish / bearish / ranging / transition
+  swing_highs: number[] | null;
+  swing_lows: number[] | null;
+  key_resistance: number[] | null;
+  key_support: number[] | null;
+  pullback_quality: string | null;  // A+ / A / B / C / D / F
+  pullback_score: number | null;    // 0-100
+  // Volume profile (TPO)
+  volume_profile?: {
+    poc: number;
+    vah: number;
+    val: number;
+    hvn: number[];
+    lvn: number[];
+    distribution: Record<string, number>;
+  };
   findings: string[];
+}
+
+export interface MultiTimeframeTechnical {
+  daily: TechnicalAnalysis;
+  weekly?: TechnicalAnalysis;
+  '4h'?: TechnicalAnalysis;
+  '1h'?: TechnicalAnalysis;
 }
 
 export interface FundamentalAnalysis {
@@ -81,6 +105,41 @@ export interface AnalysisVerdict {
   buy_triggers: string[];
   sell_triggers: string[];
   thesis: string;
+  // Dynamic trade management (new)
+  trade_plan?: TradePlan;
+  // Catalyst bias
+  catalyst_bias?: CatalystBias;
+}
+
+export interface TradePlan {
+  scale_in: ScaleInStep[];
+  scale_out: ScaleOutStep[];
+  trail_type: string;  // "atr" / "structure" / "percent"
+  trail_value: number;
+  trail_activation_r: number;
+  move_to_breakeven_at_r: number;
+  max_hold_days: number | null;
+  max_position_pct: number;
+  daily_loss_limit_pct: number;
+  notes: string[];
+}
+
+export interface ScaleInStep {
+  price: number;
+  size_pct: number;
+  reason: string;
+}
+
+export interface ScaleOutStep {
+  r_multiple: number;
+  size_pct: number;
+  reason: string;
+}
+
+export interface CatalystBias {
+  bias: string;  // bullish / bearish / neutral / slightly_positive / slightly_negative / cautious
+  score: number;  // -10 to +10
+  notes: string[];
 }
 
 export interface TickerAnalysisResponse {
@@ -88,7 +147,7 @@ export interface TickerAnalysisResponse {
   price: number | null;
   change_pct: number | null;
   sector: string | null;
-  technical: TechnicalAnalysis | null;
+  technical: MultiTimeframeTechnical | null;
   fundamental: FundamentalAnalysis | null;
   earnings: EarningsAnalysis | null;
   sentiment: SentimentAnalysis | null;
@@ -97,6 +156,14 @@ export interface TickerAnalysisResponse {
   execution_ms: number;
   analysis_timestamp: string | null;
   data_age_hours: number | null;
+  // Data source attribution
+  data_sources?: {
+    technical_daily: string;  // "TV Screener + yfinance"
+    technical_weekly: string; // "yfinance 2y weekly"
+    fundamental: string;      // "yfinance info"
+    sentiment: string;        // "yfinance info"
+    earnings: string;         // "yfinance info"
+  };
 }
 
 export interface TickerAnalysisRequest {
@@ -104,4 +171,66 @@ export interface TickerAnalysisRequest {
   timeframe?: string;
   tv_data?: Record<string, unknown> | null;
   regime?: string | null;
+}
+
+// ── Yahoo Finance Supplemental Types ──
+
+export interface OptionsChainResponse {
+  symbol: string;
+  expiry: string;
+  spot: number;
+  calls: OptionsContract[];
+  puts: OptionsContract[];
+  ivRank: number;
+  maxPain: number;
+  gammaExposure: number;
+  putCallRatio: number;
+  totalCallOI: number;
+  totalPutOI: number;
+  availableExpiries: string[];
+}
+
+export interface OptionsContract {
+  strike: number;
+  lastPrice: number;
+  bid: number;
+  ask: number;
+  impliedVolatility: number;
+  volume: number;
+  openInterest: number;
+  delta?: number | null;
+  gamma?: number | null;
+  theta?: number | null;
+  vega?: number | null;
+}
+
+export interface NewsResponse {
+  symbol: string;
+  items: NewsItem[];
+  count: number;
+}
+
+export interface NewsItem {
+  title: string;
+  publisher: string;
+  link: string;
+  timestamp: number;
+  date: string | null;
+  sentiment: 'positive' | 'negative' | 'neutral';
+}
+
+export interface ChartDataResponse {
+  symbol: string;
+  interval: string;
+  range: string;
+  data: ChartDataPoint[];
+}
+
+export interface ChartDataPoint {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
 }

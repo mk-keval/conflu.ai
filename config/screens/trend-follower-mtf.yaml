@@ -1,5 +1,5 @@
 name: "Trend Follower (Multi-Timeframe)"
-description: "EMA50 above EMA200 on daily with RSI strength and ADX confirmation — captures established trends with multi-timeframe confirmation"
+description: "EMA50 above EMA200 on daily with 4h confirmation (price > EMA20, RSI>60, MACD bullish, rvol>1.5) — captures established trends with shorter-timeframe confirmation"
 asset_classes:
   - equities
   - crypto
@@ -8,29 +8,28 @@ timeframes:
   - 4h
 filters:
   - category: trend
-    indicator: ema_cross
-    params:
-      fast: 50
-      slow: 200
-    timeframe: "1D"
-  - category: trend
     indicator: ema_stack_bullish
     timeframe: "1D"
+  - category: trend
+    indicator: price_above_ema
+    params:
+      period: 20
+    timeframe: "4h"
   - category: momentum
     indicator: rsi_gt
     params:
-      threshold: 55
-    timeframe: "1D"
+      threshold: 60
+    timeframe: "4h"
+  - category: momentum
+    indicator: macd_bullish
+    timeframe: "4h"
   - category: volume
     indicator: rvol_high
     params:
-      threshold: 1.0
+      threshold: 1.5
     timeframe: "4h"
-  - category: volume
-    indicator: price_above_vwap
-    timeframe: "1D"
   - category: volatility
     indicator: adx_trending
     params:
-      threshold: 22
+      threshold: 25
     timeframe: "1D"

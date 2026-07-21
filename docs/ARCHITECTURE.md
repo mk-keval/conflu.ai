@@ -153,6 +153,85 @@ Router Endpoints (REST) / WebSocket (ws/stream endpoint)
 ExceptionHandlers → {error: {code, message, details, request_id}}
 ```
 
+## Data Flow — Ticker Analysis (Elite Trader Grade)
+
+```
+User clicks "Analyze" on a ticker
+    ↓
+TickerAnalysisService.analyze()
+  → Fetch TV screener data (current snapshot)
+  → Fetch yfinance info (fundamentals, earnings, sentiment)
+  → Fetch yfinance OHLCV (6mo daily for swing detection)
+  → Fetch yfinance OHLCV (2y weekly for weekly structure)
+  → Fetch yfinance OHLCV (3mo 4h / 1mo 1h for intraday structure) [optional]
+    ↓
+Technical Module (per timeframe)
+  → Detect swings (5-bar fractals) → Classify structure (HH/HL vs LH/LL)
+  → Cluster swings → Key support/resistance levels
+  → Score pullback quality (A+ to F): depth, volume dry-up, structure hold
+  → Compute TPO volume profile (POC, VAH, VAL, HVN, LVN)
+  → Standard indicators: MA stack, RSI, ADX, MACD, BB, ATR
+    ↓
+Fundamental/Earnings/Sentiment/Risk Modules
+    ↓
+Synthesis Engine
+  → Regime-adaptive weights (strong_trend/ranging/high_vol/low_vol)
+  → Catalyst bias overlay (earnings proximity, analyst targets, insider/short)
+  → Dynamic R:R (trend quality, vol regime, fundamental quality)
+  → Scale-in plan (3 tranches), Scale-out (1R/0.7R/full target), Trail (ATR/structure), Breakeven at 1R
+  → Time stop (counter-trend 20d, dev-stage 60d), Risk caps (position/daily loss)
+  → Catalyst notes in thesis
+    ↓
+Macro Overlay (VIX, breadth, risk appetite, safe haven, yield curve)
+    ↓
+Verdict → Trade Plan + Verdict + Catalyst Notes
+```
+
+## Data Flow — Enhanced Options Flow
+
+```
+GET /ticker/{symbol}/options-flow
+    ↓
+Fetch full options chain (calls/puts all strikes)
+    ↓
+Compute per-strike metrics:
+  → GEX by strike (gamma × OI × 100 × spot × 0.01)
+  → Total GEX, Net GEX, Dealer Position (long/short gamma)
+  → GEX Flip Level (strike > spot where GEX > 0)
+  → Max Pain (OI-weighted pain minimization)
+  → Put/Call Ratio (OI-based)
+  → Unusual Activity (vol > 2×OI & OI>100)
+  → High OI strikes (top 5 calls/puts)
+  → Term Structure (IV mean across 6 expiries)
+  → Max Pain distance from spot (%)
+    ↓
+Return: Spot, IV Rank/Mean, Max Pain, GEX (total/by-strike/flip), PCR, Unusual Activity, Key Levels, Term Structure
+```
+
+## Data Flow — Catalyst Bias Analysis
+
+```
+Earnings Proximity (from yfinance earningsTimestampStart)
+  → Days to earnings → Bias: cautious (0-5d), positive/negative drift (6-21d)
+  → Last surprise pct → Momentum bias
+  
+Analyst Target vs Current Price
+  → Target upside > 20% → bullish
+  → Target upside < -10% → bearish
+
+Insider Ownership
+  → >20% → alignment bullish
+  → <1% → minimal alignment bearish
+
+Short Interest % of Float
+  → >30% → squeeze risk / bearish
+  → 15-30% → elevated bearish
+
+Dividend Ex-Date Proximity (0-10 days) → Event catalyst
+  
+Aggregate Score → Bias: bullish/bearish signals → Final Bias (positive/slightly_positive/neutral/slightly_negative/negative)
+```
+
 ## Key Design Decisions
 
 - **TV Screener first**: All discovery goes through TradingView Screener, not local OHLCV — 12K+ symbols in <2s
@@ -160,18 +239,28 @@ ExceptionHandlers → {error: {code, message, details, request_id}}
 - **DuckDB retained for backtest OHLCV**: Historical data still needed for deep analysis (backtest + risk)
 - **Multi-TF via client-side intersection**: TV only supports single-TF queries, so multi-TF = multiple queries + intersect
 - **ATR-based entry/SL/targets**: Available directly from TV — no local computation needed for screening
-- **56 TV filters** across trend, momentum, volume, volatility, pattern, and fundamental categories
-- **9 elite screen templates**: Sector Rotation Leader, Institutional Accumulation, RS Leader, High-Conviction Stack, Bull Flag, Volatility Expansion, Statistical Mean Reversion, Earnings Momentum, Short Squeeze
-- **21 total screen templates** available
+- **26 TV filters** across trend, momentum, volume, volatility, pattern, and fundamental categories
+- **21 total screen templates** available (Low-Vol Setup, Mean Reversion, Oversold Bounce, Statistical Mean Reversion, Momentum Breakout, Breakout, Quality Trend + Fundamentals, Volume-Confirmed Uptrend, Bull Flag Continuation, 52-Week Breakout, Trend Follower, Trend Follower MTF, High-Conviction Stack, Volatility Expansion, Institutional Swing Quality, Institutional Trend Follower MTF, Volume-Confirmed Uptrend, Volume Surge, Volume Surge Breakout, Volume+Trend Accumulation, Trend Leader)
 - **4 adaptive regime weight tables**: strong_trend, ranging, high_vol, low_vol — each with different factor emphasis
 - **Post-TV signal enrichment**: EliteSignalProcessor adds RS rating, institutional quality, signal conviction, Wyckoff phase proxy
 - **RS rating is relative percentile** within the current screen cohort, not an absolute score
 - **Signal conviction** = RS rating + institutional quality + factor conflict absence
 - **Wyckoff phase is a heuristic proxy** based on price + volume trend combination
-- Append-only Parquet with idempotent incremental updates
-- TradingView free tier (no API key needed)
-- Semaphore-based concurrency (no unbounded parallelism)
-- Partial failures don't stop pipeline
+- **Market structure from yfinance OHLCV**: Swing detection (5-bar fractal), structure classification, key levels, pullback quality, TPO volume profile
+- **Volume Profile (TPO) from daily bars**: POC, VAH/VAL (70% value area), HVN/LVN — approximates institutional order flow
+- **Dynamic Trade Plan per verdict**: Scale-in (3 tranches), scale-out (1R/0.7R/target), trail (ATR/structure), breakeven at 1R, time stops, risk caps
+- **Enhanced Options Flow**: GEX by strike, flip level, max pain, dealer positioning, unusual volume, term structure
+- **Catalyst Bias**: Earnings proximity/drift, analyst targets, insider/short interest → bias score (-10 to +10) → applied to synthesis
+- **Multi-timeframe via yfinance**: Daily (6mo), Weekly (2y), 4H (1mo), 1H (1mo) — all from yfinance
+- **Volume Profile (TPO)**: TPO-style from daily bars — POC, VAH/VAL, HVN/LVN — no tick data needed
+- **Volume Profile (TPO)**: TPO-style from daily bars — POC, VAH/VAL, HVN/LVN — no tick data needed
+- **Macro Regime Overlay**: VIX, sector breadth, risk appetite, safe haven, yield curve → adjusts stops/position sizing/quality bias
+- **Append-only Parquet with idempotent incremental updates**
+- **TradingView free tier (no API key needed)**
+- **Semaphore-based concurrency (no unbounded parallelism)**
+- **Partial failures don't stop pipeline**
+
+---
 
 ---
 

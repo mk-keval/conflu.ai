@@ -1,0 +1,72 @@
+name: "Institutional Accumulation"
+description: "Smart money accumulation signals — heavy volume, rising OBV, price holding above VWAP with bullish analyst consensus. Catches institutional positioning before the breakout. Filters: $2B+ mcap, NYSE/NASDAQ, $5+, EPS>0, 1M avg vol."
+direction: long
+asset_classes:
+  - equities
+timeframes:
+  - 1D
+  - 4h
+filters:
+  # Institutional quality gates
+  - category: fundamental
+    indicator: market_cap_gt
+    params:
+      value: 2000000000
+    timeframe: "1D"
+  - category: fundamental
+    indicator: exchange_in
+    params:
+      exchanges:
+        - "NYSE"
+        - "NASDAQ"
+    timeframe: "1D"
+  - category: fundamental
+    indicator: close_above
+    params:
+      threshold: 5.0
+    timeframe: "1D"
+  - category: fundamental
+    indicator: eps_positive
+    timeframe: "1D"
+  - category: fundamental
+    indicator: pe_max
+    params:
+      max_pe: 60
+    timeframe: "1D"
+  # Volume & trend confirmation
+  - category: volume
+    indicator: obv_rising
+    params:
+      min_rvol: 1.0
+    timeframe: "1D"
+  - category: volume
+    indicator: rvol_high
+    params:
+      threshold: 1.3
+    timeframe: "1D"
+  - category: volume
+    indicator: price_above_vwap
+    timeframe: "1D"
+  - category: trend
+    indicator: price_above_ema
+    params:
+      period: 50
+    timeframe: "1D"
+  - category: momentum
+    indicator: rsi_in_range
+    params:
+      min: 55
+      max: 70
+    timeframe: "1D"
+  - category: volatility
+    indicator: adx_trending
+    params:
+      threshold: 25
+    timeframe: "1D"
+  - category: fundamental
+    indicator: analyst_rating_in
+    params:
+      ratings:
+        - StrongBuy
+        - Buy
+    timeframe: "1D"

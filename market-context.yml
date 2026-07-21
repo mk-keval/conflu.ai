@@ -1,0 +1,143 @@
+- generic [ref=f12e3]:
+  - complementary [ref=f12e4]:
+    - generic [ref=f12e6]:
+      - generic [ref=f12e7]: C
+      - generic [ref=f12e9]: conflu.ai
+    - navigation [ref=f12e10]:
+      - link "Screener" [ref=f12e11] [cursor=pointer]:
+        - /url: /screener
+      - link "Sector Rotation" [ref=f12e19] [cursor=pointer]:
+        - /url: /sector-rotation
+      - link "Ticker Analysis" [ref=f12e25] [cursor=pointer]:
+        - /url: /ticker
+      - link "Charts" [ref=f12e31] [cursor=pointer]:
+        - /url: /charts
+      - link "Backtest" [ref=f12e37] [cursor=pointer]:
+        - /url: /backtest
+      - link "Risk" [ref=f12e41] [cursor=pointer]:
+        - /url: /risk
+    - generic [ref=f12e46]: Connected
+  - generic [ref=f12e50]:
+    - banner [ref=f12e51]:
+      - textbox "Search symbols... (/)" [ref=f12e57]
+      - button "50 Cautious 7:37 PM" [ref=f12e69] [cursor=pointer]:
+        - generic [ref=f12e70]: "50"
+        - generic [ref=f12e76]: Cautious
+        - generic [ref=f12e77]: 7:37 PM
+    - main [ref=f12e62]:
+      - generic [ref=f12e63]:
+        - generic [ref=f12e64]:
+          - generic [ref=f12e80]:
+            - link [ref=f12e81] [cursor=pointer]:
+              - /url: /ticker
+            - generic [ref=f12e85]: /
+            - generic [ref=f12e86]: TSLA
+          - button "Explain On" [ref=f12e87] [cursor=pointer]
+        - generic [ref=f12e97]:
+          - generic [ref=f12e98]:
+            - generic [ref=f12e102]:
+              - generic [ref=f12e103]:
+                - heading "TSLA" [level=1] [ref=f12e104]
+                - generic [ref=f12e105]: $396.18
+              - generic [ref=f12e106]:
+                - generic [ref=f12e107]: HOLD
+                - img [ref=f12e109]:
+                  - generic [ref=f12e112]: "5"
+                - generic [ref=f12e113]: Consumer Cyclical
+            - generic [ref=f12e114]: 441ms
+            - generic [ref=f12e115]: "Data: 4h ago"
+          - paragraph [ref=f12e116]: "Neutral outlook (score -19%). No strong directional edge. Bull case: Listed on major US exchange — institutional-grade liquidity and disclosure. Bear case: Bearish MA stack: SMA20 (400.14) < SMA50 (409.64) < SMA200 (417.98)."
+          - generic [ref=f12e117]:
+            - generic [ref=f12e118]:
+              - generic [ref=f12e119]: Entry Zone
+              - generic [ref=f12e120]: —
+            - generic [ref=f12e121]:
+              - generic [ref=f12e122]: Stop Loss
+              - generic [ref=f12e123]: $360.48
+            - generic [ref=f12e124]:
+              - generic [ref=f12e125]: Targets
+              - generic [ref=f12e126]: $449.73, $503.28
+            - generic [ref=f12e127]:
+              - generic [ref=f12e128]: Risk/Reward
+              - generic [ref=f12e129]: 1.5:1
+        - generic [ref=f12e130]:
+          - generic [ref=f12e131]:
+            - generic [ref=f12e132]: Technical
+            - generic [ref=f12e135]: "-0.80"
+          - generic [ref=f12e136]:
+            - generic [ref=f12e137]: Fundamentals
+            - generic [ref=f12e140]: "-0.12"
+          - generic [ref=f12e141]:
+            - generic [ref=f12e142]: Earnings
+            - generic [ref=f12e145]: "+0.20"
+          - generic [ref=f12e146]:
+            - generic [ref=f12e147]: Sentiment
+            - generic [ref=f12e150]: "+0.20"
+          - generic [ref=f12e151]:
+            - generic [ref=f12e152]: Risk
+            - generic [ref=f12e155]: "-0.20"
+        - generic [ref=f12e156]:
+          - button "Verdict" [ref=f12e157] [cursor=pointer]
+          - button "Technical" [ref=f12e161] [cursor=pointer]
+          - button "Fundamentals" [ref=f12e166] [cursor=pointer]
+          - button "Earnings" [ref=f12e170] [cursor=pointer]
+          - button "Sentiment" [ref=f12e174] [cursor=pointer]
+          - button "Risk" [ref=f12e178] [cursor=pointer]
+        - generic [ref=f12e183]:
+          - generic [ref=f12e184]:
+            - heading "Module Scores" [level=3] [ref=f12e185]
+            - generic [ref=f12e186]:
+              - generic [ref=f12e187]:
+                - generic [ref=f12e188]: Technical
+                - generic [ref=f12e189]: "-0.80"
+              - generic [ref=f12e192]:
+                - generic [ref=f12e193]: Fundamentals
+                - generic [ref=f12e194]: "-0.12"
+              - generic [ref=f12e197]:
+                - generic [ref=f12e198]: Earnings
+                - generic [ref=f12e199]: "+0.20"
+              - generic [ref=f12e202]:
+                - generic [ref=f12e203]: Sentiment
+                - generic [ref=f12e204]: "+0.20"
+              - generic [ref=f12e207]:
+                - generic [ref=f12e208]: Risk
+                - generic [ref=f12e209]: "-0.20"
+            - paragraph [ref=f12e212]: More bearish signals — caution warranted.
+          - generic [ref=f12e213]:
+            - heading "Sell Triggers" [level=3] [ref=f12e214]
+            - list [ref=f12e218]:
+              - listitem [ref=f12e219]:
+                - generic [ref=f12e220]: •
+                - generic [ref=f12e221]: Trend is down — avoid longs until MA stack realigns bullishly.
+              - listitem [ref=f12e222]:
+                - generic [ref=f12e223]: •
+                - generic [ref=f12e224]: Premium P/E requires consistent earnings beats to sustain. Miss → re-rate lower.
+          - generic [ref=f12e225]:
+            - heading "Red Flags" [level=3] [ref=f12e226]
+            - list [ref=f12e229]:
+              - listitem [ref=f12e230]:
+                - generic [ref=f12e231]: •
+                - generic [ref=f12e232]: "⚠️ Bearish MA stack: SMA20 (400.14) < SMA50 (409.64) < SMA200 (417.98)"
+              - listitem [ref=f12e233]:
+                - generic [ref=f12e234]: •
+                - generic [ref=f12e235]: ⚠️ Price below 3/3 key MAs — distribution
+              - listitem [ref=f12e236]:
+                - generic [ref=f12e237]: •
+                - generic [ref=f12e238]: ⚠️ ATR 4.51% — high volatility, wider stops needed
+              - listitem [ref=f12e239]:
+                - generic [ref=f12e240]: •
+                - generic [ref=f12e241]: 🚨 P/E 356.9 — extreme valuation, high expectations priced in
+              - listitem [ref=f12e242]:
+                - generic [ref=f12e243]: •
+                - generic [ref=f12e244]: ⚠️ Profit margin 3.9% — thin, sensitive to costs
+          - generic [ref=f12e245]:
+            - heading "Detailed Analysis" [level=3] [ref=f12e246]
+            - paragraph [ref=f12e249]: "Neutral outlook (score -19%). No strong directional edge. Bull case: Listed on major US exchange — institutional-grade liquidity and disclosure. Bear case: Bearish MA stack: SMA20 (400.14) < SMA50 (409.64) < SMA200 (417.98)."
+          - generic [ref=f12e250]:
+            - heading "Position Sizing" [level=3] [ref=f12e251]
+            - paragraph [ref=f12e254]:
+              - text: "Suggested position size:"
+              - generic [ref=f12e255]: 8%
+              - text: of portfolio
+          - button "Show step-by-step reasoning" [ref=f12e256] [cursor=pointer]
+          - button "View trading terms glossary" [ref=f12e262] [cursor=pointer]

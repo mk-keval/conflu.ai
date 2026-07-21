@@ -59,7 +59,8 @@ class MarketRegimeResponse(BaseModel):
     sector_breadth: RegimeIndicator
     safe_haven: RegimeIndicator
     yield_curve: RegimeIndicator
-    timestamp: str = ""
+    timestamp: str
+    data_fetched_at: str = ""
 
 
 # ── TTL Cache (timestamp-based, no external deps) ──
@@ -435,6 +436,29 @@ async def get_market_regime() -> ApiResponse[MarketRegimeResponse]:
                 status=yield_status,
             ),
             timestamp=now.isoformat(),
+            data_fetched_at=datetime.fromtimestamp(_MACRO_CACHE_TIME, UTC).isoformat(),
         ),
         meta=MetaInfo(request_id="", duration_ms=round(duration, 1)),
     )
+
+
+# ── Synchronous wrapper for internal use ──
+def get_market_regime_sync() -> MarketRegimeResponse | None:
+    """Synchronous wrapper to fetch market regime for internal use."""
+    import asyncio
+    
+    async def _get_regime() -> MarketRegimeResponse | None:
+        try:
+            response: ApiResponse = await get_market_regime()
+            return response.data
+        except Exception:
+            log.exception("macro_regime_fetch_failed")
+            return None
+    
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
+    return loop.run_until_complete(_get_regime())

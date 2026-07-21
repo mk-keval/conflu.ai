@@ -1,5 +1,5 @@
 name: "High-Conviction Stack"
-description: "Multi-factor confluence stack — every signal must fire simultaneously. Bullish EMA stack, strong momentum, elevated volume, trending ADX, and positive fundamental backdrop. Designed for high-probability, institutional-quality setups only"
+description: "Multi-factor confluence stack — core signals firing simultaneously. Bullish EMA stack, strong momentum, elevated volume, trending ADX, and positive fundamental backdrop. Designed for high-probability, institutional-quality setups only. Filters: $1B+ mcap, NYSE/NASDAQ, US, $5+, EPS>0, PE<60, 1M avg vol."
 direction: long
 asset_classes:
   - equities
@@ -7,13 +7,46 @@ timeframes:
   - 1D
   - 4h
 filters:
+  # Institutional quality gates
+  - category: fundamental
+    indicator: market_cap_gt
+    params:
+      value: 1000000000
+    timeframe: "1D"
+  - category: fundamental
+    indicator: exchange_in
+    params:
+      exchanges:
+        - "NYSE"
+        - "NASDAQ"
+    timeframe: "1D"
+  - category: fundamental
+    indicator: country_in
+    params:
+      countries:
+        - "United States"
+    timeframe: "1D"
+  - category: fundamental
+    indicator: close_above
+    params:
+      threshold: 5.0
+    timeframe: "1D"
+  - category: fundamental
+    indicator: eps_positive
+    timeframe: "1D"
+  - category: fundamental
+    indicator: pe_max
+    params:
+      max_pe: 60
+    timeframe: "1D"
+  - category: volume
+    indicator: avg_volume_gt
+    params:
+      threshold: 1000000
+    timeframe: "1D"
+  # Technical confluence
   - category: trend
     indicator: ema_stack_bullish
-    timeframe: "1D"
-  - category: trend
-    indicator: price_above_ema
-    params:
-      period: 200
     timeframe: "1D"
   - category: momentum
     indicator: rsi_macd_bullish
@@ -29,23 +62,8 @@ filters:
     params:
       threshold: 1.5
     timeframe: "1D"
-  - category: volume
-    indicator: price_above_vwap
-    timeframe: "1D"
   - category: volatility
     indicator: adx_trending
     params:
       threshold: 25
     timeframe: "1D"
-  - category: fundamental
-    indicator: eps_positive
-  - category: fundamental
-    indicator: market_cap_gt
-    params:
-      value: 2000000000
-  - category: fundamental
-    indicator: analyst_rating_in
-    params:
-      ratings:
-        - StrongBuy
-        - Buy

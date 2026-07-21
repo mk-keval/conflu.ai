@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timezone
 from typing import Any
 
 import yfinance as yf
@@ -16,6 +17,7 @@ from backend.app.domain.ticker_analysis import (
     sentiment,
     synthesis,
     technical,
+    macro_overlay,
 )
 from backend.app.domain.ticker_analysis.models import (
     EarningsAnalysis,
@@ -27,12 +29,42 @@ from backend.app.domain.ticker_analysis.models import (
     TickerAnalysisResponse,
     AnalysisVerdict,
 )
+from backend.app.api.schemas import ApiResponse
 
 log = get_logger("conflu.ticker_analysis")
 
 # Simple in-memory TTL cache for yfinance results
 _INFO_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 _CACHE_TTL = 300  # 5 minutes
+
+# Macro regime cache
+_MACRO_REGIME_CACHE: Any | None = None
+_MACRO_REGIME_CACHE_TIME: float = 0.0
+_MACRO_REGIME_CACHE_TTL = 3600.0  # 1 hour cache for market regime
+
+
+async def _fetch_market_regime() -> Any | None:
+    """Fetch current market regime, using cache if available."""
+    global _MACRO_REGIME_CACHE, _MACRO_REGIME_CACHE_TIME
+
+    # Lazy import to avoid circular import
+    from backend.app.api.routers.regime import get_market_regime, MarketRegimeResponse
+
+    now = time.monotonic()
+    if _MACRO_REGIME_CACHE is not None and (now - _MACRO_REGIME_CACHE_TIME) < _MACRO_REGIME_CACHE_TTL:
+        return _MACRO_REGIME_CACHE
+
+    try:
+        # Call the regime endpoint internally
+        response: ApiResponse = await get_market_regime()
+        if response.data:
+            _MACRO_REGIME_CACHE = response.data
+            _MACRO_REGIME_CACHE_TIME = now
+            return response.data
+    except Exception:
+        log.exception("macro_regime_fetch_failed")
+
+    return None
 
 
 def _fetch_info(symbol: str) -> dict[str, Any]:
@@ -107,9 +139,11 @@ def _compute_missing_technicals(symbol: str, tv_data: dict[str, Any]) -> dict[st
 
         # SMA20 from 20-day average of close
         if not tv_data.get("SMA20") and len(hist) >= 20:
-            sma20 = hist["Close"].rolling(20).mean().iloc[-1]
-            if not pd.isna(sma20):
-                result["SMA20"] = round(float(sma20), 2)
+            sma20 = ta.sma(hist["Close"], length=20)
+            if sma20 is not None and len(sma20) > 0:
+                last = sma20.iloc[-1]
+                if not pd.isna(last):
+                    result["SMA20"] = round(float(last), 2)
 
         return result
     except Exception:
@@ -194,6 +228,111 @@ def _detect_acquisition(info: dict[str, Any], tv_data: dict[str, Any]) -> dict[s
     return None
 
 
+def _analyze_catalyst_bias(info: dict[str, Any], tv_data: dict[str, Any]) -> dict[str, Any]:
+    """
+    Analyze catalyst bias from news, earnings, and corporate events.
+    Returns bias direction and key catalysts for the synthesis engine.
+    """
+    catalysts = {
+        "bias": "neutral",  # bullish / bearish / neutral
+        "upcoming_events": [],
+        "recent_catalysts": [],
+        "earnings_proximity": None,
+        "earnings_bias": "neutral",
+        "key_findings": [],
+    }
+    
+    # 1. Earnings proximity and bias
+    next_earnings = info.get("earningsTimestampStart") or info.get("earningsTimestamp")
+    if next_earnings:
+        try:
+            from datetime import datetime, timezone
+            if isinstance(next_earnings, (int, float)):
+                earnings_dt = datetime.fromtimestamp(next_earnings, tz=timezone.utc)
+            else:
+                earnings_dt = datetime.fromisoformat(str(next_earnings).replace("Z", "+00:00"))
+            
+            days_until = (earnings_dt - datetime.now(timezone.utc)).days
+            catalysts["earnings_proximity"] = days_until
+            
+            if days_until <= 5:
+                catalysts["upcoming_events"].append(f"Earnings in {days_until} days")
+                # Check recent earnings surprise for bias
+                last_surprise = info.get("earningsSurprisePct")
+                if last_surprise is not None:
+                    if last_surprise > 5:
+                        catalysts["earnings_bias"] = "bullish"
+                        catalysts["key_findings"].append(f"Last earnings beat by {last_surprise:.1f}% — positive momentum")
+                    elif last_surprise < -5:
+                        catalysts["earnings_bias"] = "bearish"
+                        catalysts["key_findings"].append(f"Last earnings missed by {abs(last_surprise):.1f}% — caution")
+                    else:
+                        catalysts["earnings_bias"] = "neutral"
+            elif days_until <= 14:
+                catalysts["upcoming_events"].append(f"Earnings in {days_until} days")
+        except Exception:
+            pass
+    
+    # 2. Analyst revisions (proxy via target price vs current)
+    target_price = info.get("targetMeanPrice")
+    current_price = info.get("currentPrice") or info.get("regularMarketPrice")
+    if target_price and current_price and current_price > 0:
+        upside = (target_price / current_price - 1) * 100
+        if upside > 20:
+            catalysts["bias"] = "bullish"
+            catalysts["key_findings"].append(f"Analyst target implies {upside:.0f}% upside")
+        elif upside < -10:
+            catalysts["bias"] = "bearish"
+            catalysts["key_findings"].append(f"Analyst target {abs(upside):.0f}% below current price")
+    
+    # 3. Insider activity
+    insider_pct = info.get("heldPercentInsiders")
+    if insider_pct is not None:
+        insider = insider_pct * 100
+        if insider > 20:
+            catalysts["key_findings"].append(f"High insider ownership ({insider:.1f}%) — alignment")
+        elif insider < 1:
+            catalysts["key_findings"].append("Very low insider ownership — minimal alignment")
+    
+    # 4. Short interest
+    short_pct = info.get("shortPercentOfFloat")
+    if short_pct is not None:
+        si = short_pct * 100
+        if si > 30:
+            catalysts["bias"] = "bearish"
+            catalysts["key_findings"].append(f"Extreme short interest ({si:.1f}%) — squeeze risk")
+        elif si > 15:
+            catalysts["key_findings"].append(f"Elevated short interest ({si:.1f}%)")
+    
+    # 5. Check for recent news catalysts from tv_data (if available)
+    # This is a placeholder for when news data is passed in
+    
+    # 6. Dividend events
+    div_date = info.get("dividendDate") or info.get("exDividendDate")
+    if div_date:
+        try:
+            if isinstance(div_date, (int, float)):
+                div_dt = datetime.fromtimestamp(div_date, tz=timezone.utc)
+            else:
+                div_dt = datetime.fromisoformat(str(div_date).replace("Z", "+00:00"))
+            days_until = (div_dt - datetime.now(timezone.utc)).days
+            if 0 <= days_until <= 10:
+                catalysts["upcoming_events"].append(f"Ex-dividend in {days_until} days")
+        except Exception:
+            pass
+    
+    # Set overall bias based on findings
+    bullish_signals = sum(1 for k in catalysts["key_findings"] if any(w in k.lower() for w in ["bullish", "upside", "beat", "positive", "alignment"]))
+    bearish_signals = sum(1 for k in catalysts["key_findings"] if any(w in k.lower() for w in ["bearish", "downside", "miss", "caution", "risk", "short interest"]))
+    
+    if bullish_signals > bearish_signals:
+        catalysts["bias"] = "bullish"
+    elif bearish_signals > bullish_signals:
+        catalysts["bias"] = "bearish"
+    
+    return catalysts
+
+
 class TickerAnalysisService:
     """Elite-trader-grade ticker analysis service.
 
@@ -203,6 +342,7 @@ class TickerAnalysisService:
     """
 
     def __init__(self) -> None:
+        self.log = get_logger("conflu.ticker_analysis.service")
         self.log = get_logger("conflu.ticker_analysis.service")
 
     def analyze(self, request: TickerAnalysisRequest) -> TickerAnalysisResponse:
@@ -342,16 +482,20 @@ class TickerAnalysisService:
         sector = info.get("sector") or tv_data.get("sector")
 
         # ── 2. Run analysis modules ──
-        tech: TechnicalAnalysis | None = None
+        tech: TechnicalAnalysis | dict[str, TechnicalAnalysis] | None = None
         fund: FundamentalAnalysis | None = None
         earn: EarningsAnalysis | None = None
         sent: SentimentAnalysis | None = None
         risk: RiskAssessment | None = None
 
         try:
-            tech = technical.analyze(tv_data)
+            # Include weekly technical analysis for multi-timeframe perspective
+            tech = technical.analyze(tv_data, symbol=symbol, include_weekly=True)
         except Exception:
             self.log.exception("technical_analysis_failed", symbol=symbol)
+
+        # Extract daily technical for synthesis (use daily if dict, else use as-is)
+        tech_daily = tech["daily"] if isinstance(tech, dict) else tech
 
         try:
             fund = fundamentals.analyze(info)
@@ -387,9 +531,16 @@ class TickerAnalysisService:
             tv_data["ma_upside_remaining"] = ma_data["upside_remaining"]
             tv_data["ma_confidence"] = ma_data.get("ma_confidence", "potential")
 
+        # ── 2c. Catalyst Bias Analysis ──
+        # Analyze earnings, analyst revisions, insider activity, short interest, etc.
+        catalyst_bias = _analyze_catalyst_bias(info, tv_data)
+        tv_data["catalyst_bias"] = catalyst_bias
+        tv_data["catalyst_findings"] = catalyst_bias.get("key_findings", [])
+        tv_data["catalyst_bias_direction"] = catalyst_bias.get("bias", "neutral")
+
         # ── 3. Synthesise verdict ──
         verdict: AnalysisVerdict = synthesis.synthesise(
-            technical=tech,
+            technical=tech_daily,
             fundamental=fund,
             earnings=earn,
             sentiment=sent,
@@ -398,6 +549,32 @@ class TickerAnalysisService:
             regime=request.regime,
             tv_data=tv_data,
         )
+
+        # ── 3b. Apply macro regime overlay ──
+        try:
+            from backend.app.api.routers.regime import get_market_regime_sync
+            regime = get_market_regime_sync()
+            if regime:
+                from backend.app.domain.ticker_analysis.macro_overlay import get_macro_adjustment, apply_macro_adjustment
+                # Calculate weighted score from verdict action/conviction for macro overlay
+                action_to_score = {
+                    "BUY": 0.8, "ACCUMULATE": 0.4, "WATCH": 0.1, 
+                    "HOLD": -0.1, "REDUCE": -0.4, "AVOID": -0.8
+                }
+                weighted_score = action_to_score.get(verdict.action, 0.0)
+                adjustment = macro_overlay.get_macro_adjustment(
+                    vix=regime.vix.value,
+                    composite_score=regime.composite_score,
+                    risk_appetite_score=regime.risk_appetite.score,
+                    sector_breadth_pct=regime.sector_breadth.value,
+                    safe_haven_score=regime.safe_haven.score,
+                    weighted_score=weighted_score,
+                    verdict=verdict,
+                )
+                verdict = macro_overlay.apply_macro_adjustment(verdict, adjustment)
+                log.info("macro_overlay_applied", symbol=symbol, adjustment=adjustment.notes)
+        except Exception:
+            self.log.exception("macro_overlay_failed", symbol=symbol)
 
         # ── 4. Build response ──
         duration_ms = round((time.monotonic() - start) * 1000)
@@ -420,7 +597,7 @@ class TickerAnalysisService:
             price=price,
             change_pct=change,
             sector=sector,
-            technical=tech,
+            technical=tech_daily,
             fundamental=fund,
             earnings=earn,
             sentiment=sent,
@@ -429,4 +606,11 @@ class TickerAnalysisService:
             execution_ms=duration_ms,
             analysis_timestamp=analysis_ts,
             data_age_hours=data_age_hours,
+            data_sources={
+                "technical_daily": "TV Screener + yfinance (6mo daily)",
+                "technical_weekly": "yfinance (2y weekly)",
+                "fundamental": "yfinance info",
+                "sentiment": "yfinance info",
+                "earnings": "yfinance info",
+            },
         )

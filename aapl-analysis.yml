@@ -1,0 +1,140 @@
+- generic [ref=f11e3]:
+  - complementary [ref=f11e4]:
+    - generic [ref=f11e6]:
+      - generic [ref=f11e7]: C
+      - generic [ref=f11e9]: conflu.ai
+    - navigation [ref=f11e10]:
+      - link "Screener" [ref=f11e11] [cursor=pointer]:
+        - /url: /screener
+      - link "Sector Rotation" [ref=f11e19] [cursor=pointer]:
+        - /url: /sector-rotation
+      - link "Ticker Analysis" [ref=f11e25] [cursor=pointer]:
+        - /url: /ticker
+      - link "Charts" [ref=f11e31] [cursor=pointer]:
+        - /url: /charts
+      - link "Backtest" [ref=f11e37] [cursor=pointer]:
+        - /url: /backtest
+      - link "Risk" [ref=f11e41] [cursor=pointer]:
+        - /url: /risk
+    - generic [ref=f11e46]: Connected
+  - generic [ref=f11e50]:
+    - banner [ref=f11e51]:
+      - textbox "Search symbols... (/)" [ref=f11e57]
+      - button "50 Cautious 7:36 PM" [ref=f11e69] [cursor=pointer]:
+        - generic [ref=f11e70]: "50"
+        - generic [ref=f11e76]: Cautious
+        - generic [ref=f11e77]: 7:36 PM
+    - main [ref=f11e62]:
+      - generic [ref=f11e63]:
+        - generic [ref=f11e64]:
+          - generic [ref=f11e80]:
+            - link [ref=f11e81] [cursor=pointer]:
+              - /url: /ticker
+            - generic [ref=f11e85]: /
+            - generic [ref=f11e86]: AAPL
+          - button "Explain On" [ref=f11e87] [cursor=pointer]
+        - generic [ref=f11e97]:
+          - generic [ref=f11e98]:
+            - generic [ref=f11e103]:
+              - generic [ref=f11e104]:
+                - heading "AAPL" [level=1] [ref=f11e105]
+                - generic [ref=f11e106]: $314.86
+              - generic [ref=f11e107]:
+                - generic [ref=f11e108]: WATCH
+                - img [ref=f11e110]:
+                  - generic [ref=f11e113]: "3"
+                - generic [ref=f11e114]: Technology
+            - generic [ref=f11e115]: 467ms
+            - generic [ref=f11e116]: "Data: 4h ago"
+          - paragraph [ref=f11e117]: "Moderately bullish (score 41%). Build position on pullbacks. Bull case: Bullish MA stack: SMA20 (300.37) > SMA50 (298.71) > SMA200 (272.76)."
+          - generic [ref=f11e118]:
+            - generic [ref=f11e119]:
+              - generic [ref=f11e120]: Entry Zone
+              - generic [ref=f11e121]: $308.56 – $318.01
+            - generic [ref=f11e122]:
+              - generic [ref=f11e123]: Stop Loss
+              - generic [ref=f11e124]: $298.46
+            - generic [ref=f11e125]:
+              - generic [ref=f11e126]: Targets
+              - generic [ref=f11e127]: $347.34, $376.66
+            - generic [ref=f11e128]:
+              - generic [ref=f11e129]: Risk/Reward
+              - generic [ref=f11e130]: 1.5:1
+        - generic [ref=f11e131]:
+          - generic [ref=f11e132]:
+            - generic [ref=f11e133]: Technical
+            - generic [ref=f11e136]: "+1.00"
+          - generic [ref=f11e137]:
+            - generic [ref=f11e138]: Fundamentals
+            - generic [ref=f11e141]: "+0.33"
+          - generic [ref=f11e142]:
+            - generic [ref=f11e143]: Earnings
+            - generic [ref=f11e146]: "+0.27"
+          - generic [ref=f11e147]:
+            - generic [ref=f11e148]: Sentiment
+            - generic [ref=f11e151]: "+0.20"
+          - generic [ref=f11e152]:
+            - generic [ref=f11e153]: Risk
+            - generic [ref=f11e156]: "+0.00"
+        - generic [ref=f11e157]:
+          - button "Verdict" [ref=f11e158] [cursor=pointer]
+          - button "Technical" [ref=f11e162] [cursor=pointer]
+          - button "Fundamentals" [ref=f11e167] [cursor=pointer]
+          - button "Earnings" [ref=f11e171] [cursor=pointer]
+          - button "Sentiment" [ref=f11e175] [cursor=pointer]
+          - button "Risk" [ref=f11e179] [cursor=pointer]
+        - generic [ref=f11e184]:
+          - generic [ref=f11e185]:
+            - heading "Module Scores" [level=3] [ref=f11e186]
+            - generic [ref=f11e187]:
+              - generic [ref=f11e188]:
+                - generic [ref=f11e189]: Technical
+                - generic [ref=f11e190]: "+1.00"
+              - generic [ref=f11e193]:
+                - generic [ref=f11e194]: Fundamentals
+                - generic [ref=f11e195]: "+0.33"
+              - generic [ref=f11e198]:
+                - generic [ref=f11e199]: Earnings
+                - generic [ref=f11e200]: "+0.27"
+              - generic [ref=f11e203]:
+                - generic [ref=f11e204]: Sentiment
+                - generic [ref=f11e205]: "+0.20"
+              - generic [ref=f11e208]:
+                - generic [ref=f11e209]: Risk
+                - generic [ref=f11e210]: "+0.00"
+            - paragraph [ref=f11e213]: Most modules are positive — strong overall alignment.
+          - generic [ref=f11e214]:
+            - heading "Buy Triggers" [level=3] [ref=f11e215]
+            - list [ref=f11e219]:
+              - listitem [ref=f11e220]:
+                - generic [ref=f11e221]: •
+                - generic [ref=f11e222]: Trend is up — buy on pullbacks to rising MA support (SMA20 or SMA50).
+          - generic [ref=f11e223]:
+            - heading "Sell Triggers" [level=3] [ref=f11e224]
+            - list [ref=f11e228]:
+              - listitem [ref=f11e229]:
+                - generic [ref=f11e230]: •
+                - generic [ref=f11e231]: Premium P/E requires consistent earnings beats to sustain. Miss → re-rate lower.
+          - generic [ref=f11e232]:
+            - heading "Red Flags" [level=3] [ref=f11e233]
+            - list [ref=f11e236]:
+              - listitem [ref=f11e237]:
+                - generic [ref=f11e238]: •
+                - generic [ref=f11e239]: ⚠️ P/E 38.2 — premium valuation, priced for growth
+              - listitem [ref=f11e240]:
+                - generic [ref=f11e241]: •
+                - generic [ref=f11e242]: ⚠️ yfinance D/E 79.55 appears incorrect (likely missing equity data); excluding from analysis
+              - listitem [ref=f11e243]:
+                - generic [ref=f11e244]: •
+                - generic [ref=f11e245]: ⚠️ Insider ownership 1.6% — very low, minimal alignment
+          - generic [ref=f11e246]:
+            - heading "Detailed Analysis" [level=3] [ref=f11e247]
+            - paragraph [ref=f11e250]: "Moderately bullish (score 41%). Build position on pullbacks. Bull case: Bullish MA stack: SMA20 (300.37) > SMA50 (298.71) > SMA200 (272.76)."
+          - generic [ref=f11e251]:
+            - heading "Position Sizing" [level=3] [ref=f11e252]
+            - paragraph [ref=f11e255]:
+              - text: "Suggested position size:"
+              - generic [ref=f11e256]: 10%
+              - text: of portfolio
+          - button "Show step-by-step reasoning" [ref=f11e257] [cursor=pointer]
+          - button "View trading terms glossary" [ref=f11e263] [cursor=pointer]

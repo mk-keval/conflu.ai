@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   fetchScreenTV,
@@ -17,7 +18,6 @@ import { screenerChannel } from '@/ws/channels';
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary';
 import { SkeletonTable } from '@/components/layout/LoadingSkeleton';
 import { ScreenerTable } from './ScreenerTable';
-import { DetailPanel } from './DetailPanel';
 import { ExportButtons } from './ExportButtons';
 import { TemplateInfoStrip } from './TemplateInfoStrip';
 import { ScreenerEducation } from './ScreenerEducation';
@@ -31,6 +31,7 @@ function ScreenerContent() {
   const timeframes = useScreenStore((s) => s.timeframes);
   const setConfig = useScreenStore((s) => s.setConfig);
   const { subscribe, unsubscribe, onMessage } = useWS();
+  const navigate = useNavigate();
 
   // State
   const [templates, setTemplates] = useState<TVTemplate[]>([]);
@@ -41,7 +42,6 @@ function ScreenerContent() {
   const [screenName, setScreenName] = useState('');
   const [executionTime, setExecutionTime] = useState(0);
   const [fetchedAt, setFetchedAt] = useState<string>('');
-  const [selectedTicker, setSelectedTicker] = useState<TVScoredTicker | null>(null);
   const [sortState, setSortState] = useState<{ key: string | null; dir: 'asc' | 'desc' | null }>({ key: 'score', dir: 'desc' });
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
@@ -216,12 +216,8 @@ function ScreenerContent() {
   }, []);
 
   const handleRowClick = useCallback((ticker: TVScoredTicker) => {
-    setSelectedTicker(ticker);
-  }, []);
-
-  const handleCloseDetail = useCallback(() => {
-    setSelectedTicker(null);
-  }, []);
+    navigate(`/ticker/${ticker.symbol}`);
+  }, [navigate]);
 
   if (isLoading && results.length === 0) {
     return (
@@ -336,12 +332,6 @@ function ScreenerContent() {
             onPageSizeChange={handlePageSizeChange}
             convergenceMap={convergenceMap}
             visibleColumns={visibleColumns}
-          />
-
-          {/* Detail Panel */}
-          <DetailPanel
-            ticker={selectedTicker}
-            onClose={handleCloseDetail}
           />
         </div>
       ) : (
@@ -551,14 +541,35 @@ function TemplateDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
+  // Close on outside click — check BOTH the parent wrapper AND the portal dropdown
   useEffect(() => {
+    if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      const isOutsideParent = ref.current && !ref.current.contains(target);
+      const isOutsideDropdown = dropdownRef.current && !dropdownRef.current.contains(target);
+      if (isOutsideParent && isOutsideDropdown) setOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, []);
+  }, [open]);
+
+  // Position dropdown below button when opened
+  useEffect(() => {
+    if (!open || !btnRef.current) return;
+    const rect = btnRef.current.getBoundingClientRect();
+    setDropdownStyle({
+      position: 'fixed',
+      left: rect.left,
+      top: rect.bottom + 4,
+      minWidth: rect.width,
+      zIndex: 9999,
+    });
+  }, [open]);
 
   const selectedTemplate = templates.find((t) => t.name === selected);
   const direction = selectedTemplate?.direction;
@@ -568,6 +579,7 @@ function TemplateDropdown({
   return (
     <div className="relative" ref={ref}>
       <button
+        ref={btnRef}
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 cursor-pointer pl-3 pr-8 py-2 text-sm bg-surface border border-border rounded-lg
                    text-text-primary
@@ -584,8 +596,12 @@ function TemplateDropdown({
         <span className="flex-1 truncate">{selectedTemplate?.name || selected || 'Select template'}</span>
         <ChevronDown className={`absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted pointer-events-none transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
-      {open && (
-        <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-surface border border-border rounded-lg shadow-xl max-h-[320px] overflow-y-auto">
+      {open && createPortal(
+        <div
+          ref={dropdownRef}
+          style={dropdownStyle}
+          className="bg-surface border border-border rounded-lg shadow-xl max-h-[320px] overflow-y-auto"
+        >
           {templates.map((t) => {
             const tLong = t.direction === 'long';
             const tShort = t.direction === 'short';
@@ -608,17 +624,11 @@ function TemplateDropdown({
                   <span className="inline-block w-2 h-2 flex-shrink-0" />
                 )}
                 <span className="flex-1 truncate">{t.name}</span>
-                {t.direction && (
-                  <span className={`text-[10px] font-semibold uppercase flex-shrink-0 ${
-                    tLong ? 'text-green-500' : tShort ? 'text-red-500' : 'text-gray-500'
-                  }`}>
-                    {tLong ? 'LONG' : tShort ? 'SHORT' : t.direction}
-                  </span>
-                )}
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -1,0 +1,33 @@
+- generic [ref=f9e3]:
+  - complementary [ref=f9e4]:
+    - generic [ref=f9e6]:
+      - generic [ref=f9e7]: C
+      - generic [ref=f9e9]: conflu.ai
+    - navigation [ref=f9e10]:
+      - link "Screener" [ref=f9e11] [cursor=pointer]:
+        - /url: /screener
+      - link "Sector Rotation" [ref=f9e19] [cursor=pointer]:
+        - /url: /sector-rotation
+      - link "Ticker Analysis" [ref=f9e25] [cursor=pointer]:
+        - /url: /ticker
+      - link "Charts" [ref=f9e31] [cursor=pointer]:
+        - /url: /charts
+      - link "Backtest" [ref=f9e37] [cursor=pointer]:
+        - /url: /backtest
+      - link "Risk" [ref=f9e41] [cursor=pointer]:
+        - /url: /risk
+    - generic [ref=f9e46]: Connected
+  - generic [ref=f9e50]:
+    - banner [ref=f9e51]:
+      - textbox "Search symbols... (/)" [ref=f9e57]
+      - button "50 Cautious 7:33 PM" [ref=f9e74] [cursor=pointer]:
+        - generic [ref=f9e75]: "50"
+        - generic [ref=f9e81]: Cautious
+        - generic [ref=f9e82]: 7:33 PM
+    - main [ref=f9e62]:
+      - generic [ref=f9e64]:
+        - heading "Ticker Analysis" [level=1] [ref=f9e68]
+        - paragraph [ref=f9e69]: Enter a stock symbol to get an elite-trader-grade analysis with technical, fundamental, earnings, sentiment, and risk assessment — plus an actionable verdict.
+        - generic [ref=f9e70]:
+          - textbox "Enter symbol (e.g. QGEN)" [ref=f9e71]
+          - button "Analyze" [ref=f9e72] [cursor=pointer]

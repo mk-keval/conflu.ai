@@ -1,5 +1,5 @@
 name: "Breakout"
-description: "Price breaking out with momentum, volume, and trend structure confirmation"
+description: "Price breaking out with momentum, volume, and trend structure confirmation. Filters: $500M+ mcap, NYSE/NASDAQ, $5+, 1M avg vol, 500K vol."
 asset_classes:
   - equities
   - crypto
@@ -7,11 +7,45 @@ timeframes:
   - 1D
   - 4h
 filters:
+  # Institutional quality gates
+  - category: fundamental
+    indicator: market_cap_gt
+    params:
+      value: 500000000
+    timeframe: "1D"
+  - category: fundamental
+    indicator: exchange_in
+    params:
+      exchanges:
+        - "NYSE"
+        - "NASDAQ"
+    timeframe: "1D"
+  - category: fundamental
+    indicator: country_in
+    params:
+      countries:
+        - "United States"
+    timeframe: "1D"
+  - category: fundamental
+    indicator: close_above
+    params:
+      threshold: 5.0
+    timeframe: "1D"
+  - category: volume
+    indicator: avg_volume_gt
+    params:
+      threshold: 1000000
+    timeframe: "1D"
+  - category: volume
+    indicator: volume_gt
+    params:
+      threshold: 500000
+    timeframe: "1D"
+  # Technical breakout criteria
   - category: trend
     indicator: price_above_ema
     params:
       period: 20
-    operator: gt
     timeframe: "1D"
   - category: trend
     indicator: ema_stack_bullish
@@ -22,8 +56,8 @@ filters:
   - category: volume
     indicator: rvol_high
     params:
-      threshold: 1.5
-    timeframe: "4h"
+      threshold: 2.0
+    timeframe: "1D"
   - category: volume
     indicator: price_above_vwap
     timeframe: "1D"

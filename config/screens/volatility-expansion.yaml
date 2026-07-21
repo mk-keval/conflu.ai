@@ -1,5 +1,5 @@
 name: "Volatility Expansion"
-description: "Stocks that experienced a Bollinger Band squeeze (low vol contraction) and are now breaking out with volume and momentum. Captures the explosive expansion phase that follows coiling price action"
+description: "Stocks that experienced a Bollinger Band squeeze (low vol contraction) and are now expanding with volume and momentum. Captures the explosive expansion phase that follows coiling price action. Filters: $500M+ mcap, NYSE/NASDAQ, US, $5+, 1M avg vol, 500K vol."
 direction: long
 asset_classes:
   - equities
@@ -8,16 +8,46 @@ timeframes:
   - 1D
   - 4h
 filters:
+  # Institutional quality gates
+  - category: fundamental
+    indicator: market_cap_gt
+    params:
+      value: 500000000
+    timeframe: "1D"
+  - category: fundamental
+    indicator: exchange_in
+    params:
+      exchanges:
+        - "NYSE"
+        - "NASDAQ"
+    timeframe: "1D"
+  - category: fundamental
+    indicator: country_in
+    params:
+      countries:
+        - "United States"
+    timeframe: "1D"
+  - category: fundamental
+    indicator: close_above
+    params:
+      threshold: 5.0
+    timeframe: "1D"
+  - category: volume
+    indicator: avg_volume_gt
+    params:
+      threshold: 1000000
+    timeframe: "1D"
+  - category: volume
+    indicator: volume_gt
+    params:
+      threshold: 500000
+    timeframe: "1D"
+  # Volatility expansion criteria
   - category: volatility
     indicator: bb_squeeze_tight
     params:
       threshold: 1.06
     timeframe: "4h"
-  - category: momentum
-    indicator: cross_above_ma
-    params:
-      period: 20
-    timeframe: "1D"
   - category: momentum
     indicator: rsi_in_range
     params:
@@ -29,11 +59,8 @@ filters:
     params:
       threshold: 1.5
     timeframe: "1D"
-  - category: volume
-    indicator: price_above_vwap
-    timeframe: "1D"
   - category: volatility
     indicator: adx_trending
     params:
-      threshold: 22
+      threshold: 25
     timeframe: "1D"

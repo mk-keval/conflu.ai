@@ -63,6 +63,10 @@ FILTER_MAP: dict[str, Callable[..., Any]] = {
     "bb_breakout_upper":    lambda p, col: col("close").crosses_above(col("BB.upper")),
     "bb_breakout_lower":    lambda p, col: col("close").crosses_below(col("BB.lower")),
 
+    # Price position relative to Bollinger Bands (state, not fresh cross)
+    "price_below_bb_lower": lambda p, col: col("close") < col("BB.lower"),
+    "price_above_bb_upper": lambda p, col: col("close") > col("BB.upper"),
+
     # =====================================================================
     # TREND QUALITY
     # =====================================================================
@@ -206,6 +210,20 @@ FILTER_MAP: dict[str, Callable[..., Any]] = {
     "dividend_yield_gt":    lambda p, col: col("dividends_yield_current") > p.get("threshold", 0.03),
     "eps_positive":         lambda p, col: col("earnings_per_share_diluted_ttm") > 0,
     "pe_max":               lambda p, col: col("price_earnings_ttm") < p.get("max_pe", 50),
+
+    # =====================================================================
+    # PRICE / EXCHANGE / COUNTRY / VOLUME
+    # =====================================================================
+    "close_above":          lambda p, col: col("close") > p.get("threshold", 1.0),
+    "close_below":          lambda p, col: col("close") < p.get("threshold", 1.0),
+
+    "exchange_in":          lambda p, col: col("exchange").isin(p["exchanges"]),
+    "country_in":           lambda p, col: col("country").isin(p["countries"]),
+
+    "volume_gt":            lambda p, col: col("volume") > p.get("threshold", 500000),
+    "volume_lt":            lambda p, col: col("volume") < p.get("threshold", 1.0),
+    "avg_volume_gt":        lambda p, col: col("average_volume_10d_calc") > p.get("threshold", 500000),
+    "avg_volume_lt":        lambda p, col: col("average_volume_10d_calc") < p.get("threshold", 1.0),
 }
 
 
@@ -294,6 +312,16 @@ class TVScreenerSpecialist:
             "price_earnings_ttm",
             "earnings_per_share_diluted_ttm",
             "dividends_yield_current",
+            # NEW: Exchange, country, price, volume, IPO date, institutional ownership
+            "exchange",
+            "country",
+            "price",
+            "volume",
+            "average_volume_10d_calc",
+            "ipo_date",
+            "institutional_ownership",
+            "short_float",
+            "float_shares",
             # Trend
             "EMA20",
             "EMA50",
