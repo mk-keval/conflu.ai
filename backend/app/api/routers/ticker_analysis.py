@@ -6,6 +6,7 @@ with a synthesized actionable verdict (BUY/SELL/HOLD/WATCH).
 
 - POST /api/v1/ticker/{symbol}/analyze  — Full multi-module ticker analysis
 - GET  /api/v1/ticker/{symbol}/options  — Options chain from Yahoo Finance
+- GET  /api/v1/ticker/{symbol}/options-flow  — Enhanced options flow analysis
 - GET  /api/v1/ticker/{symbol}/news     — News/catalyst feed from Yahoo Finance
 - GET  /api/v1/ticker/{symbol}/chart    — Intraday chart data from Yahoo Finance
 """
@@ -15,6 +16,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Annotated, Any, Optional
 
+import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, Query
 
@@ -180,6 +182,256 @@ async def get_options_chain(
         total_put_oi = sum(p['openInterest'] for p in puts)
         pcr = total_put_oi / total_call_oi if total_call_oi > 0 else 0
         
+        # Spot price
+        hist = ticker.history(period="1d")
+        spot = float(hist['Close'].iloc[-1]) if not hist.empty else 0
+        
+        # --- Advanced Metrics ---
+        
+        # 1. IV Rank (placeholder)
+        all_iv = [c['impliedVolatility'] for c in calls if c['impliedVolatility'] > 0] + \
+                 [p['impliedVolatility'] for p in puts if p['impliedVolatility'] > 0]
+        iv_mean = np.mean(all_iv) if all_iv else 0
+        iv_rank = 50
+        
+        # 2. Max Pain
+        def compute_max_pain(calls, puts):
+            strikes = sorted(set([c['strike'] for c in calls] + [p['strike'] for p in puts]))
+            min_pain = float('inf')
+            max_pain_strike = strikes[0] if strikes else 0
+            for strike in strikes:
+                pain = 0
+                for c in calls:
+                    if c['strike'] < strike:
+                        pain += (strike - c['strike']) * c['openInterest']
+                for p in puts:
+                    if p['strike'] > strike:
+                        pain += (p['strike'] - strike) * p['openInterest']
+                if pain < min_pain:
+                    min_pain = pain
+                    max_pain_strike = strike
+            return max_pain_strike
+        
+        max_pain = compute_max_pain(calls, puts)
+        
+        # 3. GEX (Gamma Exposure) by strike
+        def compute_gex(calls, puts, spot):
+            gex_by_strike = {}
+            for c in calls:
+                if c['gamma'] and c['openInterest'] > 0:
+                    gex = c['gamma'] * c['openInterest'] * 100 * spot * 0.01
+                    gex_by_strike[c['strike']] = gex_by_strike.get(c['strike'], 0) + gex
+            for p in puts:
+                if p['gamma'] and p['openInterest'] > 0:
+                    gex = -p['gamma'] * p['openInterest'] * 100 * spot * 0.01
+                    gex_by_strike[p['strike']] = gex_by_strike.get(p['strike'], 0) + gex
+            return gex_by_strike
+        
+        gex_by_strike = compute_gex(calls, puts, spot)
+        total_gex = sum(gex_by_strike.values())
+        
+        # GEX Flip level
+        sorted_strikes = sorted(gex_by_strike.keys())
+        gex_flip = None
+        for strike in sorted_strikes:
+            if gex_by_strike[strike] > 0 and strike > spot:
+                gex_flip = strike
+                break
+        
+        # 4. Put/Call Ratio
+        total_call_oi = sum(c['openInterest'] for c in calls)
+        total_put_oi = sum(p['openInterest'] for p in puts)
+        pcr = total_put_oi / total_call_oi if total_call_oi > 0 else 0
+        
+        # 5. Unusual Volume (volume > 2x OI)
+        unusual_calls = [c for c in calls if c['volume'] > 2 * c['openInterest'] and c['openInterest'] > 0]
+        unusual_puts = [p for p in puts if p['volume'] > 2 * p['openInterest'] and p['openInterest'] > 0]
+        
+        # High OI strikes
+        high_oi_calls = sorted(calls, key=lambda x: x['openInterest'], reverse=True)[:5]
+        high_oi_puts = sorted(puts, key=lambda x: x['openInterest'], reverse=True)[:5]
+        
+        # Term structure (IV by expiry)
+        term_structure = {}
+        for exp in expiries[:6]:
+            try:
+                ch = ticker.option_chain(exp)
+                all_iv_t = [c['impliedVolatility'] for c in ch.calls.to_dict('records') if c.get('impliedVolatility', 0) > 0] + \
+                           [p['impliedVolatility'] for p in ch.puts.to_dict('records') if p.get('impliedVolatility', 0) > 0]
+                if all_iv_t:
+                    term_structure[exp] = round(np.mean(all_iv_t), 4)
+            except Exception:
+                pass
+        
+        return {
+            "symbol": symbol.upper(),
+            "expiry": target_expiry,
+            "spot": spot,
+            "ivRank": iv_rank,
+            "ivMean": round(iv_mean, 4),
+            "maxPain": max_pain,
+            "gexTotal": round(total_gex, 2),
+            "gexFlip": gex_flip,
+            "gexByStrike": {str(k): round(v, 2) for k, v in gex_by_strike.items()},
+            "putCallRatio": round(pcr, 2),
+            "unusualActivity": {
+                "calls": [{"strike": c['strike'], "volume": c['volume'], "oi": c['openInterest'], "iv": round(c['impliedVolatility'], 4)} for c in unusual_calls[:10]],
+                "puts": [{"strike": p['strike'], "volume": p['volume'], "oi": p['openInterest'], "iv": round(p['impliedVolatility'], 4)} for p in unusual_puts[:10]],
+            },
+            "keyLevels": {
+                "maxPain": max_pain,
+                "gexFlip": gex_flip,
+                "highOICalls": [{"strike": c['strike'], "oi": c['openInterest']} for c in high_oi_calls],
+                "highOIPuts": [{"strike": p['strike'], "oi": p['openInterest']} for p in high_oi_puts],
+            },
+            "termStructure": term_structure,
+            "totalCallOI": total_call_oi,
+            "totalPutOI": total_put_oi,
+            "availableExpiries": expiries,
+        }
+    
+    data = _get_cached_or_fetch(_OPTIONS_CACHE, f"{symbol}:{expiry}", _fetch)
+    return ApiResponse(
+        data=data,
+        meta=MetaInfo(timestamp=datetime.now(UTC).isoformat()),
+    )
+
+
+@router.get(
+    "/{symbol}/options-flow",
+    summary="Enhanced options flow analysis",
+    description="Compute advanced options metrics: GEX flip levels, max pain magnet, IV rank/percentile, unusual volume, dealer positioning, term structure.",
+)
+async def get_options_flow(
+    symbol: str,
+    expiry: Optional[str] = Query(None, description="Expiry date YYYY-MM-DD. Defaults to nearest Friday."),
+) -> ApiResponse:
+    """Get enhanced options flow analysis with dealer positioning and flow metrics."""
+    def _fetch():
+        ticker = yf.Ticker(symbol.upper())
+        expiries = ticker.options
+        if not expiries:
+            return {"error": "No options data available", "symbol": symbol.upper()}
+        
+        target_expiry = expiry or expiries[0]
+        if target_expiry not in expiries:
+            target_expiry = expiries[0]
+        
+        try:
+            chain = ticker.option_chain(target_expiry)
+        except Exception as e:
+            log.warning("option_chain_failed", symbol=symbol, expiry=target_expiry, error=str(e))
+            return {"error": f"Failed to fetch options chain: {str(e)}", "symbol": symbol.upper()}
+        
+        def process_contracts(df, opt_type):
+            return [
+                {
+                    "strike": float(row.strike),
+                    "lastPrice": float(row.lastPrice) if pd.notna(row.lastPrice) else 0,
+                    "bid": float(row.bid) if pd.notna(row.bid) else 0,
+                    "ask": float(row.ask) if pd.notna(row.ask) else 0,
+                    "impliedVolatility": float(row.impliedVolatility) if pd.notna(row.impliedVolatility) else 0,
+                    "volume": int(row.volume) if pd.notna(row.volume) else 0,
+                    "openInterest": int(row.openInterest) if pd.notna(row.openInterest) else 0,
+                    "delta": float(row.get('delta', 0)) if hasattr(row, 'delta') and pd.notna(row.get('delta')) else None,
+                    "gamma": float(row.get('gamma', 0)) if hasattr(row, 'gamma') and pd.notna(row.get('gamma')) else None,
+                    "theta": float(row.get('theta', 0)) if hasattr(row, 'theta') and pd.notna(row.get('theta')) else None,
+                    "vega": float(row.get('vega', 0)) if hasattr(row, 'vega') and pd.notna(row.get('vega')) else None,
+                }
+                for _, row in df.iterrows()
+            ]
+        
+        calls = process_contracts(chain.calls, 'call')
+        puts = process_contracts(chain.puts, 'put')
+        
+        # Spot price
+        hist = ticker.history(period="1d")
+        spot = float(hist['Close'].iloc[-1]) if not hist.empty else 0
+        
+        # --- Advanced Metrics ---
+        
+        # 1. IV Rank (simplified - would need historical IV for true rank)
+        all_iv = [c['impliedVolatility'] for c in calls if c['impliedVolatility'] > 0] + \
+                 [p['impliedVolatility'] for p in puts if p['impliedVolatility'] > 0]
+        iv_mean = np.mean(all_iv) if all_iv else 0
+        iv_rank = 50  # Placeholder - needs historical IV data
+        
+        # 2. Max Pain
+        def compute_max_pain(calls, puts):
+            strikes = sorted(set([c['strike'] for c in calls] + [p['strike'] for p in puts]))
+            min_pain = float('inf')
+            max_pain_strike = strikes[0] if strikes else 0
+            for strike in strikes:
+                pain = 0
+                for c in calls:
+                    if c['strike'] < strike:
+                        pain += (strike - c['strike']) * c['openInterest']
+                for p in puts:
+                    if p['strike'] > strike:
+                        pain += (p['strike'] - strike) * p['openInterest']
+                if pain < min_pain:
+                    min_pain = pain
+                    max_pain_strike = strike
+            return max_pain_strike
+        
+        max_pain = compute_max_pain(calls, puts)
+        
+        # 3. GEX (Gamma Exposure) by strike
+        def compute_gex(calls, puts, spot):
+            gex_by_strike = {}
+            for c in calls:
+                if c['gamma'] and c['openInterest'] > 0:
+                    gex = c['gamma'] * c['openInterest'] * 100 * spot * 0.01
+                    gex_by_strike[c['strike']] = gex_by_strike.get(c['strike'], 0) + gex
+            for p in puts:
+                if p['gamma'] and p['openInterest'] > 0:
+                    gex = -p['gamma'] * p['openInterest'] * 100 * spot * 0.01
+                    gex_by_strike[p['strike']] = gex_by_strike.get(p['strike'], 0) + gex
+            return gex_by_strike
+        
+        gex_by_strike = compute_gex(calls, puts, spot)
+        total_gex = sum(gex_by_strike.values())
+        
+        # GEX Flip level (where GEX changes sign)
+        sorted_strikes = sorted(gex_by_strike.keys())
+        gex_flip = None
+        for strike in sorted_strikes:
+            if gex_by_strike[strike] > 0 and strike > spot:
+                gex_flip = strike
+                break
+        
+        # 4. Put/Call Ratio
+        total_call_oi = sum(c['openInterest'] for c in calls)
+        total_put_oi = sum(p['openInterest'] for p in puts)
+        pcr = total_put_oi / total_call_oi if total_call_oi > 0 else 0
+        
+        # 5. Unusual Volume (volume > 2x OI)
+        unusual_calls = [c for c in calls if c['volume'] > 2 * c['openInterest'] and c['openInterest'] > 100]
+        unusual_puts = [p for p in puts if p['volume'] > 2 * p['openInterest'] and p['openInterest'] > 100]
+        
+        # 6. Dealer Positioning (Net GEX)
+        net_gex = total_gex
+        dealer_position = "long_gamma" if net_gex > 0 else "short_gamma"
+        
+        # 7. Key Levels from options
+        # Max Pain as support/resistance
+        # GEX flip as resistance
+        # High OI strikes as magnets
+        high_oi_calls = sorted(calls, key=lambda x: x['openInterest'], reverse=True)[:5]
+        high_oi_puts = sorted(puts, key=lambda x: x['openInterest'], reverse=True)[:5]
+        
+        # 8. Term Structure (IV across expiries) - simplified
+        term_structure = []
+        for exp in expiries[:4]:
+            try:
+                ch = ticker.option_chain(exp)
+                all_iv = [c['impliedVolatility'] for c in process_contracts(ch.calls, 'call') if c['impliedVolatility'] > 0] + \
+                         [p['impliedVolatility'] for p in process_contracts(ch.puts, 'put') if p['impliedVolatility'] > 0]
+                if all_iv:
+                    term_structure.append({"expiry": exp, "iv_mean": round(np.mean(all_iv) * 100, 1)})
+            except Exception:
+                pass
+        
         return {
             "symbol": symbol.upper(),
             "expiry": target_expiry,
@@ -187,15 +439,33 @@ async def get_options_chain(
             "calls": calls,
             "puts": puts,
             "ivRank": iv_rank,
+            "ivMean": round(iv_mean * 100, 1),
             "maxPain": max_pain,
-            "gammaExposure": gex,
-            "putCallRatio": pcr,
+            "maxPainDistancePct": round((max_pain / spot - 1) * 100, 2) if spot else 0,
+            "gammaExposure": {
+                "total": round(total_gex, 2),
+                "byStrike": {str(k): round(v, 2) for k, v in gex_by_strike.items()},
+                "flipLevel": gex_flip,
+                "dealerPosition": dealer_position,
+            },
+            "putCallRatio": round(pcr, 2),
+            "unusualActivity": {
+                "calls": [{"strike": c['strike'], "volume": c['volume'], "oi": c['openInterest'], "iv": c['impliedVolatility']} for c in unusual_calls[:10]],
+                "puts": [{"strike": p['strike'], "volume": p['volume'], "oi": p['openInterest'], "iv": p['impliedVolatility']} for p in unusual_puts[:10]],
+            },
+            "keyLevels": {
+                "maxPain": max_pain,
+                "gexFlip": gex_flip,
+                "highOICalls": [{"strike": c['strike'], "oi": c['openInterest']} for c in high_oi_calls],
+                "highOIPuts": [{"strike": p['strike'], "oi": p['openInterest']} for p in high_oi_puts],
+            },
+            "termStructure": term_structure,
             "totalCallOI": total_call_oi,
             "totalPutOI": total_put_oi,
             "availableExpiries": expiries,
         }
     
-    data = _get_cached_or_fetch(_OPTIONS_CACHE, f"{symbol}:{expiry or 'auto'}", _fetch)
+    data = _get_cached_or_fetch(_OPTIONS_CACHE, f"{symbol}:{expiry or 'auto'}:flow", _fetch)
     return ApiResponse(
         data=data,
         meta=MetaInfo(timestamp=datetime.now(UTC).isoformat()),
