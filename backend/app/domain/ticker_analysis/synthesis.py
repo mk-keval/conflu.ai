@@ -11,6 +11,7 @@ from backend.app.domain.ticker_analysis.models import (
     RiskAssessment,
     SentimentAnalysis,
     TechnicalAnalysis,
+    TradePlan,
 )
 
 # ── Regime weight tables ──
@@ -23,6 +24,61 @@ REGIME_WEIGHTS: dict[str, list[float]] = {
 }
 
 DEFAULT_WEIGHTS = [0.30, 0.22, 0.12, 0.20, 0.16]
+
+
+def _calculate_dynamic_rr(
+    technical: TechnicalAnalysis | None,
+    risk: RiskAssessment | None,
+    fundamental: FundamentalAnalysis | None,
+    action: str,
+) -> float:
+    """Calculate dynamic risk/reward ratio based on setup quality.
+    
+    An elite trader adjusts targets based on:
+    - Trend quality (strong trend = wider targets)
+    - Volatility regime (low vol = more predictable = wider targets)
+    - Fundamental backing (strong fundamentals = more room to run)
+    - Action type (counter-trend = tighter targets)
+    """
+    base_rr = 1.5  # Default 1.5:1
+    
+    # Trend quality adjustment
+    if technical:
+        if technical.ma_alignment == "bullish" and technical.adx and technical.adx > 30:
+            base_rr += 0.5  # Strong trend = wider targets (2.0:1)
+        elif technical.ma_alignment == "bullish" and technical.adx and technical.adx > 20:
+            base_rr += 0.3  # Moderate trend (1.8:1)
+        elif technical.ma_alignment == "bearish":
+            base_rr -= 0.3  # Counter-trend = tighter targets (1.2:1)
+        elif technical.macd_status == "bullish" and technical.rsi_regime in ("neutral_bullish", "overbought_warning"):
+            base_rr += 0.2  # Momentum aligned (1.7:1)
+    
+    # Volatility regime adjustment
+    if risk:
+        if risk.volatility_regime == "low":
+            base_rr += 0.2  # Low vol = predictable moves (1.7:1)
+        elif risk.volatility_regime == "high":
+            base_rr -= 0.2  # High vol = noisy (1.3:1)
+        elif risk.volatility_regime == "extreme":
+            base_rr -= 0.4  # Extreme vol = very noisy (1.1:1)
+    
+    # Fundamental quality adjustment
+    if fundamental:
+        if fundamental.profit_margin and fundamental.profit_margin > 15:
+            base_rr += 0.2  # High quality = more room
+        if fundamental.revenue_growth_yoy and fundamental.revenue_growth_yoy > 15:
+            base_rr += 0.1  # Growth = momentum
+        if fundamental.fcf_yield and fundamental.fcf_yield > 5:
+            base_rr += 0.1  # Cash generation = support
+    
+    # Action-specific caps
+    if action in ("ACCUMULATE", "WATCH"):
+        base_rr = min(base_rr, 2.0)  # Cap for non-BUY actions
+    elif action == "BUY":
+        base_rr = min(base_rr, 3.0)  # BUY can go up to 3:1
+    
+    # Floor at 1.0:1
+    return round(max(1.0, base_rr), 2)
 
 
 def synthesise(
@@ -199,6 +255,29 @@ def synthesise(
     if risk and risk.volatility_regime == "extreme":
         dealbreakers.append("Extreme volatility regime — widen stops significantly or skip")
         weighted_score -= 0.2
+
+    # ── Catalyst Bias Adjustment ──
+    # Integrate catalyst bias from orchestrator (earnings proximity, analyst revisions, etc.)
+    if tv_data and "catalyst_bias" in tv_data:
+        catalyst_bias = tv_data["catalyst_bias"]
+        if isinstance(catalyst_bias, dict):
+            bias = catalyst_bias.get("bias", "neutral")
+            score = catalyst_bias.get("score", 0)
+            notes = catalyst_bias.get("notes", [])
+            
+            # Apply catalyst score to weighted_score
+            weighted_score += score * 0.05  # Scale factor
+            
+            # Add notes to dealbreakers if negative
+            if score <= -3:
+                dealbreakers.append(f"Catalyst bias negative: {', '.join(notes[:2])}")
+            elif score >= 3:
+                # Positive catalyst - reduce penalty or add to thesis
+                pass
+            
+            # Add catalyst notes to all_findings for transparency
+            for note in notes:
+                all_findings.append(f"📰 Catalyst: {note}")
 
     # ── 3a. Development-Stage Company Override ──
     # Companies with no revenue, negative earnings, or pre-profit clinical
@@ -498,20 +577,32 @@ def synthesise(
     conviction: int
     dealbreaker_active = len(dealbreakers) > 0
 
-    if weighted_score >= 0.7 and not dealbreaker_active:
+    # Major dealbreakers block positive actions entirely
+    major_dealbreakers = [
+        d for d in dealbreakers 
+        if any(kw in d.lower() for kw in ["earnings miss", "micro-cap", "illiquid", "cash burn", "triple-negative", "pump-and-dump", "size near zero", "penny stock", "manipulation"])
+    ]
+    has_major_dealbreaker = len(major_dealbreakers) > 0
+    # Minor dealbreakers (extreme RSI, extreme P/E, extreme vol) only penalize score
+    # but don't block BUY/ACCUMULATE
+
+    if weighted_score >= 0.75 and not has_major_dealbreaker:
+        base_action = "STRONG BUY"
+        conviction = min(10, 8 + int((weighted_score - 0.75) * 20))
+    elif weighted_score >= 0.55 and not has_major_dealbreaker:
         base_action = "BUY"
-        conviction = min(10, 6 + int((weighted_score - 0.7) * 15))
-    elif weighted_score >= 0.5 and not dealbreaker_active:
+        conviction = min(10, 6 + int((weighted_score - 0.55) * 15))
+    elif weighted_score >= 0.40 and not has_major_dealbreaker:
         base_action = "ACCUMULATE"
-        conviction = 4 + int((weighted_score - 0.5) * 10)
-    elif weighted_score >= 0.3 and not dealbreaker_active:
+        conviction = 4 + int((weighted_score - 0.40) * 10)
+    elif weighted_score >= 0.20 and not has_major_dealbreaker:
         base_action = "ACCUMULATE"
-        conviction = 2 + int((weighted_score - 0.3) * 12)
-    elif weighted_score >= 0.1:
+        conviction = 2 + int((weighted_score - 0.20) * 12)
+    elif weighted_score >= 0.10:
         base_action = "WATCH"
-        conviction = 2 + int((weighted_score - 0.1) * 10) if weighted_score > 0 else 2
+        conviction = 2 + int((weighted_score - 0.10) * 10) if weighted_score > 0 else 2
         conviction = min(conviction, 4)
-    elif weighted_score > -0.1:
+    elif weighted_score > -0.10:
         base_action = "WATCH" if not dealbreaker_active else "WATCH"
         conviction = 2
     elif weighted_score > -0.3:
@@ -596,15 +687,15 @@ def synthesise(
 
         stop_loss = round(close * (1 - max(stop_pct, 0.02)), 2)
 
-        # Targets: 1.5x R and 3x R
+        # Dynamic R:R based on setup quality
+        rr = _calculate_dynamic_rr(technical, risk, fundamental, action)
+
+        # Targets: 1st target at 1x R, 2nd at dynamic R:R
         if stop_loss > 0:
             risk_per_share = (entry_high or close) - stop_loss if (entry_high or close) > stop_loss else stop_loss * 0.1
-            t1 = round((entry_high or close) + risk_per_share * 1.5, 2)
-            t2 = round((entry_high or close) + risk_per_share * 3.0, 2)
+            t1 = round((entry_high or close) + risk_per_share * 1.0, 2)
+            t2 = round((entry_high or close) + risk_per_share * rr, 2)
             targets = [t1, t2]
-
-            # Risk/reward to first target
-            rr = round(1.5, 2)
 
     # ── 7. Verdict Consistency Cross-check ──
     # AVOID/REDUCE should never have trading levels — contradictory signals.
@@ -686,6 +777,96 @@ def synthesise(
         sell_triggers=sell_triggers[:3],
         thesis=thesis,
     )
+
+
+def _generate_trade_plan(
+    action: str,
+    conviction: int,
+    technical: TechnicalAnalysis | None,
+    fundamental: FundamentalAnalysis | None,
+    risk: RiskAssessment | None,
+    price: float | None,
+    entry_low: float | None,
+    entry_high: float | None,
+    stop_loss: float | None,
+    targets: list[float],
+    rr: float | None,
+    position_size: float,
+) -> TradePlan | None:
+    """Generate a dynamic trade management plan based on setup quality and market structure."""
+    if action in ("AVOID", "REDUCE") or not price:
+        return None
+    
+    plan = TradePlan()
+    
+    # Determine ATR for trailing
+    atr_mult = 2.0
+    if risk and risk.suggested_stop_pct > 0:
+        atr_mult = 2.0  # Default 2x ATR
+    
+    # Scale-in plan: split entry into 2-3 tranches
+    if entry_low and entry_high:
+        plan.scale_in = [
+            {"price": entry_high, "size_pct": round(position_size * 0.5, 1), "reason": "Initial entry at upper zone"},
+            {"price": round(entry_low + (entry_high - entry_low) * 0.3, 2), "size_pct": round(position_size * 0.3, 1), "reason": "Add on pullback to lower zone"},
+            {"price": entry_low, "size_pct": round(position_size * 0.2, 1), "reason": "Final add at lower zone"},
+        ]
+    
+    # Scale-out plan based on R:R
+    if rr and rr > 0:
+        plan.scale_out = [
+            {"r_multiple": 1.0, "size_pct": round(position_size * 0.3, 1), "reason": "Take 30% at 1R — secure base"},
+            {"r_multiple": round(rr * 0.7, 1), "size_pct": round(position_size * 0.3, 1), "reason": f"Take 30% at {round(rr * 0.7, 1)}R — ride momentum"},
+            {"r_multiple": rr, "size_pct": round(position_size * 0.4, 1), "reason": f"Final 40% at full target ({rr}R)"},
+        ]
+    
+    # Trailing stop configuration
+    if technical and technical.ma_alignment == "bullish":
+        plan.trail_type = "structure"
+        plan.trail_value = 1.0  # Trail below key MAs
+        plan.trail_activation_r = 1.0
+        plan.notes.append("Trail below rising SMA20/SMA50 structure")
+    elif risk and risk.volatility_regime == "high":
+        plan.trail_type = "atr"
+        plan.trail_value = 2.5
+        plan.trail_activation_r = 1.5
+        plan.notes.append("Wide ATR trail for high volatility")
+    else:
+        plan.trail_type = "atr"
+        plan.trail_value = 2.0
+        plan.trail_activation_r = 1.0
+    
+    # Breakeven rule
+    plan.move_to_breakeven_at_r = 1.0
+    plan.notes.append("Move stop to breakeven at 1R")
+    
+    # Time-based exit
+    if technical and technical.ma_alignment == "bearish":
+        plan.max_hold_days = 20
+        plan.notes.append("Counter-trend: max 20-day hold")
+    elif fundamental and fundamental.lifecycle_stage in ("development", "clinical_stage"):
+        plan.max_hold_days = 60
+        plan.notes.append("Development stage: catalyst-driven, max 60-day hold")
+    
+    # Risk caps
+    plan.max_position_pct = min(10.0, position_size * 1.5)
+    plan.daily_loss_limit_pct = 2.0
+    
+    # Conviction-based notes
+    if conviction >= 8:
+        plan.notes.append("High conviction — full position justified")
+    elif conviction >= 5:
+        plan.notes.append("Moderate conviction — standard position")
+    else:
+        plan.notes.append("Low conviction — reduced position")
+    
+    # Structure-based trailing
+    if technical and technical.key_support:
+        plan.trail_type = "structure"
+        plan.trail_value = 0.0  # Will use key support levels
+        plan.notes.append(f"Trail below key support at {technical.key_support[0]:.2f}")
+    
+    return plan
 
 
 def _generate_thesis(
