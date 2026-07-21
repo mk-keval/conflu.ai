@@ -1,6 +1,6 @@
 # API Reference — conflu.ai
 
-**Last Updated:** 2026-07-09
+**Last Updated:** 2026-07-20
 
 ## Base URL
 `/api/v1`
@@ -211,6 +211,105 @@ Run the full elite-trader-grade ticker analysis pipeline — technical, fundamen
 | Synthesis | All 5 module scores + regime weights | Action + conviction + entry/stop/targets + triggers + thesis |
 
 **Yfinance Data:** 5-minute in-memory TTL cache. Fresh data fetched on cache miss.
+
+### GET `/ticker/{symbol}/options`
+Fetch options chain data from Yahoo Finance.
+
+**Query:**
+- `expiry` (optional): Expiry date `YYYY-MM-DD`. Defaults to nearest Friday.
+
+**Response 200:** `ApiResponse<OptionsChainResponse>`
+```json
+{
+  "data": {
+    "symbol": "AAPL",
+    "expiry": "2026-08-21",
+    "calls": [{"strike": 170.0, "lastPrice": 12.50, "bid": 12.40, "ask": 12.60, "impliedVolatility": 0.35, "volume": 12000, "openInterest": 45000, "delta": 0.65, "gamma": 0.02, "theta": -0.08, "vega": 0.15}],
+    "puts": [...],
+    "totalCallOI": 450000,
+    "totalPutOI": 380000,
+    "availableExpiries": ["2026-08-21", "2026-08-28", "2026-09-18", "2026-10-16", "2026-12-18", "2027-01-15"]
+  }
+}
+```
+
+Cache: 5-minute in-memory TTL. NaN handling for volume, OI, bid, ask, IV, Greeks. Try/catch around option_chain() with graceful error.
+
+### GET `/ticker/{symbol}/options-flow`
+Enhanced options flow analysis with dealer positioning and advanced flow metrics.
+
+**Query:**
+- `expiry` (optional): Expiry date `YYYY-MM-DD`. Defaults to nearest Friday.
+
+**Response 200:** `ApiResponse<OptionsFlowResponse>`
+```json
+{
+  "data": {
+    "symbol": "AAPL",
+    "spot": 185.50,
+    "ivRank": 50,
+    "ivMean": 0.32,
+    "maxPain": 182.50,
+    "gexTotal": 1250000.50,
+    "gexFlip": 190.00,
+    "gexByStrike": {"180.0": 45000.2, "185.0": 32000.1},
+    "putCallRatio": 0.84,
+    "unusualActivity": {
+      "calls": [{"strike": 190.0, "volume": 5000, "oi": 500, "iv": 0.45}],
+      "puts": [{"strike": 175.0, "volume": 8000, "oi": 600, "iv": 0.52}]
+    },
+    "keyLevels": {"maxPain": 182.5, "gexFlip": 190.0, "highOICalls": [...], "highOIPuts": [...]},
+    "termStructure": {"2026-08-21": 0.32, "2026-08-28": 0.34, "2026-09-18": 0.35},
+    "totalCallOI": 450000,
+    "totalPutOI": 380000,
+    "availableExpiries": [...]
+  }
+}
+```
+
+Metrics: GEX by strike, flip level, max pain magnet, dealer gamma positioning, unusual volume (volume > 2× OI & OI > 100), high OI strikes, term structure across 6 expiries.
+
+### GET `/ticker/{symbol}/news`
+Fetch news/catalyst feed from Yahoo Finance.
+
+**Query:**
+- `limit` (optional, default: 10): Number of headlines to return.
+
+**Response 200:** `ApiResponse<NewsResponse>`
+```json
+{
+  "data": [
+    {
+      "title": "Apple Reports Strong Q3 Earnings",
+      "publisher": "Yahoo Finance",
+      "link": "https://finance.yahoo.com/...",
+      "timestamp": 1721491200,
+      "sentiment": "positive",
+      "summary": "Apple exceeded analyst expectations..."
+    }
+  ]
+}
+```
+
+Sentiment scoring: keyword-based positive/negative/neutral classification. Cache: 5-minute in-memory TTL.
+
+### GET `/ticker/{symbol}/chart`
+Fetch intraday chart OHLCV data from Yahoo Finance.
+
+**Query:**
+- `interval` (optional, default: `15m`, values: `5m`, `15m`, `1h`, `4h`, `1d`): Chart bar interval.
+- `range` (optional, default: `7d`, values per interval: `5m`/`15m`→`7d`, `1h`→`60d`, `4h`→`730d`, `1d`→`1mo`): Data range.
+
+**Response 200:** `ApiResponse<ChartDataResponse>`
+```json
+{
+  "data": [
+    {"time": 1721448000, "open": 184.20, "high": 185.80, "low": 184.00, "close": 185.50, "volume": 25000000}
+  ]
+}
+```
+
+Output format is TradingView Lightweight Charts compatible. Auto-range limiting enforces Yahoo's interval constraints.
 
 ---
 
