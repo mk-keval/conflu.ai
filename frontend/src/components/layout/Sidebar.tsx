@@ -17,6 +17,7 @@ const navItems: NavItemProps[] = [
   { to: '/charts', label: 'Charts', icon: <TrendingUp className="w-5 h-5" /> },
   { to: '/backtest', label: 'Backtest', icon: <BarChart2 className="w-5 h-5" /> },
   { to: '/risk', label: 'Risk', icon: <Shield className="w-5 h-5" /> },
+  { to: '/portfolio', label: 'Portfolio', icon: <Briefcase className="w-5 h-5" /> },
   { to: '/workflow', label: 'Swing Desk', icon: <Briefcase className="w-5 h-5" /> },
 ];
 

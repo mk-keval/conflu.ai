@@ -9,6 +9,7 @@ import { SectorRotationPage } from './components/sector-rotation';
 import { TickerAnalysisPage } from './components/ticker-analysis/TickerAnalysisPage';
 import { WorkflowPage } from './components/workflow/WorkflowPage';
 import { DashboardPage } from './components/dashboard/DashboardPage';
+import { PortfolioPage } from './components/portfolio/PortfolioPage';
 
 export function App() {
   return (
@@ -24,6 +25,7 @@ export function App() {
         <Route path="/backtest/result/:runId" element={<BacktestResultPage />} />
         <Route path="/backtest/compare" element={<ComparisonDashboard />} />
         <Route path="/risk" element={<RiskPage />} />
+        <Route path="/portfolio" element={<PortfolioPage />} />
         <Route path="/ticker" element={<TickerAnalysisPage />} />
         <Route path="/ticker/:symbol" element={<TickerAnalysisPage />} />
         <Route path="/shared/screen" element={<SharedScreenerView />} />
