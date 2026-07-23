@@ -73,8 +73,8 @@ function getScreenerRecommendation(templateName: string, regimeLabel: string | n
 function RegimeBadge({ recommendation }: { recommendation: 'recommended' | 'avoid' | null }) {
   if (recommendation === 'recommended') {
     return (
-      <span className="ml-auto text-[10px] font-medium text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded shrink-0">
-        ✅
+      <span className="ml-auto text-[10px] font-semibold text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded shrink-0 flex items-center gap-1">
+        <span>Best for today</span>
       </span>
     );
   }
@@ -385,6 +385,9 @@ function ScreenerContent() {
 
       {/* Market overview panel — collapsible context hint */}
       <MarketOverviewPanel />
+
+      {/* Sector focus banner — top sectors from rotation, clickable to filter */}
+      <SectorFocusBanner onSelectSector={(sector) => setSectorFilter(sector)} />
 
       {/* Template info strip — always visible */}
       <TemplateInfoStrip template={templateDetails} />
@@ -863,6 +866,58 @@ function MarketOverviewPanel() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Sector Focus Banner — shows recommended sectors from rotation data.
+ * Clicking a sector focuses the screener results to that sector.
+ */
+function SectorFocusBanner({ onSelectSector }: { onSelectSector: (sector: string) => void }) {
+  const [sectorData, setSectorData] = useState<SectorRotationResponse | null>(null);
+
+  useEffect(() => {
+    fetchSectorRotation()
+      .then(setSectorData)
+      .catch(() => { /* non-critical */ });
+  }, []);
+
+  const sectors = sectorData?.sectors ?? [];
+  const rotationPhase = sectorData?.rotation_phase ?? '';
+
+  // Sort by 1d change descending, take top 4
+  const topSectors = useMemo(
+    () => [...sectors].sort((a, b) => (b.change_1d ?? 0) - (a.change_1d ?? 0)).slice(0, 4),
+    [sectors]
+  );
+
+  if (topSectors.length === 0) return null;
+
+  return (
+    <div className="flex items-center gap-2 px-4 py-2 border-b border-border/30 bg-surface/10">
+      <span className="text-[10px] font-semibold uppercase text-text-muted tracking-wider shrink-0">
+        Focus{rotationPhase ? ` · ${rotationPhase}` : ''}
+      </span>
+      <div className="flex gap-1.5 overflow-x-auto">
+        {topSectors.map((s) => {
+          const change = s.change_1d ?? 0;
+          const isPos = change >= 0;
+          return (
+            <button
+              key={s.symbol}
+              onClick={() => onSelectSector(s.name)}
+              className="flex items-center gap-1.5 text-xs bg-surface/30 border border-border/40 hover:border-accent/30 rounded-full px-2.5 py-1 transition-colors shrink-0"
+              title={`Click to filter by ${s.name}`}
+            >
+              <span className="text-text-primary font-medium">{s.name}</span>
+              <span className={cn('font-mono', isPos ? 'text-green-500' : 'text-red-400')}>
+                {isPos ? '+' : ''}{change.toFixed(1)}%
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
