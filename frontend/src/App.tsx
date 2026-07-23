@@ -7,6 +7,7 @@ import { BacktestPage, BacktestResultPage, ComparisonDashboard } from './compone
 import { RiskPage } from './components/risk';
 import { SectorRotationPage } from './components/sector-rotation';
 import { TickerAnalysisPage } from './components/ticker-analysis/TickerAnalysisPage';
+import { WorkflowPage } from './components/workflow/WorkflowPage';
 
 export function App() {
   return (
@@ -15,6 +16,7 @@ export function App() {
         <Route path="/" element={<Navigate to="/screener" replace />} />
         <Route path="/screener" element={<ScreenerPage />} />
         <Route path="/sector-rotation" element={<SectorRotationPage />} />
+        <Route path="/workflow" element={<WorkflowPage />} />
         <Route path="/charts" element={<ChartsPage />} />
         <Route path="/backtest" element={<BacktestPage />} />
         <Route path="/backtest/result/:runId" element={<BacktestResultPage />} />

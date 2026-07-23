@@ -161,6 +161,7 @@ def create_app() -> FastAPI:
         backtest_router,
         data_router,
         health_router,
+        portfolio_router,
         regime_router,
         risk_router,
         sector_rotation_router,
@@ -171,6 +172,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(backtest_router, prefix="/api/v1")
     app.include_router(data_router, prefix="/api/v1")
+    app.include_router(portfolio_router, prefix="/api/v1")
     app.include_router(regime_router, prefix="/api/v1")
     app.include_router(risk_router, prefix="/api/v1")
     app.include_router(sector_rotation_router, prefix="/api/v1")
