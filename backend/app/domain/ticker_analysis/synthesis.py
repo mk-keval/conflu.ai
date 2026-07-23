@@ -140,6 +140,7 @@ def synthesise(
     # so their zero doesn't drag the average down.
     analysis_objs = [technical, fundamental, earnings, sentiment, risk]
     available = [(s, w) for s, w, obj in zip(scores, weights, analysis_objs) if obj is not None]
+    avail_scores: tuple[float, ...] = ()
     if available:
         avail_scores, avail_weights = zip(*available)
         total_w = sum(avail_weights)
@@ -151,8 +152,59 @@ def synthesise(
     else:
         weighted_score = 0.0
 
+    # ── 2a. Module coherence adjustment ──
+    # When modules disagree (high variance in scores), reduce conviction.
+    # When they agree (low variance), boost conviction.
+    # This prevents muddled setups (e.g., perfect technical + weak fundamental)
+    # from scoring the same as clean setups where all modules align.
+    if len(avail_scores) >= 3:
+        score_range = max(avail_scores) - min(avail_scores)
+        if score_range > 1.5:
+            # Major disagreement: penalize
+            coherence_penalty = 0.08 * (score_range / 2.0)
+            weighted_score -= min(coherence_penalty, 0.2)
+            all_findings.append(f"⚠️ Module disagreement: scores range {min(avail_scores):.2f}–{max(avail_scores):.2f} "
+                                f"({score_range:.2f}) — conviction reduced")
+        elif score_range < 0.3 and weighted_score > 0.3:
+            # Strong agreement on a positive setup: small bonus
+            weighted_score += 0.05
+            all_findings.append(f"✅ Module agreement: all scores within {score_range:.2f} — conviction confirmed")
+
     # ── 3. Check dealbreakers ──
     dealbreakers: list[str] = []
+
+    # ── 3a. Volume-Price Divergence ──
+    # Rising volume + falling price = distribution (bearish)
+    # Rising volume + rising price = accumulation (bullish)
+    # This catches distribution risk even when MA alignment looks bullish
+    if tv_data:
+        tv_close = tv_data.get("close") or tv_data.get("Close")
+        tv_volume = tv_data.get("volume") or tv_data.get("Volume")
+        prev_close = tv_data.get("prev_close") or tv_data.get("prevClose")
+        avg_volume = tv_data.get("volume_avg_50") or tv_data.get("VolumeAvg50")
+        change_pct = tv_data.get("change")
+        if change_pct is None and tv_close and prev_close:
+            change_pct = ((tv_close / prev_close) - 1) * 100
+        
+        # Detect distribution: price down on elevated volume
+        if (tv_close is not None and tv_volume is not None 
+                and avg_volume is not None and avg_volume > 0):
+            vol_ratio = tv_volume / avg_volume
+            if vol_ratio > 1.5 and change_pct is not None and change_pct < -2:
+                dist_severity = "heavy" if vol_ratio > 2.5 else "moderate"
+                dealbreakers.append(
+                    f"⚠️ {dist_severity.title()} distribution risk: {change_pct:+.1f}% drop on "
+                    f"{vol_ratio:.1f}× avg volume ({tv_volume:,.0f} vs {avg_volume:,.0f} avg) — "
+                    "institutional selling pressure"
+                )
+                weighted_score -= 0.3 if vol_ratio > 2.5 else 0.15
+            # Detect accumulation: price up on elevated volume
+            elif vol_ratio > 1.5 and change_pct is not None and change_pct > 2:
+                all_findings.append(
+                    f"📊 Accumulation signal: {change_pct:+.1f}% gain on "
+                    f"{vol_ratio:.1f}× avg volume — institutional buying"
+                )
+                weighted_score += 0.1
 
     # Earnings miss > 30%
     if earnings and earnings.last_surprise_pct is not None and earnings.last_surprise_pct < -30:
@@ -674,14 +726,42 @@ def synthesise(
         else:
             stop_pct = 0.05
 
-        # Entry zone: current price for buy, or 2-5% below
+        # Entry zone: dynamic adjustment based on MA proximity and price position.
+        # If price is near MA support, the zone includes current price.
+        # If price is extended above MAs, suggest pullback entry only.
+        # This prevents stale "buy at current" entries when the stock has already run.
         if action in ("BUY", "ACCUMULATE", "WATCH"):
-            if technical and technical.rsi_regime in ("overbought", "overbought_warning"):
-                # Don't chase — suggest pullback entry
+            sma20 = tv_data.get("SMA20") if tv_data else None
+            sma50 = tv_data.get("SMA50") if tv_data else None
+            nearest_ma = None
+            for ma in [sma20, sma50]:
+                if ma and ma > 0:
+                    if nearest_ma is None or abs(close - ma) < abs(close - nearest_ma):
+                        nearest_ma = ma
+            
+            price_vs_ma_pct = ((close / nearest_ma) - 1) * 100 if nearest_ma else 0
+            
+            # Check for RSI overbought
+            is_overbought = technical and technical.rsi_regime in ("overbought", "overbought_warning")
+            
+            if is_overbought:
+                # Overbought — always suggest a pullback
                 drawdown_target = stop_pct * 1.5
                 entry_low = round(close * (1 - drawdown_target), 2)
                 entry_high = round(close, 2)
+            elif nearest_ma and price_vs_ma_pct > 5:
+                # Extended above nearest MA — wait for pullback to MA
+                pullback_target = max(stop_pct * 1.5, price_vs_ma_pct * 0.5 / 100)
+                entry_low = round(close * (1 - pullback_target), 2)
+                entry_high = round(close * (1 - price_vs_ma_pct * 0.3 / 100), 2)
+                if entry_low > round(nearest_ma * 0.98, 2):
+                    entry_low = round(nearest_ma * 0.98, 2)
+            elif nearest_ma and abs(price_vs_ma_pct) < 3:
+                # Near MA support — current price is valid entry
+                entry_low = round(close * 0.98, 2)
+                entry_high = round(close * 1.01, 2)
             else:
+                # Default zone
                 entry_low = round(close * 0.98, 2)
                 entry_high = round(close * 1.01, 2)
 
