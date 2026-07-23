@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { useWS } from '@/ws/WebSocketProvider';
 import { cn } from '@/lib/cn';
-import { LayoutDashboard, TrendingUp, BarChart2, Shield, RotateCcw, Search } from 'lucide-react';
+import { Home, LayoutDashboard, TrendingUp, BarChart2, Shield, RotateCcw, Search, Briefcase } from 'lucide-react';
 
 interface NavItemProps {
   to: string;
@@ -10,12 +10,14 @@ interface NavItemProps {
 }
 
 const navItems: NavItemProps[] = [
+  { to: '/dashboard', label: 'Dashboard', icon: <Home className="w-5 h-5" /> },
   { to: '/screener', label: 'Screener', icon: <LayoutDashboard className="w-5 h-5" /> },
   { to: '/sector-rotation', label: 'Sector Rotation', icon: <RotateCcw className="w-5 h-5" /> },
   { to: '/ticker', label: 'Ticker Analysis', icon: <Search className="w-5 h-5" /> },
   { to: '/charts', label: 'Charts', icon: <TrendingUp className="w-5 h-5" /> },
   { to: '/backtest', label: 'Backtest', icon: <BarChart2 className="w-5 h-5" /> },
   { to: '/risk', label: 'Risk', icon: <Shield className="w-5 h-5" /> },
+  { to: '/workflow', label: 'Swing Desk', icon: <Briefcase className="w-5 h-5" /> },
 ];
 
 function NavItem({ to, label, icon }: NavItemProps) {

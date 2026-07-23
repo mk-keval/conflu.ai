@@ -8,12 +8,14 @@ import { RiskPage } from './components/risk';
 import { SectorRotationPage } from './components/sector-rotation';
 import { TickerAnalysisPage } from './components/ticker-analysis/TickerAnalysisPage';
 import { WorkflowPage } from './components/workflow/WorkflowPage';
+import { DashboardPage } from './components/dashboard/DashboardPage';
 
 export function App() {
   return (
     <Routes>
       <Route element={<AppShell />}>
-        <Route path="/" element={<Navigate to="/screener" replace />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/screener" element={<ScreenerPage />} />
         <Route path="/sector-rotation" element={<SectorRotationPage />} />
         <Route path="/workflow" element={<WorkflowPage />} />

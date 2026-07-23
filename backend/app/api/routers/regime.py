@@ -462,3 +462,115 @@ def get_market_regime_sync() -> MarketRegimeResponse | None:
         asyncio.set_event_loop(loop)
     
     return loop.run_until_complete(_get_regime())
+
+
+# ── Market Events ──
+
+MARKET_EVENTS_CACHE: list[dict] | None = None
+MARKET_EVENTS_CACHE_TIME: float = 0.0
+EVENTS_CACHE_TTL = 86400  # 24 hours
+
+
+def _get_upcoming_events() -> list[dict]:
+    """Return upcoming market events (FOMC, CPI, PCE, earnings season)."""
+    global MARKET_EVENTS_CACHE, MARKET_EVENTS_CACHE_TIME
+    now = datetime.now(UTC)
+    if MARKET_EVENTS_CACHE and (time.time() - MARKET_EVENTS_CACHE_TIME) < EVENTS_CACHE_TTL:
+        return MARKET_EVENTS_CACHE
+
+    year = now.year
+    today = now.date()
+    events: list[dict] = []
+
+    # FOMC meetings (2026 schedule)
+    fomc_dates = [
+        "2026-01-28", "2026-03-18", "2026-05-06", "2026-06-17",
+        "2026-07-29", "2026-09-16", "2026-11-04", "2026-12-16",
+    ]
+    for d_str in fomc_dates:
+        from datetime import date
+        d = date.fromisoformat(d_str)
+        days_until = (d - today).days
+        events.append({
+            "date": d_str,
+            "title": "FOMC Meeting",
+            "description": "Federal Reserve interest rate decision" + (" + press conference" if d.month in (3, 6, 9, 12) else ""),
+            "days_until": days_until,
+            "importance": "high",
+        })
+
+    # Recent CPI releases and upcoming CPI
+    cpi_dates = [
+        "2026-01-15", "2026-02-14", "2026-03-16", "2026-04-15",
+        "2026-05-15", "2026-06-12", "2026-07-15", "2026-08-14",
+        "2026-09-15", "2026-10-15", "2026-11-16", "2026-12-15",
+    ]
+    for d_str in cpi_dates:
+        from datetime import date
+        d = date.fromisoformat(d_str)
+        days_until = (d - today).days
+        if -5 <= days_until <= 90:
+            events.append({
+                "date": d_str,
+                "title": "CPI Report",
+                "description": "Consumer Price Index",
+                "days_until": days_until,
+                "importance": "high",
+            })
+
+    # PCE releases
+    pce_dates = [
+        "2026-01-30", "2026-02-27", "2026-03-28", "2026-04-29",
+        "2026-05-29", "2026-06-26", "2026-07-30", "2026-08-28",
+        "2026-09-29", "2026-10-30", "2026-11-27", "2026-12-30",
+    ]
+    for d_str in pce_dates:
+        from datetime import date
+        d = date.fromisoformat(d_str)
+        days_until = (d - today).days
+        if -5 <= days_until <= 90:
+            events.append({
+                "date": d_str,
+                "title": "PCE Inflation",
+                "description": "Personal Consumption Expenditures",
+                "days_until": days_until,
+                "importance": "medium",
+            })
+
+    events.sort(key=lambda e: e["days_until"])
+    events = [e for e in events if e["days_until"] >= 0][:10]
+
+    MARKET_EVENTS_CACHE = events
+    MARKET_EVENTS_CACHE_TIME = time.time()
+    return events
+
+
+@router.get("/events", summary="Upcoming market events")
+async def get_market_events() -> ApiResponse:
+    """Get upcoming market events — FOMC, CPI, PCE — with countdown in days."""
+    events = _get_upcoming_events()
+    return ApiResponse(
+        data={"events": events, "count": len(events)},
+        meta=MetaInfo(timestamp=datetime.now(UTC).isoformat()),
+    )
+
+
+@router.get("/narrative", summary="Market narrative summary")
+async def get_market_narrative() -> ApiResponse:
+    """Get a human-readable 1-paragraph market narrative summary."""
+    regime = get_market_regime_sync()
+    parts = []
+    if regime:
+        parts.append(
+            f"Market regime is {regime.regime_label} ({regime.composite_score:.0f}/100) "
+            f"with VIX at {regime.vix.value:.1f}."
+        )
+    events = _get_upcoming_events()
+    upcoming = [e for e in events if e["days_until"] >= 0][:2]
+    for e in upcoming:
+        parts.append(f"Next: {e['title']} in {e['days_until']}d.")
+    narrative = " ".join(parts) if parts else "Market data currently loading."
+    return ApiResponse(
+        data={"narrative": narrative, "generated_at": datetime.now(UTC).isoformat()},
+        meta=MetaInfo(timestamp=datetime.now(UTC).isoformat()),
+    )
