@@ -94,6 +94,7 @@ function ScreenerContent() {
   const setConfig = useScreenStore((s) => s.setConfig);
   const { subscribe, unsubscribe, onMessage } = useWS();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // State
   const [templates, setTemplates] = useState<TVTemplate[]>([]);
@@ -104,6 +105,8 @@ function ScreenerContent() {
   const [screenName, setScreenName] = useState('');
   const [executionTime, setExecutionTime] = useState(0);
   const [fetchedAt, setFetchedAt] = useState<string>('');
+  // Sector filter: initialized from URL ?sector= param, cleared when results change
+  const [sectorFilter, setSectorFilter] = useState<string>(() => searchParams.get('sector') || '');
   const [sortState, setSortState] = useState<{ key: string | null; dir: 'asc' | 'desc' | null }>({ key: 'score', dir: 'desc' });
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
@@ -281,6 +284,31 @@ function ScreenerContent() {
     navigate(`/ticker/${ticker.symbol}`);
   }, [navigate]);
 
+  // ── Sector filter logic ──
+  // Extract unique sectors from results for the filter pills
+  // Also reset sector filter when results change to a different sector set
+  const uniqueSectors = useMemo(() => {
+    const sectors = new Set<string>();
+    for (const r of results) {
+      const s = r.tv_data?.sector;
+      if (s) sectors.add(s);
+    }
+    return [...sectors].sort();
+  }, [results]);
+
+  // Clear sector filter when it no longer matches any result sector
+  useEffect(() => {
+    if (sectorFilter && !uniqueSectors.includes(sectorFilter)) {
+      setSectorFilter('');
+    }
+  }, [uniqueSectors, sectorFilter]);
+
+  // Filtered results driven by the active sector pill
+  const filteredResults = useMemo(() => {
+    if (!sectorFilter) return results;
+    return results.filter((r) => r.tv_data?.sector === sectorFilter);
+  }, [results, sectorFilter]);
+
   if (isLoading && results.length === 0) {
     return (
       <div className="flex h-full flex-col">
@@ -385,19 +413,53 @@ function ScreenerContent() {
 
       {/* Tab content */}
       {activeTab === 'results' ? (
-        <div className="flex-1 overflow-hidden relative">
-          <ScreenerTable
-            results={results}
-            onRowClick={handleRowClick}
-            sortState={sortState}
-            onSort={handleSort}
-            currentPage={currentPage}
-            pageSize={pageSize}
-            onPageChange={handlePageChange}
-            onPageSizeChange={handlePageSizeChange}
-            convergenceMap={convergenceMap}
-            visibleColumns={visibleColumns}
-          />
+        <div className="flex-1 overflow-hidden relative flex flex-col">
+          {/* Sector filter pills */}
+          {uniqueSectors.length > 0 && (
+            <div className="flex items-center gap-1.5 px-4 py-2 border-b border-border/30 shrink-0 overflow-x-auto">
+              <button
+                onClick={() => setSectorFilter('')}
+                className={`text-xs px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap ${
+                  !sectorFilter
+                    ? 'bg-accent/10 border-accent/30 text-accent font-medium'
+                    : 'border-border/50 text-text-muted hover:text-text-primary hover:border-text-muted/30'
+                }`}
+              >
+                All ({results.length})
+              </button>
+              {uniqueSectors.map((sector) => {
+                const count = results.filter((r) => r.tv_data?.sector === sector).length;
+                const isActive = sectorFilter === sector;
+                return (
+                  <button
+                    key={sector}
+                    onClick={() => setSectorFilter(isActive ? '' : sector)}
+                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap ${
+                      isActive
+                        ? 'bg-accent/10 border-accent/30 text-accent font-medium'
+                        : 'border-border/50 text-text-muted hover:text-text-primary hover:border-text-muted/30'
+                    }`}
+                  >
+                    {sector} ({count})
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div className="flex-1 overflow-hidden">
+            <ScreenerTable
+              results={filteredResults}
+              onRowClick={handleRowClick}
+              sortState={sortState}
+              onSort={handleSort}
+              currentPage={currentPage}
+              pageSize={pageSize}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+              convergenceMap={convergenceMap}
+              visibleColumns={visibleColumns}
+            />
+          </div>
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto p-4">

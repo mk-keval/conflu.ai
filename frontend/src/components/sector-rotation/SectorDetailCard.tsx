@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { X, TrendingUp, DollarSign, BarChart3, Activity } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { X, TrendingUp, DollarSign, BarChart3, Activity, Search } from 'lucide-react';
 import { fetchSectorDetail } from '@/api/sectorRotation';
 import type { SectorDetail } from '@/types/sector';
 import { formatPrice, formatPct } from '@/lib/format';
@@ -11,6 +12,7 @@ interface SectorDetailCardProps {
 }
 
 export function SectorDetailCard({ symbol, onClose }: SectorDetailCardProps) {
+  const navigate = useNavigate();
   const [detail, setDetail] = useState<SectorDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -200,6 +202,17 @@ export function SectorDetailCard({ symbol, onClose }: SectorDetailCardProps) {
             />
           </div>
         )}
+      </div>
+
+      {/* Find stocks in this sector */}
+      <div className="border-t border-border px-5 py-3">
+        <button
+          onClick={() => navigate(`/screener?sector=${encodeURIComponent(detail.name)}`)}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-border/50 bg-surface/50 px-3 py-2 text-xs font-medium text-text-muted hover:text-text-primary hover:border-text-muted/30 hover:bg-surface transition-colors"
+        >
+          <Search className="h-3.5 w-3.5" />
+          Find stocks in {detail.name}
+        </button>
       </div>
     </div>
   );
