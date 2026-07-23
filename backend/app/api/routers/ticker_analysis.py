@@ -135,54 +135,7 @@ async def get_options_chain(
         calls = process_contracts(chain.calls, 'call')
         puts = process_contracts(chain.puts, 'put')
         
-        # Compute IV Rank (simplified - would need historical IV for true rank)
-        all_iv = [c['impliedVolatility'] for c in calls if c['impliedVolatility'] > 0] + \
-                 [p['impliedVolatility'] for p in puts if p['impliedVolatility'] > 0]
-        iv_rank = 50  # Placeholder - needs historical IV data
-        
-        # Compute max pain
-        def compute_max_pain(calls, puts):
-            strikes = sorted(set([c['strike'] for c in calls] + [p['strike'] for p in puts]))
-            min_pain = float('inf')
-            max_pain_strike = strikes[0] if strikes else 0
-            for strike in strikes:
-                pain = 0
-                for c in calls:
-                    if c['strike'] < strike:
-                        pain += (strike - c['strike']) * c['openInterest']
-                for p in puts:
-                    if p['strike'] > strike:
-                        pain += (p['strike'] - strike) * p['openInterest']
-                if pain < min_pain:
-                    min_pain = pain
-                    max_pain_strike = strike
-            return max_pain_strike
-        
-        max_pain = compute_max_pain(calls, puts)
-        
-        # Compute GEX (Gamma Exposure) - simplified
-        def compute_gex(calls, puts, spot):
-            gex = 0
-            for c in calls:
-                if c['gamma'] and c['openInterest'] > 0:
-                    gex += c['gamma'] * c['openInterest'] * 100 * spot * 0.01  # Approx
-            for p in puts:
-                if p['gamma'] and p['openInterest'] > 0:
-                    gex -= p['gamma'] * p['openInterest'] * 100 * spot * 0.01
-            return gex
-        
         # Get spot price
-        hist = ticker.history(period="1d")
-        spot = float(hist['Close'].iloc[-1]) if not hist.empty else 0
-        
-        gex = compute_gex(calls, puts, spot)
-        
-        # Put/Call Ratio
-        total_call_oi = sum(c['openInterest'] for c in calls)
-        total_put_oi = sum(p['openInterest'] for p in puts)
-        pcr = total_put_oi / total_call_oi if total_call_oi > 0 else 0
-        
-        # Spot price
         hist = ticker.history(period="1d")
         spot = float(hist['Close'].iloc[-1]) if not hist.empty else 0
         
@@ -267,9 +220,12 @@ async def get_options_chain(
             "symbol": symbol.upper(),
             "expiry": target_expiry,
             "spot": spot,
+            "calls": calls,  # Full contracts for frontend table rendering
+            "puts": puts,
             "ivRank": iv_rank,
             "ivMean": round(iv_mean, 4),
             "maxPain": max_pain,
+            "gammaExposure": round(total_gex, 2),  # Alias for frontend interface
             "gexTotal": round(total_gex, 2),
             "gexFlip": gex_flip,
             "gexByStrike": {str(k): round(v, 2) for k, v in gex_by_strike.items()},
