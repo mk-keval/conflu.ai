@@ -59,8 +59,3 @@ filters:
   - category: momentum
     indicator: macd_bullish
     timeframe: "4h"
-  - category: volume
-    indicator: rvol_high
-    params:
-      threshold: 1.5
-    timeframe: "4h"
