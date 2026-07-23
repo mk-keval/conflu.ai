@@ -558,7 +558,11 @@ async def get_market_events() -> ApiResponse:
 @router.get("/narrative", summary="Market narrative summary")
 async def get_market_narrative() -> ApiResponse:
     """Get a human-readable 1-paragraph market narrative summary."""
-    regime = get_market_regime_sync()
+    try:
+        regime_resp = await get_market_regime()
+        regime = regime_resp.data if regime_resp else None
+    except Exception:
+        regime = None
     parts = []
     if regime:
         parts.append(

@@ -25,7 +25,7 @@ import { ExportButtons } from './ExportButtons';
 import { TemplateInfoStrip } from './TemplateInfoStrip';
 import { ScreenerEducation } from './ScreenerEducation';
 import type { WSMessage } from '@/types/ws';
-import type { SectorRotationResponse } from '@/types/sector';
+import type { SectorPerformance, SectorRotationResponse } from '@/types/sector';
 import { ChevronDown, Play, Loader2, RefreshCw, Columns, List, BookOpen, TrendingUp, TrendingDown, Activity, AlertTriangle, Gauge } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { ALL_COLUMNS_META, DEFAULT_VISIBLE_COLUMNS } from './ScreenerTable';
@@ -226,6 +226,14 @@ function ScreenerContent() {
       });
     }
   }, [data, selectedTemplate]);
+
+  // Populate sector rotation store for child components
+  useEffect(() => {
+    fetchSectorRotation().then((data) => {
+      useSectorRotationStore.getState().setSectors(data.sectors);
+      useSectorRotationStore.getState().setRotationPhase(data.rotation_phase ?? '');
+    }).catch(() => {});
+  }, []);
 
   // WS subscription for real-time updates
   useEffect(() => {
@@ -875,16 +883,19 @@ function MarketOverviewPanel() {
  * Clicking a sector focuses the screener results to that sector.
  */
 function SectorFocusBanner({ onSelectSector }: { onSelectSector: (sector: string) => void }) {
-  const [sectorData, setSectorData] = useState<SectorRotationResponse | null>(null);
+  const [sectors, setSectors] = useState<SectorPerformance[]>([]);
+  const [rotationPhase, setRotationPhase] = useState('');
 
   useEffect(() => {
-    fetchSectorRotation()
-      .then(setSectorData)
-      .catch(() => { /* non-critical */ });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    fetchSectorRotation().then((data) => {
+      clearTimeout(timeout);
+      setSectors(data.sectors ?? []);
+      setRotationPhase(data.rotation_phase ?? '');
+    }).catch(() => {});
+    return () => clearTimeout(timeout);
   }, []);
-
-  const sectors = sectorData?.sectors ?? [];
-  const rotationPhase = sectorData?.rotation_phase ?? '';
 
   // Sort by 1d change descending, take top 4
   const topSectors = useMemo(
