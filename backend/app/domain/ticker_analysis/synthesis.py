@@ -654,18 +654,22 @@ def synthesise(
         base_action = "WATCH"
         conviction = 2 + int((weighted_score - 0.10) * 10) if weighted_score > 0 else 2
         conviction = min(conviction, 4)
-    elif weighted_score > -0.10:
-        base_action = "WATCH" if not dealbreaker_active else "WATCH"
-        conviction = 2
-    elif weighted_score > -0.3:
+    elif weighted_score >= 0.0:
+        # Scores 0-10%: very weak positive — still WATCH but minimum conviction
+        # (was previously lumped with > -0.10 giving c:2)
+        base_action = "WATCH"
+        conviction = 1
+    elif weighted_score > -0.15:
+        # Scores -15% to 0%: mildly negative → HOLD
         base_action = "HOLD"
-        conviction = 2 + int(abs(weighted_score) * 6)  # Lower conviction for negative scores
-        conviction = min(conviction, 4)  # Cap at 4 for cautious hold
-    elif weighted_score > -0.5:
+        conviction = 2
+    elif weighted_score > -0.4:
+        # Scores -40% to -15%: moderately negative → REDUCE
         base_action = "REDUCE"
         conviction = 5 + int(abs(weighted_score) * 10)
         conviction = min(conviction, 8)
     else:
+        # Scores below -40%: clearly bearish → AVOID
         base_action = "AVOID"
         conviction = min(10, 7 + int(abs(weighted_score) * 6))
 

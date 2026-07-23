@@ -1,10 +1,11 @@
 """Portfolio analysis API router — combined view across multiple tickers.
 
 Provides institutional-grade portfolio-level analysis:
+- Per-symbol basic data (sector, price, beta)
 - Correlation matrix between all symbols
 - Combined portfolio beta and sector allocation
-- Risk metrics (VaR, volatility, max drawdown)
-- Position sizing suggestions (Kelly-optimal, equal-risk)
+- Risk metrics (portfolio volatility)
+- Equal-risk position sizing
 
 Endpoints:
 - POST /api/v1/portfolio/analyze — Full portfolio analysis from a list of symbols
@@ -18,14 +19,11 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import yfinance as yf
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel
 
-from backend.app.api.dependencies import get_ticker_analysis_engine
 from backend.app.api.schemas import ApiResponse, MetaInfo
 from backend.app.core.logging import get_logger
-from backend.app.domain.ticker_analysis.models import TickerAnalysisRequest
-from backend.app.domain.ticker_analysis.orchestrator import TickerAnalysisService
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 log = get_logger("conflu.api.portfolio")
@@ -36,16 +34,15 @@ log = get_logger("conflu.api.portfolio")
 
 class PortfolioRequest(BaseModel):
     symbols: list[str]
-    """List of ticker symbols to analyze (2–10 recommended)."""
 
 
 class SymbolAllocation(BaseModel):
     symbol: str
     sector: str | None = None
     price: float | None = None
-    conviction: int = 1
-    action: str = "WATCH"
-    suggested_pct: float | None = None
+    beta: float | None = None
+    market_cap: float | None = None
+    pe_ratio: float | None = None
 
 
 class CorrelationPair(BaseModel):
@@ -68,27 +65,31 @@ class PortfolioResponse(BaseModel):
     timestamp: str
 
 
-# ── Data helpers ──
+# ── Helpers ──
 
 
-def _fetch_beta(symbol: str) -> float | None:
-    """Fetch beta from yfinance info."""
+def _fetch_info(symbol: str) -> dict[str, Any]:
+    """Fetch yfinance info for a single symbol with timeout."""
     try:
         ticker = yf.Ticker(symbol)
-        info = ticker.info
-        beta = info.get("beta")
-        return round(float(beta), 3) if beta is not None else None
+        info = ticker.info or {}
+        return {
+            "sector": info.get("sector"),
+            "price": info.get("currentPrice") or info.get("regularMarketPrice"),
+            "beta": info.get("beta"),
+            "market_cap": info.get("marketCap"),
+            "pe_ratio": info.get("trailingPE") or info.get("forwardPE"),
+        }
     except Exception:
-        return None
+        return {}
 
 
 def _fetch_returns(symbols: list[str], period: str = "6mo") -> pd.DataFrame:
-    """Fetch daily returns for all symbols and return a DataFrame aligned by date."""
+    """Fetch daily returns for all symbols, aligned by date."""
     prices: dict[str, pd.Series] = {}
     for sym in symbols:
         try:
-            ticker = yf.Ticker(sym)
-            hist = ticker.history(period=period)
+            hist = yf.Ticker(sym).history(period=period)
             if hist is not None and not hist.empty:
                 prices[sym] = hist["Close"]
         except Exception:
@@ -96,8 +97,7 @@ def _fetch_returns(symbols: list[str], period: str = "6mo") -> pd.DataFrame:
     if not prices:
         return pd.DataFrame()
     df = pd.DataFrame(prices)
-    returns = df.pct_change().dropna(how="all")
-    return returns
+    return df.pct_change().dropna(how="all")
 
 
 # ── Route ──
@@ -106,64 +106,36 @@ def _fetch_returns(symbols: list[str], period: str = "6mo") -> pd.DataFrame:
 @router.post("/analyze", summary="Portfolio analysis")
 async def analyze_portfolio(
     request: PortfolioRequest,
-    engine: TickerAnalysisService = Depends(get_ticker_analysis_engine),
 ) -> ApiResponse:
-    """Analyse a portfolio of tickers — correlation, sector allocation, risk, and position sizing.
+    """Analyse a portfolio of tickers — correlation, sector allocation, risk.
 
-    Takes a list of symbols and returns:
-    - Per-symbol analysis summaries (action, conviction, sector)
-    - Correlation matrix between all pairs
-    - Sector allocation breakdown
-    - Combined portfolio beta and volatility
-    - Equal-risk position sizing suggestion
-    - High-correlation warnings (r > 0.7)
+    Returns per-symbol data, correlation matrix, combined beta, sector
+    allocation, portfolio volatility, and equal-risk position sizing.
     """
     start = datetime.now(UTC)
     symbols = list(dict.fromkeys([s.upper().strip() for s in request.symbols if s.strip()]))
     count = len(symbols)
 
-    if count < 1:
-        return ApiResponse(
-            data=PortfolioResponse(
-                symbols=[],
-                symbol_count=0,
-                analyses=[],
-                sector_allocation={},
-                combined_beta=None,
-                portfolio_volatility=None,
-                equal_risk_pct=None,
-                correlation_matrix=[],
-                high_correlation_pairs=[],
-                max_single_position_pct=0,
-                timestamp=datetime.now(UTC).isoformat(),
-            ),
-            meta=MetaInfo(request_id="", duration_ms=0, error="At least one symbol required"),
-        )
-
-    # ── 1. Fetch per-symbol analysis ──
+    # ── 1. Fetch per-symbol info ──
     analyses: list[SymbolAllocation] = []
     sectors_seen: dict[str, float] = {}
     betas: list[float] = []
 
     for sym in symbols:
-        try:
-            result = engine.analyze(TickerAnalysisRequest(symbol=sym))
-            sector = result.sector or "Unknown"
-            pct = result.verdict.position_size_pct or 0
-            sectors_seen[sector] = sectors_seen.get(sector, 0) + 1
-            if result.risk and result.risk.beta:
-                betas.append(result.risk.beta)
-            analyses.append(SymbolAllocation(
-                symbol=sym,
-                sector=sector,
-                price=result.price,
-                conviction=result.verdict.conviction,
-                action=result.verdict.action,
-                suggested_pct=pct,
-            ))
-        except Exception as e:
-            log.warning("analysis_failed", symbol=sym, error=str(e))
-            analyses.append(SymbolAllocation(symbol=sym, sector="Unknown", action="N/A"))
+        info = _fetch_info(sym)
+        sector = info.get("sector") or "Unknown"
+        sectors_seen[sector] = sectors_seen.get(sector, 0) + 1
+        beta = info.get("beta")
+        if beta is not None:
+            betas.append(float(beta))
+        analyses.append(SymbolAllocation(
+            symbol=sym,
+            sector=sector,
+            price=info.get("price"),
+            beta=round(float(beta), 2) if beta is not None else None,
+            market_cap=info.get("market_cap"),
+            pe_ratio=info.get("pe_ratio"),
+        ))
 
     # ── 2. Correlation matrix ──
     returns_df = _fetch_returns(symbols)
@@ -176,13 +148,12 @@ async def analyze_portfolio(
         for i, a in enumerate(symbols):
             for b in symbols[i + 1:]:
                 if a in corr_matrix.index and b in corr_matrix.columns:
-                    r = round(float(corr_matrix.loc[a, b]), 3)
-                    pair = CorrelationPair(a=a, b=b, r=r)
+                    r_val = round(float(corr_matrix.loc[a, b]), 3)
+                    pair = CorrelationPair(a=a, b=b, r=r_val)
                     correlation_pairs.append(pair)
-                    if abs(r) > 0.7:
+                    if abs(r_val) > 0.7:
                         high_corr_pairs.append(pair)
 
-        # Equally-weighted portfolio volatility
         n = len(symbols)
         weights = np.ones(n) / n
         cov = returns_df.cov()
@@ -192,17 +163,15 @@ async def analyze_portfolio(
         except Exception:
             combined_vol = None
 
-    # ── 3. Combined beta (simple average) ──
+    # ── 3. Combined beta ──
     combined_beta = round(float(np.mean(betas)), 2) if betas else None
 
-    # ── 4. Equal-risk position sizing ──
+    # ── 4. Equal-risk sizing ──
     equal_risk_pct = round(min(100.0 / max(count, 1), 15.0), 1) if count > 0 else None
 
     # ── 5. Sector allocation ──
     total = sum(sectors_seen.values()) or 1
     sector_allocation = {s: round(c / total * 100, 1) for s, c in sorted(sectors_seen.items(), key=lambda x: -x[1])}
-
-    # Cap: never more than 25% in a single position
     max_pos = round(min(25.0, 100.0 / max(count, 1)), 1)
 
     duration = (datetime.now(UTC) - start).total_seconds() * 1000
