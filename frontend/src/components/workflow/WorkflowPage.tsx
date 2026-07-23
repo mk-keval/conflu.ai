@@ -5,6 +5,7 @@ import { fetchMarketRegime, fetchSectorRotation } from '@/api/sectorRotation';
 import { analyzePortfolio } from '@/api/workflow';
 import type { MarketRegimeResponse, SectorRotationResponse, SectorPerformance } from '@/types/sector';
 import type { PortfolioResponse, SymbolAllocation } from '@/api/workflow';
+import { usePortfolioStore } from '@/store/portfolio';
 import {
   TrendingUp, TrendingDown, Activity, Gauge, Search, BarChart3,
   Plus, X, RefreshCw, Loader2, AlertTriangle, ChevronRight,
@@ -110,9 +111,19 @@ function WorkflowContent() {
   // ── Step state ──
   const [step, setStep] = useState(1);
 
-  // ── Watchlist state ──
+  // ── Watchlist state — synced with portfolio store ──
   const [watchlistInput, setWatchlistInput] = useState('');
-  const [watchlist, setWatchlist] = useState<string[]>([]);
+  const portfolioStore = usePortfolioStore();
+  const [watchlist, setWatchlist] = useState<string[]>(() =>
+    portfolioStore.items.map((i) => i.symbol)
+  );
+
+  // Sync watchlist changes back to portfolio store
+  useEffect(() => {
+    for (const sym of watchlist) {
+      if (!portfolioStore.hasSymbol(sym)) portfolioStore.addSymbol(sym);
+    }
+  }, [watchlist]);
 
   // ── Portfolio results ──
   const [portfolioResult, setPortfolioResult] = useState<PortfolioResponse | null>(null);

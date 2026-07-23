@@ -10,6 +10,7 @@ import {
 } from '@/api/tickerAnalysis';
 import { fetchSectorRotation } from '@/api/sectorRotation';
 import type { SectorPerformance, SectorRotationResponse } from '@/types/sector';
+import { usePortfolioStore } from '@/store/portfolio';
 import type { TickerAnalysisResponse, TechnicalAnalysis } from '@/types/tickerAnalysis';
 import { cn } from '@/lib/cn';
 import { formatPrice, formatPct, formatLargeNumber } from '@/lib/format';
@@ -18,7 +19,7 @@ import {
   Shield, Info, Brain, BookOpen,
   ArrowUp, ArrowDown, Minus, ChevronDown, ChevronUp, HelpCircle,
   FileText, Newspaper, BarChart2, Search,
-  Loader2, ExternalLink,
+  Loader2, ExternalLink, Plus, Check,
 } from 'lucide-react';
 import type { MetricLesson, ModuleLesson } from './education';
 import {
@@ -232,6 +233,8 @@ function VerdictBanner({ data, weightedScore }: { data: TickerAnalysisResponse; 
   const cfg = verdictConfig(v.action);
   const changeStr = data.change_pct != null ? formatPct(data.change_pct) : null;
   const isPositive = data.change_pct != null && data.change_pct >= 0;
+  const { items, addSymbol, removeSymbol } = usePortfolioStore();
+  const inPortfolio = items.some((i) => i.symbol === data.symbol);
 
   return (
     <div className={cn('border rounded-lg p-5', cfg.bg, cfg.border)}>
@@ -249,6 +252,20 @@ function VerdictBanner({ data, weightedScore }: { data: TickerAnalysisResponse; 
                   {changeStr}
                 </span>
               )}
+              {/* Add to Portfolio button */}
+              <button
+                onClick={() => inPortfolio ? removeSymbol(data.symbol) : addSymbol(data.symbol)}
+                className={cn(
+                  'flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors',
+                  inPortfolio
+                    ? 'bg-green-500/10 border-green-500/30 text-green-500'
+                    : 'bg-accent/5 border-accent/20 text-accent hover:bg-accent/10'
+                )}
+                title={inPortfolio ? 'Remove from portfolio' : 'Add to portfolio'}
+              >
+                {inPortfolio ? <Check className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+                {inPortfolio ? 'In Portfolio' : 'Add to Portfolio'}
+              </button>
             </div>
             <div className="flex items-center gap-3 mt-1">
               <span className={cn('text-lg font-bold', cfg.text)}>
