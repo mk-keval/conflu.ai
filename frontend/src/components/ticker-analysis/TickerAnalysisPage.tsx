@@ -929,6 +929,18 @@ function MetricBox({ label, value, explainer }: {
 
 function OptionsDetail({ data }: { data: OptionsChainResponse; explain: boolean }) {
   const OPTIONS_EXPLANATION = "IV Rank >80 favors premium selling (credit spreads). IV Rank <20 favors buying (debit spreads/long options). Negative GEX = dealers short gamma (destabilizing, expect big moves). Positive GEX = stabilizing. Max Pain = magnetic price level at expiry. Put/Call Ratio >1.2 = excessive fear (contrarian bullish). <0.7 = complacency.";
+  
+  // Safeguard: if the response lacks calls/puts arrays (e.g. error shape or stale cache),
+  // render a clean "no data" message instead of crashing on .sort()
+  if (!data.calls || !data.puts) {
+    return (
+      <div className="bg-loss/10 border border-loss/20 rounded-lg p-6 text-center">
+        <AlertTriangle className="w-10 h-10 text-loss mx-auto mb-3" />
+        <h3 className="text-lg font-semibold text-text-primary mb-1">Options Data Unavailable</h3>
+        <p className="text-sm text-text-muted mb-4">Options chain data could not be loaded for this symbol.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -1129,7 +1141,7 @@ export function TickerAnalysisPage() {
   });
 
   // Fetch options chain data
-  const { data: optionsData, isLoading: optionsLoading } = useQuery({
+  const { data: optionsData, isLoading: optionsLoading, isError: optionsError } = useQuery({
     queryKey: ['ticker-options', symbol],
     queryFn: () => fetchOptionsChain(symbol),
     enabled: symbol.length > 0 && activeTab === 'options',
@@ -1321,6 +1333,12 @@ export function TickerAnalysisPage() {
             <div className="flex items-center justify-center min-h-[30vh]">
               <Loader2 className="w-8 h-8 text-accent animate-spin" />
               <span className="ml-3 text-text-muted">Loading options chain...</span>
+            </div>
+          ) : optionsError ? (
+            <div className="bg-loss/10 border border-loss/20 rounded-lg p-6 text-center">
+              <AlertTriangle className="w-10 h-10 text-loss mx-auto mb-3" />
+              <h3 className="text-lg font-semibold text-text-primary mb-1">Options Data Error</h3>
+              <p className="text-sm text-text-muted mb-4">Failed to load options chain for {symbol}. The symbol may not have listed options.</p>
             </div>
           ) : optionsData ? (
             <OptionsDetail data={optionsData} explain={explain} />
