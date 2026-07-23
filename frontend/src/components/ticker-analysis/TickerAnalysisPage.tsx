@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { 
@@ -8,6 +8,8 @@ import {
   type OptionsChainResponse,
   type NewsResponse,
 } from '@/api/tickerAnalysis';
+import { fetchSectorRotation } from '@/api/sectorRotation';
+import type { SectorPerformance, SectorRotationResponse } from '@/types/sector';
 import type { TickerAnalysisResponse, TechnicalAnalysis } from '@/types/tickerAnalysis';
 import { cn } from '@/lib/cn';
 import { formatPrice, formatPct, formatLargeNumber } from '@/lib/format';
@@ -398,6 +400,9 @@ function VerdictTab({ data, explain }: { data: TickerAnalysisResponse; explain: 
 
   return (
     <div className="space-y-5">
+      {/* Sector Context Badge — shows how this ticker's sector is performing */}
+      {data.sector && <SectorContextBadge sector={data.sector} />}
+
       {/* Module Scores Overview */}
       <div className="bg-surface/30 border border-border/30 rounded-lg p-4">
         <h3 className="text-xs font-semibold text-text-primary uppercase tracking-wider mb-3">Module Scores</h3>
@@ -923,6 +928,71 @@ function MetricBox({ label, value, explainer }: {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Sector Context Badge — shows how the ticker's sector is performing
+ * in the current market rotation. Fetches sector data on mount and
+ * displays a compact badge with 1d change, flow signal, and trend.
+ */
+function SectorContextBadge({ sector }: { sector: string }) {
+  const [rotationData, setRotationData] = useState<SectorRotationResponse | null>(null);
+
+  useEffect(() => {
+    fetchSectorRotation()
+      .then(setRotationData)
+      .catch(() => { /* non-critical */ });
+  }, []);
+
+  // Match the ticker's sector name to a sector ETF symbol
+  const sectorToEtf: Record<string, string> = {
+    'Technology': 'XLK', 'Financial Services': 'XLF', 'Finance': 'XLF',
+    'Healthcare': 'XLV', 'Health Care': 'XLV', 'Industrials': 'XLI',
+    'Energy': 'XLE', 'Utilities': 'XLU', 'Real Estate': 'XLRE',
+    'Consumer Cyclical': 'XLY', 'Consumer Defensive': 'XLP', 'Consumer Staples': 'XLP',
+    'Communication Services': 'XLC', 'Basic Materials': 'XLB', 'Materials': 'XLB',
+  };
+
+  const etfSymbol = sectorToEtf[sector];
+  const sectorPerf = rotationData?.sectors.find((s) => s.symbol === etfSymbol);
+
+  if (!etfSymbol || !sectorPerf) {
+    // No ETF mapping or no data — show just the sector name
+    return (
+      <div className="flex items-center gap-2 text-xs text-text-muted mb-3">
+        <Activity className="h-3.5 w-3.5" />
+        <span>{sector}</span>
+      </div>
+    );
+  }
+
+  const isPositive = (sectorPerf.change_1d ?? 0) >= 0;
+  const flowColor = sectorPerf.flow_signal === 'inflow' ? 'text-green-500' : sectorPerf.flow_signal === 'outflow' ? 'text-red-400' : 'text-text-muted';
+  const trendColor = sectorPerf.trend === 'bullish' ? 'text-green-500' : sectorPerf.trend === 'bearish' ? 'text-red-400' : 'text-yellow-400';
+
+  return (
+    <div className="flex items-center gap-3 text-xs bg-surface/20 border border-border/30 rounded-lg px-3 py-2 mb-3">
+      <div className="flex items-center gap-1.5 shrink-0">
+        <Activity className="h-3.5 w-3.5 text-text-muted" />
+        <span className="text-text-primary font-medium">{sector}</span>
+      </div>
+      <div className="flex items-center gap-3 text-text-muted">
+        <span className={isPositive ? 'text-green-500 font-mono' : 'text-red-400 font-mono'}>
+          {isPositive ? '+' : ''}{sectorPerf.change_1d?.toFixed(2)}%
+        </span>
+        <span className={`flex items-center gap-1 ${flowColor}`}>
+          <span className="text-[10px]">{sectorPerf.flow_signal === 'inflow' ? '▲' : sectorPerf.flow_signal === 'outflow' ? '▼' : '◆'}</span>
+          {sectorPerf.flow_signal === 'inflow' ? 'Inflow' : sectorPerf.flow_signal === 'outflow' ? 'Outflow' : 'Neutral'}
+        </span>
+        <span className={trendColor}>
+          {sectorPerf.trend === 'bullish' ? 'Uptrend' : sectorPerf.trend === 'bearish' ? 'Downtrend' : 'Mixed'}
+        </span>
+        {rotationData?.rotation_phase && (
+          <span className="text-text-muted/60">· {rotationData.rotation_phase}</span>
+        )}
+      </div>
     </div>
   );
 }
