@@ -52,6 +52,10 @@ tags_metadata = [
         "name": "ticker",
         "description": "Elite-trader-grade ticker analysis — technical, fundamental, earnings, sentiment, risk, with actionable verdict",
     },
+    {
+        "name": "professional",
+        "description": "Professional Mode — guided workflow for working professionals",
+    },
 ]
 
 
@@ -87,6 +91,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     ws_manager.start_background_tasks(app)
 
+    # Initialize Professional Mode scheduler
+    if settings.professional.morning_brief_enabled:
+        from backend.app.worker.scheduler import scheduler, setup_jobs
+
+        setup_jobs()
+        scheduler.start()
+        log.info("professional_scheduler_started")
+    else:
+        log.info("professional_scheduler_disabled")
+
     log.info("app_startup_complete")
 
     yield
@@ -94,6 +108,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # ── Shutdown ──
     # Close WebSocket connections
     await ws_manager.close_all()
+
+    # Shutdown Professional Mode scheduler
+    if settings.professional.morning_brief_enabled:
+        from backend.app.worker.scheduler import scheduler
+
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+            log.info("professional_scheduler_stopped")
 
     # Shut down OpenTelemetry
     if settings.api.otel_exporter_otlp_endpoint:
@@ -162,6 +184,7 @@ def create_app() -> FastAPI:
         data_router,
         health_router,
         portfolio_router,
+        professional_router,
         regime_router,
         risk_router,
         sector_rotation_router,
@@ -173,6 +196,7 @@ def create_app() -> FastAPI:
     app.include_router(backtest_router, prefix="/api/v1")
     app.include_router(data_router, prefix="/api/v1")
     app.include_router(portfolio_router, prefix="/api/v1")
+    app.include_router(professional_router, prefix="/api/v1")
     app.include_router(regime_router, prefix="/api/v1")
     app.include_router(risk_router, prefix="/api/v1")
     app.include_router(sector_rotation_router, prefix="/api/v1")
