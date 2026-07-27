@@ -27,6 +27,7 @@ from backend.app.infrastructure.professional.models import (
     SectorRotationSummary,
     TickerBrief,
 )
+from backend.app.infrastructure.screener.tv_models import ConfluenceScore
 from backend.app.infrastructure.professional.regime_selector import RegimeScreenSelector
 from backend.app.infrastructure.screener.configs import ScreenConfig
 from backend.app.infrastructure.screener.tv_engine import TVScreenEngine
@@ -114,6 +115,7 @@ class MorningBriefService:
             if isinstance(result, Exception):
                 log.warning("screen_failed_skipping", screen=config.name, error=str(result))
                 continue
+            assert isinstance(result, dict), f"Expected dict, got {type(result)}"
             tickers = self._build_ticker_briefs(config.name, result)
             for t in tickers:
                 all_ticker_symbols.append(t.symbol)
@@ -163,23 +165,40 @@ class MorningBriefService:
         results = screen_result.get("results", [])
         briefs: list[TickerBrief] = []
         for r in results[:9]:
-            confluence = r.get("confluence", {})
-            elite = r.get("elite", {})
-            rating = getattr(confluence, "rating", str(confluence.get("rating", "WATCH")))
-            conviction_raw = elite.get("signal_conviction", "low")
+            confluence: ConfluenceScore | None = r.get("confluence")
+            elite_vals: dict = r.get("elite") or {}
+            if confluence is None:
+                tv_data = r.get("tv_data", {})
+                briefs.append(
+                    TickerBrief(
+                        symbol=r.get("symbol", "UNKNOWN"),
+                        screen_name=screen_name,
+                        screen_score=float(r.get("score", 0)),
+                        confluence_score=0,
+                        entry=float(r.get("entry", 0)),
+                        stop_loss=float(r.get("stop_loss", 0)),
+                        targets=list(r.get("targets", [])),
+                        verdict=_rating_to_verdict(str(r.get("rating", "WATCH"))),
+                        conviction=({"high": 8, "medium": 5, "low": 3}).get(elite_vals.get("signal_conviction", "low"), 3),
+                        education_hints=_build_education_hints(tv_data) if tv_data else {},
+                    )
+                )
+                continue
+            elite_vals = r.get("elite") or {}
+            conviction_raw = elite_vals.get("signal_conviction", "low")
             conviction_map = {"high": 8, "medium": 5, "low": 3}
             conviction = conviction_map.get(conviction_raw, 3)
-            verdict = _rating_to_verdict(rating)
+            verdict = _rating_to_verdict(confluence.rating)
             education_hints = _build_education_hints(r.get("tv_data", {}))
             briefs.append(
                 TickerBrief(
                     symbol=r.get("symbol", "UNKNOWN"),
                     screen_name=screen_name,
                     screen_score=float(r.get("score", 0)),
-                    confluence_score=getattr(confluence, "total", confluence.get("total", 0)),
-                    entry=float(getattr(confluence, "entry", confluence.get("entry", 0))),
-                    stop_loss=float(getattr(confluence, "stop_loss", confluence.get("stop_loss", 0))),
-                    targets=list(getattr(confluence, "targets", confluence.get("targets", []))),
+                    confluence_score=confluence.total,
+                    entry=float(confluence.entry),
+                    stop_loss=float(confluence.stop_loss),
+                    targets=list(confluence.targets),
                     verdict=verdict,
                     conviction=conviction,
                     education_hints=education_hints,
