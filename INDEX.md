@@ -53,6 +53,7 @@
 - [Container Builds](Dockerfile) — Multi-stage backend (uv + distroless)
 
 ## Recent Activity
+- **2026-07-24** — Portfolio page (store + UI), WorkflowBar step indicator, Dashboard landing page, sector focus banner with "Best for today" regime badges. [Branch: fix/elite-trader-gaps]
 - **2026-07-10** — UI bug fixes: regime popup z-index (header z-10→z-30), ticker analysis input bg-dark-700→bg-surface, "+1 more findings" now a clickable `<button>`, replaced undefined `dark-*` Tailwind classes across 3 files. All verified via Playwright (0 console errors across all pages). [Session Log](docs/SESSIONS/2026-07-10_ui-fix-playwright-verification.md)
 - **2026-07-07** — Added Sector Rotation Smart Money Tracker: backend API for 11 sector ETFs with 1D/1W relative strength, momentum scoring, volume divergence analysis, rotation phase detection, and smart money flow signals. Frontend with heatmap grid, detail panel, rotation flows visualization, and educational content. [Session Log](docs/SESSIONS/2026-07-07_sector-rotation-feature.md)
 - **2026-07-03** — Fixed chart crash (React hooks violation) and 4H black space (height inconsistency). Docs cleanup: removed stale references to old DuckDB screener, dead API routers, deleted CLAUDE.md duplicate. [Session Log](docs/SESSIONS/ses_20260703213318.md)

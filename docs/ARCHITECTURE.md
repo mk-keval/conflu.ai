@@ -12,7 +12,7 @@ A modular trading platform with DuckDB-based storage, TradingView data ingestion
 backend/
 ├── app/
 │   ├── core/              # Shared infrastructure
-│   │   ├── config.py      # Pydantic settings (6 classes + APISettings)
+│   │   ├── config.py      # Pydantic settings (6 classes + APISettings + ProfessionalSettings)
 │   │   ├── database.py    # DuckDB connection + DDL + partition utils
 │   │   └── logging.py     # structlog with correlation IDs
 │   ├── domain/            # Domain models
@@ -21,7 +21,15 @@ backend/
 │   │   ├── indicators.py  # @indicator decorator + 5 indicators
 │   │   ├── ingest/        # Data ingestion pipeline
 │   │   ├── backtest/      # Backtest engine (vectorbt-based)
-│   │   └── risk/          # Risk management engine
+│   │   ├── risk/          # Risk management engine
+│   │   └── professional/  # Professional Mode workflow layer
+│   │       ├── __init__.py
+│   │       ├── models.py
+│   │       ├── morning_brief.py
+│   │       ├── regime_selector.py
+│   │       ├── position_sizer.py
+│   │       ├── education.py
+│   │       └── alert_service.py
 │   └── api/               # FastAPI REST + WebSocket layer
 │       ├── main.py        # create_app() factory — wires all middleware, routers, lifespan
 │       ├── schemas.py     # ApiResponse/ApiErrorResponse envelopes + all request/response models
@@ -35,7 +43,8 @@ backend/
 │       │   ├── screener.py # POST /api/v1/screen (JSON/CSV/JSON export)
 │       │   ├── backtest.py # POST backtest/optimize/monte-carlo, GET results
 │       │   ├── data.py    # GET indicators, OHLCV data, symbols
-│       │   └── risk.py    # GET beta/correlation/var, POST kelly/position-size
+│       │   ├── risk.py    # GET beta/correlation/var, POST kelly/position-size
+│       │   └── professional.py # Professional Mode endpoints (7 endpoints)
 │       └── ws/            # WebSocket streaming
 │           ├── __init__.py
 │           ├── manager.py # WebSocketManager singleton + channel subscription + background loops
@@ -379,3 +388,9 @@ flowchart LR
 | Tracing | OpenTelemetry + Tempo | Distributed tracing |
 | Compute | vectorbt + pandas-ta | Vectorized indicators & backtesting |
 | CI/CD | GitHub Actions | Automation |
+
+## Key Design Decisions
+
+- **Professional Mode = Workflow Layer** — New entry point on top of existing engine
+- **Hybrid Data Freshness** — 4 PM close for screening + pre-market quotes for display
+- **Education as Infrastructure** — Static templates + optional LLM, not a separate product
