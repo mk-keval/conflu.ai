@@ -82,6 +82,20 @@ export const TECHNICAL_LESSONS: Record<string, MetricLesson> = {
     whyMatters: "High volume confirms that a price move is real. A stock going up on high volume = genuine buying pressure. A stock going up on low volume = might be a false move.",
     scoringImpact: "High volume adds positive points when direction aligns with the trend. Low volume doesn't hurt but doesn't help either.",
   },
+  relative_volume: {
+    label: "Relative Volume",
+    what: "Same as Volume Ratio — compares today's volume to the 10-day average. A value of 2.0 means today's volume is double the average.",
+    readValue: (v) => {
+      const num = parseFloat(v);
+      if (num > 3) return `${v} — EXCEPTIONALLY HIGH volume. Major institutional activity happening right now.`;
+      if (num > 2) return `${v} — very high volume. Significant unusual interest in this stock.`;
+      if (num > 1.5) return `${v} — elevated volume. More trading than normal.`;
+      if (num >= 1) return `${v} — normal volume. Typical trading activity.`;
+      return `${v} — below average. Light trading, moves may lack conviction.`;
+    },
+    whyMatters: "Relative volume highlights when something unusual is happening. High relative volume with a price move = conviction. Low volume = the move might not be trustworthy.",
+    scoringImpact: "High relative volume reinforces trend direction. Used alongside volume_ratio for confirmation.",
+  },
   bb_position: {
     label: "Bollinger Band Position",
     what: "Bollinger Bands create a 'price channel' around a stock's moving average. The bands widen during volatility and narrow during calm periods. This tells us where the price sits within that channel.",
@@ -105,6 +119,45 @@ export const TECHNICAL_LESSONS: Record<string, MetricLesson> = {
           : "Neutral — the two averages are close together. No clear momentum signal right now. The stock is 'coasting'.",
     whyMatters: "MACD helps you catch trend changes EARLY. It's like feeling the wind shift before the weather changes. Traders use it to time entries and exits.",
     scoringImpact: "Bullish MACD adds to the technical score. Bearish MACD subtracts. Neutral has no impact.",
+  },
+  avg_volume_20d: {
+    label: "Avg Volume (20d)",
+    what: "The average number of shares traded each day over the last 20 trading days (about 1 calendar month). Higher volume means more liquidity (easier to buy/sell).",
+    readValue: (v) => {
+      const num = parseFloat(v);
+      if (num > 10_000_000) return `${(num / 1_000_000).toFixed(1)}M shares/day — very liquid. Huge volume means you can trade large positions without affecting the price.`;
+      if (num > 1_000_000) return `${(num / 1_000_000).toFixed(1)}M shares/day — decent liquidity. Normal for mid-to-large cap stocks.`;
+      if (num > 100_000) return `${(num / 1_000).toFixed(0)}K shares/day — moderate. Tradeable but larger orders may affect the price.`;
+      return `${(num / 1_000).toFixed(0)}K shares/day — low volume. Be careful with position size as the spread may be wide.`;
+    },
+    whyMatters: "Volume is like the 'width' of the market. High volume = easy to get in and out. Low volume = price can move against you when you try to trade. Always check volume before buying an unfamiliar stock.",
+    scoringImpact: "Low volume (<50K shares/day) can be a dealbreaker for swing trading. High volume is positive but doesn't directly affect the signal score.",
+  },
+  sma_50_200: {
+    label: "SMA 50/200 (Golden Cross / Death Cross)",
+    what: "Compares the 50-day moving average to the 200-day moving average. When the 50-day crosses ABOVE the 200-day, it's called a 'Golden Cross' — very bullish. When it crosses BELOW, it's a 'Death Cross' — very bearish.",
+    readValue: (v) =>
+      v === "golden_cross"
+        ? "GOLDEN CROSS — the 50-day average crossed above the 200-day! This is one of the most reliable bullish signals. It means the short-term trend is now stronger than the long-term trend."
+        : v === "death_cross"
+          ? "DEATH CROSS — the 50-day average crossed below the 200-day. A serious bearish signal. It suggests the short-term trend has broken down and the stock may be entering a downtrend."
+          : "No cross. The 50 and 200-day averages are maintaining their current order. No extreme trend change signal right now.",
+    whyMatters: "Golden Crosses historically precede major bull runs. Death Crosses often (but not always) precede bear markets. They don't happen often, so when they do, pay attention.",
+    scoringImpact: "Golden Cross = strong positive score boost. Death Cross = strong negative. No cross = neutral. This is a high-impact signal that can override other factors.",
+  },
+  consecutive_gains: {
+    label: "Consecutive Gains",
+    what: "The number of days in a row the stock has closed higher than the previous day. A streak of up days shows strong buying pressure.",
+    readValue: (v) => {
+      const num = parseFloat(v);
+      if (num >= 7) return `${num} days — exceptional streak! The stock has been rising for over a week straight. Shows intense buying pressure, but may be due for a breather.`;
+      if (num >= 5) return `${num} days — strong streak. Consistent buying for a full trading week. Bullish momentum.`;
+      if (num >= 3) return `${num} days — moderate streak. Three up days in a row is a positive sign of short-term momentum.`;
+      if (num === 1) return `${num} day — just started. One up day doesn't make a trend, but it's a start.`;
+      return `${num} days — declining. The stock has been going down recently. Check other indicators for context.`;
+    },
+    whyMatters: "Streaks show momentum. A stock that keeps going up day after day has strong buying pressure. But beware: long streaks often end with a pullback. The longer the streak, the closer the potential reversal.",
+    scoringImpact: "Moderate streaks (3-5 days) add to the momentum score. Very long streaks (7+) can be a double-edged sword — strong momentum but higher pullback risk.",
   },
 };
 
@@ -280,6 +333,77 @@ export const EARNINGS_LESSONS: Record<string, MetricLesson> = {
   },
 };
 
+export const GROWTH_LESSONS: Record<string, MetricLesson> = {
+  earnings_growth_yoy: {
+    label: "Earnings Growth (YoY)",
+    what: "How much the company's earnings (profit) have grown compared to the same period last year. Shows if profitability is improving.",
+    readValue: (v) => {
+      const num = parseFloat(v) * 100;
+      if (num > 50) return `${num.toFixed(0)}% — EXPLOSIVE growth. Earnings are growing much faster than revenue, which means the company is becoming more efficient.`;
+      if (num > 20) return `${num.toFixed(0)}% — strong growth. The company is getting more profitable rapidly. A sign of a quality business.`;
+      if (num > 0) return `${num.toFixed(0)}% — positive growth. Earnings are heading in the right direction.`;
+      if (num > -20) return `${num.toFixed(0)}% — slight decline. Earnings are down a bit. Not a crisis, but worth monitoring.`;
+      return `${num.toFixed(0)}% — significant decline. Profits are shrinking. A red flag unless there's a clear one-time reason.`;
+    },
+    whyMatters: "Revenue growth shows the company is getting bigger. Earnings growth shows it's getting MORE profitable. Both together = the ideal combination.",
+    scoringImpact: "Strong earnings growth adds to the fundamental score. Negative earnings growth is a concern, especially if revenue is still growing (shrinking margins).",
+  },
+  peg_ratio: {
+    label: "PEG Ratio",
+    what: "The P/E ratio divided by the earnings growth rate. It answers: 'Is the stock's price reasonable given how fast it's growing?' A PEG of 1 is considered fair value.",
+    readValue: (v) => {
+      const num = parseFloat(v);
+      if (num < 0) return `${v} — negative earnings growth. The company's profits are shrinking. The low PEG is NOT a bargain — it's a warning.`;
+      if (num < 1) return `${v} — UNDERVALUED relative to growth. The stock's price is low compared to how fast earnings are growing. This is often a good sign.`;
+      if (num < 2) return `${v} — fairly valued. The price is reasonable for the growth rate. No obvious bargain or overvaluation.`;
+      return `${v} — OVERVALUED relative to growth. The stock's price is high compared to its growth rate. Either the growth is expected to accelerate, or the stock is too expensive.`;
+    },
+    whyMatters: "PEG is P/E with context. A high P/E looks scary, but if the company is growing at 50% per year, a PEG of 1 means it's actually fairly priced. It's the 'growth-adjusted value' measure.",
+    scoringImpact: "PEG < 1 with positive earnings growth = strong value signal. PEG > 2 = potential overvaluation. Negative PEG = caution flag.",
+  },
+  price_to_sales: {
+    label: "P/S Ratio (Price to Sales)",
+    what: "The stock price divided by the company's revenue per share. It values the company based on sales rather than profits. Useful when the company isn't yet profitable.",
+    readValue: (v) => {
+      const num = parseFloat(v);
+      if (num > 20) return `${v} — very high. Common for high-growth tech companies. Investors are paying a huge premium for future revenue. High risk if growth slows.`;
+      if (num > 5) return `${v} — above average. The market is optimistic about future growth. Reasonable for growth companies.`;
+      if (num > 1) return `${v} — typical range. Normal valuation for most businesses.`;
+      if (num > 0) return `${v} — low. The company's sales are valued conservatively. Could be a bargain or a value trap.`;
+      return `${v} — negative (unusual). The company has negative revenue? This is very rare — likely a data issue.`;
+    },
+    whyMatters: "P/S is useful for young companies that aren't profitable yet (they have P/E but it's often negative/meaningless). It tells you how much you're paying for each dollar of sales, regardless of profitability.",
+    scoringImpact: "Very high P/S (>20) with slow revenue growth = overvalued. Low P/S with high revenue growth = potential bargain. No direct score impact for unprofitable companies — assessed alongside growth rate.",
+  },
+  current_ratio: {
+    label: "Current Ratio",
+    what: "Short-term assets divided by short-term liabilities. It measures whether the company has enough cash and near-cash items to pay its bills over the next 12 months.",
+    readValue: (v) => {
+      const num = parseFloat(v);
+      if (num > 3) return `${v} — VERY healthy. The company has far more short-term assets than liabilities. A strong safety cushion.`;
+      if (num > 1.5) return `${v} — healthy. The company can comfortably cover its short-term obligations. Standard for most businesses.`;
+      if (num > 1) return `${v} — adequate. The company can just barely cover its short-term debts. Watch for any deterioration.`;
+      return `${v} — concerning. The company's short-term liabilities exceed its liquid assets. Could face cash flow problems if business slows.`;
+    },
+    whyMatters: "Current ratio is a 'can they pay the rent?' check. A company that can't cover its short-term bills may need to borrow or sell assets, which hurts shareholders. Below 1.0 is a warning sign for traditional businesses.",
+    scoringImpact: "Current ratio < 1.0 with small market cap = dealbreaker flag. Healthy ratio (1.5-3) = positive. Very high (>5) can mean inefficient use of cash.",
+  },
+  institutional_flow: {
+    label: "Institutional Flow",
+    what: "Net buying or selling by large institutions (mutual funds, pension funds, hedge funds) over the last month. Positive means more buying than selling by the 'smart money'.",
+    readValue: (v) => {
+      const num = parseFloat(v);
+      if (num > 5) return `${v} — STRONG institutional buying. Major investors are accumulating shares. One of the most bullish signals available.`;
+      if (num > 1) return `${num.toFixed(1)} — moderate buying. Institutions are adding to positions. Mildly bullish.`;
+      if (num > -1) return `${num.toFixed(1)} — neutral. No significant institutional activity this month.`;
+      if (num > -5) return `${num.toFixed(1)} — moderate selling. Institutions are reducing positions. Mildly bearish.`;
+      return `${num.toFixed(1)} — STRONG institutional selling. Smart money is getting out. A significant warning sign.`;
+    },
+    whyMatters: "Institutions do extensive research before making moves. When they're consistently buying a stock, it's because their analysts found something compelling. When they're all selling, pay attention.",
+    scoringImpact: "Strong buying = significant positive boost. Strong selling = significant negative. This is weighted heavily in sentiment because it represents real money in action.",
+  },
+};
+
 export const SENTIMENT_LESSONS: Record<string, MetricLesson> = {
   analyst_consensus: {
     label: "Analyst Consensus",
@@ -330,6 +454,19 @@ export const SENTIMENT_LESSONS: Record<string, MetricLesson> = {
     },
     whyMatters: "Days to Cover tells you how 'trapped' short sellers are. The higher the number, the more painful a short squeeze would be. When a heavily-shorted stock with high days to cover gets positive news, the forced buying can push the price up 50-100%+.",
     scoringImpact: "High days to cover (>5) doesn't directly change the score but is flagged as a notable risk. Combined with high short interest, it signals potential squeeze dynamics.",
+  },
+  short_ratio: {
+    label: "Short Ratio (Days to Cover)",
+    what: "How many trading days it would take for ALL short sellers to buy back their borrowed shares, based on average daily volume. Same as 'Days to Cover'. Higher = more squeeze potential.",
+    readValue: (v) => {
+      const num = parseFloat(v);
+      if (num > 10) return `${num.toFixed(1)} days — extremely high squeeze potential. If positive news hits, the forced buying could be explosive.`;
+      if (num > 5) return `${num.toFixed(1)} days — high squeeze risk. Short sellers are crowded and vulnerable to positive catalysts.`;
+      if (num > 2) return `${num.toFixed(1)} days — moderate. Short sellers could cover in a few days if needed. Some squeeze potential.`;
+      return `${num.toFixed(1)} days — low. Short positions can be closed quickly. Less squeeze risk.`;
+    },
+    whyMatters: "Together with short interest percentage, the short ratio tells you how 'trapped' short sellers are. High short interest + high days to cover = squeeze setup. But a high short ratio alone isn't a buy signal — the shorts might be right.",
+    scoringImpact: "Does not directly change the score but is cross-referenced with short interest to flag squeeze potential. High values combined with positive momentum = boost.",
   },
   institutional_ownership: {
     label: "Institutional Ownership",
