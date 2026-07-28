@@ -110,6 +110,7 @@ class SimplifiedVerdictResponse(BaseModel):
     stop_loss: float
     targets: list[float]
     position_size: dict[str, Any] | None = None
+    max_hold_days: int | None = None
     education: list[dict[str, str]] = []  # [{metric, explanation}]
 
 

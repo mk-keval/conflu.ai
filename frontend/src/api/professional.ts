@@ -79,6 +79,7 @@ export async function fetchSimplifiedVerdict(symbol: string): Promise<Simplified
     entryZone: source.entry_zone ?? '',
     stopLoss: source.stop_loss ?? 0,
     targets: source.targets ?? [],
+    maxHoldDays: source.max_hold_days ?? null,
     positionSize: source.position_size ? {
       shares: source.position_size.shares ?? 0,
       amount: source.position_size.amount ?? 0,

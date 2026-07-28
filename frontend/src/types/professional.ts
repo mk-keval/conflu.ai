@@ -64,6 +64,7 @@ export interface SimplifiedVerdictResponse {
   entryZone: string;
   stopLoss: number;
   targets: number[];
+  maxHoldDays: number | null;
   positionSize: PositionSizeInfo | null;
   education: EducationItem[];
 }

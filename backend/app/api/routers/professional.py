@@ -157,6 +157,9 @@ async def get_simplified_verdict(symbol: str) -> ApiResponse[SimplifiedVerdictRe
             stop_loss=result.verdict.stop_loss if result.verdict and result.verdict.stop_loss is not None else 0.0,
             targets=result.verdict.targets if result.verdict else [],
             position_size=pos_size,
+            max_hold_days=result.verdict.trade_plan.max_hold_days
+                if result.verdict and result.verdict.trade_plan and result.verdict.trade_plan.max_hold_days
+                else None,
             education=[],
         )
 

@@ -219,6 +219,17 @@ export function SimpleVerdictPage() {
         </div>
       )}
 
+      {/* Max hold days — shows when trade plan has a time stop */}
+      {verdict.maxHoldDays && (
+        <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-2 text-center">
+          <span className="text-xs text-text-muted block mb-0.5">Max Hold</span>
+          <span className="text-sm font-semibold text-yellow-400">
+            {verdict.maxHoldDays} days
+          </span>
+          <span className="text-2xs text-text-muted ml-2">re-evaluate at expiry</span>
+        </div>
+      )}
+
       {/* Show Details expander */}
       <div className="rounded-lg border border-border overflow-hidden">
         <button
