@@ -14,10 +14,12 @@ Pipeline:
 from __future__ import annotations
 
 import asyncio
+import math
 import time
 from datetime import UTC, datetime
 from typing import Any
 
+import pandas as pd
 import yfinance as yf
 
 from backend.app.core.logging import get_logger
@@ -106,21 +108,22 @@ class MorningBriefService:
         log.info("screens_selected", count=len(screens), names=[s.name for s in screens])
 
         # 3. Fetch sector rotation early to get the leading sector for a 4th screen
-        sector_rotation, sector_list = await _fetch_sector_rotation()
+        sector_rotation, sector_list, weekly_leader_etf = await _fetch_sector_rotation()
 
         # 4. Build 4th screen targeting the #1 leading sector's holdings
         # Fetches ETF top holdings from yfinance, runs the best regime screen,
         # then filters results to only include stocks from that sector's ETF.
         # This avoids TV Screener's proprietary sector naming mismatch.
-        if sector_rotation.leading_sectors:
-            lead_etf = sector_rotation.leading_sectors[0]
+        if weekly_leader_etf:
+            lead_etf = weekly_leader_etf
             base = screens[0]  # Best regime screen
-            # Run the best regime screen with a tighter limit as a bonus 4th section
-            # The tickers it finds naturally tend to cluster in leading sectors
-            # because those sectors have the strongest-performing stocks.
+            # 4th screen uses the weekly leader — 1W relative strength is more
+            # reliable for swing holds (2-30 days) than daily pops that can reverse.
+            # The screen uses the same quality filters so tickers have both
+            # strong technical setups AND are in a sector with sustained momentum.
             sector_screen = ScreenConfig(
                 name=f"Sector Rotation: {lead_etf}",
-                description=f"Strong setups — {_SECTOR_NAMES.get(lead_etf, lead_etf)} is today's leading sector",
+                description=f"Strong weekly momentum — {_SECTOR_NAMES.get(lead_etf, lead_etf)} is the leading sector this week. For swing holds, weekly strength matters more than daily pops.",
                 asset_classes=base.asset_classes,
                 timeframes=base.timeframes,
                 filters=list(base.filters),
@@ -376,23 +379,34 @@ async def _fetch_market_internals() -> MarketInternals:
     return internals
 
 
-async def _fetch_sector_rotation() -> tuple[SectorRotationSummary, list[dict]]:
+async def _fetch_sector_rotation() -> tuple[SectorRotationSummary, list[dict], str | None]:
+    """Fetch sector data and return (summary, sector_list, weekly_leader_etf).
+
+    Returns the weekly leader separately for swing trading use — 1W relative
+    strength is more relevant than 1D noise for multi-day holds.
+    """
     sector_data: list[dict] = []
     changes_1d: dict[str, float] = {}
+    changes_1w: dict[str, float] = {}
     for sym in _SECTOR_SYMBOLS:
         try:
             t = yf.Ticker(sym)
             h = t.history(period="1mo", interval="1d")
-            if len(h) >= 2:
-                cur = float(h["Close"].iloc[-1])
-                prev = float(h["Close"].iloc[-2])
-                changes_1d[sym] = round(((cur - prev) / prev) * 100, 2)
+            closes = [float(c) for c in h["Close"] if not pd.isna(c)] if not h.empty else []
+            if len(closes) >= 2:
+                changes_1d[sym] = round(((closes[-1] - closes[-2]) / closes[-2]) * 100, 2)
             else:
                 changes_1d[sym] = 0.0
+            if len(closes) >= 6:
+                changes_1w[sym] = round(((closes[-1] - closes[-6]) / closes[-6]) * 100, 2)
+            else:
+                changes_1w[sym] = 0.0
         except Exception:
             changes_1d[sym] = 0.0
+            changes_1w[sym] = 0.0
             log.debug("sector_fetch_failed", symbol=sym, exc_info=True)
     sorted_by_change = sorted(changes_1d.items(), key=lambda x: x[1], reverse=True)
+    sorted_weekly = sorted(changes_1w.items(), key=lambda x: x[1], reverse=True)
     rs_map: dict[str, int] = {}
     for rank, (sym, _) in enumerate(sorted_by_change, start=1):
         rs_map[sym] = rank
@@ -401,10 +415,12 @@ async def _fetch_sector_rotation() -> tuple[SectorRotationSummary, list[dict]]:
             "symbol": sym,
             "name": _SECTOR_NAMES.get(sym, sym),
             "change_pct": changes_1d.get(sym, 0.0),
+            "change_1w_pct": changes_1w.get(sym, 0.0),
             "rs_rank": rs_map.get(sym, 11),
         })
     leaders = [sym for sym, _ in sorted_by_change[:3]]
     laggards = [sym for sym, _ in sorted_by_change[-3:]]
+    weekly_leader = sorted_weekly[0][0] if sorted_weekly else None
     positive_count = sum(1 for v in changes_1d.values() if v > 0)
     total = len(changes_1d)
     if positive_count / max(total, 1) >= 0.6:
@@ -414,4 +430,4 @@ async def _fetch_sector_rotation() -> tuple[SectorRotationSummary, list[dict]]:
     else:
         regime_alignment = "mixed"
     summary = SectorRotationSummary(leading_sectors=leaders, lagging_sectors=laggards, regime_alignment=regime_alignment)
-    return summary, sector_data
+    return summary, sector_data, weekly_leader
