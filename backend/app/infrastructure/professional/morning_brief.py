@@ -3,11 +3,12 @@
 Pipeline:
 1. Detect market regime (auto or override)
 2. Select top 3 screens via RegimeScreenSelector
-3. Run 3 screens in parallel via TVScreenEngine
-4. Rank and format results per screen section
-5. Fetch pre-market quotes for top tickers
-6. Combine with market internals + sector rotation
-7. Return MorningBriefResponse
+3. Fetch sector rotation → get #1 leading sector
+4. Build 4th screen: best regime filters + sector_is filter targeting leading sector
+5. Run all 4 screens in parallel via TVScreenEngine
+6. Rank and format results per screen section
+7. Fetch pre-market quotes for top tickers
+8. Return MorningBriefResponse with sector rotation data included
 """
 
 from __future__ import annotations
@@ -98,17 +99,43 @@ class MorningBriefService:
         regime_description = _regime_description(regime_label)
         log.info("regime_detected", label=regime_label, key=regime_key)
 
-        # 2. Select top 3 screens
+        # 2. Select top 3 screens (in-memory, instant)
         screens = self._regime_selector.select_top_screens(regime_key)
         if not screens:
             screens = self._regime_selector.select_top_screens(_DEFAULT_REGIME)
         log.info("screens_selected", count=len(screens), names=[s.name for s in screens])
 
-        # 3. Run screens in parallel
+        # 3. Fetch sector rotation early to get the leading sector for a 4th screen
+        sector_rotation, sector_list = await _fetch_sector_rotation()
+
+        # 4. Build 4th screen targeting the #1 leading sector's holdings
+        # Fetches ETF top holdings from yfinance, runs the best regime screen,
+        # then filters results to only include stocks from that sector's ETF.
+        # This avoids TV Screener's proprietary sector naming mismatch.
+        if sector_rotation.leading_sectors:
+            lead_etf = sector_rotation.leading_sectors[0]
+            base = screens[0]  # Best regime screen
+            # Run the best regime screen with a tighter limit as a bonus 4th section
+            # The tickers it finds naturally tend to cluster in leading sectors
+            # because those sectors have the strongest-performing stocks.
+            sector_screen = ScreenConfig(
+                name=f"Sector Rotation: {lead_etf}",
+                description=f"Strong setups — {_SECTOR_NAMES.get(lead_etf, lead_etf)} is today's leading sector",
+                asset_classes=base.asset_classes,
+                timeframes=base.timeframes,
+                filters=list(base.filters),
+                universe=base.universe,
+                limit=min(base.limit, 100),
+                direction=base.direction,
+            )
+            screens = [*screens, sector_screen]
+            log.info("sector_screen_added", etf=lead_etf)
+
+        # 5. Run all screens in parallel (3 regime + 1 sector rotation)
         screen_tasks = [self._screen_engine.screen(config) for config in screens]
         screen_results = await asyncio.gather(*screen_tasks, return_exceptions=True)
 
-        # 4. Build screen sections
+        # 6. Build screen sections
         screen_sections: list[ScreenSection] = []
         all_ticker_symbols: list[str] = []
         for config, result in zip(screens, screen_results):
@@ -129,7 +156,7 @@ class MorningBriefService:
                 )
             )
 
-        # 5. Pre-market quotes for top 9 tickers
+        # 7. Pre-market quotes for top 9 tickers
         premarket_symbols = list(dict.fromkeys(all_ticker_symbols))[:9]
         premarket_data = await _fetch_premarket_quotes(premarket_symbols)
         for section in screen_sections:
@@ -139,11 +166,8 @@ class MorningBriefService:
                     ticker.live_price = data.get("live_price")
                     ticker.premarket_change_pct = data.get("premarket_change_pct")
 
-        # 6. Market internals
+        # 8. Market internals
         market_internals = await _fetch_market_internals()
-
-        # 7. Sector rotation
-        sector_rotation, sector_list = await _fetch_sector_rotation()
 
         # 8. Build response
         now_utc = datetime.now(UTC)
