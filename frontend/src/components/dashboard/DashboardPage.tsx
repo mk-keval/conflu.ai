@@ -63,8 +63,10 @@ function DashboardContent() {
   const events = eventsData?.events ?? [];
   const narrative = narrativeData?.narrative ?? '';
   const sectors = sectorRotation?.sectors ?? [];
-  const leaders = sectorRotation?.leaders ?? [];
-  const laggards = sectorRotation?.laggards ?? [];
+  // Sort sectors by 1D change so "Leading"/"Lagging" match the Sector Rotation page's "Top Gainers"
+  const sortedByChange = [...sectors].sort((a, b) => ((b.change_1d ?? 0)) - ((a.change_1d ?? 0)));
+  const leaders = sortedByChange.slice(0, 4).map(s => s.symbol);
+  const laggards = sortedByChange.slice(-4).map(s => s.symbol).reverse();
   const comp = regime?.composite_score ?? null;
   const label = regime?.regime_label ?? null;
   const vixVal = regime?.vix?.value ?? null;
