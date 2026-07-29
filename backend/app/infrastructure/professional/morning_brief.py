@@ -110,35 +110,11 @@ class MorningBriefService:
         # 3. Fetch sector rotation early to get the leading sector for a 4th screen
         sector_rotation, sector_list, weekly_leader_etf = await _fetch_sector_rotation()
 
-        # 4. Build 4th screen targeting the #1 leading sector's holdings
-        # Fetches ETF top holdings from yfinance, runs the best regime screen,
-        # then filters results to only include stocks from that sector's ETF.
-        # This avoids TV Screener's proprietary sector naming mismatch.
-        if weekly_leader_etf:
-            lead_etf = weekly_leader_etf
-            base = screens[0]  # Best regime screen
-            # 4th screen uses the weekly leader — 1W relative strength is more
-            # reliable for swing holds (2-30 days) than daily pops that can reverse.
-            # The screen uses the same quality filters so tickers have both
-            # strong technical setups AND are in a sector with sustained momentum.
-            sector_screen = ScreenConfig(
-                name=f"Sector Rotation: {lead_etf}",
-                description=f"Strong weekly momentum — {_SECTOR_NAMES.get(lead_etf, lead_etf)} is the leading sector this week. For swing holds, weekly strength matters more than daily pops.",
-                asset_classes=base.asset_classes,
-                timeframes=base.timeframes,
-                filters=list(base.filters),
-                universe=base.universe,
-                limit=min(base.limit, 100),
-                direction=base.direction,
-            )
-            screens = [*screens, sector_screen]
-            log.info("sector_screen_added", etf=lead_etf)
-
-        # 5. Run all screens in parallel (3 regime + 1 sector rotation)
+        # 4. Run the 3 regime screens in parallel
         screen_tasks = [self._screen_engine.screen(config) for config in screens]
         screen_results = await asyncio.gather(*screen_tasks, return_exceptions=True)
 
-        # 6. Build screen sections
+        # 5. Build screen sections from regime screens
         screen_sections: list[ScreenSection] = []
         all_ticker_symbols: list[str] = []
         for config, result in zip(screens, screen_results):
@@ -159,8 +135,43 @@ class MorningBriefService:
                 )
             )
 
-        # 7. Pre-market quotes for top 9 tickers
-        premarket_symbols = list(dict.fromkeys(all_ticker_symbols))[:9]
+        # 6. Build 4th section from the weekly leader sector's actual ETF holdings
+        # Uses yfinance to get holdings + scores them directly. Avoids TV Screener's
+        # proprietary sector naming (which doesn't match GICS sector names).
+        if weekly_leader_etf:
+            try:
+                etf_ticker = yf.Ticker(weekly_leader_etf)
+                fd = etf_ticker.funds_data
+                if fd and fd.top_holdings is not None and not fd.top_holdings.empty:
+                    holdings = fd.top_holdings.index.tolist()[:15]
+                    log.info("sector_screen_holdings_fetched", etf=weekly_leader_etf, count=len(holdings))
+                    sector_briefs = await self._score_holdings(holdings)
+                    if sector_briefs:
+                        screen_sections.append(ScreenSection(
+                            screen_name=f"Sector Rotation: {weekly_leader_etf}",
+                            screen_label=f"Strong weekly momentum — {_SECTOR_NAMES.get(weekly_leader_etf, weekly_leader_etf)} is the leading sector this week",
+                            regime_match_score=0.8,
+                            tickers=sector_briefs[:3],
+                        ))
+                        for t in sector_briefs[:3]:
+                            all_ticker_symbols.append(t.symbol)
+                        log.info("sector_screen_section_added", etf=weekly_leader_etf, tickers=len(sector_briefs[:3]))
+            except Exception:
+                log.exception("sector_screen_failed", etf=weekly_leader_etf)
+
+        # 7. Deduplicate tickers across sections so each section shows unique picks
+        seen_symbols: set[str] = set()
+        for section in screen_sections:
+            unique_tickers: list[TickerBrief] = []
+            for t in section.tickers:
+                if t.symbol not in seen_symbols:
+                    seen_symbols.add(t.symbol)
+                    unique_tickers.append(t)
+            section.tickers = unique_tickers[:9]
+
+        # 8. Pre-market quotes for top 9 tickers
+        all_ticker_symbols = list(seen_symbols)
+        premarket_symbols = all_ticker_symbols[:9]
         premarket_data = await _fetch_premarket_quotes(premarket_symbols)
         for section in screen_sections:
             for ticker in section.tickers:
@@ -196,17 +207,21 @@ class MorningBriefService:
             elite_vals: dict = r.get("elite") or {}
             if confluence is None:
                 tv_data = r.get("tv_data", {})
+                conviction = ({"high": 8, "medium": 5, "low": 3}).get(elite_vals.get("signal_conviction", "low"), 3)
+                verdict = _rating_to_verdict(str(r.get("rating", "WATCH")))
+                if verdict == "WATCH" and conviction >= 7:
+                    verdict = "ACCUMULATE"
                 briefs.append(
                     TickerBrief(
                         symbol=r.get("symbol", "UNKNOWN"),
                         screen_name=screen_name,
                         screen_score=float(r.get("score", 0)),
                         confluence_score=0,
-                        entry=float(r.get("entry", 0)),
-                        stop_loss=float(r.get("stop_loss", 0)),
-                        targets=list(r.get("targets", [])),
-                        verdict=_rating_to_verdict(str(r.get("rating", "WATCH"))),
-                        conviction=({"high": 8, "medium": 5, "low": 3}).get(elite_vals.get("signal_conviction", "low"), 3),
+                        entry=round(float(r.get("entry", 0)), 2),
+                        stop_loss=round(float(r.get("stop_loss", 0)), 2),
+                        targets=[round(float(t), 2) for t in r.get("targets", [])],
+                        verdict=verdict,
+                        conviction=conviction,
                         education_hints=_build_education_hints(tv_data) if tv_data else {},
                     )
                 )
@@ -216,6 +231,10 @@ class MorningBriefService:
             conviction_map = {"high": 8, "medium": 5, "low": 3}
             conviction = conviction_map.get(conviction_raw, 3)
             verdict = _rating_to_verdict(confluence.rating)
+            # Upgrade WATCH → ACCUMULATE when conviction is high
+            # (confluence scorer is conservative; high conviction overrides)
+            if verdict == "WATCH" and conviction >= 7:
+                verdict = "ACCUMULATE"
             education_hints = _build_education_hints(r.get("tv_data", {}))
             briefs.append(
                 TickerBrief(
@@ -223,15 +242,121 @@ class MorningBriefService:
                     screen_name=screen_name,
                     screen_score=float(r.get("score", 0)),
                     confluence_score=confluence.total,
-                    entry=float(confluence.entry),
-                    stop_loss=float(confluence.stop_loss),
-                    targets=list(confluence.targets),
+                    entry=round(float(confluence.entry), 2),
+                    stop_loss=round(float(confluence.stop_loss), 2),
+                    targets=[round(float(t), 2) for t in confluence.targets],
                     verdict=verdict,
                     conviction=conviction,
                     education_hints=education_hints,
                 )
             )
         return briefs
+
+    async def _score_holdings(self, symbols: list[str]) -> list[TickerBrief]:
+        """Score sector ETF holdings using yfinance data.
+        
+        This is used for the 4th sector rotation screen. Since TV Screener uses
+        proprietary sector names that don't match GICS, we score the ETF's actual
+        holdings directly from yfinance — ensuring the tickers shown are genuinely
+        in the leading sector.
+        """
+        results: list[dict] = []
+        for sym in symbols:
+            try:
+                ticker = yf.Ticker(sym)
+                h = ticker.history(period="2mo", interval="1d")
+                if h.empty or len(h) < 10:
+                    continue
+                closes = [float(c) for c in h["Close"] if not pd.isna(c)]
+                volumes = [float(v) for v in h["Volume"] if not pd.isna(v)]
+                price = closes[-1]
+                n = len(closes)
+
+                # 50-day SMA
+                sma50 = sum(closes[-min(50, n):]) / min(50, n) if n >= 1 else price
+                # 20-day SMA
+                sma20 = sum(closes[-min(20, n):]) / min(20, n) if n >= 1 else price
+
+                # RSI(14)
+                gains, losses = 0.0, 0.0
+                rsi_period = min(14, n - 1)
+                for i in range(n - rsi_period, n):
+                    diff = closes[i] - closes[i - 1]
+                    if diff > 0:
+                        gains += diff
+                    elif diff < 0:
+                        losses -= diff
+                avg_gain = gains / max(rsi_period, 1)
+                avg_loss = losses / max(rsi_period, 1)
+                rsi = 50.0 if avg_loss == 0 else 100.0 - (100.0 / (1.0 + avg_gain / max(avg_loss, 0.001)))
+
+                # Volume ratio (last 5d vs 30d avg)
+                avg_vol_30 = sum(volumes[-30:]) / min(30, len(volumes)) if len(volumes) >= 1 else 1
+                recent_vol = sum(volumes[-5:]) / min(5, len(volumes))
+                vol_ratio = recent_vol / max(avg_vol_30, 1)
+
+                # 1-week change
+                change_1w = ((closes[-1] - closes[-6]) / max(closes[-6], 0.01)) * 100 if n >= 6 else 0
+
+                # Composite score: weights designed for swing trading health
+                score = 0.0
+                if price > sma20 and sma20 > sma50:
+                    score += 35  # Bullish MA alignment
+                elif price > sma20:
+                    score += 15
+                if 45 <= rsi <= 75:
+                    score += 25  # RSI sweet spot — not crashed, not exhausted
+                elif rsi > 75:
+                    score += 10  # Strong but extended
+                elif rsi < 35:
+                    score -= 10  # Weak momentum
+                if vol_ratio > 1.0:
+                    score += 15  # Healthy recent volume
+                if change_1w > 2:
+                    score += 15  # Positive weekly momentum
+                elif change_1w > 0:
+                    score += 5
+                if sma20 > sma50:
+                    score += 10  # Short-term trend above long-term
+
+                score = max(0, min(100, score))
+                stop_pct = (closes[-1] - min(closes[-10:])) / max(closes[-1], 0.01)
+                stop_pct = max(0.02, min(0.08, stop_pct * 1.5))
+                stop_loss = round(price * (1 - stop_pct), 2)
+                target_1 = round(price * (1 + stop_pct * 2.0), 2)
+                target_2 = round(price * (1 + stop_pct * 3.0), 2)
+
+                verdict = "STRONG BUY" if score >= 70 else "BUY" if score >= 55 else "ACCUMULATE" if score >= 40 else "WATCH"
+                conviction = min(10, max(1, int(score / 10)))
+
+                results.append({
+                    "symbol": sym, "score": score, "price": price,
+                    "conviction": conviction, "verdict": verdict,
+                    "entry": round(price, 2), "stop_loss": stop_loss,
+                    "targets": [target_1, target_2],
+                    "rsi": round(rsi, 1), "change_1w": round(change_1w, 1),
+                })
+            except Exception:
+                continue
+
+        results.sort(key=lambda x: x["score"], reverse=True)
+        return [
+            TickerBrief(
+                symbol=r["symbol"],
+                screen_name=f"Sector Rotation Holdings",
+                screen_score=r["score"] / 100,
+                confluence_score=int(r["score"]),
+                entry=r["entry"],
+                stop_loss=r["stop_loss"],
+                targets=r["targets"],
+                verdict=r["verdict"],
+                conviction=r["conviction"],
+                live_price=r["price"],
+                premarket_change_pct=None,
+                education_hints={"rsi": str(r["rsi"]), "change_1w": f"{r['change_1w']}%"},
+            )
+            for r in results[:5]
+        ]
 
 
 # ── Module-level helpers ──
