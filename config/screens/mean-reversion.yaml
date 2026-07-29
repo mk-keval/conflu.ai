@@ -1,5 +1,5 @@
 name: "Mean Reversion"
-description: "Oversold with RSI < 30, price below lower Bollinger Band, and volume confirmation — catching potential bounce setups from exhausted selling. Filters: $500M+ mcap, NYSE/NASDAQ, US, $5+, IPO>1yr, 30% inst ownership, 1M avg vol, 500K vol."
+description: "Stocks that have dropped too far, too fast — they're deeply oversold and due for a bounce. Like a rubber band stretched too tight. Use when the market is choppy or after a panic sell-off. Not for strong trending markets."
 asset_classes:
   - equities
   - crypto

@@ -1,5 +1,5 @@
 name: "Low-Vol Setup Simple"
-description: "Low volatility stocks with steady trend, tight Bollinger Bands, and neutral momentum — positioned for the next expansion"
+description: "Quiet, steady stocks with low volatility — like the calm before a storm. These stocks are coiling up and getting ready for a bigger move. Good for ranging markets when there's no clear trend."
 asset_classes:
   - equities
 timeframes:

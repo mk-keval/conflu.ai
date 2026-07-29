@@ -1,5 +1,5 @@
 name: "Volatility Expansion"
-description: "Stocks that experienced a Bollinger Band squeeze (low vol contraction) and are now expanding with volume and momentum. Captures the explosive expansion phase that follows coiling price action. Filters: $500M+ mcap, NYSE/NASDAQ, US, $5+, 1M avg vol, 500K vol."
+description: "Stocks that tightened up (low volatility, quiet trading) and are now starting to break out with force. The calm before the storm. Best in high-volatility markets when other screens are giving few signals."
 direction: long
 asset_classes:
   - equities

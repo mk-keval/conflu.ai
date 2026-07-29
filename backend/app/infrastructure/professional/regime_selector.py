@@ -56,8 +56,8 @@ _LIQUIDITY_WEIGHT = 0.15
 _FALLBACK_MAP: dict[str, list[str]] = {
     "strong_trend": [
         "trend-follower",
-        "institutional-trend-follower-mtf",
-        "trend-leader",
+        "52week-breakout",
+        "bull-flag-continuation",
     ],
     "ranging": [
         "mean-reversion",
@@ -65,9 +65,9 @@ _FALLBACK_MAP: dict[str, list[str]] = {
         "statistical-mean-reversion",
     ],
     "high_vol": [
+        "institutional-swing-quality",
         "volatility-expansion",
-        "volume-surge-breakout",
-        "breakout",
+        "volume-trend-accumulation",
     ],
 }
 

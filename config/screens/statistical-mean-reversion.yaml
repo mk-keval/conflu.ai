@@ -1,5 +1,5 @@
 name: "Statistical Mean Reversion"
-description: "Oversold conditions with technical confirmation — RSI deeply oversold, CCI oversold, and volume surge suggesting exhaustion of selling pressure. Captures classic mean-reversion bounces from statistical extremes. Filters: $500M+ mcap, NYSE/NASDAQ, US, $5+, IPO>1yr, 30% inst ownership, 1M avg vol, 500K vol."
+description: "Extreme oversold — statistically rare conditions where stocks have sold off far more than normal. Higher probability bounce setup than regular mean reversion. For when the market is in panic and you want to catch the snap-back."
 direction: long
 asset_classes:
   - equities
