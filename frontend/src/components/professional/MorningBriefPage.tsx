@@ -22,13 +22,11 @@ const REGIME_COLORS: Record<string, string> = {
 function ScreenSectionView({
   section,
   expanded,
-  accountSize,
   onAddToWatchlist,
   onToggleExpand,
 }: {
   section: ScreenSection;
   expanded: boolean;
-  accountSize: number;
   onAddToWatchlist: (symbol: string) => void;
   onToggleExpand: () => void;
 }) {
@@ -67,7 +65,6 @@ function ScreenSectionView({
             <TickerCard
               key={ticker.symbol}
               ticker={ticker}
-              accountSize={accountSize}
               onAddToWatchlist={onAddToWatchlist}
             />
           ))}
@@ -79,7 +76,6 @@ function ScreenSectionView({
 
 export function MorningBriefPage() {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
-  const accountSize = useProModeStore((s) => s.accountSize);
   const addNotification = useProModeStore((s) => s.addNotification);
 
   const { data: brief, isLoading, isError, refetch, isFetching } = useQuery({
@@ -228,7 +224,6 @@ export function MorningBriefPage() {
             key={section.screenName}
             section={section}
             expanded={!!expandedSections[section.screenName]}
-            accountSize={accountSize}
             onAddToWatchlist={handleAddToWatchlist}
             onToggleExpand={() => toggleSection(section.screenName)}
           />

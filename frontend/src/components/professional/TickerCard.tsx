@@ -7,7 +7,6 @@ import type { TickerBrief } from '@/types/professional';
 
 interface TickerCardProps {
   ticker: TickerBrief;
-  accountSize?: number;
   onAddToWatchlist?: (symbol: string) => void;
 }
 
@@ -30,11 +29,7 @@ function formatPrice(price: number): string {
     : price.toFixed(2);
 }
 
-function formatShares(shares: number): string {
-  return shares.toLocaleString();
-}
-
-export function TickerCard({ ticker, accountSize, onAddToWatchlist }: TickerCardProps) {
+export function TickerCard({ ticker, onAddToWatchlist }: TickerCardProps) {
   const navigate = useNavigate();
 
   const changeColor = ticker.premarketChangePct !== null
@@ -52,14 +47,6 @@ export function TickerCard({ ticker, accountSize, onAddToWatchlist }: TickerCard
       : Minus;
 
   const verdictColor = VERDICT_COLORS[ticker.verdict] || VERDICT_COLORS.WATCH;
-
-  // Estimate position size if account size is known
-  const estimatedPosition = accountSize
-    ? Math.min(
-        Math.floor((accountSize * 0.015 * 0.67) / Math.abs(ticker.entry - ticker.stopLoss || 1)),
-        Math.floor(accountSize * 0.05 / ticker.entry)
-      )
-    : null;
 
   return (
     <div
@@ -102,33 +89,6 @@ export function TickerCard({ ticker, accountSize, onAddToWatchlist }: TickerCard
           <span className="text-xs text-text-muted">Price unavailable</span>
         )}
       </div>
-
-      {/* Entry / Stop / Target */}
-      <div className="grid grid-cols-3 gap-1 mb-3 text-2xs">
-        <div>
-          <span className="text-text-muted block">Entry</span>
-          <span className="font-mono text-text-primary">${formatPrice(ticker.entry)}</span>
-        </div>
-        <div>
-          <span className="text-text-muted block">Stop</span>
-          <span className="font-mono text-red-400">${formatPrice(ticker.stopLoss)}</span>
-        </div>
-        <div>
-          <span className="text-text-muted block">Target</span>
-          <span className="font-mono text-green-400">
-            ${formatPrice(ticker.targets[0] || 0)}
-            {ticker.targets.length > 1 && '+'}
-          </span>
-        </div>
-      </div>
-
-      {/* Position size estimate */}
-      {estimatedPosition !== null && (
-        <div className="mb-2 text-2xs text-text-muted">
-          ~{formatShares(estimatedPosition)} shares @ ${formatPrice(ticker.entry)}
-          <EducationTooltip metricKey="position-sizing" compact />
-        </div>
-      )}
 
       {/* Education hints */}
       {Object.keys(ticker.educationHints).length > 0 && (
