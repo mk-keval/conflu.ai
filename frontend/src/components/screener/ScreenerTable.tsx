@@ -21,7 +21,7 @@ export const ALL_COLUMNS_META: ColumnMeta[] = [
   { key: 'price',       label: 'Price',       weight: 10, alwaysOn: true  },
   { key: 'score',       label: 'Scr',         weight: 6,  alwaysOn: true  },
   { key: 'change',      label: 'Change',      weight: 13, alwaysOn: true  },
-  { key: 'entry',       label: 'Entry/SL',    weight: 12, alwaysOn: true  },
+  { key: 'entry',       label: 'Entry/SL',    weight: 12, alwaysOn: false },
   { key: 'confluence',  label: 'Confluence',  weight: 14, alwaysOn: true  },
   { key: 'volume',      label: 'Volume',      weight: 10, alwaysOn: true  },
   { key: 'rs_rating',   label: 'RS Rtg',      weight: 6,  alwaysOn: false },

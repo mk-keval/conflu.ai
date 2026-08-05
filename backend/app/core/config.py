@@ -536,9 +536,31 @@ class ReplaySettings(BaseSettings):
     )
 
 
+class ProfessionalSettings(BaseSettings):
+    """Professional Mode configuration."""
+
+    model_config = SettingsConfigDict(env_prefix="CONFLU_PROFESSIONAL_")
+
+    morning_brief_enabled: bool = Field(default=True, description="Enable morning brief generation")
+    morning_brief_time: str = Field(default="06:00", description="Morning brief time in ET (HH:MM)")
+    market_days_only: bool = Field(default=True, description="Run only on market days (Mon-Fri)")
+    email_sender: str = Field(default="noreply@conflu.ai", description="From email address")
+    email_from_name: str = Field(default="Conflu AI — Morning Brief", description="From display name")
+    sendgrid_api_key: str | None = Field(default=None, description="SendGrid API key (None = log only)")
+    llm_education_enabled: bool = Field(default=False, description="Enable LLM-enhanced education")
+    llm_api_key: str | None = Field(default=None, description="LLM API key for education")
+    max_daily_education_calls: int = Field(default=500, description="Max LLM calls per day")
+    pre_market_quotes_enabled: bool = Field(default=True, description="Fetch pre-market quotes for brief")
+    # Scheduler cron expressions (ET timezone)
+    morning_brief_cron: str = Field(default="0 6 * * 1-5", description="Cron: 6 AM ET Mon-Fri")
+    earnings_check_cron: str = Field(default="0 18 * * 1-5", description="Cron: 6 PM ET Mon-Fri")
+    regime_check_cron: str = Field(default="5 * * * *", description="Cron: hourly at :05 ET")
+
+
 # Rebuild models with forward references to resolve Pydantic v2 class-not-fully-defined errors
 # These classes use string annotations (forward references) to other settings classes
 OptimizationSettings.model_rebuild()
+ProfessionalSettings.model_rebuild()
 RegimeSettings.model_rebuild()
 ReportSettings.model_rebuild()
 ComparisonSettings.model_rebuild()
@@ -580,6 +602,7 @@ class AppSettings(BaseSettings):
     alert: AlertSettings = AlertSettings()
     share: ShareSettings = ShareSettings()
     replay: ReplaySettings = ReplaySettings()
+    professional: ProfessionalSettings = ProfessionalSettings()
 
     @classmethod
     def settings_customise_sources(

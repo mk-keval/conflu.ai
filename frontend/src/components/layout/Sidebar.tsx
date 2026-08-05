@@ -1,7 +1,9 @@
 import { NavLink } from 'react-router-dom';
 import { useWS } from '@/ws/WebSocketProvider';
+import { useProModeStore } from '@/store/professional';
 import { cn } from '@/lib/cn';
-import { LayoutDashboard, TrendingUp, BarChart2, Shield, RotateCcw, Search } from 'lucide-react';
+import { BrandMark } from './BrandMark';
+import { Home, LayoutDashboard, TrendingUp, BarChart2, Shield, RotateCcw, Search, Briefcase, Sun } from 'lucide-react';
 
 interface NavItemProps {
   to: string;
@@ -10,12 +12,15 @@ interface NavItemProps {
 }
 
 const navItems: NavItemProps[] = [
+  { to: '/dashboard', label: 'Dashboard', icon: <Home className="w-5 h-5" /> },
   { to: '/screener', label: 'Screener', icon: <LayoutDashboard className="w-5 h-5" /> },
   { to: '/sector-rotation', label: 'Sector Rotation', icon: <RotateCcw className="w-5 h-5" /> },
   { to: '/ticker', label: 'Ticker Analysis', icon: <Search className="w-5 h-5" /> },
   { to: '/charts', label: 'Charts', icon: <TrendingUp className="w-5 h-5" /> },
   { to: '/backtest', label: 'Backtest', icon: <BarChart2 className="w-5 h-5" /> },
   { to: '/risk', label: 'Risk', icon: <Shield className="w-5 h-5" /> },
+  { to: '/portfolio', label: 'Portfolio', icon: <Briefcase className="w-5 h-5" /> },
+  { to: '/workflow', label: 'Swing Desk', icon: <Briefcase className="w-5 h-5" /> },
 ];
 
 function NavItem({ to, label, icon }: NavItemProps) {
@@ -27,7 +32,7 @@ function NavItem({ to, label, icon }: NavItemProps) {
           'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
           isActive
             ? 'bg-accent/10 text-accent border-l-[3px] border-accent'
-            : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'
+            : 'text-text-secondary hover:bg-white/[0.06] hover:text-text-primary'
         )
       }
     >
@@ -57,24 +62,32 @@ function ConnectionDot() {
 }
 
 export function Sidebar() {
+  const proModeEnabled = useProModeStore((s) => s.enabled);
+
   return (
-    <aside className="flex w-64 flex-col border-r border-border bg-surface">
+    <aside className="relative z-10 hidden lg:flex w-64 flex-col border-r border-border bg-surface/60 backdrop-blur-xl">
       {/* Top accent gradient bar */}
       <div className="h-[3px] bg-gradient-to-r from-accent via-accent/40 to-transparent" />
 
-      <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/15">
-          <span className="text-sm font-bold text-accent">C</span>
-        </div>
-        <span className="text-base font-bold tracking-tight text-text-primary">
-          conflu<span className="text-accent/65">.ai</span>
-        </span>
+      <div className="flex items-center border-b border-border px-4 py-3">
+        <BrandMark />
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navItems.map((item) => (
           <NavItem key={item.to} {...item} />
         ))}
+
+        {/* Professional Mode section — visible when Guided mode is enabled */}
+        {proModeEnabled && (
+          <>
+            <div className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-text-muted/60">
+              Guided Mode
+            </div>
+            <NavItem to="/pro" label="Morning Brief" icon={<Sun className="w-5 h-5" />} />
+            <NavItem to="/pro/watchlist" label="Watchlist" icon={<Briefcase className="w-5 h-5" />} />
+          </>
+        )}
       </nav>
 
       <div className="border-t border-border/50 px-3 py-3">

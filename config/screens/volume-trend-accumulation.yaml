@@ -1,5 +1,5 @@
 name: "Institutional Accumulation"
-description: "Smart money accumulation signals — heavy volume, rising OBV, price holding above VWAP with bullish analyst consensus. Catches institutional positioning before the breakout. Filters: $2B+ mcap, NYSE/NASDAQ, $5+, EPS>0, 1M avg vol."
+description: "Stocks that institutions (big funds, banks) are quietly buying. Heavy volume, rising prices, and analysts agree it's a good buy. You're riding alongside the smart money before the big move happens."
 direction: long
 asset_classes:
   - equities

@@ -494,8 +494,9 @@ class TickerAnalysisService:
         except Exception:
             self.log.exception("technical_analysis_failed", symbol=symbol)
 
-        # Extract daily technical for synthesis (use daily if dict, else use as-is)
+        # Extract daily + weekly technical for synthesis
         tech_daily = tech["daily"] if isinstance(tech, dict) else tech
+        tech_weekly = tech.get("weekly") if isinstance(tech, dict) else None
 
         try:
             fund = fundamentals.analyze(info)
@@ -538,7 +539,7 @@ class TickerAnalysisService:
         tv_data["catalyst_findings"] = catalyst_bias.get("key_findings", [])
         tv_data["catalyst_bias_direction"] = catalyst_bias.get("bias", "neutral")
 
-        # ── 3. Synthesise verdict ──
+        # ── 3. Synthesise verdict (daily technical + weekly for MTF alignment) ──
         verdict: AnalysisVerdict = synthesis.synthesise(
             technical=tech_daily,
             fundamental=fund,
@@ -548,6 +549,7 @@ class TickerAnalysisService:
             price=price,
             regime=request.regime,
             tv_data=tv_data,
+            technical_weekly=tech_weekly,
         )
 
         # ── 3b. Apply macro regime overlay ──

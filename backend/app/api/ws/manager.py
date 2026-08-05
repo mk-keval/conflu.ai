@@ -253,11 +253,15 @@ class WebSocketManager:
 
     async def close_all(self) -> None:
         """Close all connections and cancel background tasks."""
-        # Stop alert engine
-        from backend.app.infrastructure.screener.alerts import alert_engine
+        # Stop alert engine (Phase 6 Alert Engine — not yet implemented).
+        # Guard the import so shutdown/reload doesn't crash if the module is missing.
+        try:
+            from backend.app.infrastructure.screener.alerts import alert_engine
 
-        if alert_engine.is_running:
-            await alert_engine.stop_background_loop()
+            if alert_engine.is_running:
+                await alert_engine.stop_background_loop()
+        except ImportError:
+            pass
 
         # Cancel background tasks
         for _name, task in self._background_tasks.items():

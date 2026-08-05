@@ -311,12 +311,31 @@ Fetch intraday chart OHLCV data from Yahoo Finance.
 
 Output format is TradingView Lightweight Charts compatible. Auto-range limiting enforces Yahoo's interval constraints.
 
+**Response:** `ApiResponse<ChartResponse>` (symbol, interval, prices array)
+
+---
+
+## Portfolio Analysis API (`/api/v1/portfolio`)
+| Method | Route | Description |
+|--------|-------|-------------|
+| POST | `/analyze` | Analyze a list of symbols — returns per-symbol summaries, correlation matrix, sector allocation, combined beta, portfolio volatility, equal-risk position sizing |
+
+**Request body:**
+```json
+{
+  "symbols": ["AAPL", "MSFT", "GOOGL", "NVDA"]
+}
+```
+**Response:** `ApiResponse<PortfolioResponse>` with `symbol_count`, `analyses[]` (sector, price, conviction, action), `sector_allocation`, `combined_beta`, `portfolio_volatility`, `equal_risk_pct`, `correlation_matrix[]`, `high_correlation_pairs[]`
+
 ---
 
 ## Market Regime API (`/api/v1/market`)
 | Method | Route | Description |
 |--------|-------|-------------|
 | GET | `/regime` | Composite market regime snapshot: VIX analysis, risk appetite SPY/TLT spread, sector breadth, safe haven demand (GLD), yield curve signal (TLT/SHY). Returns 0-100 score with 5 sub-indicators. |
+| GET | `/events` | Upcoming economic events (FOMC, CPI, PCE) with countdown timers |
+| GET | `/narrative` | Auto-generated market summary text |
 
 **Response:** `ApiResponse<MarketRegimeResponse>`
 ```json
@@ -343,6 +362,242 @@ Output format is TradingView Lightweight Charts compatible. Auto-range limiting 
 | 35-49 | Cautious | `#fb923c` |
 | 20-34 | Risk-Off | `#f87171` |
 | 0-19 | Crisis | `#dc2626` |
+
+---
+
+---
+
+## Professional Mode API (`/api/v1/professional`)
+
+Guided workflow endpoints for working professionals. All endpoints optional auth (will require auth in Phase 6+).
+
+---
+
+### GET `/morning-brief`
+Get the complete morning brief (regime, market internals, sector rotation, top 9 tickers from 3 regime-matched screens).
+
+**Query Parameters:** None (auto-detects regime, uses cached screen selection)
+
+**Response:** `ApiResponse<MorningBriefResponse>`
+
+```json
+{
+  "data": {
+    "date": "2026-07-26",
+    "regime": "strong_trend",
+    "regimeDescription": "Strong uptrend — favor trend following and breakout strategies",
+    "marketInternals": {
+      "vix": 14.2,
+      "advanceDeclineRatio": 2.1,
+      "dollarIndex": 104.3,
+      "sp500Futures": 5620.5,
+      "nasdaqFutures": 19850.0
+    },
+    "sectorRotation": {
+      "leadingSectors": ["XLK", "XLC", "XLY"],
+      "laggingSectors": ["XLU", "XLP", "XLRE"],
+      "regimeAlignment": "risk_on"
+    },
+    "sectors": [
+      {"symbol": "XLK", "name": "Technology", "changePct": 1.8, "rsRank": 92},
+      {"symbol": "XLF", "name": "Financials", "changePct": 0.5, "rsRank": 65}
+    ],
+    "screenSections": [
+      {
+        "screenName": "trend-follower",
+        "screenLabel": "Trend Follower",
+        "regimeMatchScore": 0.92,
+        "tickers": [
+          {
+            "symbol": "AAPL",
+            "screenName": "trend-follower",
+            "screenScore": 87.3,
+            "confluenceScore": 85,
+            "entry": 228.50,
+            "stopLoss": 222.10,
+            "targets": [241.00, 253.50],
+            "verdict": "STRONG_BUY",
+            "conviction": 8,
+            "livePrice": 229.10,
+            "premarketChangePct": 0.45,
+            "educationHints": {
+              "pe_ratio": "You're paying $28 for $1 of earnings...",
+              "rsi": "Momentum at 62. Neutral."
+            }
+          }
+        ]
+      }
+    ],
+    "generatedAt": "2026-07-26T10:00:00Z"
+  },
+  "meta": {"timestamp": "2026-07-26T10:00:00Z", "requestId": "..."}
+}
+```
+
+---
+
+### GET `/verdict/{symbol}`
+Get a simplified, actionable verdict for a single ticker.
+
+**Path Parameters:**
+- `symbol` (string, required) — Ticker symbol (e.g., `AAPL`)
+
+**Response:** `ApiResponse<SimplifiedVerdictResponse>`
+
+```json
+{
+  "data": {
+    "symbol": "AAPL",
+    "action": "STRONG_BUY",
+    "conviction": 8,
+    "verdictSummary": "Strong uptrend with institutional accumulation. Buy pullbacks to rising 20-day EMA.",
+    "keyMetrics": {
+      "pe_ratio": 28.5,
+      "rsi": 62,
+      "atr_pct": 1.8,
+      "beta": 1.2,
+      "market_cap": 3.5e12,
+      "volume_ratio": 1.3
+    },
+    "entryZone": "227.50 - 229.00",
+    "stopLoss": 222.10,
+    "targets": [241.00, 253.50],
+    "positionSize": {
+      "shares": 16,
+      "amount": 5000,
+      "riskPct": 1.5,
+      "cappedBy": "position"
+    },
+    "education": [
+      {"metric": "pe_ratio", "explanation": "You're paying $28.50 for $1 of earnings..."},
+      {"metric": "rsi", "explanation": "Momentum at 62. Neutral — not overbought."}
+    ]
+  },
+  "meta": {"timestamp": "...", "requestId": "..."}
+}
+```
+
+**Notes:**
+- `positionSize` present only if account size configured in settings
+- `cappedBy`: `"position"` (5% cap), `"sector"` (15% cap), or `"kelly"` (uncapped)
+
+---
+
+### POST `/watchlist/analyze`
+Batch analyze multiple symbols for watchlist building.
+
+**Request Body:**
+```json
+{ "symbols": ["AAPL", "MSFT", "NVDA"] }
+```
+
+**Response:** `ApiResponse<WatchlistAnalyzeResponse>`
+```json
+{
+  "data": {
+    "items": [
+      {"symbol": "AAPL", "verdict": "STRONG_BUY", "conviction": 8, "positionSize": {"shares": 16, "amount": 5000, "riskPct": 1.5}},
+      {"symbol": "MSFT", "verdict": "BUY", "conviction": 6, "positionSize": {"shares": 12, "amount": 4500, "riskPct": 1.5}}
+    ]
+  }
+}
+```
+
+---
+
+### GET `/education/{metric}`
+Get plain-English explanation for a metric.
+
+**Path Parameters:**
+- `metric` (string) — Metric key (e.g., `pe_ratio`, `rsi`, `atr_pct`, `beta`)
+
+**Query Parameters:**
+- `symbol` (optional) — For symbol-specific LLM enhancement
+
+**Response:** `ApiResponse<EducationResponse>`
+```json
+{
+  "data": {
+    "metric": "pe_ratio",
+    "symbol": "AAPL",
+    "plainEnglish": "You're paying $28.50 for $1 of earnings. Market average is ~20x. This means AAPL is priced for above-average growth.",
+    "valueContext": "At 28.5x, you're paying a premium. Check if earnings growth justifies it.",
+    "actionable": "If growth slows, multiple compression risk is high.",
+    "source": "template",
+    "cached": false
+  }
+}
+```
+
+**Source values:** `"template"` (static), `"llm"` (enhanced), `"combined"` (both)
+
+---
+
+### GET `/position-size`
+Calculate position size from trade parameters.
+
+**Query Parameters:**
+| Param | Type | Required | Default |
+|-------|------|----------|---------|
+| `symbol` | string | Yes | — |
+| `account_equity` | number | Yes | — |
+| `entry` | number | Yes | — |
+| `stop_loss` | number | Yes | — |
+| `conviction` | string | Yes | — (high/medium/low) |
+| `max_position_pct` | number | No | 0.05 |
+| `max_sector_pct` | number | No | 0.15 |
+| `risk_per_trade_pct` | number | No | 0.015 |
+
+**Response:** `ApiResponse<PositionSizeResponse>`
+```json
+{
+  "data": {
+    "positionSize": 5000,
+    "shares": 16,
+    "riskAmount": 112,
+    "riskPct": 1.5,
+    "convictionMultiplier": 0.67,
+    "cappedBy": "position"
+  }
+}
+```
+
+---
+
+### GET `/alerts/preferences`
+Get user alert preferences.
+
+**Response:** `ApiResponse<AlertPreferences>`
+
+---
+
+### PUT `/alerts/preferences`
+Update alert preferences.
+
+**Request Body:** `AlertPreferences` (all boolean fields)
+
+---
+
+### GET `/alerts`
+Get recent in-app alerts.
+
+**Query Parameters:**
+- `limit` (default: 50)
+- `unread_only` (default: false)
+
+**Response:** `ApiResponse<Alert[]>` where `Alert = { id, type, symbol, title, message, timestamp, read }`
+
+---
+
+### Alert Types
+| Type | Trigger | Channels |
+|------|---------|----------|
+| `morning_brief` | Daily 6 AM generation | Email + In-app |
+| `stop_hit` | Position stop loss breached | Email + Push + Browser |
+| `target_hit` | Position target (1R/2R) reached | In-app |
+| `earnings` | Earnings tomorrow for watchlist symbol | Email |
+| `regime_change` | Market regime transition detected | Email + In-app |
+| `weekly_review` | Sunday 7 PM summary | Email (opt-in) |
 
 ---
 

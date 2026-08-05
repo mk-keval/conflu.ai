@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useQueries } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { fetchOHLCV, fetchIndicators } from '@/api/data';
 import { useChartStore } from '@/store/chart';
 import { STALE_TIMES } from '@/lib/constants';
@@ -13,7 +14,19 @@ import { IndicatorPanel } from './IndicatorPanel';
 import type { IChartApi } from 'lightweight-charts';
 
 function ChartsContent() {
-  const { selectedSymbol, activeTimeframes, activeIndicators } = useChartStore();
+  const [searchParams] = useSearchParams();
+  const { selectedSymbol, activeTimeframes, activeIndicators, setSymbol } = useChartStore();
+
+  // Sync symbol from URL search params into the chart store on mount.
+  // This handles navigation from TickerAnalysisPage ("View Chart" link) and
+  // direct URL entry, ensuring the chart loads the requested symbol rather
+  // than falling back to the persisted store value (e.g. "AAPL").
+  useEffect(() => {
+    const urlSymbol = searchParams.get('symbol');
+    if (urlSymbol && urlSymbol.toUpperCase() !== selectedSymbol) {
+      setSymbol(urlSymbol.toUpperCase());
+    }
+  }, []);  // Only on mount — avoid re-sync on every store change
   const chartRefs = useRef<Map<string, IChartApi>>(new Map());
 
   const handleChartReady = useCallback(

@@ -26,6 +26,8 @@ dependencies = [
     "prometheus-fastapi-instrumentator>=7.0,<8",
     "celery>=5.3,<6",
     "redis>=5.0,<6",
+    "apscheduler>=3.10,<4",
+    "sendgrid>=6.10,<7",
 ]
 
 [project.optional-dependencies]

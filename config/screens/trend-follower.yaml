@@ -1,5 +1,5 @@
 name: "Trend Follower"
-description: "Uptrending assets with momentum, volume, and trend structure confirmation. Filters: $2B+ mcap, NYSE/NASDAQ, US, $5+, 1M avg vol."
+description: "Stocks that are steadily going up — they're above their key moving averages with good volume. Use this in strong markets when you want to ride the wave. Filters: Large companies ($2B+), NYSE/NASDAQ only, US-based, $5+ price."
 asset_classes:
   - equities
   - crypto
@@ -58,9 +58,4 @@ filters:
     timeframe: "1D"
   - category: momentum
     indicator: macd_bullish
-    timeframe: "4h"
-  - category: volume
-    indicator: rvol_high
-    params:
-      threshold: 1.5
     timeframe: "4h"

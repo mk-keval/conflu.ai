@@ -43,10 +43,10 @@
 @layer components {
   /* Card component */
   .card {
-    @apply bg-surface border border-border rounded-lg shadow-card;
+    @apply rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-card;
   }
   .card-hover {
-    @apply card transition-shadow duration-200 hover:shadow-card-hover;
+    @apply card transition-colors duration-200 hover:bg-white/[0.06] hover:border-white/20;
   }
 
   /* Data table cell for price values */
@@ -71,14 +71,14 @@
     @apply badge text-loss bg-loss-bg;
   }
   .badge-neutral {
-    @apply badge text-text-muted bg-surface-hover;
+    @apply badge text-text-secondary bg-white/[0.06];
   }
 
   /* Input styles */
   .input {
-    @apply w-full px-3 py-2 bg-surface border border-border rounded-lg
+    @apply w-full px-3 py-2 bg-background/60 border border-white/10 rounded-lg
            text-text-primary placeholder-text-muted
-           focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent
+           focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent
            transition-colors duration-150;
   }
   .select {
@@ -92,14 +92,28 @@
            focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background;
   }
   .btn-primary {
-    @apply btn bg-accent text-white hover:bg-accent-dark
-           focus:ring-accent/50 shadow-glow-green;
+    @apply btn bg-accent text-[#042F2B] hover:bg-accent-light
+           focus:ring-accent/40 shadow-glow-teal;
   }
   .btn-secondary {
-    @apply btn bg-surface-elevated text-text-primary border border-border
-           hover:bg-surface-hover focus:ring-border;
+    @apply btn bg-white/[0.04] text-text-primary border border-white/10
+           hover:bg-white/[0.08] focus:ring-border;
   }
   .btn-ghost {
-    @apply btn text-text-secondary hover:text-text-primary hover:bg-surface-hover;
+    @apply btn text-text-secondary hover:text-text-primary hover:bg-white/[0.06];
   }
 }
+
+/* ── Glass terminal utilities (kept OUTSIDE @layer so Tailwind never tree-shakes them) ── */
+
+/* Frosted glass panel */
+.glass {
+  @apply bg-white/[0.03] backdrop-blur-xl border border-white/10;
+}
+
+/* Display headline (Newsreader serif) */
+.page-title {
+  @apply font-display text-2xl font-semibold tracking-tight text-text-primary;
+}
+
+

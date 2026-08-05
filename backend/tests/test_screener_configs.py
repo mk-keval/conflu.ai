@@ -80,27 +80,27 @@ class TestScreenTemplates:
     def test_trend_follower_loads(self) -> None:
         config = load_screen_template("trend-follower")
         assert config.name == "Trend Follower"
-        assert len(config.filters) == 11
+        assert len(config.filters) == 10
 
     def test_mean_reversion_loads(self) -> None:
         config = load_screen_template("mean-reversion")
         assert config.name == "Mean Reversion"
         assert len(config.filters) == 9
 
-    def test_breakout_loads(self) -> None:
-        config = load_screen_template("breakout")
-        assert config.name == "Breakout"
-        assert len(config.filters) == 12
+    def test_breakdown_loads(self) -> None:
+        config = load_screen_template("breakdown")
+        assert config.name == "Breakdown"
+        assert len(config.filters) >= 9
 
-    def test_volume_surge_loads(self) -> None:
-        config = load_screen_template("volume-surge")
-        assert config.name == "Volume Surge"
-        assert len(config.filters) == 9
+    def test_short_squeeze_loads(self) -> None:
+        config = load_screen_template("short-squeeze")
+        assert config.name == "Short Squeeze"
+        assert len(config.filters) >= 9
 
-    def test_oversold_bounce_loads(self) -> None:
-        config = load_screen_template("oversold-bounce")
-        assert config.name == "Oversold Bounce"
-        assert len(config.filters) == 9
+    def test_distribution_loads(self) -> None:
+        config = load_screen_template("distribution")
+        assert config.name == "Distribution"
+        assert len(config.filters) >= 9
 
     def test_list_screen_templates_returns_5(self) -> None:
         templates = list_screen_templates()

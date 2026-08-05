@@ -65,7 +65,7 @@ export function SectorRotationPage() {
       {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-text-primary">
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-text-primary">
             Sector Rotation
           </h1>
           <p className="mt-1 text-sm text-text-muted">
@@ -129,6 +129,7 @@ export function SectorRotationPage() {
           <div className="text-sm font-bold text-text-primary capitalize">
             {rotationPhase?.replace(/_/g, ' ') || 'Analyzing...'}
           </div>
+          <div className="mt-0.5 text-[10px] text-text-muted/60">trailing 1W basis</div>
         </div>
         <div className="rounded-xl border border-border bg-surface p-4">
           <div className="flex items-center gap-2 text-xs text-text-muted mb-1">
@@ -272,7 +273,7 @@ export function SectorRotationPage() {
           )}
 
           {activeTab === 'flows' && (
-            <RotationFlows />
+            <RotationFlows timeframe={timeframe} />
           )}
 
           {activeTab === 'learn' && (

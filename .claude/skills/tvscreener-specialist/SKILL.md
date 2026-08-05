@@ -22,15 +22,17 @@
 | Category | Columns |
 |----------|---------|
 | **Price** | `close`, `open`, `high`, `low`, `change` |
-| **Volume** | `volume`, `relative_volume_10d_calc`, `volume_change`, `turnover`, `OBV` |
+| **Volume** | `volume`, `relative_volume_10d_calc`, `volume_change`, `turnover` |
 | **Momentum** | `RSI`, `RSI7`, `RSI14`, `RSI21`, `STOCH.K`, `STOCH.D`, `CCI`, `CCI20` |
-| **Trend** | `MACD.macd`, `MACD.signal`, `MACD.hist`, `EMA9`, `EMA20`, `EMA21`, `EMA50`, `EMA100`, `EMA200`, `SMA20`, `SMA50`, `SMA100`, `SMA200`, `VWAP`, `supertrend`, `supertrend.up`, `supertrend.down`, `ichimoku.*` |
+| **Trend** | `MACD.macd`, `MACD.signal`, `MACD.hist`, `EMA9`, `EMA20`, `EMA21`, `EMA50`, `EMA100`, `EMA200`, `SMA20`, `SMA50`, `SMA100`, `SMA200`, `VWAP` |
 | **Volatility** | `ATR`, `ATR14`, `BB.upper`, `BB.middle`, `BB.lower`, `BB.width` |
 | **Strength** | `ADX`, `ADX14` |
 | **Fundamentals** | `market_cap_basic`, `price_earnings_ttm`, `earnings_per_share_diluted_ttm`, `dividends_yield_current` |
 | **Classification** | `sector`, `industry`, `market`, `country`, `type`, `typespecs` |
 | **Sentiment** | `AnalystRating` (StrongBuy, Buy, Hold, Sell, StrongSell), `AnalystRating.tr` |
 | **Meta** | `ticker` (format: "NASDAQ:AAPL"), `name` |
+
+> ⚠️ **Live-verified 2026-07-31:** `OBV`, `supertrend`, `supertrend.up`, `supertrend.down`, `ichimoku.*` **return `None`** — unknown columns are silently accepted (HTTP 200) with `None` values. Do NOT use them in filters or scoring. `None` ≠ "column doesn't exist" (registry check required). Field names are case-sensitive (`Stoch.K` works, `STOCH.K` returns `None`).
 
 ### 2. Timeframe Matrix
 
@@ -49,7 +51,11 @@ TIMEFRAMES = {
 }
 ```
 
-Set via: `q.set_property("interval", "1D")`
+Set via: `q.set_property("interval", "1D")` — sets the request's primary `interval` property (valid in v3.2.0, verified: `set_property` stores `self.query[key]`).
+
+> ⚠️ **Interval codes are NOT free-form.** TradingView accepts `1`, `5`, `15`, `30`, `60`, `120`, `240`, `1W`, `1M` (no suffix = `1D`). Our config uses friendly labels — map them: `"1m"→"1"`, `"5m"→"5"`, `"15m"→"15"`, `"1h"→"60"`, `"4h"→"240"`, `"1D"→""`/omit, `"1W"→"1W"`. Check `tv_specialist.py`'s current mapping.
+
+**Per-column timeframes (multi-TF in ONE query, v3.2+):** append `|INTERVAL` to a column: `col("RSI|1D")`, `col("RSI|1W")`, `col("close|240")`, `col("MACD.macd|1h")`. There is NO `scan_interval` property — this pipe syntax is the only way to get multiple timeframes in a single request.
 
 ### 3. Index Formats
 
@@ -113,11 +119,14 @@ Pipe syntax: `col("FIELD|INTERVAL")` — INTERVAL uses TV prefix convention.
 
 | Constraint | Value |
 |------------|-------|
-| Free tier | ~30 req/min |
-| Data delay | ~15 min (free tier) |
-| Batch size | 100 symbols max |
-| 400 error | Unknown presets/columns |
-| 429 error | Rate limit exceeded |
+| Cost | Free, no API key |
+| Documented rate limit | **None** — be conservative (users report ~1 req/60s to avoid bans) |
+| Data delay | **15 min (900s)** unauthenticated; **streaming real-time** with TradingView session cookies (`get_scanner_data(cookies=...)`, free account suffices) |
+| Library retry/backoff | **None** — plain `requests.post(timeout=20)` + `raise_for_status()`. Retry/backoff/circuit-breaker is app-side (`scanner.py`) |
+| Default row range | `[0, 50]` — adjust via `.limit()`; no auto-pagination |
+| 400 error | Unknown columns/presets (also **silently returns `None` values** for unknown columns — check registry) |
+| 429 error | Rate limit exceeded (library does not handle; must retry) |
+| Historical data | **None** — snapshot only. Use `tvdatafeed`/yfinance for history |
 
 ### 8. TV Screener API Endpoint
 
@@ -145,11 +154,12 @@ When invoked for a screening task, this agent:
 
 | Limitation | Workaround |
 |------------|------------|
-| No historical data (only current snapshot) | Use DuckDB for historical OHLCV |
-| Single timeframe per query | Multi-TF = multiple queries + client-side intersect |
+| No historical data (only current snapshot) | Use DuckDB for historical OHLCV (fed incrementally by TV snapshots + yfinance for deep history) |
+| 15-min delay unauthenticated | Provide TradingView session cookies for streaming; acceptable for discovery |
+| Per-column timeframes require `\|INTERVAL` suffix (no `scan_interval`) | Multi-TF in one query via pipe syntax (v3.2+); intersect client-side |
 | No cross-timeframe filters in single query | Run per-TF, intersect client-side |
-| 100 symbols/batch | Auto-chunk + async gather |
-| Free tier = 15-min delayed data | Acceptable for discovery |
+| Default 50 rows/request, no auto-pagination | `.limit()` + manual `range` offsets; chunk with async gather |
+| Unknown columns return `None` silently | Validate against registry before relying on values |
 | No custom indicator formulas | Push standard indicators; compute custom locally |
 
 ---

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { 
@@ -8,6 +8,9 @@ import {
   type OptionsChainResponse,
   type NewsResponse,
 } from '@/api/tickerAnalysis';
+import { fetchSectorRotation } from '@/api/sectorRotation';
+import type { SectorRotationResponse } from '@/types/sector';
+import { usePortfolioStore } from '@/store/portfolio';
 import type { TickerAnalysisResponse, TechnicalAnalysis } from '@/types/tickerAnalysis';
 import { cn } from '@/lib/cn';
 import { formatPrice, formatPct, formatLargeNumber } from '@/lib/format';
@@ -16,7 +19,7 @@ import {
   Shield, Info, Brain, BookOpen,
   ArrowUp, ArrowDown, Minus, ChevronDown, ChevronUp, HelpCircle,
   FileText, Newspaper, BarChart2, Search,
-  Loader2, ExternalLink,
+  Loader2, ExternalLink, Plus, Check,
 } from 'lucide-react';
 import type { MetricLesson, ModuleLesson } from './education';
 import {
@@ -230,6 +233,8 @@ function VerdictBanner({ data, weightedScore }: { data: TickerAnalysisResponse; 
   const cfg = verdictConfig(v.action);
   const changeStr = data.change_pct != null ? formatPct(data.change_pct) : null;
   const isPositive = data.change_pct != null && data.change_pct >= 0;
+  const { items, addSymbol, removeSymbol } = usePortfolioStore();
+  const inPortfolio = items.some((i) => i.symbol === data.symbol);
 
   return (
     <div className={cn('border rounded-lg p-5', cfg.bg, cfg.border)}>
@@ -238,7 +243,7 @@ function VerdictBanner({ data, weightedScore }: { data: TickerAnalysisResponse; 
           <div className={cn('p-2 rounded-full', cfg.bg)}>{cfg.icon}</div>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-text-primary">{data.symbol}</h1>
+              <h1 className="font-display text-2xl font-semibold tracking-tight text-text-primary">{data.symbol}</h1>
               <span className={cn('text-xl font-semibold', isPositive ? 'text-gain' : 'text-loss')}>
                 {data.price != null ? formatPrice(data.price) : '—'}
               </span>
@@ -247,6 +252,20 @@ function VerdictBanner({ data, weightedScore }: { data: TickerAnalysisResponse; 
                   {changeStr}
                 </span>
               )}
+              {/* Add to Portfolio button */}
+              <button
+                onClick={() => inPortfolio ? removeSymbol(data.symbol) : addSymbol(data.symbol)}
+                className={cn(
+                  'flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors',
+                  inPortfolio
+                    ? 'bg-green-500/10 border-green-500/30 text-green-500'
+                    : 'bg-accent/5 border-accent/20 text-accent hover:bg-accent/10'
+                )}
+                title={inPortfolio ? 'Remove from portfolio' : 'Add to portfolio'}
+              >
+                {inPortfolio ? <Check className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+                {inPortfolio ? 'In Portfolio' : 'Add to Portfolio'}
+              </button>
             </div>
             <div className="flex items-center gap-3 mt-1">
               <span className={cn('text-lg font-bold', cfg.text)}>
@@ -398,6 +417,9 @@ function VerdictTab({ data, explain }: { data: TickerAnalysisResponse; explain: 
 
   return (
     <div className="space-y-5">
+      {/* Sector Context Badge — shows how this ticker's sector is performing */}
+      {data.sector && <SectorContextBadge sector={data.sector} />}
+
       {/* Module Scores Overview */}
       <div className="bg-surface/30 border border-border/30 rounded-lg p-4">
         <h3 className="text-xs font-semibold text-text-primary uppercase tracking-wider mb-3">Module Scores</h3>
@@ -927,8 +949,85 @@ function MetricBox({ label, value, explainer }: {
   );
 }
 
+/**
+ * Sector Context Badge — shows how the ticker's sector is performing
+ * in the current market rotation. Fetches sector data on mount and
+ * displays a compact badge with 1d change, flow signal, and trend.
+ */
+function SectorContextBadge({ sector }: { sector: string }) {
+  const [rotationData, setRotationData] = useState<SectorRotationResponse | null>(null);
+
+  useEffect(() => {
+    fetchSectorRotation()
+      .then(setRotationData)
+      .catch(() => { /* non-critical */ });
+  }, []);
+
+  // Match the ticker's sector name to a sector ETF symbol
+  const sectorToEtf: Record<string, string> = {
+    'Technology': 'XLK', 'Financial Services': 'XLF', 'Finance': 'XLF',
+    'Healthcare': 'XLV', 'Health Care': 'XLV', 'Industrials': 'XLI',
+    'Energy': 'XLE', 'Utilities': 'XLU', 'Real Estate': 'XLRE',
+    'Consumer Cyclical': 'XLY', 'Consumer Defensive': 'XLP', 'Consumer Staples': 'XLP',
+    'Communication Services': 'XLC', 'Basic Materials': 'XLB', 'Materials': 'XLB',
+  };
+
+  const etfSymbol = sectorToEtf[sector];
+  const sectorPerf = rotationData?.sectors.find((s) => s.symbol === etfSymbol);
+
+  if (!etfSymbol || !sectorPerf) {
+    // No ETF mapping or no data — show just the sector name
+    return (
+      <div className="flex items-center gap-2 text-xs text-text-muted mb-3">
+        <Activity className="h-3.5 w-3.5" />
+        <span>{sector}</span>
+      </div>
+    );
+  }
+
+  const isPositive = (sectorPerf.change_1d ?? 0) >= 0;
+  const flowColor = sectorPerf.flow_signal === 'inflow' ? 'text-green-500' : sectorPerf.flow_signal === 'outflow' ? 'text-red-400' : 'text-text-muted';
+  const trendColor = sectorPerf.trend === 'bullish' ? 'text-green-500' : sectorPerf.trend === 'bearish' ? 'text-red-400' : 'text-yellow-400';
+
+  return (
+    <div className="flex items-center gap-3 text-xs bg-surface/20 border border-border/30 rounded-lg px-3 py-2 mb-3">
+      <div className="flex items-center gap-1.5 shrink-0">
+        <Activity className="h-3.5 w-3.5 text-text-muted" />
+        <span className="text-text-primary font-medium">{sector}</span>
+      </div>
+      <div className="flex items-center gap-3 text-text-muted">
+        <span className={isPositive ? 'text-green-500 font-mono' : 'text-red-400 font-mono'}>
+          {isPositive ? '+' : ''}{sectorPerf.change_1d?.toFixed(2)}%
+        </span>
+        <span className={`flex items-center gap-1 ${flowColor}`}>
+          <span className="text-[10px]">{sectorPerf.flow_signal === 'inflow' ? '▲' : sectorPerf.flow_signal === 'outflow' ? '▼' : '◆'}</span>
+          {sectorPerf.flow_signal === 'inflow' ? 'Inflow' : sectorPerf.flow_signal === 'outflow' ? 'Outflow' : 'Neutral'}
+        </span>
+        <span className={trendColor}>
+          {sectorPerf.trend === 'bullish' ? 'Uptrend' : sectorPerf.trend === 'bearish' ? 'Downtrend' : 'Mixed'}
+        </span>
+        {rotationData?.rotation_phase && (
+          <span className="text-text-muted/60">· {rotationData.rotation_phase}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function OptionsDetail({ data }: { data: OptionsChainResponse; explain: boolean }) {
   const OPTIONS_EXPLANATION = "IV Rank >80 favors premium selling (credit spreads). IV Rank <20 favors buying (debit spreads/long options). Negative GEX = dealers short gamma (destabilizing, expect big moves). Positive GEX = stabilizing. Max Pain = magnetic price level at expiry. Put/Call Ratio >1.2 = excessive fear (contrarian bullish). <0.7 = complacency.";
+  
+  // Safeguard: if the response lacks calls/puts arrays (e.g. error shape or stale cache),
+  // render a clean "no data" message instead of crashing on .sort()
+  if (!data.calls || !data.puts) {
+    return (
+      <div className="bg-loss/10 border border-loss/20 rounded-lg p-6 text-center">
+        <AlertTriangle className="w-10 h-10 text-loss mx-auto mb-3" />
+        <h3 className="text-lg font-semibold text-text-primary mb-1">Options Data Unavailable</h3>
+        <p className="text-sm text-text-muted mb-4">Options chain data could not be loaded for this symbol.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -1129,7 +1228,7 @@ export function TickerAnalysisPage() {
   });
 
   // Fetch options chain data
-  const { data: optionsData, isLoading: optionsLoading } = useQuery({
+  const { data: optionsData, isLoading: optionsLoading, isError: optionsError } = useQuery({
     queryKey: ['ticker-options', symbol],
     queryFn: () => fetchOptionsChain(symbol),
     enabled: symbol.length > 0 && activeTab === 'options',
@@ -1159,7 +1258,7 @@ export function TickerAnalysisPage() {
       <div className="p-6 max-w-3xl mx-auto">
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
           <Search className="w-16 h-16 text-text-muted mb-4" />
-          <h1 className="text-xl font-semibold text-text-primary mb-2">Ticker Analysis</h1>
+          <h1 className="font-display text-xl font-semibold tracking-tight text-text-primary mb-2">Ticker Analysis</h1>
           <p className="text-text-muted mb-6 max-w-md">
             Enter a stock symbol to get an elite-trader-grade analysis with technical, fundamental, earnings,
             sentiment, and risk assessment — plus an actionable verdict.
@@ -1321,6 +1420,12 @@ export function TickerAnalysisPage() {
             <div className="flex items-center justify-center min-h-[30vh]">
               <Loader2 className="w-8 h-8 text-accent animate-spin" />
               <span className="ml-3 text-text-muted">Loading options chain...</span>
+            </div>
+          ) : optionsError ? (
+            <div className="bg-loss/10 border border-loss/20 rounded-lg p-6 text-center">
+              <AlertTriangle className="w-10 h-10 text-loss mx-auto mb-3" />
+              <h3 className="text-lg font-semibold text-text-primary mb-1">Options Data Error</h3>
+              <p className="text-sm text-text-muted mb-4">Failed to load options chain for {symbol}. The symbol may not have listed options.</p>
             </div>
           ) : optionsData ? (
             <OptionsDetail data={optionsData} explain={explain} />

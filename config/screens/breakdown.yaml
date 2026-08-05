@@ -1,5 +1,5 @@
 name: "Breakdown"
-description: "Bearish trend breakdown — price below key EMAs, bearish MACD, weak momentum, and distribution volume. Filters: $500M+ mcap, NYSE/NASDAQ, US, $5+, 1M avg vol, 500K vol."
+description: "Stocks in a clear downtrend — falling prices, weak momentum, heavy selling volume. NOT for buying. Use to identify what to avoid or as a warning to exit existing positions."
 direction: short
 asset_classes:
   - equities

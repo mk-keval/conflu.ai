@@ -90,11 +90,12 @@ def synthesise(
     price: float | None,
     regime: str | None = None,
     tv_data: dict[str, Any] | None = None,
+    technical_weekly: TechnicalAnalysis | None = None,
 ) -> AnalysisVerdict:
     """Combine all module outputs into a final actionable verdict.
 
     Args:
-        technical: Technical analysis result (or None if unavailable).
+        technical: Technical analysis result (daily, or None if unavailable).
         fundamental: Fundamental analysis result.
         earnings: Earnings analysis result.
         sentiment: Sentiment analysis result.
@@ -102,6 +103,7 @@ def synthesise(
         price: Current price for entry/stop/target calculations.
         regime: Market regime for adaptive weighting (None = default).
         tv_data: Raw TV data fields for computing levels.
+        technical_weekly: Weekly technical analysis for multi-timeframe alignment.
 
     Returns:
         AnalysisVerdict with final action, conviction, and trade details.
@@ -140,6 +142,7 @@ def synthesise(
     # so their zero doesn't drag the average down.
     analysis_objs = [technical, fundamental, earnings, sentiment, risk]
     available = [(s, w) for s, w, obj in zip(scores, weights, analysis_objs) if obj is not None]
+    avail_scores: tuple[float, ...] = ()
     if available:
         avail_scores, avail_weights = zip(*available)
         total_w = sum(avail_weights)
@@ -151,8 +154,89 @@ def synthesise(
     else:
         weighted_score = 0.0
 
+    # ── 2a. Module coherence adjustment ──
+    # When modules disagree (high variance in scores), reduce conviction.
+    # When they agree (low variance), boost conviction.
+    # This prevents muddled setups (e.g., perfect technical + weak fundamental)
+    # from scoring the same as clean setups where all modules align.
+    if len(avail_scores) >= 3:
+        score_range = max(avail_scores) - min(avail_scores)
+        if score_range > 1.5:
+            # Major disagreement: penalize
+            coherence_penalty = 0.08 * (score_range / 2.0)
+            weighted_score -= min(coherence_penalty, 0.2)
+            all_findings.append(f"⚠️ Module disagreement: scores range {min(avail_scores):.2f}–{max(avail_scores):.2f} "
+                                f"({score_range:.2f}) — conviction reduced")
+        elif score_range < 0.3 and weighted_score > 0.3:
+            # Strong agreement on a positive setup: small bonus
+            weighted_score += 0.05
+            all_findings.append(f"✅ Module agreement: all scores within {score_range:.2f} — conviction confirmed")
+
+    # ── 2b. Multi-timeframe alignment ──
+    # Weekly trend is the primary filter for swing trading. A daily signal against
+    # the weekly trend (e.g., daily bounce on weekly downtrend) gets penalized —
+    # those bounces are traps. A daily pullback in a weekly uptrend is a healthy
+    # entry opportunity and receives a small bonus.
+    if technical_weekly and technical:
+        weekly_alignment = technical_weekly.ma_alignment
+        daily_structure = technical.structure or "neutral"
+        daily_alignment = technical.ma_alignment
+
+        if weekly_alignment == "bullish":
+            if daily_alignment == "bullish":
+                # Bullish alignment on both timeframes — strongest signal
+                weighted_score += 0.08
+                all_findings.append("📈 Multi-timeframe: bullish weekly + bullish daily — strong trend alignment")
+            elif daily_structure in ("bearish", "transition"):
+                # Daily pullback in weekly uptrend — healthy entry opportunity
+                weighted_score += 0.03
+                all_findings.append("📊 Multi-timeframe: bullish weekly, daily pullback — swing entry opportunity")
+        elif weekly_alignment == "bearish":
+            if daily_alignment == "bearish":
+                # Bearish on both — confirm downside
+                weighted_score -= 0.10
+                all_findings.append("📉 Multi-timeframe: bearish weekly + bearish daily — strong downside alignment")
+            elif daily_alignment == "bullish" or daily_structure == "bullish":
+                # Daily bounce in weekly downtrend — trap, penalize
+                weighted_score -= 0.15
+                all_findings.append("⚠️ Multi-timeframe: bearish weekly, daily bounce — likely counter-trend trap, avoid longs")
+        # If weekly is mixed/ranging → no adjustment (weekly provides no clear signal)
+
     # ── 3. Check dealbreakers ──
     dealbreakers: list[str] = []
+
+    # ── 3a. Volume-Price Divergence ──
+    # Rising volume + falling price = distribution (bearish)
+    # Rising volume + rising price = accumulation (bullish)
+    # This catches distribution risk even when MA alignment looks bullish
+    if tv_data:
+        tv_close = tv_data.get("close") or tv_data.get("Close")
+        tv_volume = tv_data.get("volume") or tv_data.get("Volume")
+        prev_close = tv_data.get("prev_close") or tv_data.get("prevClose")
+        avg_volume = tv_data.get("volume_avg_50") or tv_data.get("VolumeAvg50")
+        change_pct = tv_data.get("change")
+        if change_pct is None and tv_close and prev_close:
+            change_pct = ((tv_close / prev_close) - 1) * 100
+        
+        # Detect distribution: price down on elevated volume
+        if (tv_close is not None and tv_volume is not None 
+                and avg_volume is not None and avg_volume > 0):
+            vol_ratio = tv_volume / avg_volume
+            if vol_ratio > 1.5 and change_pct is not None and change_pct < -2:
+                dist_severity = "heavy" if vol_ratio > 2.5 else "moderate"
+                dealbreakers.append(
+                    f"⚠️ {dist_severity.title()} distribution risk: {change_pct:+.1f}% drop on "
+                    f"{vol_ratio:.1f}× avg volume ({tv_volume:,.0f} vs {avg_volume:,.0f} avg) — "
+                    "institutional selling pressure"
+                )
+                weighted_score -= 0.3 if vol_ratio > 2.5 else 0.15
+            # Detect accumulation: price up on elevated volume
+            elif vol_ratio > 1.5 and change_pct is not None and change_pct > 2:
+                all_findings.append(
+                    f"📊 Accumulation signal: {change_pct:+.1f}% gain on "
+                    f"{vol_ratio:.1f}× avg volume — institutional buying"
+                )
+                weighted_score += 0.1
 
     # Earnings miss > 30%
     if earnings and earnings.last_surprise_pct is not None and earnings.last_surprise_pct < -30:
@@ -602,18 +686,22 @@ def synthesise(
         base_action = "WATCH"
         conviction = 2 + int((weighted_score - 0.10) * 10) if weighted_score > 0 else 2
         conviction = min(conviction, 4)
-    elif weighted_score > -0.10:
-        base_action = "WATCH" if not dealbreaker_active else "WATCH"
-        conviction = 2
-    elif weighted_score > -0.3:
+    elif weighted_score >= 0.0:
+        # Scores 0-10%: very weak positive — still WATCH but minimum conviction
+        # (was previously lumped with > -0.10 giving c:2)
+        base_action = "WATCH"
+        conviction = 1
+    elif weighted_score > -0.15:
+        # Scores -15% to 0%: mildly negative → HOLD
         base_action = "HOLD"
-        conviction = 2 + int(abs(weighted_score) * 6)  # Lower conviction for negative scores
-        conviction = min(conviction, 4)  # Cap at 4 for cautious hold
-    elif weighted_score > -0.5:
+        conviction = 2
+    elif weighted_score > -0.4:
+        # Scores -40% to -15%: moderately negative → REDUCE
         base_action = "REDUCE"
         conviction = 5 + int(abs(weighted_score) * 10)
         conviction = min(conviction, 8)
     else:
+        # Scores below -40%: clearly bearish → AVOID
         base_action = "AVOID"
         conviction = min(10, 7 + int(abs(weighted_score) * 6))
 
@@ -674,16 +762,47 @@ def synthesise(
         else:
             stop_pct = 0.05
 
-        # Entry zone: current price for buy, or 2-5% below
+        # Entry zone: dynamic adjustment based on MA proximity and price position.
+        # If price is near MA support, the zone includes current price.
+        # If price is extended above MAs, suggest pullback entry only.
+        # This prevents stale "buy at current" entries when the stock has already run.
         if action in ("BUY", "ACCUMULATE", "WATCH"):
-            if technical and technical.rsi_regime in ("overbought", "overbought_warning"):
-                # Don't chase — suggest pullback entry
+            sma20 = tv_data.get("SMA20") if tv_data else None
+            sma50 = tv_data.get("SMA50") if tv_data else None
+            nearest_ma = None
+            for ma in [sma20, sma50]:
+                if ma and ma > 0:
+                    if nearest_ma is None or abs(close - ma) < abs(close - nearest_ma):
+                        nearest_ma = ma
+            
+            price_vs_ma_pct = ((close / nearest_ma) - 1) * 100 if nearest_ma else 0
+            
+            # Check for RSI overbought
+            is_overbought = technical and technical.rsi_regime in ("overbought", "overbought_warning")
+            
+            if is_overbought:
+                # Overbought — always suggest a pullback
                 drawdown_target = stop_pct * 1.5
                 entry_low = round(close * (1 - drawdown_target), 2)
                 entry_high = round(close, 2)
+            elif nearest_ma and price_vs_ma_pct > 5:
+                # Extended above nearest MA — wait for pullback to MA
+                pullback_target = max(stop_pct * 1.5, price_vs_ma_pct * 0.5 / 100)
+                entry_low = round(close * (1 - pullback_target), 2)
+                entry_high = round(close * (1 - price_vs_ma_pct * 0.3 / 100), 2)
+                if entry_low > round(nearest_ma * 0.98, 2):
+                    entry_low = round(nearest_ma * 0.98, 2)
+            elif nearest_ma and abs(price_vs_ma_pct) < 3:
+                # Near MA support — current price is valid entry
+                # Zone width: 0.5x ATR (min 1.5% price range for tight-range stocks)
+                entry_width = max(technical.atr_pct / 100 * 0.5 if technical and technical.atr_pct else 0.015, 0.015)
+                entry_low = round(close * (1 - entry_width), 2)
+                entry_high = round(close * (1 + entry_width * 0.5), 2)
             else:
-                entry_low = round(close * 0.98, 2)
-                entry_high = round(close * 1.01, 2)
+                # Default zone — ATR-adaptive width (min 1.5% for low-vol stocks)
+                entry_width = max(technical.atr_pct / 100 * 0.5 if technical and technical.atr_pct else 0.015, 0.015)
+                entry_low = round(close * (1 - entry_width), 2)
+                entry_high = round(close * (1 + entry_width * 0.5), 2)
 
         stop_loss = round(close * (1 - max(stop_pct, 0.02)), 2)
 
@@ -760,7 +879,24 @@ def synthesise(
         if mcap < 1_000_000_000 and is_pre_profit:
             conviction = min(conviction, 8)
 
-    # ── 8. Generate thesis ──
+    # ── 8. Generate trade plan ──
+    trade_plan = _generate_trade_plan(
+        action=action,
+        conviction=conviction,
+        technical=technical,
+        fundamental=fundamental,
+        risk=risk,
+        price=price,
+        entry_low=entry_low,
+        entry_high=entry_high,
+        stop_loss=stop_loss,
+        targets=targets,
+        rr=rr,
+        position_size=position_size,
+        technical_weekly=technical_weekly,
+    )
+
+    # ── 9. Generate thesis ──
     thesis = _generate_thesis(action, weighted_score, modules, dealbreakers, regime)
 
     return AnalysisVerdict(
@@ -772,6 +908,7 @@ def synthesise(
         targets=targets,
         risk_reward=rr,
         position_size_pct=position_size,
+        trade_plan=trade_plan,
         key_red_flags=dealbreakers + [f for f in all_red_flags if f not in dealbreakers][:5],
         buy_triggers=buy_triggers[:3],
         sell_triggers=sell_triggers[:3],
@@ -792,6 +929,7 @@ def _generate_trade_plan(
     targets: list[float],
     rr: float | None,
     position_size: float,
+    technical_weekly: TechnicalAnalysis | None = None,
 ) -> TradePlan | None:
     """Generate a dynamic trade management plan based on setup quality and market structure."""
     if action in ("AVOID", "REDUCE") or not price:
@@ -813,10 +951,12 @@ def _generate_trade_plan(
         ]
     
     # Scale-out plan based on R:R
+    # All levels must be strictly >= 1.0R so breakeven activates before any partial exit.
     if rr and rr > 0:
+        mid_r = max(round(1.0 + (rr - 1.0) * 0.5, 1), 1.1)  # Midpoint between 1R and full R (min 1.1)
         plan.scale_out = [
-            {"r_multiple": 1.0, "size_pct": round(position_size * 0.3, 1), "reason": "Take 30% at 1R — secure base"},
-            {"r_multiple": round(rr * 0.7, 1), "size_pct": round(position_size * 0.3, 1), "reason": f"Take 30% at {round(rr * 0.7, 1)}R — ride momentum"},
+            {"r_multiple": 1.0, "size_pct": round(position_size * 0.3, 1), "reason": "Take 30% at 1R — secure base and move stop to breakeven"},
+            {"r_multiple": mid_r, "size_pct": round(position_size * 0.3, 1), "reason": f"Take 30% at {mid_r}R — intermediate target"},
             {"r_multiple": rr, "size_pct": round(position_size * 0.4, 1), "reason": f"Final 40% at full target ({rr}R)"},
         ]
     
@@ -841,12 +981,16 @@ def _generate_trade_plan(
     plan.notes.append("Move stop to breakeven at 1R")
     
     # Time-based exit
+    # Every trade needs a max hold — prevents indefinite drift for once-a-day traders
     if technical and technical.ma_alignment == "bearish":
         plan.max_hold_days = 20
         plan.notes.append("Counter-trend: max 20-day hold")
     elif fundamental and fundamental.lifecycle_stage in ("development", "clinical_stage"):
         plan.max_hold_days = 60
         plan.notes.append("Development stage: catalyst-driven, max 60-day hold")
+    elif action in ("BUY", "ACCUMULATE", "STRONG BUY"):
+        plan.max_hold_days = 30
+        plan.notes.append("Swing trade: max 30-day hold — re-evaluate thesis at expiry")
     
     # Risk caps
     plan.max_position_pct = min(10.0, position_size * 1.5)

@@ -1,5 +1,28 @@
 # CHANGELOG — Decision Log
 
+## 2026-07-26 — v0.3.0: Professional Mode (Phase 8)
+
+**Prompt:** Build a Professional Mode that enables working professionals (9-5 job, zero market knowledge) to execute a disciplined swing trading workflow in 10 minutes/day.
+
+**Changes:**
+- **Professional Mode architecture**: 5 new backend services + 4 new frontend pages + 8 API endpoints under `/api/v1/professional/`
+- **Morning Brief service**: Regime-based screen selection (heuristic scoring), parallel screen execution (3 screens × 3 tickers = 9 picks), pre-market quote fetching, market internals (VIX, A/D, $USD, futures), sector rotation heatmap
+- **Position Sizer**: Conviction-adjusted Kelly formula (`medium`=0.67, `high`=1.0, `low`=0.33) with hard caps (5% position, 15% sector, $500 minimum)
+- **Education tooltips**: 30+ metric templates across TECHNICAL, FUNDAMENTAL, EARNINGS, SENTIMENT, GROWTH categories with plain-English explanations + LLM enhancement (optional)
+- **Alert service**: In-app notification queue + email dispatch via SendGrid (log-only fallback in dev)
+- **APScheduler integration**: 3 cron jobs — morning brief (6 AM ET Mon-Fri), earnings check (6 PM ET Mon-Fri), regime change detection (hourly)
+- **Frontend Professional UI**: Morning Brief page (`/pro`), One-Click Verdict (`/pro/ticker/{symbol}`), Watchlist Builder (`/pro/watchlist`), Settings (`/pro/settings`)
+- **Graduation path**: Time-gated feature unlocks over 90 days (Day 1: Morning Brief/Verdict/Watchlist, Day 14: All screens, Day 30: Deep analysis, Day 60: Backtest/Portfolio, Day 90: Full charts)
+- **Inline education**: `EducationTooltip` hover component, `ConceptExplainer` inline cards, `ConceptExplorer` full browser (metrics/modules/glossary tabs)
+
+**Architecture Decisions:**
+- **Workflow layer over replacement** (D-28): Professional Mode is a new entry point on top of existing pages — links to existing Ticker Analysis for depth
+- **Inline + progressive education** (D-28): Every metric shows `?` tooltip → static template → optional LLM enhancement, cached 24h
+- **Hybrid (time-gated + manual override)** (D-28): Features unlock on schedule but user can disable Pro Mode anytime
+- **Dual-channel alerts** (D-28): Email (SendGrid) for scheduled (morning brief, earnings, weekly review) + in-app push for real-time (stop hit, target hit)
+
+**Risk Level:** LOW (all new files in separate directories — `infrastructure/professional/`, `components/professional/`, `/pro/*` routes — no changes to existing Screener, Ticker Analysis, Portfolio, or Charts)
+
 ## 2026-06-30 — v2: Fundamental Grading + Volatility Regime Stops
 
 **Prompt:** (Follow-up to scoring calibration session) Still outstanding: fundamental scoring is Grade F, volatility regime stops.

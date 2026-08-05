@@ -1,5 +1,5 @@
 name: "Institutional Swing Quality"
-description: "High-quality equities for 2d-2wk swing trades — institutional-grade liquidity, fundamental health, technical momentum, no ETFs/penny stocks/OTC"
+description: "High-quality companies with good earnings and solid uptrends. Safer picks for beginners — these are established businesses, not speculative stocks. Use when you want quality over speed."
 direction: long
 asset_classes:
   - equities

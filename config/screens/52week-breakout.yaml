@@ -1,5 +1,5 @@
 name: "52-Week Breakout"
-description: "Stocks near 52-week highs with momentum, volume, and trend strength confirmation. Filters: $500M+ mcap, NYSE/NASDAQ, $5+, IPO>1yr, 30% inst ownership, 1M avg vol, 500K volume."
+description: "Stocks trading near their highest price in the last year. A stock reaching new highs usually means strong demand and momentum. Use when the market is in an uptrend — don't buy new highs in a falling market."
 asset_classes:
   - equities
 timeframes:

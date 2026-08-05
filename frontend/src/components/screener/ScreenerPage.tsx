@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   fetchScreenTV,
@@ -13,6 +13,9 @@ import type {
   ScreenTemplateDetail,
 } from '@/types/screener';
 import { useScreenStore } from '@/store/screen';
+import { useMarketStore } from '@/store/market';
+import { useSectorRotationStore } from '@/store/sectorRotation';
+import { fetchSectorRotation } from '@/api/sectorRotation';
 import { useWS } from '@/ws/WebSocketProvider';
 import { screenerChannel } from '@/ws/channels';
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary';
@@ -22,9 +25,68 @@ import { ExportButtons } from './ExportButtons';
 import { TemplateInfoStrip } from './TemplateInfoStrip';
 import { ScreenerEducation } from './ScreenerEducation';
 import type { WSMessage } from '@/types/ws';
-import { ChevronDown, Play, Loader2, RefreshCw, Columns, List, BookOpen } from 'lucide-react';
+import type { SectorPerformance, SectorRotationResponse } from '@/types/sector';
+import { ChevronDown, Play, Loader2, RefreshCw, Columns, List, BookOpen, TrendingUp, TrendingDown, Gauge } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { ALL_COLUMNS_META, DEFAULT_VISIBLE_COLUMNS } from './ScreenerTable';
+
+// ── Regime-to-screener recommendation mapping ──
+// Maps market regime labels to recommended / avoid screener configs.
+// Used by TemplateDropdown to show badges (✅ Recommended / ⚠️ Caution).
+const REGIME_SCREENER_MAP: Record<string, { recommended: string[]; avoid: string[] }> = {
+  Exuberance: {
+    recommended: ['trend-follower', 'momentum-breakout', '52week-breakout', 'bull-flag-continuation', 'volatility-expansion', 'volume-surge-breakout'],
+    avoid: ['mean-reversion', 'oversold-bounce', 'low-vol-setup'],
+  },
+  'Risk-On': {
+    recommended: ['trend-follower', 'trend-follower-mtf', 'momentum-breakout', '52week-breakout', 'bull-flag-continuation', 'high-conviction-stack'],
+    avoid: ['distribution', 'breakdown', 'oversold-bounce'],
+  },
+  Neutral: {
+    recommended: ['high-conviction-stack', 'quality-trend-fundamentals', 'institutional-swing-quality', 'trend-follower-mtf', 'volume-trend-accumulation'],
+    avoid: ['momentum-breakout', 'breakdown'],
+  },
+  Cautious: {
+    recommended: ['low-vol-setup', 'mean-reversion', 'oversold-bounce', 'volume-trend-accumulation', 'quality-trend-fundamentals'],
+    avoid: ['momentum-breakout', '52week-breakout', 'volatility-expansion'],
+  },
+  'Risk-Off': {
+    recommended: ['oversold-bounce', 'distribution', 'low-vol-setup', 'mean-reversion'],
+    avoid: ['trend-follower', 'momentum-breakout', '52week-breakout', 'bull-flag-continuation'],
+  },
+  Crisis: {
+    recommended: [],
+    avoid: [],  // All screeners are risky — show warning instead
+  },
+};
+
+const DEFAULT_REGIME_RECOMMENDATION = { recommended: [], avoid: [] };
+
+function getScreenerRecommendation(templateName: string, regimeLabel: string | null): 'recommended' | 'avoid' | null {
+  if (!regimeLabel) return null;
+  const mapping = REGIME_SCREENER_MAP[regimeLabel] ?? DEFAULT_REGIME_RECOMMENDATION;
+  if (mapping.recommended.some((r) => templateName.toLowerCase().includes(r))) return 'recommended';
+  if (mapping.avoid.some((r) => templateName.toLowerCase().includes(r))) return 'avoid';
+  return null;
+}
+
+function RegimeBadge({ recommendation }: { recommendation: 'recommended' | 'avoid' | null }) {
+  if (recommendation === 'recommended') {
+    return (
+      <span className="ml-auto text-[10px] font-semibold text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded shrink-0 flex items-center gap-1">
+        <span>Best for today</span>
+      </span>
+    );
+  }
+  if (recommendation === 'avoid') {
+    return (
+      <span className="ml-auto text-[10px] font-medium text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded shrink-0">
+        ⚠️
+      </span>
+    );
+  }
+  return null;
+}
 
 function ScreenerContent() {
   const selectedConfig = useScreenStore((s) => s.selectedConfig);
@@ -32,6 +94,7 @@ function ScreenerContent() {
   const setConfig = useScreenStore((s) => s.setConfig);
   const { subscribe, unsubscribe, onMessage } = useWS();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // State
   const [templates, setTemplates] = useState<TVTemplate[]>([]);
@@ -42,6 +105,8 @@ function ScreenerContent() {
   const [screenName, setScreenName] = useState('');
   const [executionTime, setExecutionTime] = useState(0);
   const [fetchedAt, setFetchedAt] = useState<string>('');
+  // Sector filter: initialized from URL ?sector= param, cleared when results change
+  const [sectorFilter, setSectorFilter] = useState<string>(() => searchParams.get('sector') || '');
   const [sortState, setSortState] = useState<{ key: string | null; dir: 'asc' | 'desc' | null }>({ key: 'score', dir: 'desc' });
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
@@ -162,6 +227,14 @@ function ScreenerContent() {
     }
   }, [data, selectedTemplate]);
 
+  // Populate sector rotation store for child components
+  useEffect(() => {
+    fetchSectorRotation().then((data) => {
+      useSectorRotationStore.getState().setSectors(data.sectors);
+      useSectorRotationStore.getState().setRotationPhase(data.rotation_phase ?? '');
+    }).catch(() => {});
+  }, []);
+
   // WS subscription for real-time updates
   useEffect(() => {
     const channel = screenerChannel(selectedConfig);
@@ -218,6 +291,31 @@ function ScreenerContent() {
   const handleRowClick = useCallback((ticker: TVScoredTicker) => {
     navigate(`/ticker/${ticker.symbol}`);
   }, [navigate]);
+
+  // ── Sector filter logic ──
+  // Extract unique sectors from results for the filter pills
+  // Also reset sector filter when results change to a different sector set
+  const uniqueSectors = useMemo(() => {
+    const sectors = new Set<string>();
+    for (const r of results) {
+      const s = r.tv_data?.sector;
+      if (s) sectors.add(s);
+    }
+    return [...sectors].sort();
+  }, [results]);
+
+  // Clear sector filter when it no longer matches any result sector
+  useEffect(() => {
+    if (sectorFilter && !uniqueSectors.includes(sectorFilter)) {
+      setSectorFilter('');
+    }
+  }, [uniqueSectors, sectorFilter]);
+
+  // Filtered results driven by the active sector pill
+  const filteredResults = useMemo(() => {
+    if (!sectorFilter) return results;
+    return results.filter((r) => r.tv_data?.sector === sectorFilter);
+  }, [results, sectorFilter]);
 
   if (isLoading && results.length === 0) {
     return (
@@ -293,6 +391,12 @@ function ScreenerContent() {
         onToggleColumn={toggleColumn}
       />
 
+      {/* Market overview panel — collapsible context hint */}
+      <MarketOverviewPanel />
+
+      {/* Sector focus banner — top sectors from rotation, clickable to filter */}
+      <SectorFocusBanner onSelectSector={(sector) => setSectorFilter(sector)} />
+
       {/* Template info strip — always visible */}
       <TemplateInfoStrip template={templateDetails} />
 
@@ -320,19 +424,53 @@ function ScreenerContent() {
 
       {/* Tab content */}
       {activeTab === 'results' ? (
-        <div className="flex-1 overflow-hidden relative">
-          <ScreenerTable
-            results={results}
-            onRowClick={handleRowClick}
-            sortState={sortState}
-            onSort={handleSort}
-            currentPage={currentPage}
-            pageSize={pageSize}
-            onPageChange={handlePageChange}
-            onPageSizeChange={handlePageSizeChange}
-            convergenceMap={convergenceMap}
-            visibleColumns={visibleColumns}
-          />
+        <div className="flex-1 overflow-hidden relative flex flex-col">
+          {/* Sector filter pills */}
+          {uniqueSectors.length > 0 && (
+            <div className="flex items-center gap-1.5 px-4 py-2 border-b border-border/30 shrink-0 overflow-x-auto">
+              <button
+                onClick={() => setSectorFilter('')}
+                className={`text-xs px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap ${
+                  !sectorFilter
+                    ? 'bg-accent/10 border-accent/30 text-accent font-medium'
+                    : 'border-border/50 text-text-muted hover:text-text-primary hover:border-text-muted/30'
+                }`}
+              >
+                All ({results.length})
+              </button>
+              {uniqueSectors.map((sector) => {
+                const count = results.filter((r) => r.tv_data?.sector === sector).length;
+                const isActive = sectorFilter === sector;
+                return (
+                  <button
+                    key={sector}
+                    onClick={() => setSectorFilter(isActive ? '' : sector)}
+                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap ${
+                      isActive
+                        ? 'bg-accent/10 border-accent/30 text-accent font-medium'
+                        : 'border-border/50 text-text-muted hover:text-text-primary hover:border-text-muted/30'
+                    }`}
+                  >
+                    {sector} ({count})
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div className="flex-1 overflow-hidden">
+            <ScreenerTable
+              results={filteredResults}
+              onRowClick={handleRowClick}
+              sortState={sortState}
+              onSort={handleSort}
+              currentPage={currentPage}
+              pageSize={pageSize}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+              convergenceMap={convergenceMap}
+              visibleColumns={visibleColumns}
+            />
+          </div>
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto p-4">
@@ -483,7 +621,7 @@ function ScreenerHeader({
       <div className="px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-4 flex-1 min-w-0">
           <div>
-            <h1 className="text-xl font-bold text-text-primary">{screenName}</h1>
+            <h1 className="font-display text-xl font-semibold tracking-tight text-text-primary">{screenName}</h1>
             <p className="text-sm text-text-muted flex items-center gap-2">
               <span>{totalMatches.toLocaleString()} matches</span>
               {executionTime > 0 && <span>• {executionTime}ms</span>}
@@ -544,6 +682,7 @@ function TemplateDropdown({
   const btnRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  const regimeLabel = useMarketStore((s) => s.regime?.regime_label ?? null);
 
   // Close on outside click — check BOTH the parent wrapper AND the portal dropdown
   useEffect(() => {
@@ -624,12 +763,172 @@ function TemplateDropdown({
                   <span className="inline-block w-2 h-2 flex-shrink-0" />
                 )}
                 <span className="flex-1 truncate">{t.name}</span>
+                <RegimeBadge recommendation={getScreenerRecommendation(t.name, regimeLabel)} />
               </button>
             );
           })}
         </div>,
         document.body
       )}
+    </div>
+  );
+}
+
+/**
+ * Market Overview Panel — shows current regime + sector rotation context.
+ * Collapsible panel at the top of the screener page giving users
+ * a quick market pulse before they pick a screener config.
+ */
+function MarketOverviewPanel() {
+  const regime = useMarketStore((s) => s.regime);
+  const [sectorData, setSectorData] = useState<SectorRotationResponse | null>(null);
+  const [expanded, setExpanded] = useState(true);
+
+  // Fetch sector rotation for the leaders/laggards list
+  useEffect(() => {
+    fetchSectorRotation()
+      .then(setSectorData)
+      .catch(() => { /* silent — non-critical data */ });
+  }, []);
+
+  if (!regime) return null;
+
+  const comp = regime.composite_score;
+  const label = regime.regime_label;
+  const colorClass = comp >= 65 ? 'text-green-400' : comp >= 50 ? 'text-yellow-400' : comp >= 35 ? 'text-orange-400' : 'text-red-400';
+  const barColor = comp >= 65 ? 'bg-green-500' : comp >= 50 ? 'bg-yellow-400' : comp >= 35 ? 'bg-orange-400' : 'bg-red-500';
+  const leaders = sectorData?.leaders.slice(0, 3) ?? [];
+  const laggards = sectorData?.laggards.slice(0, 3) ?? [];
+  const sectorLookup = new Map((sectorData?.sectors ?? []).map((s) => [s.symbol, s]));
+
+  // Determine suggested strategy
+  const getStrategyHint = (lbl: string): string => {
+    if (lbl === 'Exuberance' || lbl === 'Risk-On') return 'Trend/momentum screeners recommended';
+    if (lbl === 'Neutral') return 'Quality/value screeners preferred';
+    if (lbl === 'Cautious') return 'Defensive/mean-reversion screeners suggested';
+    if (lbl === 'Risk-Off') return 'Oversold bounce & distribution screeners';
+    if (lbl === 'Crisis') return 'Avoid new positions — capital preservation';
+    return '';
+  };
+
+  return (
+    <div className="border-b border-border/50">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-2 w-full px-4 py-1.5 text-[11px] text-text-muted hover:text-text-primary transition-colors"
+      >
+        <Gauge className="h-3 w-3" />
+        <span>Market Pulse</span>
+        <ChevronDown className={`h-3 w-3 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+      </button>
+      {expanded && (
+        <div className="px-4 pb-3 pt-1 grid grid-cols-[1fr_auto] gap-4 text-xs">
+          {/* Left: Regime + Score Bar */}
+          <div className="space-y-1.5 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className={`font-semibold ${colorClass}`}>{label}</span>
+              <span className="text-text-muted">{comp.toFixed(0)}/100</span>
+              <div className="flex-1 h-1.5 rounded-full bg-border max-w-[120px]">
+                <div className={`h-full rounded-full ${barColor}`} style={{ width: `${comp}%` }} />
+              </div>
+            </div>
+            <p className="text-text-muted">{getStrategyHint(label)}</p>
+          </div>
+
+          {/* Right: Sector Leaders / Laggards */}
+          <div className="flex gap-6">
+            {leaders.length > 0 && (
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-medium text-green-500 uppercase tracking-wider">Leading</p>
+                {leaders.map((sym) => {
+                  const s = sectorLookup.get(sym);
+                  return (
+                    <div key={sym} className="flex items-center gap-1.5">
+                      <TrendingUp className="h-3 w-3 text-green-500 shrink-0" />
+                      <span className="text-text-primary">{s?.name || sym}</span>
+                      {s?.change_1d != null && (
+                        <span className="text-green-500 font-mono">+{s.change_1d.toFixed(1)}%</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {laggards.length > 0 && (
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-medium text-red-400 uppercase tracking-wider">Lagging</p>
+                {laggards.map((sym) => {
+                  const s = sectorLookup.get(sym);
+                  return (
+                    <div key={sym} className="flex items-center gap-1.5">
+                      <TrendingDown className="h-3 w-3 text-red-400 shrink-0" />
+                      <span className="text-text-primary">{s?.name || sym}</span>
+                      {s?.change_1d != null && (
+                        <span className="text-red-400 font-mono">{s.change_1d.toFixed(1)}%</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Sector Focus Banner — shows recommended sectors from rotation data.
+ * Clicking a sector focuses the screener results to that sector.
+ */
+function SectorFocusBanner({ onSelectSector }: { onSelectSector: (sector: string) => void }) {
+  const [sectors, setSectors] = useState<SectorPerformance[]>([]);
+  const [rotationPhase, setRotationPhase] = useState('');
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    fetchSectorRotation().then((data) => {
+      clearTimeout(timeout);
+      setSectors(data.sectors ?? []);
+      setRotationPhase(data.rotation_phase ?? '');
+    }).catch(() => {});
+    return () => clearTimeout(timeout);
+  }, []);
+
+  // Sort by 1d change descending, take top 4
+  const topSectors = useMemo(
+    () => [...sectors].sort((a, b) => (b.change_1d ?? 0) - (a.change_1d ?? 0)).slice(0, 4),
+    [sectors]
+  );
+
+  if (topSectors.length === 0) return null;
+
+  return (
+    <div className="flex items-center gap-2 px-4 py-2 border-b border-border/30 bg-surface/10">
+      <span className="text-[10px] font-semibold uppercase text-text-muted tracking-wider shrink-0">
+        Focus{rotationPhase ? ` · ${rotationPhase}` : ''}
+      </span>
+      <div className="flex gap-1.5 overflow-x-auto">
+        {topSectors.map((s) => {
+          const change = s.change_1d ?? 0;
+          const isPos = change >= 0;
+          return (
+            <button
+              key={s.symbol}
+              onClick={() => onSelectSector(s.name)}
+              className="flex items-center gap-1.5 text-xs bg-surface/30 border border-border/40 hover:border-accent/30 rounded-full px-2.5 py-1 transition-colors shrink-0"
+              title={`Click to filter by ${s.name}`}
+            >
+              <span className="text-text-primary font-medium">{s.name}</span>
+              <span className={cn('font-mono', isPos ? 'text-green-500' : 'text-red-400')}>
+                {isPos ? '+' : ''}{change.toFixed(1)}%
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

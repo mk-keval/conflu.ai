@@ -30,6 +30,12 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    watch: {
+      // Docker Desktop bind-mounts don't emit reliable fs events on Windows —
+      // poll instead so HMR works without container restarts.
+      usePolling: true,
+      interval: 300,
+    },
     proxy: {
       '/api': {
         target: API_TARGET,

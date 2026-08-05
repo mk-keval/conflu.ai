@@ -22,13 +22,19 @@ This section contains Architecture Decision Records (ADRs) for significant proje
 - [D-19: Scoring Evaluation Round 2](D-20-scoring-evaluation-round2.md)
 - [D-20: Scoring Smoothing & Rationale](D-21-scoring-smoothing-and-rationale.md)
 - [D-21: ColumnCustomizer Portal for Z-Index Escape](D-22-column-customizer-portal-stacking.md)
-25: - [D-22: IndicatorCache Backend for Screener Indicators](D-23-indicator-cache-backend.md)
-26: - [D-23: Fund Instrument Detection Framework](D-24-synthesis-fund-instrument-detection.md)
-27: - [D-24: TemplateDropdown Portal for Pointer-Events Escape](D-25-template-dropdown-portal-stacking.md)
-28: 
-29: ## Other Decision Records
-30: - [Phase 9: Advanced Backtest](2026-06-19-phase9-advanced-backtest.md) — ATR-based sizing, vectorized signals, parameter optimization, monte carlo, multi-symbol backtest
-31: 
+- [D-22: IndicatorCache Backend for Screener Indicators](D-23-indicator-cache-backend.md)
+- [D-23: Fund Instrument Detection Framework](D-24-synthesis-fund-instrument-detection.md)
+- [D-24: TemplateDropdown Portal for Pointer-Events Escape](D-25-template-dropdown-portal-stacking.md)
+- [D-25: Portfolio Analysis System](D-25-portfolio-analysis-system.md)
+- [D-26: Trading Workflow Redesign](D-26-trading-workflow-redesign.md)
+- [D-27: Professional Mode Backend Architecture](D-27-professional-mode-backend-architecture.md)
+- [D-28: Professional Mode UI & Integration](D-28-professional-mode-ui-integration.md)
+- [D-10: Professional Mode Architecture](D-010-professional-mode-arch.md)
+- [D-29: Glass Terminal Design System & Brand Identity](D-29-glass-terminal-design-system.md)
+- [D-30: Remove Header TickerTape Component](D-30-remove-header-ticker-tape.md)
+
+## Other Decision Records
+- [Phase 9: Advanced Backtest](2026-06-19-phase9-advanced-backtest.md) — ATR-based sizing, vectorized signals, parameter optimization, monte carlo, multi-symbol backtest 
 32: ## Template
 33: 
 34: ```markdown

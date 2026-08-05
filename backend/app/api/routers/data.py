@@ -245,6 +245,7 @@ async def get_symbols(
     )
 
 
+# ── Catch-all OHLCV route ──
 @router.get(
     "/{symbol}",
     summary="Get OHLCV data",
