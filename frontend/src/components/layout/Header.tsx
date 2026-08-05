@@ -31,8 +31,8 @@ export function Header() {
   });
 
   return (
-    <header className="relative z-30 flex h-14 items-center justify-between border-b border-border bg-surface/80 backdrop-blur-sm px-4 gap-4">
-      <div className="relative w-full max-w-md">
+    <header className="relative z-30 flex h-14 items-center justify-between border-b border-white/10 bg-surface/60 backdrop-blur-xl px-4 gap-4">
+      <div className="relative w-full max-w-[140px] sm:max-w-[180px] lg:max-w-md">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
           <input
@@ -64,7 +64,7 @@ export function Header() {
             'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors',
             enabled
               ? 'border-accent/30 bg-accent/10 text-accent'
-              : 'border-border/60 bg-surface-tertiary/50 text-text-muted hover:text-text-primary'
+              : 'border-border/60 bg-white/[0.04] text-text-muted hover:text-text-primary'
           )}
           title={enabled ? 'Switch to Explorer mode' : 'Switch to Guided mode'}
         >
@@ -73,7 +73,7 @@ export function Header() {
           ) : (
             <User className="h-3.5 w-3.5" />
           )}
-          <span>{enabled ? 'Guided' : 'Explorer'}</span>
+          <span className="hidden sm:inline">{enabled ? 'Guided' : 'Explorer'}</span>
         </button>
 
         {/* Notification bell */}

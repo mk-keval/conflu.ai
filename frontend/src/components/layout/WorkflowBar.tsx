@@ -1,24 +1,34 @@
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useProModeStore } from '@/store/professional';
 import { cn } from '@/lib/cn';
 import { Check } from 'lucide-react';
-
-const STEPS = [
-  { label: 'Market', path: '/dashboard' },
-  { label: 'Screen', path: '/screener' },
-  { label: 'Analyze', path: '/ticker' },
-  { label: 'Portfolio', path: '/portfolio' },
-];
 
 export function WorkflowBar() {
   const location = useLocation();
   const navigate = useNavigate();
+  const proModeEnabled = useProModeStore((s) => s.enabled);
   const path = location.pathname;
 
-  // Determine current step
+  // In Guided mode the workflow starts at the Morning Brief (/pro); otherwise at Dashboard
+  const STEPS = [
+    { label: 'Market', path: proModeEnabled ? '/pro' : '/dashboard' },
+    { label: 'Screen', path: '/screener' },
+    { label: 'Analyze', path: '/ticker' },
+    { label: 'Portfolio', path: '/portfolio' },
+  ];
+
+  // Determine current step — check specific paths first so /pro/ticker/:sym maps to Analyze, not Market
   let currentIdx = -1;
   for (let i = 0; i < STEPS.length; i++) {
-    if (path.startsWith(STEPS[i].path)) {
+    const stepPath = STEPS[i].path;
+    if (path === stepPath || path.startsWith(stepPath + '/')) {
+      // /pro/ticker/:symbol is the Analyze step even though it starts with /pro
+      if (stepPath === '/pro' && path.startsWith('/pro/ticker')) {
+        currentIdx = 2; // Analyze
+        break;
+      }
       currentIdx = i;
+      break;
     }
   }
 
