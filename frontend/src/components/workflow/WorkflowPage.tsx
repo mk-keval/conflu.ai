@@ -3,16 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { fetchMarketRegime, fetchSectorRotation } from '@/api/sectorRotation';
 import { analyzePortfolio } from '@/api/workflow';
-import type { MarketRegimeResponse, SectorRotationResponse, SectorPerformance } from '@/types/sector';
 import type { PortfolioResponse, SymbolAllocation } from '@/api/workflow';
 import { usePortfolioStore } from '@/store/portfolio';
 import {
   TrendingUp, TrendingDown, Activity, Gauge, Search, BarChart3,
-  Plus, X, RefreshCw, Loader2, AlertTriangle, ChevronRight,
-  DollarSign, Shield, Brain, PieChart,
+  Plus, X, Loader2, AlertTriangle, ChevronRight,
+  Brain, PieChart,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import { formatPrice, formatPct } from '@/lib/format';
+import { formatPrice } from '@/lib/format';
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary';
 
 function regimeColor(score: number): string {
@@ -80,36 +79,10 @@ function TickerCard({ analysis }: { analysis: SymbolAllocation }) {
   );
 }
 
-// ── Sector Pill ──
-
-function SectorPill({ sector, isSelected, onClick }: { sector: SectorPerformance; isSelected: boolean; onClick: () => void }) {
-  const change = sector.change_1d ?? 0;
-  const isPos = change >= 0;
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs transition-colors',
-        isSelected
-          ? 'bg-accent/10 border-accent/30 text-accent font-medium'
-          : 'border-border/50 text-text-muted hover:border-text-muted/30 hover:text-text-primary'
-      )}
-    >
-      <span className="font-medium">{sector.symbol}</span>
-      <span className={cn('font-mono', isPos ? 'text-green-500' : 'text-red-400')}>
-        {isPos ? '+' : ''}{change.toFixed(1)}%
-      </span>
-    </button>
-  );
-}
-
 // ── Main Workflow Page ──
 
 function WorkflowContent() {
   const navigate = useNavigate();
-
-  // ── Step state ──
-  const [step, setStep] = useState(1);
 
   // ── Watchlist state — synced with portfolio store ──
   const [watchlistInput, setWatchlistInput] = useState('');
@@ -177,8 +150,10 @@ function WorkflowContent() {
   const regimeScore = regime?.composite_score ?? null;
   const regimeLabel = regime?.regime_label ?? null;
   const sectors = sectorRotation?.sectors ?? [];
-  const leaders = sectorRotation?.leaders ?? [];
-  const laggards = sectorRotation?.laggards ?? [];
+  // Sort by 1D change so "Leading"/"Lagging" match the metric shown next to them
+  const sortedByChange = [...sectors].sort((a, b) => ((b.change_1d ?? 0)) - ((a.change_1d ?? 0)));
+  const leaders = sortedByChange.slice(0, 3).map(s => s.symbol);
+  const laggards = sortedByChange.slice(-3).map(s => s.symbol).reverse();
 
   // Strategy hint based on regime
   const strategyHint = (() => {
@@ -194,7 +169,7 @@ function WorkflowContent() {
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       <div className="border-b border-border bg-surface/50 px-4 py-3">
-        <h1 className="text-xl font-bold text-text-primary flex items-center gap-2">
+        <h1 className="font-display text-xl font-semibold tracking-tight text-text-primary flex items-center gap-2">
           <Activity className="h-5 w-5 text-accent" />
           Swing Trading Desk
         </h1>

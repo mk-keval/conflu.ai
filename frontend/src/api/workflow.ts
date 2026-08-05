@@ -7,6 +7,7 @@ export interface SymbolAllocation {
   symbol: string;
   sector?: string | null;
   price?: number | null;
+  beta?: number | null;
   conviction: number;
   action: string;
   suggested_pct?: number | null;

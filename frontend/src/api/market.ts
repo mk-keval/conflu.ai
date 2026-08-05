@@ -1,6 +1,5 @@
 import apiClient from './client';
 import type { ApiResponse } from '@/types/api';
-import type { MarketRegimeResponse } from '@/types/sector';
 
 export interface MarketEvent {
   date: string;

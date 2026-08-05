@@ -26,7 +26,7 @@ import { TemplateInfoStrip } from './TemplateInfoStrip';
 import { ScreenerEducation } from './ScreenerEducation';
 import type { WSMessage } from '@/types/ws';
 import type { SectorPerformance, SectorRotationResponse } from '@/types/sector';
-import { ChevronDown, Play, Loader2, RefreshCw, Columns, List, BookOpen, TrendingUp, TrendingDown, Activity, AlertTriangle, Gauge } from 'lucide-react';
+import { ChevronDown, Play, Loader2, RefreshCw, Columns, List, BookOpen, TrendingUp, TrendingDown, Gauge } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { ALL_COLUMNS_META, DEFAULT_VISIBLE_COLUMNS } from './ScreenerTable';
 
@@ -94,7 +94,7 @@ function ScreenerContent() {
   const setConfig = useScreenStore((s) => s.setConfig);
   const { subscribe, unsubscribe, onMessage } = useWS();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
 
   // State
   const [templates, setTemplates] = useState<TVTemplate[]>([]);
@@ -621,7 +621,7 @@ function ScreenerHeader({
       <div className="px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-4 flex-1 min-w-0">
           <div>
-            <h1 className="text-xl font-bold text-text-primary">{screenName}</h1>
+            <h1 className="font-display text-xl font-semibold tracking-tight text-text-primary">{screenName}</h1>
             <p className="text-sm text-text-muted flex items-center gap-2">
               <span>{totalMatches.toLocaleString()} matches</span>
               {executionTime > 0 && <span>• {executionTime}ms</span>}

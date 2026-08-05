@@ -1,15 +1,12 @@
-import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { fetchMarketRegime, fetchSectorRotation } from '@/api/sectorRotation';
 import { fetchMarketEvents, fetchMarketNarrative } from '@/api/market';
-import type { MarketEvent } from '@/api/market';
 import {
-  TrendingUp, TrendingDown, Activity, Gauge, AlertTriangle,
-  Search, BarChart3, Calendar, ChevronRight, RefreshCw,
+  TrendingUp, TrendingDown, Activity,
+  Search, BarChart3, Calendar, ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import { formatPct } from '@/lib/format';
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary';
 
 function regimeColor(score: number): string {
@@ -85,14 +82,14 @@ function DashboardContent() {
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       <div className="border-b border-border bg-surface/50 px-4 py-3">
-        <h1 className="text-xl font-bold text-text-primary flex items-center gap-2">
+        <h1 className="font-display text-xl font-semibold tracking-tight text-text-primary flex items-center gap-2">
           <Activity className="h-5 w-5 text-accent" />
           Dashboard
         </h1>
         <p className="text-sm text-text-muted">Market context at a glance — then choose your focus</p>
       </div>
 
-      <div className="flex-1 space-y-4 p-4 max-w-5xl mx-auto w-full">
+      <div className="flex-1 space-y-4 p-4 max-w-6xl mx-auto w-full">
         {/* ── Narrative ── */}
         {narrative && (
           <div className="text-sm text-text-secondary bg-accent/5 border border-accent/10 rounded-lg px-4 py-3 leading-relaxed">

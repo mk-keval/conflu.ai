@@ -9,7 +9,7 @@ import {
   type NewsResponse,
 } from '@/api/tickerAnalysis';
 import { fetchSectorRotation } from '@/api/sectorRotation';
-import type { SectorPerformance, SectorRotationResponse } from '@/types/sector';
+import type { SectorRotationResponse } from '@/types/sector';
 import { usePortfolioStore } from '@/store/portfolio';
 import type { TickerAnalysisResponse, TechnicalAnalysis } from '@/types/tickerAnalysis';
 import { cn } from '@/lib/cn';
@@ -243,7 +243,7 @@ function VerdictBanner({ data, weightedScore }: { data: TickerAnalysisResponse; 
           <div className={cn('p-2 rounded-full', cfg.bg)}>{cfg.icon}</div>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-text-primary">{data.symbol}</h1>
+              <h1 className="font-display text-2xl font-semibold tracking-tight text-text-primary">{data.symbol}</h1>
               <span className={cn('text-xl font-semibold', isPositive ? 'text-gain' : 'text-loss')}>
                 {data.price != null ? formatPrice(data.price) : '—'}
               </span>
@@ -1258,7 +1258,7 @@ export function TickerAnalysisPage() {
       <div className="p-6 max-w-3xl mx-auto">
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
           <Search className="w-16 h-16 text-text-muted mb-4" />
-          <h1 className="text-xl font-semibold text-text-primary mb-2">Ticker Analysis</h1>
+          <h1 className="font-display text-xl font-semibold tracking-tight text-text-primary mb-2">Ticker Analysis</h1>
           <p className="text-text-muted mb-6 max-w-md">
             Enter a stock symbol to get an elite-trader-grade analysis with technical, fundamental, earnings,
             sentiment, and risk assessment — plus an actionable verdict.

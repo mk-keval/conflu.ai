@@ -1,33 +1,21 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { analyzePortfolio } from '@/api/workflow';
 import { usePortfolioStore } from '@/store/portfolio';
-import type { PortfolioResponse } from '@/api/workflow';
 import {
-  TrendingUp, TrendingDown, Activity, PieChart, BarChart3,
-  Plus, X, RefreshCw, Loader2, AlertTriangle, ChevronRight,
-  Trash2,
+  PieChart, BarChart3, X, Loader2, AlertTriangle, ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { formatPrice } from '@/lib/format';
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary';
-
-function actionColor(action: string): string {
-  if (action === 'STRONG BUY' || action === 'BUY') return 'text-green-500 bg-green-500/10 border-green-500/30';
-  if (action === 'ACCUMULATE') return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30';
-  if (action === 'WATCH') return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30';
-  if (action === 'HOLD') return 'text-orange-400 bg-orange-400/10 border-orange-400/30';
-  if (action === 'REDUCE' || action === 'AVOID') return 'text-red-400 bg-red-400/10 border-red-400/30';
-  return 'text-text-muted bg-surface-tertiary/50 border-border/50';
-}
 
 function PortfolioContent() {
   const navigate = useNavigate();
   const { items, removeSymbol, clearAll } = usePortfolioStore();
   const symbols = useMemo(() => items.map((i) => i.symbol), [items]);
 
-  const { data, isLoading, isFetching, isError, refetch } = useQuery({
+  const { data, isFetching, isError, refetch } = useQuery({
     queryKey: ['portfolio-analysis', symbols],
     queryFn: () => analyzePortfolio(symbols),
     enabled: symbols.length >= 2,
@@ -39,7 +27,7 @@ function PortfolioContent() {
     <div className="flex h-full flex-col overflow-y-auto">
       <div className="border-b border-border bg-surface/50 px-4 py-3 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-text-primary flex items-center gap-2">
+          <h1 className="font-display text-xl font-semibold tracking-tight text-text-primary flex items-center gap-2">
             <PieChart className="h-5 w-5 text-accent" />
             Portfolio
           </h1>
