@@ -64,12 +64,15 @@ class MarketRegimeResponse(BaseModel):
 
 
 # ── TTL Cache (timestamp-based, no external deps) ──
+# Deliberately long (6h) — regime is a swing-trading indicator measuring
+# trailing ~1mo trends. Intraday noise shouldn't flip the label.
+# Working 9-5 users check 2-3x/day; 6h cache covers that without stale reads.
 
 import time
 
 _MACRO_CACHE: dict[str, Any] | None = None
 _MACRO_CACHE_TIME: float = 0.0
-_CACHE_TTL: float = 21600.0  # 6 hours (daily data — changes only at market close)
+_CACHE_TTL: float = 21600.0  # 6 hours
 
 _SECTOR_BREADTH_CACHE: dict[str, Any] | None = None
 _SECTOR_BREADTH_TIME: float = 0.0
@@ -135,13 +138,17 @@ def _fetch_sector_breadth() -> dict[str, Any]:
 
 
 def _score_vix(vix_df: pd.DataFrame | None) -> tuple[float, float, str]:
-    """Score VIX level and trend. Returns (score_0-100, current_value, status)."""
+    """Score VIX level and trailing ~1mo trend. Returns (score_0-100, current_value, status).
+
+    Data fetched with period='1mo', so iloc[0] ≈ 21 trading days back.
+    This lookback aligns with the swing-trading focus (holds: days to weeks).
+    """
     if vix_df is None or vix_df.empty:
         return 50.0, 0.0, "unknown"
 
     vix = float(vix_df["Close"].iloc[-1])
-    vix_5d_ago = float(vix_df["Close"].iloc[0]) if len(vix_df) >= 2 else vix
-    vix_change = ((vix - vix_5d_ago) / vix_5d_ago) * 100
+    vix_start = float(vix_df["Close"].iloc[0]) if len(vix_df) >= 2 else vix
+    vix_change_1mo = ((vix - vix_start) / vix_start) * 100
 
     # Base score from VIX level
     if vix < 12:
@@ -163,12 +170,12 @@ def _score_vix(vix_df: pd.DataFrame | None) -> tuple[float, float, str]:
         score = 10.0
         status = "panic"
 
-    # Adjust for trend
-    if vix_change > 20:
-        score -= 15  # VIX spiking up → penalty
+    # Adjust for trailing ~1mo trend
+    if vix_change_1mo > 20:
+        score -= 15  # VIX up big over the month → penalty
         status = "spiking"
-    elif vix_change < -15:
-        score += 10  # VIX dropping fast → bonus
+    elif vix_change_1mo < -15:
+        score += 10  # VIX falling over the month → bonus
 
     return max(0.0, min(100.0, score)), round(vix, 2), status
 
@@ -177,26 +184,27 @@ def _score_risk_appetite(
     spy_df: pd.DataFrame | None,
     tlt_df: pd.DataFrame | None,
 ) -> tuple[float, float, str]:
-    """Score risk appetite from SPY vs TLT performance spread.
+    """Score risk appetite from SPY vs TLT trailing ~1mo performance spread.
 
     SPY up + TLT flat/down = Risk-On (high score)
     SPY down + TLT up = Risk-Off (low score)
+    Data fetched with period='1mo', so iloc[0] ≈ 21 trading days back.
     Returns (score_0-100, spread_value, status).
     """
     if spy_df is None or len(spy_df) < 2:
         return 50.0, 0.0, "unknown"
 
     spy_close = spy_df["Close"]
-    spy_5d = (float(spy_close.iloc[-1]) - float(spy_close.iloc[0])) / float(spy_close.iloc[0]) * 100
+    spy_1mo = (float(spy_close.iloc[-1]) - float(spy_close.iloc[0])) / float(spy_close.iloc[0]) * 100
     spy_1d = (float(spy_close.iloc[-1]) - float(spy_close.iloc[-2])) / float(spy_close.iloc[-2]) * 100
 
-    tlt_5d = 0.0
+    tlt_1mo = 0.0
     if tlt_df is not None and len(tlt_df) >= 2:
         tlt_close = tlt_df["Close"]
-        tlt_5d = (float(tlt_close.iloc[-1]) - float(tlt_close.iloc[0])) / float(tlt_close.iloc[0]) * 100
+        tlt_1mo = (float(tlt_close.iloc[-1]) - float(tlt_close.iloc[0])) / float(tlt_close.iloc[0]) * 100
 
-    # Risk appetite spread: how much SPY outperforms TLT
-    spread = spy_5d - tlt_5d
+    # Risk appetite spread: how much SPY outperforms TLT over the trailing month
+    spread = spy_1mo - tlt_1mo
 
     # Normalize to 0-100: spread of -5 to +15 maps to 0-100
     score = (spread + 5.0) / 20.0 * 100.0
@@ -219,34 +227,35 @@ def _score_safe_haven(
     gld_df: pd.DataFrame | None,
     spy_df: pd.DataFrame | None,
 ) -> tuple[float, float, str]:
-    """Score safe haven demand from GLD performance vs SPY.
+    """Score safe haven demand from GLD vs SPY trailing ~1mo performance.
 
     Gold up significantly while SPY down → fear (low score)
     Gold flat/down while SPY up → risk-on (high score)
-    Returns (score_0-100, gold_perf_5d, status).
+    Data fetched with period='1mo', so iloc[0] ≈ 21 trading days back.
+    Returns (score_0-100, gold_perf_1mo, status).
     """
     if gld_df is None or len(gld_df) < 2:
         return 50.0, 0.0, "unknown"
 
     gld_close = gld_df["Close"]
-    gld_5d = (float(gld_close.iloc[-1]) - float(gld_close.iloc[0])) / float(gld_close.iloc[0]) * 100
+    gld_1mo = (float(gld_close.iloc[-1]) - float(gld_close.iloc[0])) / float(gld_close.iloc[0]) * 100
 
-    spy_5d = 0.0
+    spy_1mo = 0.0
     if spy_df is not None and len(spy_df) >= 2:
         spy_close = spy_df["Close"]
-        spy_5d = (float(spy_close.iloc[-1]) - float(spy_close.iloc[0])) / float(spy_close.iloc[0]) * 100
+        spy_1mo = (float(spy_close.iloc[-1]) - float(spy_close.iloc[0])) / float(spy_close.iloc[0]) * 100
 
     # If gold is up significantly while SPY is down = fear flight
-    if gld_5d > 2 and spy_5d < -1:
+    if gld_1mo > 2 and spy_1mo < -1:
         score = 15.0
         status = "flight_to_safety"
-    elif gld_5d > 1 and spy_5d < 0:
+    elif gld_1mo > 1 and spy_1mo < 0:
         score = 30.0
         status = "hedging"
-    elif gld_5d < -1 and spy_5d > 1:
+    elif gld_1mo < -1 and spy_1mo > 1:
         score = 85.0
         status = "risk_on"
-    elif abs(gld_5d) < 1:
+    elif abs(gld_1mo) < 1:
         score = 65.0
         status = "neutral"
     else:
@@ -254,31 +263,32 @@ def _score_safe_haven(
         score = 50.0
         status = "mixed"
 
-    return score, round(gld_5d, 2), status
+    return score, round(gld_1mo, 2), status
 
 
 def _score_yield_curve(
     tlt_df: pd.DataFrame | None,
     shy_df: pd.DataFrame | None,
 ) -> tuple[float, float, str]:
-    """Score yield curve signal from TLT vs SHY relative performance.
+    """Score yield curve signal from TLT vs SHY trailing ~1mo relative performance.
 
     TLT outperforming SHY → flight to long duration (bearish for growth)
     SHY performing inline or TLT underperforming → normal
+    Data fetched with period='1mo', so iloc[0] ≈ 21 trading days back.
     Returns (score_0-100, spread_value, status).
     """
     if tlt_df is None or shy_df is None or len(tlt_df) < 2 or len(shy_df) < 2:
         return 50.0, 0.0, "unknown"
 
     tlt_close = tlt_df["Close"]
-    tlt_5d = (float(tlt_close.iloc[-1]) - float(tlt_close.iloc[0])) / float(tlt_close.iloc[0]) * 100
+    tlt_1mo = (float(tlt_close.iloc[-1]) - float(tlt_close.iloc[0])) / float(tlt_close.iloc[0]) * 100
 
     shy_close = shy_df["Close"]
-    shy_5d = (float(shy_close.iloc[-1]) - float(shy_close.iloc[0])) / float(shy_close.iloc[0]) * 100
+    shy_1mo = (float(shy_close.iloc[-1]) - float(shy_close.iloc[0])) / float(shy_close.iloc[0]) * 100
 
-    spread = tlt_5d - shy_5d
+    spread = tlt_1mo - shy_1mo
 
-    # TLT significantly outperforming = flight to duration (recession fear)
+    # TLT significantly outperforming over the month = flight to duration (recession fear)
     if spread > 2:
         score = 20.0
         status = "flattening"
@@ -344,59 +354,60 @@ def _composite_to_label(score: float) -> tuple[str, str]:
 # ── Route ──
 
 
-@router.get("/regime")
-async def get_market_regime() -> ApiResponse[MarketRegimeResponse]:
-    """Get current market regime snapshot with composite score and all sub-indicators."""
-    now = datetime.now(UTC)
-    start = datetime.now(UTC)
+def compute_market_regime_sync() -> MarketRegimeResponse | None:
+    """Compute the market regime snapshot synchronously.
 
-    macro = _get_or_fetch_macro()
+    Pure-sync implementation of the regime endpoint. The actual computation
+    (fetch, score, weight, label) never awaits — only the HTTP wrapper does.
+    This lets internal callers (e.g. morning brief) reuse the exact same logic
+    without event-loop gymnastics.
+    """
+    try:
+        now = datetime.now(UTC)
+        start = datetime.now(UTC)
 
-    # Score each indicator
-    vix_score, vix_value, vix_status = _score_vix(macro.get(VIX_SYM))
-    risk_score, risk_spread, risk_status = _score_risk_appetite(
-        macro.get(SPY_SYM), macro.get(TLT_SYM)
-    )
-    safe_score, gold_perf, safe_status = _score_safe_haven(
-        macro.get(GLD_SYM), macro.get(SPY_SYM)
-    )
-    yield_score, yield_spread, yield_status = _score_yield_curve(
-        macro.get(TLT_SYM), macro.get(SHY_SYM)
-    )
-    breadth_score, breadth_pct, breadth_status = _score_sector_breadth()
+        macro = _get_or_fetch_macro()
 
-    # Composite: weighted average with dynamic weights
-    # Normal
-    weights = {
-        "vix": 0.30,
-        "risk_appetite": 0.25,
-        "sector_breadth": 0.20,
-        "safe_haven": 0.15,
-        "yield_curve": 0.10,
-    }
+        vix_score, vix_value, vix_status = _score_vix(macro.get(VIX_SYM))
+        risk_score, risk_spread, risk_status = _score_risk_appetite(
+            macro.get(SPY_SYM), macro.get(TLT_SYM)
+        )
+        safe_score, gold_perf, safe_status = _score_safe_haven(
+            macro.get(GLD_SYM), macro.get(SPY_SYM)
+        )
+        yield_score, yield_spread, yield_status = _score_yield_curve(
+            macro.get(TLT_SYM), macro.get(SHY_SYM)
+        )
+        breadth_score, breadth_pct, breadth_status = _score_sector_breadth()
 
-    # Boost risk_appetite weight when it's extreme (consensus-building)
-    if risk_score >= 80 or risk_score <= 20:
-        weights["risk_appetite"] = 0.35
-        weights["vix"] = 0.25
-        weights["sector_breadth"] = 0.15
-        weights["safe_haven"] = 0.15
-        weights["yield_curve"] = 0.10
+        weights = {
+            "vix": 0.30,
+            "risk_appetite": 0.25,
+            "sector_breadth": 0.20,
+            "safe_haven": 0.15,
+            "yield_curve": 0.10,
+        }
 
-    composite = (
-        vix_score * weights["vix"]
-        + risk_score * weights["risk_appetite"]
-        + breadth_score * weights["sector_breadth"]
-        + safe_score * weights["safe_haven"]
-        + yield_score * weights["yield_curve"]
-    )
+        if risk_score >= 80 or risk_score <= 20:
+            weights["risk_appetite"] = 0.35
+            weights["vix"] = 0.25
+            weights["sector_breadth"] = 0.15
+            weights["safe_haven"] = 0.15
+            weights["yield_curve"] = 0.10
 
-    regime_label, regime_color = _composite_to_label(composite)
+        composite = (
+            vix_score * weights["vix"]
+            + risk_score * weights["risk_appetite"]
+            + breadth_score * weights["sector_breadth"]
+            + safe_score * weights["safe_haven"]
+            + yield_score * weights["yield_curve"]
+        )
 
-    duration = (datetime.now(UTC) - start).total_seconds() * 1000
+        regime_label, regime_color = _composite_to_label(composite)
 
-    return ApiResponse(
-        data=MarketRegimeResponse(
+        duration = (datetime.now(UTC) - start).total_seconds() * 1000
+
+        return MarketRegimeResponse(
             composite_score=round(composite, 1),
             regime_label=regime_label,
             regime_color=regime_color,
@@ -437,7 +448,38 @@ async def get_market_regime() -> ApiResponse[MarketRegimeResponse]:
             ),
             timestamp=now.isoformat(),
             data_fetched_at=datetime.fromtimestamp(_MACRO_CACHE_TIME, UTC).isoformat(),
-        ),
+        )
+    except Exception:
+        log.exception("market_regime_compute_failed")
+        return None
+
+
+@router.get("/regime")
+async def get_market_regime() -> ApiResponse[MarketRegimeResponse]:
+    """Get current market regime snapshot with composite score and all sub-indicators."""
+    start = datetime.now(UTC)
+    data = compute_market_regime_sync()
+
+    duration = (datetime.now(UTC) - start).total_seconds() * 1000
+
+    if data is None:
+        return ApiResponse(
+            data=MarketRegimeResponse(
+                composite_score=0.0,
+                regime_label="unknown",
+                regime_color="#facc15",
+                vix=RegimeIndicator(name="VIX", value=0, score=0, weight=0, status="unknown"),
+                risk_appetite=RegimeIndicator(name="Risk Appetite", value=0, score=0, weight=0, status="unknown"),
+                sector_breadth=RegimeIndicator(name="Sector Breadth", value=0, score=0, weight=0, status="unknown"),
+                safe_haven=RegimeIndicator(name="Safe Haven", value=0, score=0, weight=0, status="unknown"),
+                yield_curve=RegimeIndicator(name="Yield Curve", value=0, score=0, weight=0, status="unknown"),
+                timestamp=datetime.now(UTC).isoformat(),
+            ),
+            meta=MetaInfo(request_id="", duration_ms=round(duration, 1)),
+        )
+
+    return ApiResponse(
+        data=data,
         meta=MetaInfo(request_id="", duration_ms=round(duration, 1)),
     )
 
@@ -445,23 +487,7 @@ async def get_market_regime() -> ApiResponse[MarketRegimeResponse]:
 # ── Synchronous wrapper for internal use ──
 def get_market_regime_sync() -> MarketRegimeResponse | None:
     """Synchronous wrapper to fetch market regime for internal use."""
-    import asyncio
-    
-    async def _get_regime() -> MarketRegimeResponse | None:
-        try:
-            response: ApiResponse = await get_market_regime()
-            return response.data
-        except Exception:
-            log.exception("macro_regime_fetch_failed")
-            return None
-    
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    
-    return loop.run_until_complete(_get_regime())
+    return compute_market_regime_sync()
 
 
 # ── Market Events ──

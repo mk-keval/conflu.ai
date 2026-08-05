@@ -463,14 +463,14 @@ async def _fetch_market_internals() -> MarketInternals:
     except Exception:
         log.debug("vix_fetch_failed", exc_info=True)
     try:
-        spy = yf.Ticker("SPY")
+        spy = yf.Ticker("^GSPC")  # S&P 500 index (not SPY ETF — index level is what non-experts expect)
         spy_hist = spy.history(period="5d", interval="1d")
         if not spy_hist.empty:
             internals.sp500_futures = round(float(spy_hist["Close"].iloc[-1]), 2)
     except Exception:
         log.debug("spy_fetch_failed", exc_info=True)
     try:
-        qqq = yf.Ticker("QQQ")
+        qqq = yf.Ticker("^IXIC")  # Nasdaq Composite index (not QQQ ETF)
         qqq_hist = qqq.history(period="5d", interval="1d")
         if not qqq_hist.empty:
             internals.nasdaq_futures = round(float(qqq_hist["Close"].iloc[-1]), 2)
