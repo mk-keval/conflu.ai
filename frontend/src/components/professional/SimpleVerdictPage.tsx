@@ -114,7 +114,7 @@ export function SimpleVerdictPage() {
       <div className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-2xl font-bold text-text-primary">{verdict.symbol}</h1>
+            <h1 className="font-display text-2xl font-semibold tracking-tight text-text-primary">{verdict.symbol}</h1>
             <span
               data-testid="verdict-badge"
               className={cn(

@@ -63,7 +63,7 @@ export function ProSettingsPage() {
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-8">
       <div>
-        <h1 className="text-xl font-bold text-text-primary">Professional Settings</h1>
+        <h1 className="font-display text-xl font-semibold tracking-tight text-text-primary">Professional Settings</h1>
         <p className="text-xs text-text-muted">
           Configure your Professional Mode experience
         </p>

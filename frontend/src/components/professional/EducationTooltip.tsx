@@ -40,6 +40,38 @@ const STATIC_EXPLANATIONS: Record<string, { what: string; why: string }> = {
     what: "Today's trading volume vs the 10-day average.",
     why: 'Above 1.5 = unusual activity. Above 3 = major event.',
   },
+  change_1w: {
+    what: 'Price change over the last week (5 trading days).',
+    why: 'Confirms momentum: a stock up over a week has more conviction than a one-day pop.',
+  },
+  market_regime: {
+    what: 'Overall market mood, scored 0-100 from VIX, risk appetite, sector breadth, safe haven flows, and yield curve.',
+    why: 'High = favorable for buying. Low = defensive. It tells you whether to lean aggressive or cautious.',
+  },
+  sector_rotation: {
+    what: 'How money is moving between industry sectors (tech, health, energy, etc.).',
+    why: 'Follows the economic cycle. Buying the sector where money is flowing increases your odds.',
+  },
+  vix: {
+    what: 'VIX — the market\'s "fear gauge." Measures how much volatility investors expect in the next 30 days.',
+    why: 'Below 15 = calm. Above 30 = panic. High VIX usually means stocks are under pressure.',
+  },
+  advance_decline_ratio: {
+    what: 'How many sectors rose today vs how many fell.',
+    why: 'Above 1 = more winners than losers (healthy market). Below 1 = broad selling.',
+  },
+  dollar_index: {
+    what: 'US Dollar strength vs a basket of major currencies.',
+    why: 'Rising dollar can pressure commodities and international revenue. Falling dollar often helps gold and foreign sales.',
+  },
+  sp500_futures: {
+    what: 'S&P 500 index level — tracks the 500 largest US companies.',
+    why: 'The benchmark for "how is the overall market doing." Up = risk appetite, down = caution.',
+  },
+  nasdaq_futures: {
+    what: 'Nasdaq index level — tracks big tech and growth stocks.',
+    why: 'More volatile than the S&P. Tells you how the tech-heavy part of the market is doing.',
+  },
 };
 
 export function EducationTooltip({

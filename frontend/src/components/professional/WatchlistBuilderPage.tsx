@@ -73,7 +73,7 @@ export function WatchlistBuilderPage() {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold text-text-primary">Watchlist Builder</h1>
+          <h1 className="font-display text-xl font-semibold tracking-tight text-text-primary">Watchlist Builder</h1>
           <p className="text-xs text-text-muted">
             Build and analyze your watchlist in minutes
           </p>

@@ -61,29 +61,29 @@ export function MarketInternalsStrip({ internals }: MarketInternalsStripProps) {
         label="VIX"
         value={internals.vix}
         format="decimal"
-        educationKey="rsi"
+        educationKey="vix"
       />
       <InternalsItem
         label="A/D"
         value={internals.advanceDeclineRatio}
         format="decimal"
-        educationKey="volume_ratio"
+        educationKey="advance_decline_ratio"
       />
       <InternalsItem
         label="$USD"
         value={internals.dollarIndex}
         format="decimal"
-        educationKey="beta"
+        educationKey="dollar_index"
       />
       <InternalsItem
-        label="S&P Fut"
+        label="S&P 500"
         value={internals.sp500Futures}
-        educationKey="market_cap"
+        educationKey="sp500_futures"
       />
       <InternalsItem
-        label="NAS Fut"
+        label="Nasdaq"
         value={internals.nasdaqFutures}
-        educationKey="market_cap"
+        educationKey="nasdaq_futures"
       />
     </div>
   );

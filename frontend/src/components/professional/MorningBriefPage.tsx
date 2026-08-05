@@ -17,6 +17,13 @@ const REGIME_COLORS: Record<string, string> = {
   risk_on: 'bg-green-500/15 text-green-400 border-green-500/30',
   risk_off: 'bg-red-500/15 text-red-400 border-red-500/30',
   neutral: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
+  // Raw regime labels (from /api/v1/market/regime — used when no override)
+  Exuberance: 'bg-green-500/15 text-green-400 border-green-500/30',
+  'Risk-On': 'bg-green-500/15 text-green-400 border-green-500/30',
+  Neutral: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
+  Cautious: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
+  'Risk-Off': 'bg-red-500/15 text-red-400 border-red-500/30',
+  Crisis: 'bg-red-600/15 text-red-500 border-red-600/30',
 };
 
 function ScreenSectionView({
@@ -166,7 +173,7 @@ export function MorningBriefPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-text-primary">Morning Brief</h1>
+          <h1 className="font-display text-xl font-semibold tracking-tight text-text-primary">Morning Brief</h1>
           <p className="text-xs text-text-muted">
             {new Date(brief.generatedAt).toLocaleDateString('en-US', {
               weekday: 'long',
@@ -199,7 +206,7 @@ export function MorningBriefPage() {
           {brief.regime.replace(/_/g, ' ').toUpperCase()}
         </div>
         <span className="text-sm text-text-muted">{brief.regimeDescription}</span>
-        <EducationTooltip metricKey="rsi" metricLabel="Market Regime" compact />
+        <EducationTooltip metricKey="market_regime" metricLabel="Market Regime" compact />
       </div>
 
       {/* Market Internals */}
@@ -209,7 +216,7 @@ export function MorningBriefPage() {
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold text-text-primary">Sector Rotation</h2>
-          <EducationTooltip metricKey="market_cap" metricLabel="Sector Rotation" compact />
+          <EducationTooltip metricKey="sector_rotation" metricLabel="Sector Rotation" compact />
         </div>
         <SectorHeatmapMini sectors={brief.sectors} />
       </div>
