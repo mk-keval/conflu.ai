@@ -30,6 +30,8 @@ This section contains Architecture Decision Records (ADRs) for significant proje
 - [D-27: Professional Mode Backend Architecture](D-27-professional-mode-backend-architecture.md)
 - [D-28: Professional Mode UI & Integration](D-28-professional-mode-ui-integration.md)
 - [D-10: Professional Mode Architecture](D-010-professional-mode-arch.md)
+- [D-29: Glass Terminal Design System & Brand Identity](D-29-glass-terminal-design-system.md)
+- [D-30: Remove Header TickerTape Component](D-30-remove-header-ticker-tape.md)
 
 ## Other Decision Records
 - [Phase 9: Advanced Backtest](2026-06-19-phase9-advanced-backtest.md) — ATR-based sizing, vectorized signals, parameter optimization, monte carlo, multi-symbol backtest 
