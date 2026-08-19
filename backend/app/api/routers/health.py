@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter
 from starlette.responses import JSONResponse
 
+from backend.app.core.config import settings
 from backend.app.core.database import get_db
 from backend.app.core.logging import get_logger
 
@@ -36,31 +37,29 @@ async def health_check() -> dict[str, str]:
 
 @router.get("/health/ready")
 async def readiness_check() -> JSONResponse:
-    """Readiness check — verifies DuckDB connectivity and indicator cache.
+    """Readiness check — verifies DuckDB connectivity.
+
+    Per ADR-001/D-32, DuckDB is an optional, non-load-bearing store: it is only
+    read on-demand by backtest/risk. The readiness probe therefore reports the
+    database as the sole dependency; it must NOT gate on the (retired)
+    indicator-cache tables, which would mark a healthy API as degraded once the
+    legacy indicator_values rows are dropped.
 
     Returns:
-        - 200 with {"status": "healthy", "checks": {...}} if all pass
-        - 503 with {"status": "degraded", "checks": {...}} if any fail
+        - 200 with {"status": "healthy", "checks": {...}} if the DB is reachable
+        - 503 with {"status": "degraded", "checks": {...}} if it is not
     """
     db_ok = False
-    cache_ok = False
 
     try:
-        with get_db(read_only=True, timeout_s=5.0) as con:
+        with get_db(read_only=True, timeout_s=settings.api.health_db_timeout_s) as con:
             con.sql("SELECT 1").fetchone()
             db_ok = True
-
-            # Check if indicator_values table exists
-            result = con.sql(
-                "SELECT COUNT(*) as cnt FROM information_schema.tables WHERE table_name = 'indicator_values'"
-            ).fetchone()
-            cache_ok = (result and result[0] > 0) if result else False
     except Exception:
         log.exception("health_readiness_db_check_failed")
 
-    all_ok = db_ok and cache_ok
-    status = "healthy" if all_ok else "degraded"
-    status_code = 200 if all_ok else 503
+    status = "healthy" if db_ok else "degraded"
+    status_code = 200 if db_ok else 503
 
     return JSONResponse(
         status_code=status_code,
@@ -71,7 +70,6 @@ async def readiness_check() -> JSONResponse:
             "timestamp": datetime.now(UTC).isoformat(),
             "checks": {
                 "database": db_ok,
-                "indicator_cache": cache_ok,
             },
         },
     )

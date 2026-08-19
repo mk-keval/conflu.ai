@@ -368,7 +368,6 @@ class HealthCheckDetail(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     database: bool = False
-    indicator_cache: bool = False
 
 
 class ReadinessResponse(HealthResponse):

@@ -37,6 +37,21 @@ from backend.app.infrastructure.screener.tv_engine import TVScreenEngine
 
 log = get_logger("conflu.professional.morning_brief")
 
+# Max concurrent yfinance holdings fetches for the 4th sector screen.
+# Bounded low enough to avoid tripping yfinance rate limits while still
+# parallelizing the previously-serial ~15 calls.
+_HOLDING_CONCURRENCY: int = 4
+
+# Max concurrent yfinance sector fetches for sector rotation / A-D breadth.
+_SECTOR_CONCURRENCY: int = 4
+
+# ── Brief cache ──
+# The morning brief is a daily artifact. Regenerating it on every page load
+# fires ~50 blocking yfinance/TV calls, which stalls the page and the event
+# loop. Cache the last generated brief with a TTL so repeated page loads reuse
+# one generation instead of fanning out the full pipeline each time.
+_BRIEF_CACHE_TTL: float = 6 * 60 * 60  # 6h — covers pre-market through close
+
 # ── Regime label mapping ──
 _REGIME_LABEL_MAP: dict[str, str] = {
     "Exuberance": "strong_trend",
@@ -79,12 +94,40 @@ class MorningBriefService:
     ) -> None:
         self._screen_engine = screen_engine or TVScreenEngine()
         self._regime_selector = regime_selector or RegimeScreenSelector()
+        # TTL cache for the generated brief (see _BRIEF_CACHE_TTL above)
+        self._cached_brief: MorningBriefResponse | None = None
+        self._cached_at: float = 0.0
+        self._cache_lock = asyncio.Lock()
 
     async def generate_morning_brief(
-        self, regime_override: str | None = None
+        self, regime_override: str | None = None, force: bool = False
+    ) -> MorningBriefResponse:
+        # Serialize the whole check+generate+cache cycle under one lock so
+        # concurrent page loads share a single cold generation instead of each
+        # fanning out ~50 external calls (D-31's cache intent). asyncio.Lock
+        # yields at every await (the pipeline offloads to asyncio.to_thread), so
+        # the event loop stays responsive for other requests during generation.
+        async with self._cache_lock:
+            return await self._generate(regime_override=regime_override, force=force)
+
+    async def _generate(
+        self, regime_override: str | None = None, force: bool = False
     ) -> MorningBriefResponse:
         start_time = time.monotonic()
-        log.info("morning_brief_generation_started", regime_override=regime_override)
+
+        # Serve from cache when fresh (and no regime override requested).
+        if not force and regime_override is None:
+            if self._cached_brief is not None:
+                age = time.monotonic() - self._cached_at
+                if age < _BRIEF_CACHE_TTL:
+                    log.info(
+                        "morning_brief_cache_hit",
+                        age_ms=round(age * 1000),
+                        cached_at=self._cached_at,
+                    )
+                    return self._cached_brief
+
+        log.info("morning_brief_generation_started", regime_override=regime_override, force=force)
 
         # 1. Detect regime
         regime_key = _DEFAULT_REGIME
@@ -93,7 +136,7 @@ class MorningBriefService:
             regime_key = regime_override
             regime_label = regime_override
         else:
-            detected = _detect_regime()
+            detected = await asyncio.to_thread(_detect_regime)
             if detected:
                 regime_label = detected
                 regime_key = _REGIME_LABEL_MAP.get(detected, _DEFAULT_REGIME)
@@ -140,10 +183,11 @@ class MorningBriefService:
         # proprietary sector naming (which doesn't match GICS sector names).
         if weekly_leader_etf:
             try:
-                etf_ticker = yf.Ticker(weekly_leader_etf)
-                fd = etf_ticker.funds_data
-                if fd and fd.top_holdings is not None and not fd.top_holdings.empty:
-                    holdings = fd.top_holdings.index.tolist()[:15]
+                # yfinance is blocking — fetch ETF holdings off the event loop
+                # (same asyncio.to_thread discipline as every other external
+                # call in this pipeline; this one was previously on-loop).
+                holdings = await asyncio.to_thread(_etf_top_holdings, weekly_leader_etf)
+                if holdings:
                     log.info("sector_screen_holdings_fetched", etf=weekly_leader_etf, count=len(holdings))
                     sector_briefs = await self._score_holdings(holdings)
                     if sector_briefs:
@@ -193,10 +237,17 @@ class MorningBriefService:
             sector_rotation=sector_rotation,
             sectors=sector_list,
             screen_sections=screen_sections,
-            generated_at=now_utc.isoformat(),
+generated_at=now_utc.isoformat(),
         )
+
         elapsed = time.monotonic() - start_time
         log.info("morning_brief_generated", screens=len(screen_sections), tickers=len(all_ticker_symbols), elapsed_ms=round(elapsed * 1000))
+
+        # Store the freshly generated brief in cache (the caller holds the lock
+        # for the whole check+generate cycle, so no inner lock is needed here).
+        self._cached_brief = brief
+        self._cached_at = time.monotonic()
+
         return brief
 
     def _build_ticker_briefs(self, screen_name: str, screen_result: dict[str, Any]) -> list[TickerBrief]:
@@ -240,7 +291,9 @@ class MorningBriefService:
                 TickerBrief(
                     symbol=r.get("symbol", "UNKNOWN"),
                     screen_name=screen_name,
-                    screen_score=float(r.get("score", 0)),
+                    # Screen results carry no "score" key — the real score is
+                    # confluence.total (0-100); normalize to 0-1 (bug B7).
+                    screen_score=float(confluence.total) / 100.0,
                     confluence_score=confluence.total,
                     entry=round(float(confluence.entry), 2),
                     stop_loss=round(float(confluence.stop_loss), 2),
@@ -254,91 +307,34 @@ class MorningBriefService:
 
     async def _score_holdings(self, symbols: list[str]) -> list[TickerBrief]:
         """Score sector ETF holdings using yfinance data.
-        
+
         This is used for the 4th sector rotation screen. Since TV Screener uses
         proprietary sector names that don't match GICS, we score the ETF's actual
         holdings directly from yfinance — ensuring the tickers shown are genuinely
         in the leading sector.
+
+        yfinance is a blocking/synchronous library. Each per-symbol scoring runs
+        inside asyncio.to_thread (so it doesn't freeze the event loop) and up to
+        `_HOLDING_CONCURRENCY` of them run at once (instead of 15 serial network
+        round-trips), which keeps cold-cache generation fast and responsive.
         """
-        results: list[dict] = []
-        for sym in symbols:
-            try:
-                ticker = yf.Ticker(sym)
-                h = ticker.history(period="2mo", interval="1d")
-                if h.empty or len(h) < 10:
-                    continue
-                closes = [float(c) for c in h["Close"] if not pd.isna(c)]
-                volumes = [float(v) for v in h["Volume"] if not pd.isna(v)]
-                price = closes[-1]
-                n = len(closes)
+        if not symbols:
+            return []
 
-                # 50-day SMA
-                sma50 = sum(closes[-min(50, n):]) / min(50, n) if n >= 1 else price
-                # 20-day SMA
-                sma20 = sum(closes[-min(20, n):]) / min(20, n) if n >= 1 else price
+        semaphore = asyncio.Semaphore(_HOLDING_CONCURRENCY)
 
-                # RSI(14)
-                gains, losses = 0.0, 0.0
-                rsi_period = min(14, n - 1)
-                for i in range(n - rsi_period, n):
-                    diff = closes[i] - closes[i - 1]
-                    if diff > 0:
-                        gains += diff
-                    elif diff < 0:
-                        losses -= diff
-                avg_gain = gains / max(rsi_period, 1)
-                avg_loss = losses / max(rsi_period, 1)
-                rsi = 50.0 if avg_loss == 0 else 100.0 - (100.0 / (1.0 + avg_gain / max(avg_loss, 0.001)))
+        async def _score_one(sym: str) -> dict | None:
+            async with semaphore:
+                return await asyncio.to_thread(_score_holding_sync, sym)
 
-                # Volume ratio (last 5d vs 30d avg)
-                avg_vol_30 = sum(volumes[-30:]) / min(30, len(volumes)) if len(volumes) >= 1 else 1
-                recent_vol = sum(volumes[-5:]) / min(5, len(volumes))
-                vol_ratio = recent_vol / max(avg_vol_30, 1)
+        scored = await asyncio.gather(
+            *(_score_one(sym) for sym in symbols),
+            return_exceptions=True,
+        )
 
-                # 1-week change
-                change_1w = ((closes[-1] - closes[-6]) / max(closes[-6], 0.01)) * 100 if n >= 6 else 0
-
-                # Composite score: weights designed for swing trading health
-                score = 0.0
-                if price > sma20 and sma20 > sma50:
-                    score += 35  # Bullish MA alignment
-                elif price > sma20:
-                    score += 15
-                if 45 <= rsi <= 75:
-                    score += 25  # RSI sweet spot — not crashed, not exhausted
-                elif rsi > 75:
-                    score += 10  # Strong but extended
-                elif rsi < 35:
-                    score -= 10  # Weak momentum
-                if vol_ratio > 1.0:
-                    score += 15  # Healthy recent volume
-                if change_1w > 2:
-                    score += 15  # Positive weekly momentum
-                elif change_1w > 0:
-                    score += 5
-                if sma20 > sma50:
-                    score += 10  # Short-term trend above long-term
-
-                score = max(0, min(100, score))
-                stop_pct = (closes[-1] - min(closes[-10:])) / max(closes[-1], 0.01)
-                stop_pct = max(0.02, min(0.08, stop_pct * 1.5))
-                stop_loss = round(price * (1 - stop_pct), 2)
-                target_1 = round(price * (1 + stop_pct * 2.0), 2)
-                target_2 = round(price * (1 + stop_pct * 3.0), 2)
-
-                verdict = "STRONG BUY" if score >= 70 else "BUY" if score >= 55 else "ACCUMULATE" if score >= 40 else "WATCH"
-                conviction = min(10, max(1, int(score / 10)))
-
-                results.append({
-                    "symbol": sym, "score": score, "price": price,
-                    "conviction": conviction, "verdict": verdict,
-                    "entry": round(price, 2), "stop_loss": stop_loss,
-                    "targets": [target_1, target_2],
-                    "rsi": round(rsi, 1), "change_1w": round(change_1w, 1),
-                })
-            except Exception:
-                continue
-
+        results: list[dict] = [
+            r for r in scored if isinstance(r, dict)
+        ]
         results.sort(key=lambda x: x["score"], reverse=True)
         return [
             TickerBrief(
@@ -361,9 +357,158 @@ class MorningBriefService:
 
 # ── Module-level helpers ──
 
+def _etf_top_holdings(etf: str) -> list[str]:
+    """Fetch the top holdings of a sector ETF via yfinance (blocking; run in a thread).
+
+    Returns up to 15 symbols, or [] if the fund data is unavailable.
+    """
+    try:
+        fd = yf.Ticker(etf).funds_data
+        if fd is None or fd.top_holdings is None or fd.top_holdings.empty:
+            return []
+        return fd.top_holdings.index.tolist()[:15]
+    except Exception:
+        log.exception("etf_top_holdings_failed", etf=etf)
+        return []
+
+
+def _score_holding_sync(sym: str) -> dict | None:
+    """Score a single sector-ETF holding from yfinance (blocking, runs in a thread).
+
+    Returns a dict with scoring metadata, or None if the symbol has no usable
+    history. Extracted from the old sequential loop so _score_holdings can run
+    each symbol in asyncio.to_thread with bounded concurrency.
+    """
+    try:
+        ticker = yf.Ticker(sym)
+        h = ticker.history(period="2mo", interval="1d")
+        if h.empty or len(h) < 10:
+            return None
+        closes = [float(c) for c in h["Close"] if not pd.isna(c)]
+        volumes = [float(v) for v in h["Volume"] if not pd.isna(v)]
+        price = closes[-1]
+        n = len(closes)
+
+        # 50-day SMA
+        sma50 = sum(closes[-min(50, n):]) / min(50, n) if n >= 1 else price
+        # 20-day SMA
+        sma20 = sum(closes[-min(20, n):]) / min(20, n) if n >= 1 else price
+
+        # RSI(14)
+        gains, losses = 0.0, 0.0
+        rsi_period = min(14, n - 1)
+        for i in range(n - rsi_period, n):
+            diff = closes[i] - closes[i - 1]
+            if diff > 0:
+                gains += diff
+            elif diff < 0:
+                losses -= diff
+        avg_gain = gains / max(rsi_period, 1)
+        avg_loss = losses / max(rsi_period, 1)
+        rsi = 50.0 if avg_loss == 0 else 100.0 - (100.0 / (1.0 + avg_gain / max(avg_loss, 0.001)))
+
+        # Volume ratio (last 5d vs 30d avg)
+        avg_vol_30 = sum(volumes[-30:]) / min(30, len(volumes)) if len(volumes) >= 1 else 1
+        recent_vol = sum(volumes[-5:]) / min(5, len(volumes))
+        vol_ratio = recent_vol / max(avg_vol_30, 1)
+
+        # 1-week change
+        change_1w = ((closes[-1] - closes[-6]) / max(closes[-6], 0.01)) * 100 if n >= 6 else 0
+
+        # Composite score: weights designed for swing trading health
+        score = 0.0
+        if price > sma20 and sma20 > sma50:
+            score += 35  # Bullish MA alignment
+        elif price > sma20:
+            score += 15
+        if 45 <= rsi <= 75:
+            score += 25  # RSI sweet spot — not crashed, not exhausted
+        elif rsi > 75:
+            score += 10  # Strong but extended
+        elif rsi < 35:
+            score -= 10  # Weak momentum
+        if vol_ratio > 1.0:
+            score += 15  # Healthy recent volume
+        if change_1w > 2:
+            score += 15  # Positive weekly momentum
+        elif change_1w > 0:
+            score += 5
+        if sma20 > sma50:
+            score += 10  # Short-term trend above long-term
+
+        score = max(0, min(100, score))
+        stop_pct = (closes[-1] - min(closes[-10:])) / max(closes[-1], 0.01)
+        stop_pct = max(0.02, min(0.08, stop_pct * 1.5))
+        stop_loss = round(price * (1 - stop_pct), 2)
+        target_1 = round(price * (1 + stop_pct * 2.0), 2)
+        target_2 = round(price * (1 + stop_pct * 3.0), 2)
+
+        verdict = "STRONG BUY" if score >= 70 else "BUY" if score >= 55 else "ACCUMULATE" if score >= 40 else "WATCH"
+        conviction = min(10, max(1, int(score / 10)))
+
+        return {
+            "symbol": sym, "score": score, "price": price,
+            "conviction": conviction, "verdict": verdict,
+            "entry": round(price, 2), "stop_loss": stop_loss,
+            "targets": [target_1, target_2],
+            "rsi": round(rsi, 1), "change_1w": round(change_1w, 1),
+        }
+    except Exception:
+        return None
+
+
+def _sector_changes_sync(sym: str) -> tuple[float, float]:
+    """Fetch 1D and 1W % change for a sector ETF (blocking, runs in a thread).
+
+    Returns (change_1d, change_1w). Tolerates empty/failed history by returning
+    (0.0, 0.0).
+    """
+    try:
+        t = yf.Ticker(sym)
+        h = t.history(period="1mo", interval="1d")
+        closes = [float(c) for c in h["Close"] if not pd.isna(c)] if not h.empty else []
+        chg_1d = round(((closes[-1] - closes[-2]) / closes[-2]) * 100, 2) if len(closes) >= 2 else 0.0
+        chg_1w = round(((closes[-1] - closes[-6]) / closes[-6]) * 100, 2) if len(closes) >= 6 else 0.0
+        return chg_1d, chg_1w
+    except Exception:
+        log.debug("sector_fetch_failed", symbol=sym, exc_info=True)
+        return 0.0, 0.0
+
+
+def _sector_direction_sync(sym: str) -> int:
+    """Return +1/0/-1 for a sector ETF's last close direction (blocking, thread).
+
+    Used for advance/decline breadth. Tolerates failed history by returning 0.
+    """
+    try:
+        t = yf.Ticker(sym)
+        h = t.history(period="5d", interval="1d")
+        if len(h) >= 2:
+            change = ((float(h["Close"].iloc[-1]) - float(h["Close"].iloc[-2])) / float(h["Close"].iloc[-2])) * 100
+            if change > 0:
+                return 1
+            if change < 0:
+                return -1
+        return 0
+    except Exception:
+        return 0
+
+
+def _index_last_close_sync(sym: str) -> float | None:
+    """Fetch the latest close for an index symbol (blocking, runs in a thread)."""
+    try:
+        ticker = yf.Ticker(sym)
+        hist = ticker.history(period="5d", interval="1d")
+        if not hist.empty:
+            return float(hist["Close"].iloc[-1])
+    except Exception:
+        log.debug("index_fetch_failed", symbol=sym, exc_info=True)
+    return None
+
+
 def _detect_regime() -> str | None:
     try:
-        from backend.app.api.routers.regime import get_market_regime_sync
+        from backend.app.infrastructure.market.regime import get_market_regime_sync
         response = get_market_regime_sync()
         if response is not None:
             return response.regime_label
@@ -391,6 +536,10 @@ def _rating_to_verdict(rating: str) -> str:
     mapping: dict[str, str] = {
         "STRONG_BUY": "STRONG_BUY", "BUY": "BUY", "ACCUMULATE": "BUY",
         "WATCH": "WATCH", "HOLD": "WATCH", "AVOID": "AVOID", "SELL": "AVOID",
+        # TVConfluenceScorer emits letter ratings (A+/A/B+/B/C/D), which were
+        # previously unmapped and always fell through to WATCH (bug B6).
+        "A+": "STRONG_BUY", "A": "BUY", "B+": "ACCUMULATE",
+        "B": "WATCH", "C": "HOLD", "D": "AVOID",
     }
     return mapping.get(rating.upper(), "WATCH")
 
@@ -402,7 +551,7 @@ def _compute_regime_match_score(config: ScreenConfig, regime_key: str) -> float:
 
 def _build_education_hints(tv_data: dict[str, Any]) -> dict[str, str]:
     hints: dict[str, str] = {}
-    rsi = tv_data.get("rsi_14")
+    rsi = tv_data.get("RSI")
     if rsi is not None:
         try:
             rsi_f = float(rsi)
@@ -429,6 +578,14 @@ def _build_education_hints(tv_data: dict[str, Any]) -> dict[str, str]:
 async def _fetch_premarket_quotes(symbols: list[str]) -> dict[str, dict[str, float | None]]:
     if not symbols:
         return {}
+    # yfinance .info access is blocking; run the whole batch in a thread so it
+    # doesn't freeze the event loop during the (now rare) cold generation.
+    result = await asyncio.to_thread(_premarket_quotes_sync, symbols)
+    return result
+
+
+def _premarket_quotes_sync(symbols: list[str]) -> dict[str, dict[str, float | None]]:
+    """Fetch pre-market/regular quotes for a batch of symbols (blocking, thread)."""
     result: dict[str, dict[str, float | None]] = {}
     try:
         tickers = yf.Tickers(" ".join(symbols))
@@ -455,52 +612,40 @@ async def _fetch_premarket_quotes(symbols: list[str]) -> dict[str, dict[str, flo
 
 async def _fetch_market_internals() -> MarketInternals:
     internals = MarketInternals()
-    try:
-        vix = yf.Ticker("^VIX")
-        vix_hist = vix.history(period="5d", interval="1d")
-        if not vix_hist.empty:
-            internals.vix = round(float(vix_hist["Close"].iloc[-1]), 2)
-    except Exception:
-        log.debug("vix_fetch_failed", exc_info=True)
-    try:
-        spy = yf.Ticker("^GSPC")  # S&P 500 index (not SPY ETF — index level is what non-experts expect)
-        spy_hist = spy.history(period="5d", interval="1d")
-        if not spy_hist.empty:
-            internals.sp500_futures = round(float(spy_hist["Close"].iloc[-1]), 2)
-    except Exception:
-        log.debug("spy_fetch_failed", exc_info=True)
-    try:
-        qqq = yf.Ticker("^IXIC")  # Nasdaq Composite index (not QQQ ETF)
-        qqq_hist = qqq.history(period="5d", interval="1d")
-        if not qqq_hist.empty:
-            internals.nasdaq_futures = round(float(qqq_hist["Close"].iloc[-1]), 2)
-    except Exception:
-        log.debug("qqq_fetch_failed", exc_info=True)
-    try:
-        dxy = yf.Ticker("DX-Y.NYB")
-        dxy_hist = dxy.history(period="5d", interval="1d")
-        if not dxy_hist.empty:
-            internals.dollar_index = round(float(dxy_hist["Close"].iloc[-1]), 2)
-    except Exception:
-        log.debug("dxy_fetch_failed", exc_info=True)
-    try:
-        adv, dec = 0, 0
-        for sym in _SECTOR_SYMBOLS:
-            try:
-                t = yf.Ticker(sym)
-                h = t.history(period="5d", interval="1d")
-                if len(h) >= 2:
-                    change = ((float(h["Close"].iloc[-1]) - float(h["Close"].iloc[-2])) / float(h["Close"].iloc[-2])) * 100
-                    if change > 0:
-                        adv += 1
-                    elif change < 0:
-                        dec += 1
-            except Exception:
-                continue
-        if adv + dec > 0:
-            internals.advance_decline_ratio = round(adv / max(dec, 1), 2)
-    except Exception:
-        log.debug("advance_decline_fetch_failed", exc_info=True)
+
+    # Index snapshots (blocking yfinance) run in threads — 4 parallel instead
+    # of serial on the event loop.
+    async def _snapshot(sym: str) -> float | None:
+        return await asyncio.to_thread(_index_last_close_sync, sym)
+
+    vix_val, spy_val, qqq_val, dxy_val = await asyncio.gather(
+        _snapshot("^VIX"),
+        _snapshot("^GSPC"),  # S&P 500 index (index level is what non-experts expect)
+        _snapshot("^IXIC"),  # Nasdaq Composite index
+        _snapshot("DX-Y.NYB"),
+    )
+
+    if vix_val is not None:
+        internals.vix = round(vix_val, 2)
+    if spy_val is not None:
+        internals.sp500_futures = round(spy_val, 2)
+    if qqq_val is not None:
+        internals.nasdaq_futures = round(qqq_val, 2)
+    if dxy_val is not None:
+        internals.dollar_index = round(dxy_val, 2)
+
+    # Advance/decline breadth — sector changes in threads, bounded concurrency.
+    semaphore = asyncio.Semaphore(_SECTOR_CONCURRENCY)
+
+    async def _adv_dec(sym: str) -> int:
+        async with semaphore:
+            return await asyncio.to_thread(_sector_direction_sync, sym)
+
+    directions = await asyncio.gather(*(_adv_dec(sym) for sym in _SECTOR_SYMBOLS))
+    adv = sum(1 for d in directions if d > 0)
+    dec = sum(1 for d in directions if d < 0)
+    if adv + dec > 0:
+        internals.advance_decline_ratio = round(adv / max(dec, 1), 2)
     return internals
 
 
@@ -509,40 +654,40 @@ async def _fetch_sector_rotation() -> tuple[SectorRotationSummary, list[dict], s
 
     Returns the weekly leader separately for swing trading use — 1W relative
     strength is more relevant than 1D noise for multi-day holds.
+
+    Each sector's yfinance history fetch is blocking, so they run in threads
+    with bounded concurrency instead of 11 serial round-trips on the event loop.
     """
-    sector_data: list[dict] = []
+    semaphore = asyncio.Semaphore(_SECTOR_CONCURRENCY)
+
+    async def _fetch_one(sym: str) -> tuple[str, float, float]:
+        async with semaphore:
+            chg_1d, chg_1w = await asyncio.to_thread(_sector_changes_sync, sym)
+            return sym, chg_1d, chg_1w
+
+    fetched = await asyncio.gather(*(_fetch_one(sym) for sym in _SECTOR_SYMBOLS))
+
     changes_1d: dict[str, float] = {}
     changes_1w: dict[str, float] = {}
-    for sym in _SECTOR_SYMBOLS:
-        try:
-            t = yf.Ticker(sym)
-            h = t.history(period="1mo", interval="1d")
-            closes = [float(c) for c in h["Close"] if not pd.isna(c)] if not h.empty else []
-            if len(closes) >= 2:
-                changes_1d[sym] = round(((closes[-1] - closes[-2]) / closes[-2]) * 100, 2)
-            else:
-                changes_1d[sym] = 0.0
-            if len(closes) >= 6:
-                changes_1w[sym] = round(((closes[-1] - closes[-6]) / closes[-6]) * 100, 2)
-            else:
-                changes_1w[sym] = 0.0
-        except Exception:
-            changes_1d[sym] = 0.0
-            changes_1w[sym] = 0.0
-            log.debug("sector_fetch_failed", symbol=sym, exc_info=True)
+    for sym, change_1d, change_1w in fetched:
+        changes_1d[sym] = change_1d
+        changes_1w[sym] = change_1w
+
     sorted_by_change = sorted(changes_1d.items(), key=lambda x: x[1], reverse=True)
     sorted_weekly = sorted(changes_1w.items(), key=lambda x: x[1], reverse=True)
     rs_map: dict[str, int] = {}
     for rank, (sym, _) in enumerate(sorted_by_change, start=1):
         rs_map[sym] = rank
-    for sym in _SECTOR_SYMBOLS:
-        sector_data.append({
+    sector_data = [
+        {
             "symbol": sym,
             "name": _SECTOR_NAMES.get(sym, sym),
             "change_pct": changes_1d.get(sym, 0.0),
             "change_1w_pct": changes_1w.get(sym, 0.0),
             "rs_rank": rs_map.get(sym, 11),
-        })
+        }
+        for sym in _SECTOR_SYMBOLS
+    ]
     leaders = [sym for sym, _ in sorted_by_change[:3]]
     laggards = [sym for sym, _ in sorted_by_change[-3:]]
     weekly_leader = sorted_weekly[0][0] if sorted_weekly else None
