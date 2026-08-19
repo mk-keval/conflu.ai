@@ -31,12 +31,9 @@ celery_app.conf.enable_utc = True
 celery_app.conf.task_routes = {
     "backend.app.worker.tasks.ingest_asset_class": {"queue": "ingestion"},
     "backend.app.worker.tasks.ingest_all": {"queue": "ingestion"},
-    "backend.app.worker.tasks.refresh_indicator_cache": {"queue": "compute"},
-    "backend.app.worker.tasks.run_screen": {"queue": "screener"},
     "backend.app.worker.tasks.health_check": {"queue": "ingestion"},
     "backend.app.worker.tasks.periodic_daily_ingestion": {"queue": "ingestion"},
     "backend.app.worker.tasks.periodic_intraday_ingestion": {"queue": "ingestion"},
-    "backend.app.worker.tasks.periodic_cache_refresh": {"queue": "compute"},
 }
 
 # Worker settings
@@ -64,28 +61,20 @@ def configure_beat_schedule() -> None:
     # For sub-minute intervals, we'd use a different approach
     interval_minutes = max(1, ingestion.intraday_interval_s // 60)
     if interval_minutes < 60:
-        # Every N minutes
+        # Every N minutes — use periodic_intraday_ingestion which filters out
+        # 1D bars so we don't re-fetch daily history every cycle (bug B9).
         celery_app.conf.beat_schedule["intraday-ingestion"] = {
-            "task": "backend.app.worker.tasks.ingest_all",
+            "task": "backend.app.worker.tasks.periodic_intraday_ingestion",
             "schedule": crontab(minute=f"*/{interval_minutes}"),
             "options": {"queue": "ingestion"},
         }
     else:
         # Hourly
         celery_app.conf.beat_schedule["hourly-ingestion"] = {
-            "task": "backend.app.worker.tasks.ingest_all",
+            "task": "backend.app.worker.tasks.periodic_intraday_ingestion",
             "schedule": crontab(minute=0),
             "options": {"queue": "ingestion"},
         }
-
-    # Indicator cache refresh after daily ingestion (5 minutes later)
-    refresh_minute = (minute + 5) % 60
-    refresh_hour = hour + (1 if refresh_minute < minute else 0)
-    celery_app.conf.beat_schedule["refresh-indicator-cache"] = {
-        "task": "backend.app.worker.tasks.refresh_indicator_cache",
-        "schedule": crontab(hour=refresh_hour, minute=refresh_minute),
-        "options": {"queue": "compute"},
-    }
 
 
 # Auto-configure on import

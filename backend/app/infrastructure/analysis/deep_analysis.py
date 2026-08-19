@@ -10,6 +10,7 @@ import pandas as pd
 
 from backend.app.core.database import get_db
 from backend.app.core.logging import get_logger
+from backend.app.infrastructure.analysis.levels import compute_atr_levels, compute_fallback_levels
 from backend.app.infrastructure.backtest.engine import BacktestEngine
 from backend.app.infrastructure.backtest.models import BacktestRunConfig
 from backend.app.infrastructure.risk.engine import RiskEngine
@@ -174,12 +175,10 @@ class DeepAnalysisOrchestrator:
         atr = None
         if "ATR" in indicators:
             atr = indicators["ATR"].iloc[-1]
+        # Shared math (infrastructure/analysis/levels.py) — historical policy:
+        # fixed 2x ATR stop / 2x / 3x ATR targets; ±5%/±10% fallback without ATR.
         if atr and atr > 0:
-            entry = close
-            stop_loss = close - 2 * atr
-            targets = [close + 2 * atr, close + 3 * atr]
+            levels = compute_atr_levels(close, atr, 2.0, 2.0, 3.0)
         else:
-            entry = close
-            stop_loss = close * 0.95
-            targets = [close * 1.05, close * 1.10]
-        return entry, stop_loss, targets
+            levels = compute_fallback_levels(close)
+        return levels.entry, levels.stop_loss, [levels.target_1, levels.target_2]

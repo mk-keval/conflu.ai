@@ -45,12 +45,3 @@ groups:
         annotations:
           summary: "API service is down"
           description: "conflu-api has been unreachable for 1 minute"
-
-      - alert: CacheHitRateLow
-        expr: rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])) < 0.5
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Indicator cache hit rate < 50%"
-          description: "Cache hit rate is {{ $value | humanizePercentage }} over 10m"

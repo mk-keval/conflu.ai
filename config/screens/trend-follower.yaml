@@ -34,12 +34,12 @@ filters:
   - category: volume
     indicator: avg_volume_gt
     params:
-      threshold: 1000000
+      threshold: 500000
     timeframe: "1D"
   - category: volume
     indicator: rvol_high
     params:
-      threshold: 1.5
+      threshold: 1.2
     timeframe: "4h"
   # Technical trend criteria
   - category: trend
@@ -54,7 +54,7 @@ filters:
   - category: trend
     indicator: adx_trending
     params:
-      threshold: 25
+      threshold: 20
     timeframe: "1D"
   - category: momentum
     indicator: macd_bullish

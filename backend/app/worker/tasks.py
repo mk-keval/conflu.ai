@@ -140,134 +140,10 @@ def ingest_all(
 
         log.info("celery_ingest_all_completed", **result)
 
-        # Trigger indicator cache refresh as a chained task
-        if report.error_rate < 1.0:
-            refresh_indicator_cache.delay()
-
         return result
 
     except Exception:
         log.exception("celery_ingest_all_failed")
-        raise
-
-
-@shared_task(
-    bind=True,
-    max_retries=3,
-    default_retry_delay=60,
-    autoretry_for=(Exception,),
-    retry_backoff=True,
-    retry_backoff_max=300,
-    retry_jitter=True,
-)
-def refresh_indicator_cache(
-    self,
-    timeframes: list[str] | None = None,
-    indicator_names: list[str] | None = None,
-) -> dict[str, Any]:
-    """Refresh indicator cache after ingestion.
-    
-    Args:
-        timeframes: Timeframes to refresh (default: all configured)
-        indicator_names: Indicators to refresh (default: all cached)
-    
-    Returns:
-        Dict with cache update stats
-    """
-    from backend.app.infrastructure.screener.cache import IndicatorCache
-
-    log.info("celery_refresh_cache_started", timeframes=timeframes, indicators=indicator_names)
-
-    try:
-        cache = IndicatorCache()
-        new_rows = _run_async(
-            cache.update_cache(
-                timeframes=timeframes,
-                indicator_names=indicator_names,
-            )
-        )
-
-        status = _run_async(cache.cache_status())
-
-        result = {
-            "status": "success",
-            "new_rows": new_rows,
-            "total_rows": status.get("total_rows", 0),
-            "cached_indicators": status.get("cached_indicators", []),
-        }
-
-        log.info("celery_refresh_cache_completed", **result)
-        return result
-
-    except Exception:
-        log.exception("celery_refresh_cache_failed")
-        raise
-
-
-@shared_task(
-    bind=True,
-    max_retries=1,
-    default_retry_delay=30,
-)
-def run_screen(
-    self,
-    config: str | dict[str, Any],
-    symbols: list[str] | None = None,
-    timeframes: list[str] | None = None,
-) -> dict[str, Any]:
-    """Run a screen as a background task.
-    
-    Args:
-        config: Screen template name or custom config dict
-        symbols: Optional symbol subset
-        timeframes: Optional timeframe override
-    
-    Returns:
-        Dict with screen results
-    """
-    from backend.app.infrastructure.screener.configs import ScreenConfig
-    from backend.app.infrastructure.screener.engine import ScreenEngine
-
-    log.info("celery_screen_started", config=config if isinstance(config, str) else config.get("name"))
-
-    try:
-        engine = ScreenEngine()
-
-        if isinstance(config, str):
-            cfg = config
-        else:
-            cfg = ScreenConfig(**config)
-
-        result = _run_async(
-            engine.screen(
-                config=cfg,
-                symbols=symbols,
-                timeframes=timeframes,
-            )
-        )
-
-        output = {
-            "screen_name": result.screen_name,
-            "total_symbols": result.total_symbols,
-            "symbols_matched": result.symbols_matched,
-            "duration_ms": result.duration_ms,
-            "symbols": result.symbols,
-            "filter_results": [
-                {
-                    "filter_name": f.filter_name,
-                    "matched": f.matched,
-                    "total": f.total,
-                    "pass_rate": f.pass_rate,
-                }
-                for f in result.filter_results
-            ],
-        }
-
-        log.info("celery_screen_completed", screen_name=result.screen_name, matched=result.symbols_matched)
-        return output
-
-    except Exception:
-        log.exception("celery_screen_failed")
         raise
 
 
@@ -304,9 +180,3 @@ def periodic_intraday_ingestion() -> dict[str, Any]:
     # Only ingest intraday timeframes
     timeframes = [tf for tf in settings.data.timeframes if tf != "1D"]
     return ingest_all.delay(timeframes=timeframes).get()
-
-
-@shared_task
-def periodic_cache_refresh() -> dict[str, Any]:
-    """Periodic cache refresh - triggered by Celery Beat."""
-    return refresh_indicator_cache.delay().get()

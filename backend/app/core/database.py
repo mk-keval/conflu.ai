@@ -96,8 +96,38 @@ def normalize_symbol(symbol: str) -> str:
     )
 
 
+def _connect_with_timeout(db_path: str, *, read_only: bool, timeout_s: float) -> duckdb.DuckDBPyConnection:
+    """Open a DuckDB connection, aborting if it takes longer than ``timeout_s``.
+
+    DuckDB's Python API has no native connect timeout, so the connect runs in a
+    daemon worker thread and is abandoned if it exceeds the budget. A wedged
+    connect (e.g. a locked database file) therefore surfaces as a
+    ``TimeoutError`` instead of hanging the caller indefinitely.
+    """
+    import threading
+
+    result: dict[str, object] = {}
+
+    def _open() -> None:
+        try:
+            result["conn"] = duckdb.connect(db_path, read_only=read_only)
+        except BaseException as exc:  # noqa: BLE001 - propagate any connect failure
+            result["error"] = exc
+
+    thread = threading.Thread(target=_open, daemon=True)
+    thread.start()
+    thread.join(timeout_s)
+    if thread.is_alive():
+        raise TimeoutError(f"DuckDB connect timed out after {timeout_s}s")
+    if "error" in result:
+        raise result["error"]  # type: ignore[misc]
+    return result["conn"]  # type: ignore[return-value]
+
+
 @contextmanager
-def get_db(read_only: bool = False) -> Generator[duckdb.DuckDBPyConnection, None, None]:
+def get_db(
+    read_only: bool = False, timeout_s: float | None = None
+) -> Generator[duckdb.DuckDBPyConnection, None, None]:
     """Get a DuckDB connection via context manager.
 
     DuckDB is embedded — each call creates a new connection to the same database
@@ -105,6 +135,10 @@ def get_db(read_only: bool = False) -> Generator[duckdb.DuckDBPyConnection, None
 
     Args:
         read_only: If True, open connection in read-only mode.
+        timeout_s: Optional connect timeout in seconds. When set, the connect is
+            abandoned (raising ``TimeoutError``) if it does not complete within
+            the budget. Used by health checks so readiness probes fail fast
+            instead of hanging on a locked database.
 
     Yields:
         DuckDB connection instance.
@@ -115,7 +149,10 @@ def get_db(read_only: bool = False) -> Generator[duckdb.DuckDBPyConnection, None
     """
     db_path = settings.core.duckdb_path
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    conn = duckdb.connect(db_path, read_only=read_only)
+    if timeout_s is None:
+        conn = duckdb.connect(db_path, read_only=read_only)
+    else:
+        conn = _connect_with_timeout(db_path, read_only=read_only, timeout_s=timeout_s)
     try:
         yield conn
     finally:

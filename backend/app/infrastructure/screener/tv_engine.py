@@ -311,6 +311,8 @@ class TVScreenEngine:
         symbol: str,
         timeframe: str = "1D",
         tv_data: dict[str, Any] | None = None,
+        include_backtest: bool = True,
+        include_risk: bool = True,
     ) -> dict[str, Any]:
         """
         Stage 3: On-demand deep analysis for a single ticker.
@@ -322,7 +324,9 @@ class TVScreenEngine:
         import pandas as pd
 
         orchestrator = DeepAnalysisOrchestrator()
-        result = await orchestrator.analyze(symbol, timeframe)
+        result = await orchestrator.analyze(
+            symbol, timeframe, include_backtest=include_backtest, include_risk=include_risk
+        )
 
         has_ohlcv = result.ohlcv is not None and not result.ohlcv.empty if hasattr(result, 'ohlcv') else False
 

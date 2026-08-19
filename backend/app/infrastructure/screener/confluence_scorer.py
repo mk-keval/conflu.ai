@@ -17,6 +17,12 @@ from dataclasses import dataclass
 from typing import Any
 import pandas as pd
 
+from backend.app.infrastructure.analysis.levels import (
+    compute_atr_levels,
+    compute_fallback_levels,
+    vol_regime_multipliers,
+)
+
 
 @dataclass
 class ConfluenceScore:
@@ -390,41 +396,30 @@ class TVConfluenceScorer:
         # ATR% of price determines volatility regime: low (<1%), normal (1-3%), high (>3%).
         # First target R:R is asymmetric: T1 offers ~1.5x the stop distance so swing
         # traders get meaningful reward for the risk taken.
+        # Shared math lives in infrastructure/analysis/levels.py — multipliers below
+        # are the confluence scorer's historical policy, unchanged.
         atr = row.get("ATR", 0)
         close_val = row.get("close", 0)
 
         if atr and close_val:
-            entry = close_val
             atr_pct = (atr / close_val) * 100
-
-            if atr_pct < 1.0:
-                stop_mult = 1.5
-                target_mult_1 = 2.5   # R:R = 1.67 for T1
-                target_mult_2 = 3.5
-            elif atr_pct > 3.0:
-                stop_mult = 3.0
-                target_mult_1 = 5.0   # R:R = 1.67 for T1
-                target_mult_2 = 7.0
-            else:
-                stop_mult = 2.0
-                target_mult_1 = 3.0   # R:R = 1.5 for T1
-                target_mult_2 = 4.5
-
-            if is_long:
-                stop_loss = close_val - (stop_mult * atr)
-                target_1 = close_val + (target_mult_1 * atr)
-                target_2 = close_val + (target_mult_2 * atr)
-            else:
-                stop_loss = close_val + (stop_mult * atr)
-                target_1 = close_val - (target_mult_1 * atr)
-                target_2 = close_val - (target_mult_2 * atr)
-            risk_reward = round(target_mult_1 / stop_mult, 2)
+            stop_mult, target_mult_1, target_mult_2 = vol_regime_multipliers(atr_pct)
+            levels = compute_atr_levels(
+                close_val,
+                atr,
+                stop_mult,
+                target_mult_1,
+                target_mult_2,
+                is_long=is_long,
+            )
+            entry, stop_loss, target_1, target_2, risk_reward = (
+                levels.entry, levels.stop_loss, levels.target_1, levels.target_2, levels.risk_reward,
+            )
         else:
-            entry = close_val
-            stop_loss = close_val * (0.95 if is_long else 1.05)
-            target_1 = close_val * (1.05 if is_long else 0.95)
-            target_2 = close_val * (1.10 if is_long else 0.90)
-            risk_reward = 1.0
+            levels = compute_fallback_levels(close_val, is_long=is_long)
+            entry, stop_loss, target_1, target_2, risk_reward = (
+                levels.entry, levels.stop_loss, levels.target_1, levels.target_2, levels.risk_reward,
+            )
 
         rationale = self.generate_rationale(scores)
 
