@@ -203,7 +203,7 @@ async def get_backtest_equity(run_id: str) -> Any:
     """Retrieve equity curve for a backtest run."""
     with get_db(read_only=True) as con:
         rows = con.sql(
-            "SELECT timestamp, equity FROM backtest_equity WHERE run_id = ? ORDER BY timestamp",
+            "SELECT timestamp, equity FROM backtest_equity_curves WHERE run_id = ? ORDER BY timestamp",
             params=[run_id],
         ).fetchall()
 
