@@ -181,6 +181,23 @@ test-results/
 # Playwright MCP artifacts
 .playwright-mcp/
 
+# Playwright scratch snapshots / notes dumped at repo root during manual QA
+backtest.yml
+charts-fixed.yml
+charts-page.yml
+dashboard.yml
+risk.yml
+screener-full.yml
+sector-rotation.yml
+ticker-shc.yml
+trend-follower-run.yml
+workflow.yml
+home-snapshot.md
+page-*.md
+pro-morningbrief*.md
+sector-rotation-*.md
+verify-pro.md
+
 # Backend test scripts (use scripts/ at root instead)
 backend/scripts/
 
