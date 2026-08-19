@@ -1,17 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { 
   fetchTickerAnalysis, 
   fetchOptionsChain, 
   fetchNews,
-  type OptionsChainResponse,
-  type NewsResponse,
 } from '@/api/tickerAnalysis';
-import { fetchSectorRotation } from '@/api/sectorRotation';
-import type { SectorRotationResponse } from '@/types/sector';
+import { useSectorRotation } from '@/hooks/useMarketRegime';
 import { usePortfolioStore } from '@/store/portfolio';
-import type { TickerAnalysisResponse, TechnicalAnalysis } from '@/types/tickerAnalysis';
+import type { TickerAnalysisResponse, TechnicalAnalysis, OptionsChainResponse, NewsResponse } from '@/types/tickerAnalysis';
 import { cn } from '@/lib/cn';
 import { formatPrice, formatPct, formatLargeNumber } from '@/lib/format';
 import {
@@ -955,13 +952,7 @@ function MetricBox({ label, value, explainer }: {
  * displays a compact badge with 1d change, flow signal, and trend.
  */
 function SectorContextBadge({ sector }: { sector: string }) {
-  const [rotationData, setRotationData] = useState<SectorRotationResponse | null>(null);
-
-  useEffect(() => {
-    fetchSectorRotation()
-      .then(setRotationData)
-      .catch(() => { /* non-critical */ });
-  }, []);
+  const { data: rotationData } = useSectorRotation();
 
   // Match the ticker's sector name to a sector ETF symbol
   const sectorToEtf: Record<string, string> = {

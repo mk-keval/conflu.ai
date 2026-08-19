@@ -91,7 +91,7 @@ export function EducationTooltip({
   const staticInfo = STATIC_EXPLANATIONS[metricKey];
 
   const { data: enhanced, isFetching } = useQuery({
-    queryKey: ['education', metricKey, symbol, metricValue],
+    queryKey: ['professional', 'education', metricKey, symbol],
     queryFn: () => explainMetric(metricKey, symbol),
     enabled: showEnhanced && !!metricKey,
     staleTime: 24 * 60 * 60 * 1000, // 24h cache

@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { fetchMarketRegime, fetchSectorRotation } from '@/api/sectorRotation';
+import { useMarketRegime, useSectorRotation } from '@/hooks/useMarketRegime';
 import { fetchMarketEvents, fetchMarketNarrative } from '@/api/market';
 import {
   TrendingUp, TrendingDown, Activity,
@@ -33,17 +33,9 @@ function DashboardContent() {
   const navigate = useNavigate();
 
   // ── Fetch all dashboard data in parallel ──
-  const { data: regime } = useQuery({
-    queryKey: ['market-regime'],
-    queryFn: fetchMarketRegime,
-    staleTime: 3_600_000,
-  });
+  const { data: regime } = useMarketRegime();
 
-  const { data: sectorRotation } = useQuery({
-    queryKey: ['sector-rotation'],
-    queryFn: fetchSectorRotation,
-    staleTime: 3_600_000,
-  });
+  const { data: sectorRotation } = useSectorRotation();
 
   const { data: eventsData } = useQuery({
     queryKey: ['market-events'],
