@@ -1,6 +1,6 @@
 # D-23: IndicatorCache Backend for Screener Indicators
 
-**Status:** Accepted
+**Status:** **Retired / Superseded (2026-08-16)** — the on-demand path replaced this
 **Date:** 2026-07-03
 
 ## Context
