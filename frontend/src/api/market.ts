@@ -1,5 +1,4 @@
-import apiClient from './client';
-import type { ApiResponse } from '@/types/api';
+import { apiGet } from './client';
 
 export interface MarketEvent {
   date: string;
@@ -20,15 +19,9 @@ export interface MarketNarrativeResponse {
 }
 
 export async function fetchMarketEvents(): Promise<MarketEventsResponse> {
-  const response = await apiClient.get<ApiResponse<MarketEventsResponse>>(
-    '/api/v1/market/events'
-  ) as unknown as ApiResponse<MarketEventsResponse>;
-  return response.data;
+  return apiGet<MarketEventsResponse>('/api/v1/market/events');
 }
 
 export async function fetchMarketNarrative(): Promise<MarketNarrativeResponse> {
-  const response = await apiClient.get<ApiResponse<MarketNarrativeResponse>>(
-    '/api/v1/market/narrative'
-  ) as unknown as ApiResponse<MarketNarrativeResponse>;
-  return response.data;
+  return apiGet<MarketNarrativeResponse>('/api/v1/market/narrative');
 }

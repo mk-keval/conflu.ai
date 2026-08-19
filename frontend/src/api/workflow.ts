@@ -1,5 +1,4 @@
-import apiClient from './client';
-import type { ApiResponse } from '@/types/api';
+import { apiPost } from './client';
 
 // ── Types ──
 
@@ -36,9 +35,5 @@ export interface PortfolioResponse {
 // ── API calls ──
 
 export async function analyzePortfolio(symbols: string[]): Promise<PortfolioResponse> {
-  const response = await apiClient.post<ApiResponse<PortfolioResponse>>(
-    '/api/v1/portfolio/analyze',
-    { symbols },
-  ) as unknown as ApiResponse<PortfolioResponse>;
-  return response.data;
+  return apiPost<PortfolioResponse>('/api/v1/portfolio/analyze', { symbols });
 }

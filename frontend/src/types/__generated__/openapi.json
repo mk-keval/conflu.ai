@@ -1,0 +1,4456 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "conflu.ai API",
+    "description": "Multi-asset trading platform \u2014 screener, backtest, risk analysis, and real-time data streaming",
+    "version": "0.2.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health Check",
+        "description": "Liveness check.\n\nReturns simple status to confirm the API is running.",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Check Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Readiness Check",
+        "description": "Readiness check \u2014 verifies DuckDB connectivity and indicator cache.\n\nReturns:\n    - 200 with {\"status\": \"healthy\", \"checks\": {...}} if all pass\n    - 503 with {\"status\": \"degraded\", \"checks\": {...}} if any fail",
+        "operationId": "readiness_check_health_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/backtest": {
+      "post": {
+        "tags": [
+          "backtest"
+        ],
+        "summary": "Run a backtest",
+        "description": "Execute a backtest simulation for the specified symbols and date range. Supports position sizing methods: fixed, ATR-based, or Kelly.",
+        "operationId": "run_backtest_api_v1_backtest_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BacktestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Backtest results with metrics and metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Run Backtest Api V1 Backtest Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/backtest/optimize": {
+      "post": {
+        "tags": [
+          "backtest"
+        ],
+        "summary": "Run walk-forward optimization",
+        "description": "Run a walk-forward optimization over the parameter grid to find the best-performing parameter set for the given symbols and date range.",
+        "operationId": "optimize_backtest_api_v1_backtest_optimize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BacktestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Optimize Backtest Api V1 Backtest Optimize Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/backtest/monte-carlo": {
+      "post": {
+        "tags": [
+          "backtest"
+        ],
+        "summary": "Run Monte Carlo simulation",
+        "description": "Run a Monte Carlo simulation to assess the statistical distribution of potential outcomes for the given backtest configuration.",
+        "operationId": "monte_carlo_backtest_api_v1_backtest_monte_carlo_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BacktestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Monte Carlo Backtest Api V1 Backtest Monte Carlo Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/backtest/{run_id}": {
+      "get": {
+        "tags": [
+          "backtest"
+        ],
+        "summary": "Get backtest result",
+        "description": "Retrieve a stored backtest result by run ID.",
+        "operationId": "get_backtest_api_v1_backtest__run_id__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Get Backtest Api V1 Backtest  Run Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/backtest/{run_id}/trades": {
+      "get": {
+        "tags": [
+          "backtest"
+        ],
+        "summary": "Get backtest trades",
+        "description": "Retrieve the trade ledger for a completed backtest run.",
+        "operationId": "get_backtest_trades_api_v1_backtest__run_id__trades_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Get Backtest Trades Api V1 Backtest  Run Id  Trades Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/backtest/{run_id}/equity": {
+      "get": {
+        "tags": [
+          "backtest"
+        ],
+        "summary": "Get backtest equity curve",
+        "description": "Retrieve the equity curve for a completed backtest run.",
+        "operationId": "get_backtest_equity_api_v1_backtest__run_id__equity_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Get Backtest Equity Api V1 Backtest  Run Id  Equity Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/backtest/optimize-v2": {
+      "post": {
+        "tags": [
+          "backtest"
+        ],
+        "summary": "Run parameter optimization",
+        "description": "Run parameter optimization with grid/random/bayesian methods.",
+        "operationId": "optimize_backtest_v2_api_v1_backtest_optimize_v2_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OptimizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Optimize Backtest V2 Api V1 Backtest Optimize V2 Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/backtest/regimes": {
+      "post": {
+        "tags": [
+          "backtest"
+        ],
+        "summary": "Detect market regimes",
+        "description": "Detect market regimes for a symbol/date range.",
+        "operationId": "detect_regimes_api_v1_backtest_regimes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegimeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Detect Regimes Api V1 Backtest Regimes Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/backtest/{run_id}/report": {
+      "post": {
+        "tags": [
+          "backtest"
+        ],
+        "summary": "Generate backtest report",
+        "description": "Generate a report for a backtest run.",
+        "operationId": "generate_report_api_v1_backtest__run_id__report_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Generate Report Api V1 Backtest  Run Id  Report Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/backtest/compare": {
+      "post": {
+        "tags": [
+          "backtest"
+        ],
+        "summary": "Compare backtest runs",
+        "description": "Compare multiple backtest runs.",
+        "operationId": "compare_backtests_api_v1_backtest_compare_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Compare Backtests Api V1 Backtest Compare Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data/indicators/{symbol}": {
+      "get": {
+        "tags": [
+          "data"
+        ],
+        "summary": "Get indicator values",
+        "description": "Retrieve indicator values for a symbol. Supports comma-separated indicator names (e.g., 'rsi,macd,ema') and configurable timeframe. Data fetched from Yahoo Finance and computed on-demand.",
+        "operationId": "get_indicators_api_v1_data_indicators__symbol__get",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Symbol"
+            }
+          },
+          {
+            "name": "timeframe",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "1D",
+              "title": "Timeframe"
+            }
+          },
+          {
+            "name": "indicators",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Indicators"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 200,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Get Indicators Api V1 Data Indicators  Symbol  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data/indicators": {
+      "get": {
+        "tags": [
+          "data"
+        ],
+        "summary": "Get bulk indicators",
+        "description": "Retrieve indicator values for multiple symbols in a single request.",
+        "operationId": "get_bulk_indicators_api_v1_data_indicators_get",
+        "parameters": [
+          {
+            "name": "symbols",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Comma-separated list of symbols",
+              "title": "Symbols"
+            },
+            "description": "Comma-separated list of symbols"
+          },
+          {
+            "name": "timeframe",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Timeframe",
+              "default": "1D",
+              "title": "Timeframe"
+            },
+            "description": "Timeframe"
+          },
+          {
+            "name": "indicators",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated indicator names",
+              "title": "Indicators"
+            },
+            "description": "Comma-separated indicator names"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Get Bulk Indicators Api V1 Data Indicators Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data/symbols": {
+      "get": {
+        "tags": [
+          "data"
+        ],
+        "summary": "List available symbols",
+        "description": "Return a static list of common symbols (no database dependency). Frontend does not require this for autocomplete.",
+        "operationId": "get_symbols_api_v1_data_symbols_get",
+        "parameters": [
+          {
+            "name": "asset_class",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by asset class",
+              "title": "Asset Class"
+            },
+            "description": "Filter by asset class"
+          },
+          {
+            "name": "active_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Only return active symbols",
+              "default": true,
+              "title": "Active Only"
+            },
+            "description": "Only return active symbols"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Get Symbols Api V1 Data Symbols Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data/{symbol}": {
+      "get": {
+        "tags": [
+          "data"
+        ],
+        "summary": "Get OHLCV data",
+        "description": "Retrieve OHLCV candle data for a symbol. Data fetched from Yahoo Finance on-demand \u2014 no pre-ingestion needed.",
+        "operationId": "get_data_api_v1_data__symbol__get",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Symbol"
+            }
+          },
+          {
+            "name": "timeframe",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "1D",
+              "title": "Timeframe"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 500,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Get Data Api V1 Data  Symbol  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/portfolio/analyze": {
+      "post": {
+        "tags": [
+          "portfolio"
+        ],
+        "summary": "Portfolio analysis",
+        "description": "Analyse a portfolio of tickers \u2014 correlation, sector allocation, risk.\n\nReturns per-symbol data, correlation matrix, combined beta, sector\nallocation, portfolio volatility, and equal-risk position sizing.",
+        "operationId": "analyze_portfolio_api_v1_portfolio_analyze_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PortfolioRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/professional/morning-brief": {
+      "get": {
+        "tags": [
+          "professional-mode"
+        ],
+        "summary": "Get Morning Brief",
+        "description": "Generate the daily morning brief.\n\nReturns regime badge, market internals, sector rotation, and\ntop 9 tickers (3 per regime-matched screen) with pre-market quotes.",
+        "operationId": "get_morning_brief_api_v1_professional_morning_brief_get",
+        "parameters": [
+          {
+            "name": "regime",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Regime override (auto-detect if null)",
+              "title": "Regime"
+            },
+            "description": "Regime override (auto-detect if null)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MorningBriefResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/professional/verdict/{symbol}": {
+      "get": {
+        "tags": [
+          "professional-mode"
+        ],
+        "summary": "Get Simplified Verdict",
+        "description": "Get a one-click simplified verdict for a single ticker.\n\nCalls TickerAnalysisService.analyze() internally and extracts\nthe essential info a working professional needs to make a decision.",
+        "operationId": "get_simplified_verdict_api_v1_professional_verdict__symbol__get",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Symbol"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SimplifiedVerdictResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/professional/watchlist/analyze": {
+      "post": {
+        "tags": [
+          "professional-mode"
+        ],
+        "summary": "Analyze Watchlist",
+        "description": "Batch-analyze a watchlist of tickers in parallel.\n\nFor each symbol, calls the simplified verdict endpoint and returns\na summary verdict + position size.",
+        "operationId": "analyze_watchlist_api_v1_professional_watchlist_analyze_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WatchlistAnalyzeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_WatchlistAnalyzeResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/professional/education/{metric}": {
+      "get": {
+        "tags": [
+          "professional-mode"
+        ],
+        "summary": "Get Education",
+        "description": "Get a plain-English explanation of a financial metric.\n\nFalls back to static template explanations for 20 core metrics.\nAccepts metric name variations (e.g., 'pe_ratio', 'P/E', 'pe').",
+        "operationId": "get_education_api_v1_professional_education__metric__get",
+        "parameters": [
+          {
+            "name": "metric",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Metric"
+            }
+          },
+          {
+            "name": "symbol",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional symbol for context",
+              "title": "Symbol"
+            },
+            "description": "Optional symbol for context"
+          },
+          {
+            "name": "value",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Metric value to explain",
+              "title": "Value"
+            },
+            "description": "Metric value to explain"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_EducationResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/professional/position-size": {
+      "get": {
+        "tags": [
+          "professional-mode"
+        ],
+        "summary": "Calculate Position Size",
+        "description": "Calculate position size using conviction-adjusted Kelly.\n\nUses the formula: position_size = min(kelly_base, position_cap, sector_cap)\nwhere kelly_base = equity \u00d7 risk_pct \u00d7 conviction_mult / risk_per_share.",
+        "operationId": "calculate_position_size_api_v1_professional_position_size_get",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Ticker symbol",
+              "title": "Symbol"
+            },
+            "description": "Ticker symbol"
+          },
+          {
+            "name": "account_equity",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "description": "Total account equity",
+              "title": "Account Equity"
+            },
+            "description": "Total account equity"
+          },
+          {
+            "name": "entry",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "description": "Planned entry price",
+              "title": "Entry"
+            },
+            "description": "Planned entry price"
+          },
+          {
+            "name": "stop_loss",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "description": "Stop loss price",
+              "title": "Stop Loss"
+            },
+            "description": "Stop loss price"
+          },
+          {
+            "name": "conviction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Conviction level: high/medium/low",
+              "default": "medium",
+              "title": "Conviction"
+            },
+            "description": "Conviction level: high/medium/low"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PositionSizeResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/professional/alerts/preferences": {
+      "get": {
+        "tags": [
+          "professional-mode"
+        ],
+        "summary": "Get Alert Preferences",
+        "description": "Get alert notification preferences for the current user.",
+        "operationId": "get_alert_preferences_api_v1_professional_alerts_preferences_get",
+        "parameters": [
+          {
+            "name": "email",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "User email",
+              "default": "default@trader.com",
+              "title": "Email"
+            },
+            "description": "User email"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_AlertPreferences_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "professional-mode"
+        ],
+        "summary": "Update Alert Preferences",
+        "description": "Update alert notification preferences.",
+        "operationId": "update_alert_preferences_api_v1_professional_alerts_preferences_put",
+        "parameters": [
+          {
+            "name": "email",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "User email",
+              "default": "default@trader.com",
+              "title": "Email"
+            },
+            "description": "User email"
+          },
+          {
+            "name": "email_morning_brief",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Email Morning Brief"
+            }
+          },
+          {
+            "name": "email_stop_hit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Email Stop Hit"
+            }
+          },
+          {
+            "name": "push_stop_hit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Push Stop Hit"
+            }
+          },
+          {
+            "name": "push_target_hit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Push Target Hit"
+            }
+          },
+          {
+            "name": "email_earnings_alert",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Email Earnings Alert"
+            }
+          },
+          {
+            "name": "email_regime_change",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Email Regime Change"
+            }
+          },
+          {
+            "name": "email_weekly_review",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Email Weekly Review"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_AlertPreferences_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/professional/alerts": {
+      "get": {
+        "tags": [
+          "professional-mode"
+        ],
+        "summary": "List Alerts",
+        "description": "Return recent in-app alerts (stop hits, target hits, regime changes).",
+        "operationId": "list_alerts_api_v1_professional_alerts_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Max alerts to return",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Max alerts to return"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_list_dict__"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/market/regime": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "Get Market Regime",
+        "description": "Get current market regime snapshot with composite score and all sub-indicators.",
+        "operationId": "get_market_regime_api_v1_market_regime_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_MarketRegimeResponse_"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/market/events": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "Upcoming market events",
+        "description": "Get upcoming market events \u2014 FOMC, CPI, PCE \u2014 with countdown in days.",
+        "operationId": "get_market_events_api_v1_market_events_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/market/narrative": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "Market narrative summary",
+        "description": "Get a human-readable 1-paragraph market narrative summary.",
+        "operationId": "get_market_narrative_api_v1_market_narrative_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/risk/{symbol}": {
+      "get": {
+        "tags": [
+          "risk"
+        ],
+        "summary": "Get symbol beta",
+        "description": "Get beta and tracking error for a single symbol vs a benchmark.",
+        "operationId": "get_symbol_beta_api_v1_risk__symbol__get",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Symbol"
+            }
+          },
+          {
+            "name": "benchmark",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Benchmark"
+            }
+          },
+          {
+            "name": "window",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 60,
+              "title": "Window"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Get Symbol Beta Api V1 Risk  Symbol  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/risk/beta": {
+      "get": {
+        "tags": [
+          "risk"
+        ],
+        "summary": "Get multi-symbol beta",
+        "description": "Get beta values for multiple symbols vs a benchmark.",
+        "operationId": "get_beta_api_v1_risk_beta_get",
+        "parameters": [
+          {
+            "name": "benchmark",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Benchmark"
+            }
+          },
+          {
+            "name": "window",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 60,
+              "title": "Window"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "title": "Symbols"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Get Beta Api V1 Risk Beta Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/risk/correlation": {
+      "get": {
+        "tags": [
+          "risk"
+        ],
+        "summary": "Get correlation matrix",
+        "description": "Get the Pearson correlation matrix for a list of symbols.",
+        "operationId": "get_correlation_api_v1_risk_correlation_get",
+        "parameters": [
+          {
+            "name": "window",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 30,
+              "title": "Window"
+            }
+          },
+          {
+            "name": "group_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Group By"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 2,
+                "title": "Symbols"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Get Correlation Api V1 Risk Correlation Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/risk/var": {
+      "get": {
+        "tags": [
+          "risk"
+        ],
+        "summary": "Get VaR/CVaR",
+        "description": "Compute Value at Risk and Conditional VaR for a portfolio of symbols using historical, parametric, or Monte Carlo methods.",
+        "operationId": "get_var_api_v1_risk_var_get",
+        "parameters": [
+          {
+            "name": "confidence",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "default": 0.95,
+              "title": "Confidence"
+            }
+          },
+          {
+            "name": "method",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "historical",
+                "parametric",
+                "monte_carlo"
+              ],
+              "type": "string",
+              "default": "historical",
+              "title": "Method"
+            }
+          },
+          {
+            "name": "horizon",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "title": "Horizon"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "title": "Symbols"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Get Var Api V1 Risk Var Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/risk/kelly": {
+      "post": {
+        "tags": [
+          "risk"
+        ],
+        "summary": "Compute Kelly optimization",
+        "description": "Compute optimal position sizes using the Kelly Criterion based on a backtest run's trade statistics.",
+        "operationId": "post_kelly_api_v1_risk_kelly_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RiskKellyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Post Kelly Api V1 Risk Kelly Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/risk/position-size": {
+      "post": {
+        "tags": [
+          "risk"
+        ],
+        "summary": "Compute position sizes",
+        "description": "Compute risk-adjusted position sizes using ATR, Kelly, or fixed methods.",
+        "operationId": "post_position_size_api_v1_risk_position_size_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RiskPositionSizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Post Position Size Api V1 Risk Position Size Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/risk/summary": {
+      "get": {
+        "tags": [
+          "risk"
+        ],
+        "summary": "Get full risk assessment",
+        "description": "Get a comprehensive risk assessment for a portfolio including VaR, beta, correlation, and risk score.",
+        "operationId": "get_risk_summary_api_v1_risk_summary_get",
+        "parameters": [
+          {
+            "name": "portfolio_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "default",
+              "title": "Portfolio Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Symbols"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Get Risk Summary Api V1 Risk Summary Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sector-rotation": {
+      "get": {
+        "tags": [
+          "sector-rotation"
+        ],
+        "summary": "Get Sector Rotation",
+        "description": "Get current sector rotation snapshot with 1D/1W performance, RS rankings, and smart money flow signals.",
+        "operationId": "get_sector_rotation_api_v1_sector_rotation_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SectorRotationResponse_"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sector-rotation/history": {
+      "get": {
+        "tags": [
+          "sector-rotation"
+        ],
+        "summary": "Get Rotation History",
+        "description": "Get historical sector rotation rankings for charting.",
+        "operationId": "get_rotation_history_api_v1_sector_rotation_history_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_list_RotationHistoryPoint__"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sector-rotation/{symbol}": {
+      "get": {
+        "tags": [
+          "sector-rotation"
+        ],
+        "summary": "Get Sector Detail",
+        "description": "Get detailed data for a specific sector ETF including price history and RS history.",
+        "operationId": "get_sector_detail_api_v1_sector_rotation__symbol__get",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Symbol"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Union_SectorDetail__NoneType__"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ticker/{symbol}/analyze": {
+      "post": {
+        "tags": [
+          "ticker"
+        ],
+        "summary": "Full ticker analysis",
+        "description": "Run the complete ticker analysis pipeline \u2014 technical, fundamental, earnings, sentiment, and risk \u2014 and return a synthesized verdict (BUY/SELL/HOLD/WATCH) with entry zone, stop loss, targets, triggers, and thesis.",
+        "operationId": "analyze_ticker_api_v1_ticker__symbol__analyze_post",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Symbol"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TickerAnalysisRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ticker/{symbol}/options": {
+      "get": {
+        "tags": [
+          "ticker"
+        ],
+        "summary": "Options chain from Yahoo Finance",
+        "description": "Fetch options chain data including strikes, IV, Greeks, and open interest for a given expiry.",
+        "operationId": "get_options_chain_api_v1_ticker__symbol__options_get",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Symbol"
+            }
+          },
+          {
+            "name": "expiry",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Expiry date YYYY-MM-DD. Defaults to nearest Friday.",
+              "title": "Expiry"
+            },
+            "description": "Expiry date YYYY-MM-DD. Defaults to nearest Friday."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ticker/{symbol}/options-flow": {
+      "get": {
+        "tags": [
+          "ticker"
+        ],
+        "summary": "Enhanced options flow analysis",
+        "description": "Compute advanced options metrics: GEX flip levels, max pain magnet, IV rank/percentile, unusual volume, dealer positioning, term structure.",
+        "operationId": "get_options_flow_api_v1_ticker__symbol__options_flow_get",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Symbol"
+            }
+          },
+          {
+            "name": "expiry",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Expiry date YYYY-MM-DD. Defaults to nearest Friday.",
+              "title": "Expiry"
+            },
+            "description": "Expiry date YYYY-MM-DD. Defaults to nearest Friday."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ticker/{symbol}/news": {
+      "get": {
+        "tags": [
+          "ticker"
+        ],
+        "summary": "News/catalyst feed from Yahoo Finance",
+        "description": "Fetch recent news headlines with sentiment scoring for a ticker.",
+        "operationId": "get_news_api_v1_ticker__symbol__news_get",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Symbol"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "description": "Number of news items to return",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Number of news items to return"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ticker/{symbol}/chart": {
+      "get": {
+        "tags": [
+          "ticker"
+        ],
+        "summary": "Intraday chart data from Yahoo Finance",
+        "description": "Fetch intraday OHLCV data for charting. Supports 5m, 15m, 1h, 4h, 1d intervals.",
+        "operationId": "get_chart_data_api_v1_ticker__symbol__chart_get",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Symbol"
+            }
+          },
+          {
+            "name": "interval",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(5m|15m|1h|4h|1d)$",
+              "description": "Time interval",
+              "default": "5m",
+              "title": "Interval"
+            },
+            "description": "Time interval"
+          },
+          {
+            "name": "time_range",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(1d|5d|1mo|3mo|6mo|1y|2y|5y|10y|ytd|max)$",
+              "description": "Time range",
+              "default": "1d",
+              "title": "Time Range"
+            },
+            "description": "Time range"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/screen/tv": {
+      "post": {
+        "tags": [
+          "tv-screener"
+        ],
+        "summary": "Screen Tv",
+        "description": "Stage 1: Instant TV Screener discovery + confluence scoring.\nRuns the screen on TradingView's server (12K+ symbols, <2s).\nReturns ranked tickers with confluence scores from TV data ONLY.",
+        "operationId": "screen_tv_api_v1_screen_tv_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TVScreenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TVScreenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/screen/tv/multi-tf": {
+      "post": {
+        "tags": [
+          "tv-screener"
+        ],
+        "summary": "Screen Tv Multi Tf",
+        "description": "Multi-timeframe TV screen: runs per-TF, intersects tickers, scores.\nReturns tickers that match ALL timeframes.",
+        "operationId": "screen_tv_multi_tf_api_v1_screen_tv_multi_tf_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TVScreenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Screen Tv Multi Tf Api V1 Screen Tv Multi Tf Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/screen/tv/analyze": {
+      "post": {
+        "tags": [
+          "tv-screener"
+        ],
+        "summary": "Deep Analyze",
+        "description": "Stage 3: On-demand deep analysis for a single ticker.\nFetches OHLCV, computes indicators, runs backtest, risk.",
+        "operationId": "deep_analyze_api_v1_screen_tv_analyze_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeepAnalysisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Deep Analyze Api V1 Screen Tv Analyze Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/screen/tv/templates": {
+      "get": {
+        "tags": [
+          "tv-screener"
+        ],
+        "summary": "List Templates",
+        "description": "List available screen templates.",
+        "operationId": "list_templates_api_v1_screen_tv_templates_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "type": "object"
+                  },
+                  "type": "array",
+                  "title": "Response List Templates Api V1 Screen Tv Templates Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/screen/tv/templates/{name}": {
+      "get": {
+        "tags": [
+          "tv-screener"
+        ],
+        "summary": "Get Template",
+        "description": "Load a screen template by name (supports both filename and display name).",
+        "operationId": "get_template_api_v1_screen_tv_templates__name__get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Template Api V1 Screen Tv Templates  Name  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AlertPreferences": {
+        "properties": {
+          "email_morning_brief": {
+            "type": "boolean",
+            "title": "Email Morning Brief",
+            "default": true
+          },
+          "email_stop_hit": {
+            "type": "boolean",
+            "title": "Email Stop Hit",
+            "default": true
+          },
+          "push_stop_hit": {
+            "type": "boolean",
+            "title": "Push Stop Hit",
+            "default": true
+          },
+          "push_target_hit": {
+            "type": "boolean",
+            "title": "Push Target Hit",
+            "default": true
+          },
+          "email_earnings_alert": {
+            "type": "boolean",
+            "title": "Email Earnings Alert",
+            "default": true
+          },
+          "email_regime_change": {
+            "type": "boolean",
+            "title": "Email Regime Change",
+            "default": true
+          },
+          "email_weekly_review": {
+            "type": "boolean",
+            "title": "Email Weekly Review",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "AlertPreferences",
+        "description": "User alert notification preferences."
+      },
+      "ApiResponse": {
+        "properties": {
+          "data": {
+            "title": "Data"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ApiResponse",
+        "description": "Standard API response envelope.\n\nAll successful responses use this structure."
+      },
+      "ApiResponse_AlertPreferences_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AlertPreferences"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ApiResponse[AlertPreferences]"
+      },
+      "ApiResponse_EducationResponse_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EducationResponse"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ApiResponse[EducationResponse]"
+      },
+      "ApiResponse_MarketRegimeResponse_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/MarketRegimeResponse"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ApiResponse[MarketRegimeResponse]"
+      },
+      "ApiResponse_MorningBriefResponse_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/MorningBriefResponse"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ApiResponse[MorningBriefResponse]"
+      },
+      "ApiResponse_PositionSizeResponse_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PositionSizeResponse"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ApiResponse[PositionSizeResponse]"
+      },
+      "ApiResponse_SectorRotationResponse_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SectorRotationResponse"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ApiResponse[SectorRotationResponse]"
+      },
+      "ApiResponse_SimplifiedVerdictResponse_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SimplifiedVerdictResponse"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ApiResponse[SimplifiedVerdictResponse]"
+      },
+      "ApiResponse_Union_SectorDetail__NoneType__": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SectorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ApiResponse[Union[SectorDetail, NoneType]]"
+      },
+      "ApiResponse_WatchlistAnalyzeResponse_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/WatchlistAnalyzeResponse"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ApiResponse[WatchlistAnalyzeResponse]"
+      },
+      "ApiResponse_list_RotationHistoryPoint__": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/RotationHistoryPoint"
+            },
+            "type": "array",
+            "title": "Data"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ApiResponse[list[RotationHistoryPoint]]"
+      },
+      "ApiResponse_list_dict__": {
+        "properties": {
+          "data": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Data"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ApiResponse[list[dict]]"
+      },
+      "BacktestRequest": {
+        "properties": {
+          "symbols": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Symbols"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End"
+          },
+          "initial_cash": {
+            "type": "number",
+            "title": "Initial Cash",
+            "default": 100000.0
+          },
+          "fees_bps": {
+            "type": "number",
+            "title": "Fees Bps",
+            "default": 10.0
+          },
+          "slippage_bps": {
+            "type": "number",
+            "title": "Slippage Bps",
+            "default": 5.0
+          },
+          "position_sizing": {
+            "type": "string",
+            "enum": [
+              "fixed",
+              "atr",
+              "kelly"
+            ],
+            "title": "Position Sizing",
+            "default": "fixed"
+          },
+          "sizing_params": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Sizing Params"
+          },
+          "signal_params": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Signal Params"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "symbols",
+          "start",
+          "end"
+        ],
+        "title": "BacktestRequest",
+        "description": "POST /api/v1/backtest request body."
+      },
+      "CompareRequest": {
+        "properties": {
+          "run_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "minItems": 2,
+            "title": "Run Ids"
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels"
+          },
+          "include_significance": {
+            "type": "boolean",
+            "title": "Include Significance",
+            "default": true
+          },
+          "bootstrap_samples": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 100.0,
+            "title": "Bootstrap Samples",
+            "default": 1000
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "run_ids"
+        ],
+        "title": "CompareRequest",
+        "description": "POST /api/v1/backtest/compare request body."
+      },
+      "DeepAnalysisRequest": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "timeframe": {
+            "type": "string",
+            "title": "Timeframe",
+            "default": "1D"
+          },
+          "include_backtest": {
+            "type": "boolean",
+            "title": "Include Backtest",
+            "default": true
+          },
+          "include_risk": {
+            "type": "boolean",
+            "title": "Include Risk",
+            "default": true
+          },
+          "tv_data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tv Data"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "symbol"
+        ],
+        "title": "DeepAnalysisRequest"
+      },
+      "EducationResponse": {
+        "properties": {
+          "metric": {
+            "type": "string",
+            "title": "Metric"
+          },
+          "symbol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol"
+          },
+          "plain_english": {
+            "type": "string",
+            "title": "Plain English"
+          },
+          "value_context": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Context"
+          },
+          "actionable": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actionable"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "metric",
+          "plain_english",
+          "source"
+        ],
+        "title": "EducationResponse",
+        "description": "Plain-English explanation of a financial metric."
+      },
+      "EliteEnrichment": {
+        "properties": {
+          "rs_rating": {
+            "type": "integer",
+            "title": "Rs Rating",
+            "default": 50
+          },
+          "inst_quality": {
+            "type": "integer",
+            "title": "Inst Quality",
+            "default": 50
+          },
+          "signal_conviction": {
+            "type": "string",
+            "title": "Signal Conviction",
+            "default": "low"
+          },
+          "wyckoff_phase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wyckoff Phase"
+          },
+          "factor_conflicts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Factor Conflicts"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "EliteEnrichment",
+        "description": "Elite signal enrichment data from post-TV processing."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "MarketInternals": {
+        "properties": {
+          "vix": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vix"
+          },
+          "advance_decline_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Advance Decline Ratio"
+          },
+          "dollar_index": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dollar Index"
+          },
+          "sp500_futures": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sp500 Futures"
+          },
+          "nasdaq_futures": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nasdaq Futures"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "MarketInternals",
+        "description": "Macro market internals for the morning brief header."
+      },
+      "MarketRegimeResponse": {
+        "properties": {
+          "composite_score": {
+            "type": "number",
+            "title": "Composite Score"
+          },
+          "regime_label": {
+            "type": "string",
+            "title": "Regime Label"
+          },
+          "regime_color": {
+            "type": "string",
+            "title": "Regime Color"
+          },
+          "vix": {
+            "$ref": "#/components/schemas/RegimeIndicator"
+          },
+          "risk_appetite": {
+            "$ref": "#/components/schemas/RegimeIndicator"
+          },
+          "sector_breadth": {
+            "$ref": "#/components/schemas/RegimeIndicator"
+          },
+          "safe_haven": {
+            "$ref": "#/components/schemas/RegimeIndicator"
+          },
+          "yield_curve": {
+            "$ref": "#/components/schemas/RegimeIndicator"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp"
+          },
+          "data_fetched_at": {
+            "type": "string",
+            "title": "Data Fetched At",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "composite_score",
+          "regime_label",
+          "regime_color",
+          "vix",
+          "risk_appetite",
+          "sector_breadth",
+          "safe_haven",
+          "yield_curve",
+          "timestamp"
+        ],
+        "title": "MarketRegimeResponse",
+        "description": "Full market regime snapshot."
+      },
+      "MetaInfo": {
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp"
+          },
+          "request_id": {
+            "type": "string",
+            "title": "Request Id",
+            "default": ""
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          }
+        },
+        "type": "object",
+        "title": "MetaInfo",
+        "description": "Metadata attached to every API response."
+      },
+      "MorningBriefResponse": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "regime": {
+            "type": "string",
+            "title": "Regime"
+          },
+          "regime_description": {
+            "type": "string",
+            "title": "Regime Description"
+          },
+          "market_internals": {
+            "$ref": "#/components/schemas/MarketInternals"
+          },
+          "sector_rotation": {
+            "$ref": "#/components/schemas/SectorRotationSummary"
+          },
+          "sectors": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Sectors"
+          },
+          "screen_sections": {
+            "items": {
+              "$ref": "#/components/schemas/ScreenSection"
+            },
+            "type": "array",
+            "title": "Screen Sections"
+          },
+          "generated_at": {
+            "type": "string",
+            "title": "Generated At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "date",
+          "regime",
+          "regime_description",
+          "market_internals",
+          "sector_rotation",
+          "sectors",
+          "screen_sections",
+          "generated_at"
+        ],
+        "title": "MorningBriefResponse",
+        "description": "Complete morning brief with regime, sectors, market internals, and screen results."
+      },
+      "OptimizeRequest": {
+        "properties": {
+          "symbols": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Symbols"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End"
+          },
+          "initial_cash": {
+            "type": "number",
+            "title": "Initial Cash",
+            "default": 100000.0
+          },
+          "fees_bps": {
+            "type": "number",
+            "title": "Fees Bps",
+            "default": 10.0
+          },
+          "slippage_bps": {
+            "type": "number",
+            "title": "Slippage Bps",
+            "default": 5.0
+          },
+          "position_sizing": {
+            "type": "string",
+            "enum": [
+              "fixed",
+              "atr",
+              "kelly"
+            ],
+            "title": "Position Sizing",
+            "default": "fixed"
+          },
+          "sizing_params": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Sizing Params"
+          },
+          "signal_params": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Signal Params"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "grid",
+              "random",
+              "bayesian"
+            ],
+            "title": "Method",
+            "default": "bayesian"
+          },
+          "grid_params": {
+            "additionalProperties": {
+              "items": {},
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Grid Params"
+          },
+          "param_distributions": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Param Distributions"
+          },
+          "objectives": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Objectives"
+          },
+          "max_trials": {
+            "type": "integer",
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Max Trials",
+            "default": 100
+          },
+          "timeout_s": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 10.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout S"
+          },
+          "n_jobs": {
+            "type": "integer",
+            "maximum": 32.0,
+            "minimum": 1.0,
+            "title": "N Jobs",
+            "default": 1
+          },
+          "early_stopping": {
+            "type": "boolean",
+            "title": "Early Stopping",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "symbols",
+          "start",
+          "end"
+        ],
+        "title": "OptimizeRequest",
+        "description": "POST /api/v1/backtest/optimize-v2 request body."
+      },
+      "PortfolioRequest": {
+        "properties": {
+          "symbols": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Symbols"
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbols"
+        ],
+        "title": "PortfolioRequest"
+      },
+      "PositionSizeResponse": {
+        "properties": {
+          "position_size": {
+            "type": "number",
+            "title": "Position Size"
+          },
+          "shares": {
+            "type": "integer",
+            "title": "Shares"
+          },
+          "risk_amount": {
+            "type": "number",
+            "title": "Risk Amount"
+          },
+          "risk_pct": {
+            "type": "number",
+            "title": "Risk Pct"
+          },
+          "conviction_multiplier": {
+            "type": "number",
+            "title": "Conviction Multiplier"
+          },
+          "capped_by": {
+            "type": "string",
+            "title": "Capped By"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "position_size",
+          "shares",
+          "risk_amount",
+          "risk_pct",
+          "conviction_multiplier",
+          "capped_by"
+        ],
+        "title": "PositionSizeResponse",
+        "description": "Position size calculation result."
+      },
+      "RegimeIndicator": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "weight": {
+            "type": "number",
+            "title": "Weight"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "normal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "value",
+          "score",
+          "weight"
+        ],
+        "title": "RegimeIndicator",
+        "description": "Individual regime indicator with score and raw value."
+      },
+      "RegimeRequest": {
+        "properties": {
+          "symbols": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Symbols"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "hmm",
+              "volatility_quantile"
+            ],
+            "title": "Method",
+            "default": "hmm"
+          },
+          "n_states": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 2.0,
+            "title": "N States",
+            "default": 3
+          },
+          "window_days": {
+            "type": "integer",
+            "maximum": 1260.0,
+            "minimum": 63.0,
+            "title": "Window Days",
+            "default": 252
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "symbols",
+          "start",
+          "end"
+        ],
+        "title": "RegimeRequest",
+        "description": "POST /api/v1/backtest/regimes request body."
+      },
+      "ReportRequest": {
+        "properties": {
+          "formats": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "html",
+                "pdf",
+                "json"
+              ]
+            },
+            "type": "array",
+            "title": "Formats"
+          },
+          "template": {
+            "type": "string",
+            "title": "Template",
+            "default": "backtest_report.html"
+          },
+          "include_equity_curve": {
+            "type": "boolean",
+            "title": "Include Equity Curve",
+            "default": true
+          },
+          "include_drawdown": {
+            "type": "boolean",
+            "title": "Include Drawdown",
+            "default": true
+          },
+          "include_trade_analysis": {
+            "type": "boolean",
+            "title": "Include Trade Analysis",
+            "default": true
+          },
+          "include_regime_analysis": {
+            "type": "boolean",
+            "title": "Include Regime Analysis",
+            "default": false
+          },
+          "include_parameter_sensitivity": {
+            "type": "boolean",
+            "title": "Include Parameter Sensitivity",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ReportRequest",
+        "description": "POST /api/v1/backtest/{run_id}/report request body."
+      },
+      "RiskKellyRequest": {
+        "properties": {
+          "backtest_run_id": {
+            "type": "string",
+            "title": "Backtest Run Id"
+          },
+          "max_dd_target": {
+            "type": "number",
+            "title": "Max Dd Target",
+            "default": 0.25
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "backtest_run_id"
+        ],
+        "title": "RiskKellyRequest",
+        "description": "POST /api/v1/risk/kelly request body."
+      },
+      "RiskPositionSizeRequest": {
+        "properties": {
+          "symbols": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Symbols"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "atr",
+              "kelly",
+              "fixed"
+            ],
+            "title": "Method",
+            "default": "atr"
+          },
+          "cash": {
+            "type": "number",
+            "title": "Cash",
+            "default": 100000.0
+          },
+          "params": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Params"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "symbols"
+        ],
+        "title": "RiskPositionSizeRequest",
+        "description": "POST /api/v1/risk/position-size request body."
+      },
+      "RotationHistoryPoint": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "sector_rankings": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Sector Rankings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "sector_rankings"
+        ],
+        "title": "RotationHistoryPoint",
+        "description": "Single point in rotation history."
+      },
+      "ScoredTickerResponse": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "score": {
+            "type": "integer",
+            "title": "Score"
+          },
+          "breakdown": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Breakdown"
+          },
+          "entry": {
+            "type": "number",
+            "title": "Entry"
+          },
+          "stop_loss": {
+            "type": "number",
+            "title": "Stop Loss"
+          },
+          "targets": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Targets"
+          },
+          "risk_reward": {
+            "type": "number",
+            "title": "Risk Reward"
+          },
+          "rating": {
+            "type": "string",
+            "title": "Rating"
+          },
+          "rationale": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rationale"
+          },
+          "tv_data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Tv Data"
+          },
+          "elite": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EliteEnrichment"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "probable_fund": {
+            "type": "boolean",
+            "title": "Probable Fund",
+            "default": false
+          },
+          "probable_fund_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Probable Fund Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "symbol",
+          "score",
+          "breakdown",
+          "entry",
+          "stop_loss",
+          "targets",
+          "risk_reward",
+          "rating",
+          "tv_data"
+        ],
+        "title": "ScoredTickerResponse"
+      },
+      "ScreenSection": {
+        "properties": {
+          "screen_name": {
+            "type": "string",
+            "title": "Screen Name"
+          },
+          "screen_label": {
+            "type": "string",
+            "title": "Screen Label"
+          },
+          "regime_match_score": {
+            "type": "number",
+            "title": "Regime Match Score"
+          },
+          "tickers": {
+            "items": {
+              "$ref": "#/components/schemas/TickerBrief"
+            },
+            "type": "array",
+            "title": "Tickers"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "screen_name",
+          "screen_label",
+          "regime_match_score",
+          "tickers"
+        ],
+        "title": "ScreenSection",
+        "description": "A screen section within the morning brief \u2014 one of the top 3 screens."
+      },
+      "SectorDetail": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "performance": {
+            "$ref": "#/components/schemas/SectorPerformance"
+          },
+          "price_history": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Price History",
+            "default": []
+          },
+          "relative_strength_history": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Relative Strength History",
+            "default": []
+          },
+          "components": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Components",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol",
+          "name",
+          "description",
+          "performance"
+        ],
+        "title": "SectorDetail",
+        "description": "Deep-dive data for a single sector ETF."
+      },
+      "SectorPerformance": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "price": {
+            "type": "number",
+            "title": "Price",
+            "default": 0.0
+          },
+          "change_1d": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change 1D"
+          },
+          "change_1w": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change 1W"
+          },
+          "change_1m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change 1M"
+          },
+          "volume_1d": {
+            "type": "number",
+            "title": "Volume 1D",
+            "default": 0.0
+          },
+          "volume_vs_avg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volume Vs Avg"
+          },
+          "volume_vs_avg_1w": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volume Vs Avg 1W"
+          },
+          "relative_strength_1d": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relative Strength 1D"
+          },
+          "relative_strength_1w": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relative Strength 1W"
+          },
+          "momentum_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Momentum Score"
+          },
+          "trend": {
+            "type": "string",
+            "title": "Trend",
+            "default": "neutral"
+          },
+          "flow_signal": {
+            "type": "string",
+            "title": "Flow Signal",
+            "default": "neutral"
+          },
+          "flow_strength": {
+            "type": "number",
+            "title": "Flow Strength",
+            "default": 0.0
+          },
+          "flow_signal_1w": {
+            "type": "string",
+            "title": "Flow Signal 1W",
+            "default": "neutral"
+          },
+          "flow_strength_1w": {
+            "type": "number",
+            "title": "Flow Strength 1W",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol",
+          "name"
+        ],
+        "title": "SectorPerformance",
+        "description": "Performance metrics for a single sector over specified periods."
+      },
+      "SectorRotationResponse": {
+        "properties": {
+          "sectors": {
+            "items": {
+              "$ref": "#/components/schemas/SectorPerformance"
+            },
+            "type": "array",
+            "title": "Sectors"
+          },
+          "leaders": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Leaders"
+          },
+          "laggards": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Laggards"
+          },
+          "rotation_phase": {
+            "type": "string",
+            "title": "Rotation Phase",
+            "default": "unknown"
+          },
+          "market_regime": {
+            "type": "string",
+            "title": "Market Regime",
+            "default": "unknown"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "sectors",
+          "leaders",
+          "laggards"
+        ],
+        "title": "SectorRotationResponse",
+        "description": "Full sector rotation snapshot."
+      },
+      "SectorRotationSummary": {
+        "properties": {
+          "leading_sectors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Leading Sectors"
+          },
+          "lagging_sectors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Lagging Sectors"
+          },
+          "regime_alignment": {
+            "type": "string",
+            "title": "Regime Alignment"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "leading_sectors",
+          "lagging_sectors",
+          "regime_alignment"
+        ],
+        "title": "SectorRotationSummary",
+        "description": "Sector rotation context for the morning brief."
+      },
+      "SimplifiedVerdictResponse": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "conviction": {
+            "type": "integer",
+            "title": "Conviction"
+          },
+          "verdict_summary": {
+            "type": "string",
+            "title": "Verdict Summary"
+          },
+          "key_metrics": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Key Metrics"
+          },
+          "entry_zone": {
+            "type": "string",
+            "title": "Entry Zone"
+          },
+          "stop_loss": {
+            "type": "number",
+            "title": "Stop Loss"
+          },
+          "targets": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Targets"
+          },
+          "position_size": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position Size"
+          },
+          "max_hold_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Hold Days"
+          },
+          "education": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Education",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "symbol",
+          "action",
+          "conviction",
+          "verdict_summary",
+          "key_metrics",
+          "entry_zone",
+          "stop_loss",
+          "targets"
+        ],
+        "title": "SimplifiedVerdictResponse",
+        "description": "Simplified verdict \u2014 the essential info a working pro needs."
+      },
+      "TVScreenRequest": {
+        "properties": {
+          "config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Config"
+          },
+          "limit": {
+            "type": "integer",
+            "maximum": 2000.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "default": 500
+          },
+          "multi_timeframe": {
+            "type": "boolean",
+            "title": "Multi Timeframe",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "config"
+        ],
+        "title": "TVScreenRequest",
+        "description": "Request for TV Screener discovery.\n\n`config` can be a dict (inline ScreenConfig) or a string (template name)."
+      },
+      "TVScreenResponse": {
+        "properties": {
+          "screen_name": {
+            "type": "string",
+            "title": "Screen Name"
+          },
+          "total_matches": {
+            "type": "integer",
+            "title": "Total Matches"
+          },
+          "execution_ms": {
+            "type": "integer",
+            "title": "Execution Ms"
+          },
+          "timeframe": {
+            "type": "string",
+            "title": "Timeframe"
+          },
+          "fetched_at": {
+            "type": "string",
+            "title": "Fetched At"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ScoredTickerResponse"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "screen_name",
+          "total_matches",
+          "execution_ms",
+          "timeframe",
+          "fetched_at",
+          "results"
+        ],
+        "title": "TVScreenResponse"
+      },
+      "TickerAnalysisRequest": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "timeframe": {
+            "type": "string",
+            "title": "Timeframe",
+            "default": "1D"
+          },
+          "tv_data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tv Data"
+          },
+          "regime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regime"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "symbol"
+        ],
+        "title": "TickerAnalysisRequest",
+        "description": "Request to analyze a single ticker."
+      },
+      "TickerBrief": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "screen_name": {
+            "type": "string",
+            "title": "Screen Name"
+          },
+          "screen_score": {
+            "type": "number",
+            "title": "Screen Score"
+          },
+          "confluence_score": {
+            "type": "integer",
+            "title": "Confluence Score"
+          },
+          "entry": {
+            "type": "number",
+            "title": "Entry"
+          },
+          "stop_loss": {
+            "type": "number",
+            "title": "Stop Loss"
+          },
+          "targets": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Targets"
+          },
+          "verdict": {
+            "type": "string",
+            "title": "Verdict"
+          },
+          "conviction": {
+            "type": "integer",
+            "title": "Conviction"
+          },
+          "live_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Live Price"
+          },
+          "premarket_change_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Premarket Change Pct"
+          },
+          "education_hints": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Education Hints",
+            "default": {}
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "symbol",
+          "screen_name",
+          "screen_score",
+          "confluence_score",
+          "entry",
+          "stop_loss",
+          "targets",
+          "verdict",
+          "conviction"
+        ],
+        "title": "TickerBrief",
+        "description": "A single ticker result within a morning brief screen section."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "WatchlistAnalyzeRequest": {
+        "properties": {
+          "symbols": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Symbols"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "symbols"
+        ],
+        "title": "WatchlistAnalyzeRequest",
+        "description": "Batch analyze a list of tickers."
+      },
+      "WatchlistAnalyzeResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WatchlistItemResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "WatchlistAnalyzeResponse",
+        "description": "Batch watchlist analysis result."
+      },
+      "WatchlistItemResponse": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "verdict": {
+            "type": "string",
+            "title": "Verdict"
+          },
+          "conviction": {
+            "type": "integer",
+            "title": "Conviction"
+          },
+          "position_size": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position Size"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "symbol",
+          "verdict",
+          "conviction"
+        ],
+        "title": "WatchlistItemResponse",
+        "description": "Individual watchlist item verdict."
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "health",
+      "description": "Liveness, readiness, and dependency checks"
+    },
+    {
+      "name": "screener",
+      "description": "Multi-timeframe technical screener \u2014 run filter pipelines across asset classes"
+    },
+    {
+      "name": "backtest",
+      "description": "Strategy backtesting \u2014 vectorized simulation, walk-forward optimization, Monte Carlo"
+    },
+    {
+      "name": "data",
+      "description": "OHLCV and indicator data retrieval"
+    },
+    {
+      "name": "risk",
+      "description": "Risk management \u2014 VaR, beta, correlation, Kelly, position sizing"
+    },
+    {
+      "name": "streaming",
+      "description": "WebSocket real-time streaming \u2014 price, indicators, signals"
+    },
+    {
+      "name": "ticker",
+      "description": "Elite-trader-grade ticker analysis \u2014 technical, fundamental, earnings, sentiment, risk, with actionable verdict"
+    },
+    {
+      "name": "professional",
+      "description": "Professional Mode \u2014 guided workflow for working professionals"
+    }
+  ]
+}
