@@ -45,13 +45,23 @@ services:
       - CONFLU_CORE__LOG_LEVEL=INFO
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      # Secrets passthrough (supplied from host env / .env; empty = unset)
+      - CONFLU_PROFESSIONAL__SENDGRID_API_KEY=${CONFLU_PROFESSIONAL__SENDGRID_API_KEY:-}
+      - CONFLU_API__API_KEYS=${CONFLU_API__API_KEYS:-}
     command: >
       sh -c "python -c 'from backend.app.core.database import initialize_database; initialize_database()'
-      && python -m celery -A backend.app.worker.celery_app worker --loglevel=info -Q ingestion,compute,screener"
+      && python -m celery -A backend.app.worker.celery_app worker --loglevel=info -Q ingestion"
     depends_on:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD", "python", "-c", "from backend.app.worker.celery_app import celery_app; import sys; sys.exit(0 if celery_app.control.ping(timeout=5) else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   beat:
     profiles: ["workers"]
@@ -69,6 +79,9 @@ services:
       - CONFLU_CORE__LOG_LEVEL=INFO
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      # Secrets passthrough (supplied from host env / .env; empty = unset)
+      - CONFLU_PROFESSIONAL__SENDGRID_API_KEY=${CONFLU_PROFESSIONAL__SENDGRID_API_KEY:-}
+      - CONFLU_API__API_KEYS=${CONFLU_API__API_KEYS:-}
     command: >
       sh -c "python -c 'from backend.app.core.database import initialize_database; initialize_database()'
       && python -m celery -A backend.app.worker.celery_app beat --loglevel=info --scheduler celery.beat.PersistentScheduler"
@@ -76,6 +89,13 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import redis; redis.Redis(host='redis', port=6379).ping()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   frontend:
     build:
@@ -133,7 +153,9 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      # Overridable admin password — set GRAFANA_ADMIN_PASSWORD in the host env
+      # or .env; defaults to "admin" for local dev only.
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_INSTALL_PLUGINS=grafana-piechart-panel
     restart: unless-stopped
     depends_on:

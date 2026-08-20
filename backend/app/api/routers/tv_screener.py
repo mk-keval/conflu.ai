@@ -41,8 +41,14 @@ router = APIRouter(prefix="/screen/tv", tags=["tv-screener"])
 # =========================================================================
 # Dependency
 # =========================================================================
+# Module-level singleton so the engine's TVCache (60s TTL) and TVRateLimiter
+# (25 req/min) persist across requests. A per-request engine defeated both —
+# every request started with a cold cache and a full token bucket.
+_ENGINE = TVScreenEngine()
+
+
 def get_tv_engine() -> TVScreenEngine:
-    return TVScreenEngine()
+    return _ENGINE
 
 
 # =========================================================================
@@ -103,7 +109,7 @@ def _build_scored_response(scored: list[dict]) -> list[ScoredTickerResponse]:
 @router.post("", response_model=TVScreenResponse)
 async def screen_tv(
     request: TVScreenRequest,
-    engine: TVScreenEngine = Depends(lambda: TVScreenEngine()),
+    engine: TVScreenEngine = Depends(get_tv_engine),
 ) -> TVScreenResponse:
     """
     Stage 1: Instant TV Screener discovery + confluence scoring.
@@ -118,8 +124,6 @@ async def screen_tv(
         raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-    engine = TVScreenEngine()
 
     if request.multi_timeframe:
         result = await engine.screen_multi_tf(config)
@@ -139,6 +143,7 @@ async def screen_tv(
 @router.post("/multi-tf", response_model=dict[str, Any])
 async def screen_tv_multi_tf(
     request: TVScreenRequest,
+    engine: TVScreenEngine = Depends(get_tv_engine),
 ) -> dict[str, Any]:
     """
     Multi-timeframe TV screen: runs per-TF, intersects tickers, scores.
@@ -153,7 +158,6 @@ async def screen_tv_multi_tf(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    engine = TVScreenEngine()
     result = await engine.screen_multi_tf(config)
 
     return {
@@ -168,6 +172,7 @@ async def screen_tv_multi_tf(
 @router.post("/analyze", response_model=dict[str, Any])
 async def deep_analyze(
     request: DeepAnalysisRequest,
+    engine: TVScreenEngine = Depends(get_tv_engine),
 ) -> dict[str, Any]:
     """
     Stage 3: On-demand deep analysis for a single ticker.
@@ -176,11 +181,12 @@ async def deep_analyze(
     start = time.monotonic()
 
     try:
-        engine = TVScreenEngine()
         result = await engine.deep_analyze(
             request.symbol,
             request.timeframe,
             tv_data=request.tv_data,
+            include_backtest=request.include_backtest,
+            include_risk=request.include_risk,
         )
 
         return {

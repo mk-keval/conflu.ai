@@ -56,29 +56,6 @@ class ValidationError(ApiError):
         )
 
 
-class RateLimitError(ApiError):
-    """Rate limit exceeded (429)."""
-
-    def __init__(self, message: str | None = None) -> None:
-        super().__init__(
-            status_code=429,
-            code="RATE_LIMIT_EXCEEDED",
-            message=message or "Rate limit exceeded. Try again later.",
-        )
-
-
-class EngineError(ApiError):
-    """Wraps an engine-level error into a 500 API error."""
-
-    def __init__(self, engine: str, original_error: Exception) -> None:
-        super().__init__(
-            status_code=500,
-            code=f"{engine.upper()}_ERROR",
-            message=f"{engine} execution failed: {original_error}",
-            details={"engine": engine},
-        )
-
-
 def _build_error_response(
     code: str,
     message: str,

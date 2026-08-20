@@ -39,13 +39,14 @@
 ### Architecture Decisions
 - [Decision Log Index](docs/DECISIONS/index.md) — Architecture Decision Records
 - ADR-004: TradingView Screener Integration
-- ADR-001: DuckDB for Analytics Database
+- ADR-001: DuckDB for Analytics Database (amended: optional, backtest/risk OHLCV only)
 - ADR-002: vectorbt for Backtesting
 - ADR-003: FastAPI for REST & WebSocket API
 - ADR-005: Parquet Partitioning Strategy
 - ADR-006: structlog for Structured Logging
 - ADR-007: React + TypeScript for Frontend (⚠️ superseded — frontend removed)
 - ADR-008: Prometheus + Grafana for Observability
+- D-32: TV Screener-First Alignment — DuckDB Optional, IndicatorCache Retired
 
 ### CI/CD & Infrastructure
 - [CI Pipeline](.github/workflows/ci.yml) — Lint, test, security scan
@@ -53,7 +54,7 @@
 - [Container Builds](Dockerfile) — Multi-stage backend (uv + distroless)
 
 ## Recent Activity
-- **2026-08-04** — Docker UI fix + TickerTape removal: UI wouldn't load (TickerTape duplicate decls broke esbuild; `/data/prices` shadowed by `/data/{symbol}`; response_model mismatch → 500s; missing price → React crash). Removed TickerTape entirely (D-30) + orphaned batch-prices endpoint + guarded missing Phase-6 alert_engine import. Verified 0 console errors, WebSocket Connected, all dashboard data loads. [Session Log](docs/SESSIONS/2026-08-04_docker-ui-fix-ticker-tape-removal.md) [Decision D-30](docs/DECISIONS/D-30-remove-header-ticker-tape.md)
+- **2026-08-16** — TV Screener-First alignment (D-32): DuckDB confirmed optional/non-load-bearing (only on-demand backtest/risk OHLCV, ADR-001 amended); indicator-cache precompute retired (D-23); fixed `/health/ready`, backtest equity table, `deep_analyze` include flags (blocking bug), singleton TVScreenEngine (cache/rate-limiter now effective), Morning Brief verdict/score/RSI bugs, pinned tradingview-screener 3.2.1 (where2 filter regression), loosened 7 zero-match presets; Prometheus request middleware active, rate-limit counter, docker healthchecks/secrets, `.env` restored; frontend API envelope + types + react-query server state (D-32). [Decision D-32](docs/DECISIONS/D-32-tv-screener-first-alignment.md)
 - **2026-07-31** — Glass terminal responsive shell: frosted glass layout panels over ink background with teal/indigo ambient glow, new MobileNav bottom bar with "More" drawer, sidebar desktop-only, TickerTape integrated. [Session Log](docs/SESSIONS/2026-07-31_glass-terminal-responsive-shell.md)
 - **2026-07-24** — Portfolio page (store + UI), WorkflowBar step indicator, Dashboard landing page, sector focus banner with "Best for today" regime badges. [Branch: fix/elite-trader-gaps]
 - **2026-07-10** — UI bug fixes: regime popup z-index (header z-10→z-30), ticker analysis input bg-dark-700→bg-surface, "+1 more findings" now a clickable `<button>`, replaced undefined `dark-*` Tailwind classes across 3 files. All verified via Playwright (0 console errors across all pages). [Session Log](docs/SESSIONS/2026-07-10_ui-fix-playwright-verification.md)

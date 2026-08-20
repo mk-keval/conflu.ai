@@ -15,7 +15,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from backend.app.core.config import settings
-from backend.app.core.logging import get_logger, set_correlation_id
+from backend.app.core.logging import correlation_id, get_logger, set_correlation_id
 
 log = get_logger("conflu.api.middleware")
 
@@ -71,6 +71,12 @@ class TokenBucket:
             fill_time = self._window_s * (1.0 - self._tokens / self._rate)
             return max(0.0, fill_time - elapsed)
 
+    @property
+    def last_activity(self) -> float:
+        """Monotonic timestamp of the last token refill/consume."""
+        with self._lock:
+            return self._last_refill
+
 
 class RequestLogMiddleware(BaseHTTPMiddleware):
     """Log all HTTP requests with correlation ID, method, path, status, duration.
@@ -115,9 +121,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     PUBLIC_PATHS = frozenset({"/health", "/health/ready", "/docs", "/redoc"})
 
+    # Evict buckets idle longer than this (bounds memory growth of _buckets).
+    _BUCKET_TTL_S = 600.0
+    # Run eviction at most this often to keep the per-request cost amortized.
+    _PRUNE_INTERVAL_S = 300.0
+
     def __init__(self, app: Any) -> None:
         super().__init__(app)
         self._buckets: dict[str, TokenBucket] = {}
+        self._last_prune = time.monotonic()
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         # Skip rate limiting for public/health paths
@@ -131,6 +143,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         if not bucket.consume():
             reset_seconds = int(bucket.reset_in())
+            self._increment_rate_limit_exceeded(self._get_endpoint_group(request.url.path))
             return JSONResponse(
                 status_code=429,
                 headers={
@@ -143,6 +156,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     "error": {
                         "code": "RATE_LIMIT_EXCEEDED",
                         "message": f"Rate limit of {rate} requests per {window_s}s exceeded",
+                        "details": None,
+                        "request_id": correlation_id.get() or None,
                     }
                 },
             )
@@ -166,20 +181,60 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     def _get_rate_limit(self, path: str) -> tuple[int, int]:
         """Get (rate, window_seconds) for a path."""
-        if path.startswith("/api/v1/screen"):
+        group = self._get_endpoint_group(path)
+        if group == "screener":
             return settings.api.rate_limit_screener, 60
-        elif path.startswith("/api/v1/backtest"):
+        if group == "backtest":
             return settings.api.rate_limit_backtest, 60
-        elif path.startswith("/api/v1/data") or path.startswith("/api/v1/indicators"):
+        if group == "data":
             return settings.api.rate_limit_data, 60
-        else:
-            return settings.api.rate_limit, 60
+        return settings.api.rate_limit, 60
+
+    def _get_endpoint_group(self, path: str) -> str:
+        """Map a request path to its rate-limit endpoint group label."""
+        if path.startswith("/api/v1/screen"):
+            return "screener"
+        if path.startswith("/api/v1/backtest"):
+            return "backtest"
+        if path.startswith("/api/v1/data") or path.startswith("/api/v1/indicators"):
+            return "data"
+        return "default"
+
+    def _increment_rate_limit_exceeded(self, endpoint_group: str) -> None:
+        """Increment the rate-limit-exceeded counter if Prometheus is available.
+
+        Imported lazily so the metric reflects the current module state (it is
+        initialized by observability.setup_prometheus at app creation) and so a
+        missing prometheus_client never breaks the 429 path.
+        """
+        try:
+            from backend.app.api.observability import rate_limit_exceeded_total
+
+            if rate_limit_exceeded_total is not None:
+                rate_limit_exceeded_total.labels(endpoint_group=endpoint_group).inc()
+        except ImportError:
+            pass
 
     def _get_or_create_bucket(self, client_id: str, rate: int, window_s: int) -> TokenBucket:
         """Get existing bucket or create a new one."""
+        self._prune_buckets()
         if client_id not in self._buckets:
             self._buckets[client_id] = TokenBucket(rate, window_s)
         return self._buckets[client_id]
+
+    def _prune_buckets(self) -> None:
+        """Evict buckets idle longer than the TTL to bound memory growth."""
+        now = time.monotonic()
+        if now - self._last_prune < self._PRUNE_INTERVAL_S:
+            return
+        self._last_prune = now
+        stale = [
+            client_id
+            for client_id, bucket in self._buckets.items()
+            if now - bucket.last_activity > self._BUCKET_TTL_S
+        ]
+        for client_id in stale:
+            del self._buckets[client_id]
 
 
 class APIKeyMiddleware(BaseHTTPMiddleware):

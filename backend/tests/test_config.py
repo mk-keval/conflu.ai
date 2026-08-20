@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
@@ -82,3 +84,17 @@ class TestAppSettings:
         monkeypatch.setenv("CONFLU_CORE__LOG_LEVEL", "DEBUG")
         s = AppSettings()
         assert s.core.log_level == "DEBUG"
+
+    def test_dotenv_overrides_yaml(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        """A .env value overrides config.yaml; real env vars still win over .env."""
+        env_file = tmp_path / ".env"
+        env_file.write_text("CONFLU_CORE__LOG_LEVEL=WARNING\n")
+
+        # .env beats config.yaml (which sets core.log_level: INFO)
+        s = AppSettings(_env_file=str(env_file))
+        assert s.core.log_level == "WARNING"
+
+        # env var beats .env
+        monkeypatch.setenv("CONFLU_CORE__LOG_LEVEL", "ERROR")
+        s2 = AppSettings(_env_file=str(env_file))
+        assert s2.core.log_level == "ERROR"

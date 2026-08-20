@@ -4,7 +4,7 @@
 
 ## Project: conflu.ai — Trading Intelligence Platform
 
-A modular trading platform with DuckDB-based storage, TradingView data ingestion, and async analysis pipeline.
+A modular trading platform built **TradingView Screener-first**: live discovery, confluence scoring, and signals come from TradingView columns with **no OHLCV dependency**; charts, indicators, ticker analysis, and the Morning Brief fetch **live and on-demand** from TradingView / Yahoo Finance. DuckDB is an **optional, non-load-bearing** store for backtest/risk OHLCV only. This is NOT a traditional "ingest overnight + precompute indicators" system.
 
 ## Directory Structure
 
@@ -244,8 +244,9 @@ Aggregate Score → Bias: bullish/bearish signals → Final Bias (positive/sligh
 ## Key Design Decisions
 
 - **TV Screener first**: All discovery goes through TradingView Screener, not local OHLCV — 12K+ symbols in <2s
+- **Live everywhere; no overnight batch**: Charts, indicators (`GET /data/indicators/{symbol}`), ticker analysis, regime detection, sector rotation, and Morning Brief all fetch **live on-demand** from TradingView / Yahoo Finance. Indicators are computed on-the-fly with pandas-ta — **no precomputed indicator warehouse**.
 - **Confluence scoring from TV data only**: No OHLCV needed for initial ranking — uses TV columns directly
-- **DuckDB retained for backtest OHLCV**: Historical data still needed for deep analysis (backtest + risk)
+- **DuckDB is optional, non-load-bearing**: Historical OHLCV in DuckDB (ADR-001) is used ONLY by on-demand backtest/risk. It is never on the discovery/screening/analysis path. If DuckDB data is missing or stale, all core features still work. The `indicator_values` table / IndicatorCache is **retired** (D-23).
 - **Multi-TF via client-side intersection**: TV only supports single-TF queries, so multi-TF = multiple queries + intersect
 - **ATR-based entry/SL/targets**: Available directly from TV — no local computation needed for screening
 - **26 TV filters** across trend, momentum, volume, volatility, pattern, and fundamental categories
@@ -281,7 +282,7 @@ The architecture includes config and docker-compose for optional automation, but
 |-----------|--------|-------|
 | **Ingestion Scheduler** | ❌ Manual CLI | Ingestion runs via `python -m backend.app.infrastructure.ingest.cli`. No APScheduler/Celery Beat. |
 | **Celery Worker/Beat** | 🔌 Profile-only | Docker compose `worker`/`beat` services exist in `profiles: ["workers"]`. Never started by default. |
-| **Auto-indicator cache refresh** | ❌ Not needed | TV Screener doesn't use local indicator cache. Only deep analysis needs it. |
+| **Auto-indicator cache refresh** | ❌ **Retired (D-23)** | Indicators are computed on-demand from live data. No precomputed indicator warehouse. |
 | **Auto-screener streaming** | ❌ On-demand only | WebSocket streaming for price/signal updates only (not screener results). |
 
 ## API Design Decisions

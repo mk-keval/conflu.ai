@@ -81,6 +81,7 @@ async def test_morning_brief_generation_mock_regime():
                 regime_alignment="aligned",
             ),
             [],
+            "XLK",
         )
 
         service = MorningBriefService()

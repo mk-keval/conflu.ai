@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useMarketStore } from '@/store/market';
-import { fetchMarketRegime } from '@/api/sectorRotation';
+import { useMarketRegime } from '@/hooks/useMarketRegime';
 import { cn } from '@/lib/cn';
 import { TrendingUp, TrendingDown, Activity, ChevronDown, AlertCircle, RefreshCw } from 'lucide-react';
 
@@ -39,16 +39,45 @@ export function RegimeBar() {
   const panelRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ── Server state via react-query (FIX C): single cached regime source ──
+  // Regime data is daily (changes at market close) — staleTime + refetchInterval
+  // 1h mirror the previous manual setInterval polling in this component.
+  const {
+    data: regimeQuery,
+    isError: regimeError,
+    error: regimeQueryError,
+    refetch: regimeRefetch,
+  } = useMarketRegime();
+
+  // Hydrate the zustand store for legacy consumers (ScreenerPage reads
+  // `useMarketStore((s) => s.regime)` for the regime label/badge).
+  useEffect(() => {
+    if (regimeQuery) {
+      setRegime(regimeQuery);
+      setError(null);
+    } else if (regimeError) {
+      setError(regimeQueryError instanceof Error ? regimeQueryError.message : 'Regime fetch failed');
+    }
+  }, [regimeQuery, regimeError, regimeQueryError, setRegime, setError]);
+
   const loadRegime = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await fetchMarketRegime();
-      setRegime(data);
-      setFetchError(null); // Clear any previous fetch errors
-      setError(null);
+      const data = await regimeRefetch();
+      if (data.data) {
+        setRegime(data.data);
+        setError(null);
+      } else if (data.error) {
+        const msg = data.error instanceof Error ? data.error.message : 'Regime fetch failed';
+        // On background refresh error: keep showing stale data, just store the error
+        if (regime) {
+          setFetchError(msg);
+        } else {
+          setError(msg);
+        }
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Regime fetch failed';
-      // On background refresh error: keep showing stale data, just store the error
       if (regime) {
         setFetchError(msg);
       } else {
@@ -58,7 +87,7 @@ export function RegimeBar() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [setRegime, setIsLoading, setError, regime]);
+  }, [setRegime, setIsLoading, setError, regime, regimeRefetch]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);

@@ -218,16 +218,13 @@ def get_market_regime_adjustment(verdict: AnalysisVerdict, tv_data: dict[str, An
     and calculates appropriate adjustments.
     """
     # Import here to avoid circular imports
-    from backend.app.api.routers.regime import get_market_regime, MarketRegimeResponse
-    from backend.app.api.schemas import ApiResponse
+    from backend.app.infrastructure.market.regime import get_market_regime_async, MarketRegimeResponse
     
-    # Call the regime endpoint internally
+    # Call the regime computation internally
     import asyncio
     
     async def _get_regime() -> MarketRegimeResponse:
-        from backend.app.api.schemas import ApiResponse
-        response: ApiResponse = await get_market_regime()
-        return response.data
+        return await get_market_regime_async()
     
     try:
         # Run async in sync context

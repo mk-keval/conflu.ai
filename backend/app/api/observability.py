@@ -23,34 +23,85 @@ rate_limit_exceeded_total: Any = None
 
 
 def _init_metrics() -> None:
-    """Initialize Prometheus metrics (called once on first use)."""
+    """Initialize Prometheus metrics (called once on first use).
+
+    All metrics use registry-guarded creation (mirrors ws/handler.py's pattern):
+    if a collector name already exists (e.g. the app was created twice in the
+    same process — tests, uvicorn reload), reuse the existing collector instead
+    of raising ``DuplicateTimeseries``.
+    """
     global ws_connections_gauge, ws_messages_total, ws_errors_total, rate_limit_exceeded_total
 
     try:
-        from prometheus_client import Counter, Gauge
+        from prometheus_client import REGISTRY, Counter, Gauge
 
-        ws_connections_gauge = Gauge(
-            "ws_connections_active",
-            "Current number of active WebSocket connections",
+        def _get_or_create_metric(metric_type: Any, name: str, desc: str, labelnames: tuple[str, ...] = ()) -> Any:
+            """Return the existing collector for ``name`` or create a new one."""
+            if name in REGISTRY._names_to_collectors:
+                for collector in REGISTRY._collector_to_names:
+                    if name in REGISTRY._collector_to_names[collector]:
+                        return collector
+            return metric_type(name, desc, labelnames=labelnames)
+
+        ws_connections_gauge = _get_or_create_metric(
+            Gauge, "ws_connections_active", "Current number of active WebSocket connections"
         )
-        ws_messages_total = Counter(
-            "ws_messages_total",
-            "Total number of WebSocket messages processed",
-            labelnames=("channel_type",),
+        ws_messages_total = _get_or_create_metric(
+            Counter, "ws_messages_total", "Total number of WebSocket messages processed", ("channel_type",)
         )
-        ws_errors_total = Counter(
-            "ws_errors_total",
-            "Total number of WebSocket errors",
-            labelnames=("error_type",),
+        ws_errors_total = _get_or_create_metric(
+            Counter, "ws_errors_total", "Total number of WebSocket errors", ("error_type",)
         )
-        rate_limit_exceeded_total = Counter(
-            "rate_limit_exceeded_total",
-            "Total number of rate limit exceeded responses",
-            labelnames=("endpoint_group",),
+        rate_limit_exceeded_total = _get_or_create_metric(
+            Counter, "rate_limit_exceeded_total", "Total number of rate limit exceeded responses", ("endpoint_group",)
         )
         log.info("prometheus_metrics_initialized")
     except ImportError:
         log.warning("prometheus_client not available — metrics disabled")
+
+
+def _patch_instrumentator_routing() -> None:
+    """Make prometheus-fastapi-instrumentator tolerate FastAPI >= 0.138.
+
+    FastAPI 0.138+ stores included routers in ``app.routes`` as
+    ``_IncludedRouter`` objects that have no ``.path`` attribute, which crashes
+    the instrumentator's route-name resolver (``AttributeError``). Flatten them
+    via ``effective_route_contexts()`` (duck-typed, so older FastAPI versions
+    are unaffected). Idempotent.
+    """
+    try:
+        from prometheus_fastapi_instrumentator import routing
+        from starlette.routing import Match, Mount
+
+        def _safe_get_route_name(scope: Any, routes: list[Any], route_name: str | None = None) -> str | None:
+            for route in routes:
+                effective = getattr(route, "effective_route_contexts", None)
+                if effective is not None:
+                    for ctx in effective():
+                        match, child_scope = ctx.matches(scope)
+                        if match == Match.FULL:
+                            return ctx.path or getattr(ctx.starlette_route, "path", "")
+                        if match == Match.PARTIAL and route_name is None:
+                            route_name = ctx.path or getattr(ctx.starlette_route, "path", "")
+                    continue
+                match, child_scope = route.matches(scope)
+                if match == Match.FULL:
+                    route_name = route.path
+                    child_scope = {**scope, **child_scope}
+                    if isinstance(route, Mount) and route.routes:
+                        child_route_name = _safe_get_route_name(child_scope, route.routes, route_name)
+                        if child_route_name is None:
+                            route_name = None
+                        else:
+                            route_name = f"{route_name}{child_route_name}"
+                    return route_name
+                elif match == Match.PARTIAL and route_name is None:
+                    route_name = route.path
+            return None
+
+        routing._get_route_name = _safe_get_route_name
+    except ImportError:
+        pass
 
 
 def setup_prometheus(app: Any) -> None:
@@ -69,15 +120,17 @@ def setup_prometheus(app: Any) -> None:
         from prometheus_fastapi_instrumentator import Instrumentator
 
         _init_metrics()
+        _patch_instrumentator_routing()
 
         instrumentator = Instrumentator(
             should_group_status_codes=True,
             should_ignore_untemplated=True,
         )
-        # Don't add middleware - just expose the /metrics endpoint
-        # The middleware causes issues with _IncludedRouter objects
-        instrumentator.expose(app, endpoint="/metrics", include_in_schema=False)
-        log.info("prometheus_instrumentation_ready (metrics endpoint only)")
+        # Enable the middleware so http_requests_total / http_request_duration_seconds
+        # are actually collected. The route-name resolver is patched above to handle
+        # FastAPI >= 0.138 _IncludedRouter objects (see _patch_instrumentator_routing).
+        instrumentator.instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+        log.info("prometheus_instrumentation_ready")
     except ImportError:
         log.warning("prometheus-fastapi-instrumentator not available — prometheus metrics disabled")
 

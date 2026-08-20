@@ -1,0 +1,1 @@
+"""Market intelligence infrastructure — regime detection, breadths, events."""

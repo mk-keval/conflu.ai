@@ -29,7 +29,6 @@ from backend.app.domain.ticker_analysis.models import (
     TickerAnalysisResponse,
     AnalysisVerdict,
 )
-from backend.app.api.schemas import ApiResponse
 
 log = get_logger("conflu.ticker_analysis")
 
@@ -47,20 +46,17 @@ async def _fetch_market_regime() -> Any | None:
     """Fetch current market regime, using cache if available."""
     global _MACRO_REGIME_CACHE, _MACRO_REGIME_CACHE_TIME
 
-    # Lazy import to avoid circular import
-    from backend.app.api.routers.regime import get_market_regime, MarketRegimeResponse
-
     now = time.monotonic()
     if _MACRO_REGIME_CACHE is not None and (now - _MACRO_REGIME_CACHE_TIME) < _MACRO_REGIME_CACHE_TTL:
         return _MACRO_REGIME_CACHE
 
     try:
-        # Call the regime endpoint internally
-        response: ApiResponse = await get_market_regime()
-        if response.data:
-            _MACRO_REGIME_CACHE = response.data
-            _MACRO_REGIME_CACHE_TIME = now
-            return response.data
+        # Call the regime computation internally (infrastructure layer)
+        from backend.app.infrastructure.market.regime import get_market_regime_async
+        data = await get_market_regime_async()
+        _MACRO_REGIME_CACHE = data
+        _MACRO_REGIME_CACHE_TIME = now
+        return data
     except Exception:
         log.exception("macro_regime_fetch_failed")
 
@@ -554,7 +550,7 @@ class TickerAnalysisService:
 
         # ── 3b. Apply macro regime overlay ──
         try:
-            from backend.app.api.routers.regime import get_market_regime_sync
+            from backend.app.infrastructure.market.regime import get_market_regime_sync
             regime = get_market_regime_sync()
             if regime:
                 from backend.app.domain.ticker_analysis.macro_overlay import get_macro_adjustment, apply_macro_adjustment

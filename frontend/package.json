@@ -9,7 +9,10 @@
     "preview": "vite preview",
     "lint": "eslint src --ext .ts,.tsx",
     "format": "prettier --write src",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "typegen:dump": "python -c \"import sys; sys.path.insert(0, '..'); from backend.app.api.main import app; import json; json.dump(app.openapi(), open('src/types/__generated__/openapi.json', 'w'), indent=2)\"",
+    "typegen": "npm run typegen:dump && openapi-typescript src/types/__generated__/openapi.json -o src/types/__generated__/api.ts",
+    "typegen:check": "npm run typegen && git diff --exit-code -- src/types/__generated__/"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.60.0",
@@ -35,6 +38,7 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "husky": "^9.1.0",
     "lint-staged": "^15.2.0",
+    "openapi-typescript": "^7.13.0",
     "postcss": "^8.4.0",
     "prettier": "^3.3.0",
     "prettier-plugin-tailwindcss": "^0.6.0",

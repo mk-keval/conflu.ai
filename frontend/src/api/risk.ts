@@ -1,4 +1,4 @@
-import apiClient from './client';
+import { apiGet, apiPost } from './client';
 import type {
   BetaResult,
   CorrelationResult,
@@ -20,10 +20,7 @@ export async function fetchBeta(
   if (benchmark) params.set('benchmark', benchmark);
   if (window) params.set('window', String(window));
 
-  const response = await apiClient.get<BetaResult[]>(
-    `/api/v1/risk/beta?${params.toString()}`
-  );
-  return response.data;
+  return apiGet<BetaResult[]>(`/api/v1/risk/beta?${params.toString()}`);
 }
 
 export async function fetchCorrelation(
@@ -36,10 +33,7 @@ export async function fetchCorrelation(
   if (window) params.set('window', String(window));
   if (groupBy) params.set('group_by', groupBy);
 
-  const response = await apiClient.get<CorrelationResult>(
-    `/api/v1/risk/correlation?${params.toString()}`
-  );
-  return response.data;
+  return apiGet<CorrelationResult>(`/api/v1/risk/correlation?${params.toString()}`);
 }
 
 export async function fetchVaR(
@@ -54,28 +48,17 @@ export async function fetchVaR(
   if (method) params.set('method', method);
   if (horizon) params.set('horizon', String(horizon));
 
-  const response = await apiClient.get<VaRResult>(
-    `/api/v1/risk/var?${params.toString()}`
-  );
-  return response.data;
+  return apiGet<VaRResult>(`/api/v1/risk/var?${params.toString()}`);
 }
 
 export async function postPositionSize(
   body: PositionSizeRequest
 ): Promise<PositionSizeResult> {
-  const response = await apiClient.post<PositionSizeResult>(
-    '/api/v1/risk/position-size',
-    body
-  );
-  return response.data;
+  return apiPost<PositionSizeResult>('/api/v1/risk/position-size', body);
 }
 
 export async function postKelly(body: KellyRequest): Promise<KellyResult> {
-  const response = await apiClient.post<KellyResult>(
-    '/api/v1/risk/kelly',
-    body
-  );
-  return response.data;
+  return apiPost<KellyResult>('/api/v1/risk/kelly', body);
 }
 
 export async function fetchRiskSummary(
@@ -86,8 +69,5 @@ export async function fetchRiskSummary(
   if (portfolioId) params.set('portfolio_id', portfolioId);
   if (symbols) symbols.forEach((s) => params.append('symbols', s));
 
-  const response = await apiClient.get<RiskSummary>(
-    `/api/v1/risk/summary?${params.toString()}`
-  );
-  return response.data;
+  return apiGet<RiskSummary>(`/api/v1/risk/summary?${params.toString()}`);
 }

@@ -42,7 +42,7 @@ filters:
   - category: volume
     indicator: avg_volume_gt
     params:
-      threshold: 1000000
+      threshold: 500000
     timeframe: "1D"
   # Technical confluence
   - category: trend
@@ -60,10 +60,10 @@ filters:
   - category: volume
     indicator: rvol_high
     params:
-      threshold: 1.5
+      threshold: 1.2
     timeframe: "1D"
   - category: volatility
     indicator: adx_trending
     params:
-      threshold: 25
+      threshold: 20
     timeframe: "1D"

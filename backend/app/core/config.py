@@ -506,8 +506,11 @@ class ShareSettings(BaseSettings):
         le=3650,
     )
     secret_key: str = Field(
-        default="conflu-share-secret-dev",
-        description="Secret key for HMAC share token signing",
+        default="",
+        description=(
+            "Secret key for HMAC share token signing. MUST be set in non-dev "
+            "environments (CONFLU_SHARE__SECRET_KEY); the empty default is insecure."
+        ),
     )
 
 
@@ -578,13 +581,15 @@ class AppSettings(BaseSettings):
 
     Config source priority (highest to lowest):
     1. Environment variables (CONFLU_* prefix)
-    2. config.local.yaml (gitignored, for secrets/overrides)
-    3. config.yaml (version-controlled, shared defaults)
-    4. Field defaults in settings classes
+    2. .env file (CONFLU_* prefix, same __ delimiter)
+    3. config.local.yaml (gitignored, for secrets/overrides)
+    4. config.yaml (version-controlled, shared defaults)
+    5. Field defaults in settings classes
     """
 
     model_config = SettingsConfigDict(
         yaml_file=["config.yaml", "config.local.yaml"],
+        env_file=".env",
         env_prefix="CONFLU_",
         env_nested_delimiter="__",
         extra="forbid",
@@ -613,14 +618,14 @@ class AppSettings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        """Customize source priority: env > config.local.yaml > config.yaml > defaults."""
+        """Customize source priority: env > .env > config.local.yaml > config.yaml > defaults."""
         yaml_sources: list[YamlConfigSettingsSource] = []
         for yaml_file in ["config.local.yaml", "config.yaml"]:
             yaml_path = Path(yaml_file)
             if yaml_path.exists():
                 yaml_sources.append(YamlConfigSettingsSource(settings_cls, yaml_file=str(yaml_path)))
 
-        return (env_settings, *yaml_sources, init_settings)
+        return (env_settings, dotenv_settings, *yaml_sources, init_settings)
 
 
 # Rebuild AppSettings after all nested classes are defined
@@ -628,3 +633,11 @@ AppSettings.model_rebuild()
 
 # Singleton settings instance
 settings = AppSettings()
+
+if not settings.share.secret_key:
+    import logging
+
+    logging.getLogger("conflu.config").warning(
+        "CONFLU_SHARE__SECRET_KEY is not set — share URL signing will be insecure. "
+        "Set it in non-dev environments (e.g. via .env or environment)."
+    )

@@ -93,6 +93,15 @@ export function ChartPane({
 
     const mappedCandles = [...candles]
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      // Drop placeholder/holiday rows where yfinance returns null OHLC —
+      // lightweight-charts throws "open must be a number" on null values,
+      // which blanked the whole Charts page (ErrorBoundary).
+      .filter((c) =>
+        c.open !== null && c.open !== undefined &&
+        c.high !== null && c.high !== undefined &&
+        c.low !== null && c.low !== undefined &&
+        c.close !== null && c.close !== undefined
+      )
       .map((c) => ({
         time: Math.floor(new Date(c.timestamp).getTime() / 1000) as UTCTimestamp,
         open: c.open,

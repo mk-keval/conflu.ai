@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { fetchMarketRegime, fetchSectorRotation } from '@/api/sectorRotation';
+import { useMarketRegime, useSectorRotation } from '@/hooks/useMarketRegime';
 import { analyzePortfolio } from '@/api/workflow';
 import type { PortfolioResponse, SymbolAllocation } from '@/api/workflow';
 import { usePortfolioStore } from '@/store/portfolio';
@@ -102,18 +102,10 @@ function WorkflowContent() {
   const [portfolioResult, setPortfolioResult] = useState<PortfolioResponse | null>(null);
 
   // ── Market regime ──
-  const { data: regime } = useQuery({
-    queryKey: ['market-regime'],
-    queryFn: fetchMarketRegime,
-    staleTime: 3_600_000,
-  });
+  const { data: regime } = useMarketRegime();
 
   // ── Sector rotation ──
-  const { data: sectorRotation } = useQuery({
-    queryKey: ['sector-rotation'],
-    queryFn: fetchSectorRotation,
-    staleTime: 3_600_000,
-  });
+  const { data: sectorRotation } = useSectorRotation();
 
   // ── Portfolio analysis query ──
   const portfolioQuery = useQuery({
