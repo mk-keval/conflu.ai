@@ -310,6 +310,8 @@ SNAPSHOT_COLUMNS: list[str] = [
     # Perf columns — P1.3 RS-vs-index percentile enrichment (zero extra calls)
     "Perf.1M",
     "Perf.3M",
+    # P1.4 Catalyst-Breakout badge — proximity to 52-week high
+    "price_52_week_high",
 ]
 
 
