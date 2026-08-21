@@ -81,6 +81,323 @@ def _calculate_dynamic_rr(
     return round(max(1.0, base_rr), 2)
 
 
+# ── Plan Geometry Invariants ──
+
+def _get_structural_stop_long(
+    technical: TechnicalAnalysis | None,
+    tv_data: dict[str, Any] | None,
+    close: float,
+    prefer_ma_anchors: bool = False,
+) -> float | None:
+    """
+    Compute a structural stop for a LONG position anchored to structure.
+
+    Anchor priority:
+      - Default (equity): the most recent swing low below price. Market-generated
+        swing lows are THE structure invalidation point; trend MAs are not
+        structure — an MA above the swing low is support, not invalidation.
+      - Treasury assets (prefer_ma_anchors=True): rising SMA20/SMA50 only.
+        Equity-price swing lows of a reserve-asset proxy reflect premium/noise
+        swings around NAV rather than company structure; the MA stack is the
+        NAV-trend proxy and the correct invalidation reference.
+
+    Returns the anchor * (1 - 0.5% buffer), or None when no valid anchor exists.
+    """
+    # 1. Most recent swing low below price (primary equity anchor).
+    #    Swing lists are produced chronologically (oldest-first), so the LAST
+    #    matching element is the most recent structure — an old 52-week low is
+    #    not the active invalidation level.
+    if not prefer_ma_anchors:
+        if technical and technical.swing_lows:
+            for sl in reversed(technical.swing_lows):
+                if sl < close:
+                    return round(sl * 0.995, 2)  # 0.5% buffer below structure
+        return None
+
+    # Treasury mode: MA anchors only
+    if tv_data:
+        sma20 = tv_data.get("SMA20")
+        sma50 = tv_data.get("SMA50")
+
+        if sma20 and sma20 > 0 and sma20 < close:
+            return round(sma20 * 0.995, 2)
+        if sma50 and sma50 > 0 and sma50 < close:
+            return round(sma50 * 0.995, 2)
+
+    return None
+
+
+def _get_structural_targets_long(
+    technical: TechnicalAnalysis | None,
+    tv_data: dict[str, Any] | None,
+    close: float,
+    current_targets: list[float],
+) -> list[float]:
+    """
+    Extend targets to next structural liquidity levels for LONG:
+    1. Prior swing highs (key_resistance from technical)
+    2. Range projections (e.g., measured move from consolidation)
+    Returns extended targets list, keeping original targets if no structural levels found.
+    """
+    if not technical:
+        return current_targets
+    
+    structural_targets = list(current_targets)
+    
+    # Actionable-range bound: only consider structural liquidity within 2x of
+    # price — targets beyond that are noise for multi-day→multi-week swings.
+    max_level = close * 2.0
+
+    # Add prior swing highs / key resistance levels above current price
+    if technical.key_resistance:
+        for res in technical.key_resistance:
+            if close < res <= max_level and res not in structural_targets:
+                structural_targets.append(round(res, 2))
+    
+    # Add swing highs above current price
+    if technical.swing_highs:
+        for sh in technical.swing_highs:
+            if close < sh <= max_level and sh not in structural_targets:
+                structural_targets.append(round(sh, 2))
+
+    # Measured-move / range projection: when price trades above all known
+    # structure (breakout), there is no existing liquidity left to extend to —
+    # project the prior swing range upward from current price instead. This is
+    # the classic measured move used as the first objective on breakouts
+    # (BULL live case: range 4.50–8.35 projected from ~9.5 → ~13.35).
+    if technical.swing_highs and technical.swing_lows:
+        range_height = max(technical.swing_highs) - min(technical.swing_lows)
+        if range_height > 0:
+            projection = round(close + range_height, 2)
+            if close < projection <= max_level and projection not in structural_targets:
+                structural_targets.append(projection)
+
+    # Keep the HIGHEST structural levels: extension exists to reach R/R via the
+    # far liquidity pool, so truncation must drop the nearest, not the farthest.
+    structural_targets = sorted(set(structural_targets))[-3:]
+    
+    return structural_targets
+
+
+def _geometric_rr_long(
+    entry_low: float,
+    entry_high: float,
+    stop_loss: float,
+    targets: list[float],
+) -> float | None:
+    """
+    R/R measured on actual plan geometry: zone-midpoint entry to last target,
+    over real per-share risk (mid − stop). Returns None when geometry is
+    degenerate (no risk defined or no targets).
+    """
+    mid = (entry_low + entry_high) / 2
+    risk_per_share = mid - stop_loss
+    if risk_per_share <= 0 or not targets:
+        return None
+    return round((targets[-1] - mid) / risk_per_share, 2)
+
+
+def _enforce_plan_geometry_invariants(
+    action: str,
+    entry_low: float | None,
+    entry_high: float | None,
+    stop_loss: float | None,
+    targets: list[float],
+    rr: float | None,
+    technical: TechnicalAnalysis | None,
+    tv_data: dict[str, Any] | None,
+    price: float | None,
+    conviction: int,
+    dealbreakers: list[str],
+    all_findings: list[str],
+    prefer_ma_anchors: bool = False,
+) -> tuple[str, float | None, float | None, float | None, list[float], float | None, int, list[str], list[str]]:
+    """
+    Enforce plan geometry invariants for any LONG-oriented plan that emitted
+    full levels (BUY / ACCUMULATE / STRONG BUY, and WATCH-with-levels).
+    
+    INVARIANT 1: Stop must be strictly below entry_zone_low, anchored to structure.
+    - If structural anchor >= entry_zone_low, widen entry_zone_low to structure*0.99
+    - If resulting zone width > 15% of midpoint, downgrade to WATCH with reason
+    
+    PROMOTION: a WATCH that emitted a full plan and passes geometry earns
+    ACCUMULATE — a structurally valid setup with room is actionable, not
+    watchlist material (mirrors live parity gap where MELI sat at WATCH c:2
+    with a complete valid plan).
+    
+    INVARIANT 2: R/R must be >= 2.0 via priority order:
+    1. Anchor stop tighter to structure (improves RR)
+    2. Extend targets to structural liquidity levels (improves RR)
+    3. Only downgrade to WATCH if BOTH fail
+    
+    R/R is validated against actual plan geometry (zone midpoint → last target
+    over real risk), not the heuristic estimate.
+    
+    Returns: (action, entry_low, entry_high, stop_loss, targets, rr, conviction, dealbreakers, all_findings)
+    """
+    # Applies to LONG-oriented plans with a complete emitted level set.
+    long_actions = ("BUY", "ACCUMULATE", "STRONG BUY")
+    if (
+        action not in (*long_actions, "WATCH")
+        or entry_low is None
+        or entry_high is None
+        or stop_loss is None
+        or price is None
+        or price <= 0
+        or not targets
+    ):
+        return action, entry_low, entry_high, stop_loss, targets, rr, conviction, dealbreakers, all_findings
+
+    close = price
+    
+    # ── INVARIANT 1: Stop beyond entry zone ─────────────────────────────
+    # Check if stop is inside or at/above entry zone
+    if stop_loss >= entry_low:
+        # Try to get structural stop
+        structural_stop = _get_structural_stop_long(
+            technical, tv_data, close, prefer_ma_anchors=prefer_ma_anchors
+        )
+        
+        if structural_stop is not None and structural_stop < entry_low:
+            # Structural stop is valid and below entry zone - use it
+            stop_loss = structural_stop
+            all_findings.append(f"🔧 Stop repaired to structural anchor: {stop_loss:.2f} (was inside entry zone)")
+        elif structural_stop is not None and structural_stop >= entry_low:
+            # Structural anchor is at/above entry zone - widen entry zone down to structure*0.99
+            new_entry_low = round(structural_stop * 0.99, 2)
+            zone_width_pct = ((entry_high - new_entry_low) / ((entry_high + new_entry_low) / 2)) * 100
+            
+            if zone_width_pct > 15:
+                # Zone too wide - downgrade to WATCH
+                reason = f"Geometry invariant failed: cannot anchor stop outside entry zone within 15% width (zone={zone_width_pct:.1f}%)"
+                dealbreakers.append(reason)
+                all_findings.append(f"⚠️ {reason}")
+                action = "WATCH"
+                conviction = min(conviction, 4)
+                entry_low = None
+                entry_high = None
+                stop_loss = None
+                targets = []
+                rr = None
+            else:
+                # Widen entry zone and recompute stop below it
+                entry_low = new_entry_low
+                stop_loss = round(entry_low * 0.98, 2)  # 2% below widened entry low
+                all_findings.append(f"🔧 Entry zone widened to {entry_low:.2f}–{entry_high:.2f}, stop set to {stop_loss:.2f}")
+        else:
+            # No structural anchor available - use percentage stop but ensure it's below entry_low
+            stop_loss = round(entry_low * 0.98, 2)
+            all_findings.append(f"🔧 No structural anchor: stop set to {stop_loss:.2f} (2% below entry_low)")
+
+    # Levels may have been stripped by an invariant-1 downgrade.
+    if entry_low is None or entry_high is None or stop_loss is None:
+        return action, entry_low, entry_high, stop_loss, targets, rr, conviction, dealbreakers, all_findings
+
+    # ── PROMOTION: structurally valid WATCH plans earn ACCUMULATE ────────
+    if action == "WATCH":
+        action = "ACCUMULATE"
+        conviction = max(conviction, 4)
+        all_findings.append(
+            "🔧 Structurally valid setup upgraded WATCH → ACCUMULATE "
+            "(stop outside zone, structure-anchored)"
+        )
+
+    # ── INVARIANT 2: R/R >= 2.0 via priority order ──────────────────────
+    if action in long_actions and rr is not None and rr < 2.0:
+        old_rr = rr
+
+        # Priority 1: anchor the stop to structure (swing low / rising MA).
+        # Doctrine: stops belong at the structure invalidation point, not at an
+        # arbitrary percentage. Adoption must keep INVARIANT 1 intact: a
+        # structural anchor at/above entry_zone_low is exactly the broken-BULL
+        # geometry handled by INVARIANT 1, never a valid adoption target.
+        structural_stop = _get_structural_stop_long(
+            technical, tv_data, close, prefer_ma_anchors=prefer_ma_anchors
+        )
+        if (
+            structural_stop is not None
+            and structural_stop != stop_loss
+            and structural_stop < entry_low
+        ):
+            old_stop = stop_loss
+            stop_loss = structural_stop
+            all_findings.append(
+                f"🔧 Stop anchored to structure: {old_stop:.2f} → {stop_loss:.2f}"
+            )
+
+        geo_rr = _geometric_rr_long(entry_low, entry_high, stop_loss, targets)
+        if geo_rr is not None and geo_rr >= 2.0:
+            all_findings.append(
+                f"🔧 RR validated from plan geometry: {old_rr:.1f} (est) → {geo_rr:.2f}"
+            )
+            return action, entry_low, entry_high, stop_loss, targets, geo_rr, conviction, dealbreakers, all_findings
+        
+        # Priority 2: Extend targets to structural liquidity levels
+        structural_targets = _get_structural_targets_long(technical, tv_data, close, targets)
+        if structural_targets != targets:
+            original_targets = targets
+            targets = structural_targets
+            geo_rr = _geometric_rr_long(entry_low, entry_high, stop_loss, targets)
+            if geo_rr is not None and geo_rr >= 2.0:
+                all_findings.append(f"🔧 RR improved {old_rr:.1f}→{geo_rr:.1f} via structural targets {targets}")
+                return action, entry_low, entry_high, stop_loss, targets, geo_rr, conviction, dealbreakers, all_findings
+            targets = original_targets
+        
+        # Priority 3: Both failed - downgrade to WATCH with explicit reason
+        reason = f"R/R invariant failed: cannot achieve R/R >= 2.0 (current {rr:.1f}) via structural stop or target extension"
+        dealbreakers.append(reason)
+        all_findings.append(f"⚠️ {reason}")
+        action = "WATCH"
+        conviction = min(conviction, 4)
+        entry_low = None
+        entry_high = None
+        stop_loss = None
+        targets = []
+        rr = None
+    
+    return action, entry_low, entry_high, stop_loss, targets, rr, conviction, dealbreakers, all_findings
+
+
+def _recalibrate_conviction_for_breakout(
+    conviction: int,
+    technical: TechnicalAnalysis | None,
+    tv_data: dict[str, Any] | None,
+    action: str,
+) -> int:
+    """
+    INVARIANT 3: Conviction recalibration for confirmed breakouts.
+    
+    If confirmed breakout AND rvol measured ON THE BREAKOUT CANDLE >= 1.5,
+    set conviction floor to 6 (not current-candle rvol).
+    
+    Uses TV data fields: breakout_confirmed (bool), rvol_breakout (float)
+    These would be set by the technical analysis module when a breakout is detected.
+    """
+    if action not in ("BUY", "ACCUMULATE", "STRONG BUY"):
+        return conviction
+    
+    # Check for breakout confirmation and breakout-candle rvol
+    breakout_confirmed = False
+    rvol_breakout = 1.0
+    
+    if tv_data:
+        breakout_confirmed = tv_data.get("breakout_confirmed", False)
+        rvol_breakout = tv_data.get("rvol_breakout", 1.0)
+    
+    # Also check technical findings for breakout signals
+    if technical and not breakout_confirmed:
+        for f in technical.findings:
+            if "breakout" in f.lower() and "confirmed" in f.lower():
+                breakout_confirmed = True
+                break
+    
+    if breakout_confirmed and rvol_breakout >= 1.5:
+        if conviction < 6:
+            return 6
+    
+    return conviction
+
+
 def synthesise(
     technical: TechnicalAnalysis | None,
     fundamental: FundamentalAnalysis | None,
@@ -551,31 +868,48 @@ def synthesise(
     # analysis (P/E, margins, growth rates) is misleading for these instruments.
     is_treasury_asset = fundamental is not None and fundamental.asset_category == "treasury_asset"
     if is_treasury_asset:
-        return AnalysisVerdict(
-            action="WATCH",
-            conviction=3,
-            entry_zone_low=None,
-            entry_zone_high=None,
-            stop_loss=None,
-            targets=[],
-            risk_reward=None,
-            position_size_pct=0,
-            key_red_flags=[
-                "Bitcoin/treasury asset company — value derived from primary reserve "
-                "asset (BTC), not operating earnings. Standard P/E/margin analysis "
-                "does not apply. Evaluate based on BTC holdings per share and "
-                "premium/discount to NAV."
-            ],
-            buy_triggers=[],
-            sell_triggers=[
-                "Monitor BTC holdings per share dilution (equity issuance for BTC buys).",
-                "Track premium/discount to NAV — wide premium increases downside risk.",
-            ],
-            thesis="Bitcoin treasury company — value tracks primary reserve asset (BTC) "
-                   "rather than operating earnings. Standard equity metrics (P/E, margins, "
-                   "growth) are not applicable. Position based on BTC thesis, not company "
-                   "fundamentals. Use position sizing limits from risk module.",
+        # TREASURY PATH: Allow plan emission when guards pass
+        # Guards: ma_alignment == "bullish" AND volatility_regime != "extreme"
+        treasury_guards_pass = (
+            technical is not None 
+            and technical.ma_alignment == "bullish"
+            and risk is not None
+            and risk.volatility_regime != "extreme"
         )
+        
+        if not treasury_guards_pass:
+            # Guards fail - current refusal behavior stays
+            return AnalysisVerdict(
+                action="WATCH",
+                conviction=3,
+                entry_zone_low=None,
+                entry_zone_high=None,
+                stop_loss=None,
+                targets=[],
+                risk_reward=None,
+                position_size_pct=0,
+                key_red_flags=[
+                    "Bitcoin/treasury asset company — value derived from primary reserve "
+                    "asset (BTC), not operating earnings. Standard P/E/margin analysis "
+                    "does not apply. Evaluate based on BTC holdings per share and "
+                    "premium/discount to NAV."
+                ],
+                buy_triggers=[],
+                sell_triggers=[
+                    "Monitor BTC holdings per share dilution (equity issuance for BTC buys).",
+                    "Track premium/discount to NAV — wide premium increases downside risk.",
+                ],
+                thesis="Bitcoin treasury company — value tracks primary reserve asset (BTC) "
+                       "rather than operating earnings. Standard equity metrics (P/E, margins, "
+                       "growth) are not applicable. Position based on BTC thesis, not company "
+                       "fundamentals. Use position sizing limits from risk module.",
+            )
+        
+        # Guards pass - proceed to normal verdict/plan construction
+        # We set a flag to apply caps and caveat later in the flow
+        # by continuing past this override instead of returning early
+        all_findings.append("📌 Treasury asset (BTC proxy) — NAV framework applies; conviction capped at 6, position ≤ 3%")
+        # Fall through to normal synthesis logic
 
     # ── 3e. ETF / CEF / ETN / Preferred Override ──
     # Exchange-traded funds, closed-end funds, exchange-traded notes, and
@@ -817,8 +1151,10 @@ def synthesise(
             targets = [t1, t2]
 
     # ── 7. Verdict Consistency Cross-check ──
-    # AVOID/REDUCE should never have trading levels — contradictory signals.
-    if action in ("AVOID", "REDUCE"):
+    # AVOID/REDUCE/HOLD should never have trading levels — contradictory signals.
+    # (HOLD previously leaked stop/targets computed below with no entry zone,
+    # emitting sub-2R plans that bypassed geometry invariants.)
+    if action in ("AVOID", "REDUCE", "HOLD"):
         entry_low = None
         entry_high = None
         stop_loss = None
@@ -879,6 +1215,49 @@ def synthesise(
         if mcap < 1_000_000_000 and is_pre_profit:
             conviction = min(conviction, 8)
 
+    # ── 9. Generate thesis (early, for treasury caveat) ──
+    thesis = _generate_thesis(action, weighted_score, modules, dealbreakers, regime)
+
+    # ── INVARIANT 1 & 2: Plan geometry enforcement ───────────────────────
+    # Runs BEFORE breakout recalibration so WATCH→ACCUMULATE promotions
+    # still receive the conviction floor.
+    action, entry_low, entry_high, stop_loss, targets, rr, conviction, dealbreakers, all_findings = _enforce_plan_geometry_invariants(
+        action=action,
+        entry_low=entry_low,
+        entry_high=entry_high,
+        stop_loss=stop_loss,
+        targets=targets,
+        rr=rr,
+        technical=technical,
+        tv_data=tv_data,
+        price=price,
+        conviction=conviction,
+        dealbreakers=dealbreakers,
+        all_findings=all_findings,
+        prefer_ma_anchors=is_treasury_asset,
+    )
+
+    # ── INVARIANT 3: Conviction recalibration for breakout rvol ──────────
+    conviction = _recalibrate_conviction_for_breakout(conviction, technical, tv_data, action)
+
+    # ── TREASURY PATH: Apply caps and caveat for treasury_asset ──────────
+    is_treasury_asset = fundamental is not None and fundamental.asset_category == "treasury_asset"
+    if is_treasury_asset and action in ("BUY", "ACCUMULATE", "STRONG BUY"):
+        # Conviction capped at 6
+        if conviction > 6:
+            conviction = 6
+            all_findings.append("🔧 Treasury asset: conviction capped at 6")
+        # Position size capped at 3%
+        if position_size > 3.0:
+            position_size = 3.0
+            all_findings.append("🔧 Treasury asset: position size capped at 3%")
+        # Append NAV-framework caveat to thesis/findings
+        nav_caveat = "value tracks reserve asset NAV; GAAP EPS/margins not applicable"
+        if nav_caveat not in thesis:
+            thesis = thesis + " " + nav_caveat if thesis else nav_caveat
+        dealbreakers.append(f"📌 NAV framework: {nav_caveat}")
+        all_findings.append(f"📌 NAV framework: {nav_caveat}")
+
     # ── 8. Generate trade plan ──
     trade_plan = _generate_trade_plan(
         action=action,
@@ -895,9 +1274,6 @@ def synthesise(
         position_size=position_size,
         technical_weekly=technical_weekly,
     )
-
-    # ── 9. Generate thesis ──
-    thesis = _generate_thesis(action, weighted_score, modules, dealbreakers, regime)
 
     return AnalysisVerdict(
         action=action,
@@ -932,7 +1308,7 @@ def _generate_trade_plan(
     technical_weekly: TechnicalAnalysis | None = None,
 ) -> TradePlan | None:
     """Generate a dynamic trade management plan based on setup quality and market structure."""
-    if action in ("AVOID", "REDUCE") or not price:
+    if action in ("AVOID", "REDUCE", "HOLD") or not price:
         return None
     
     plan = TradePlan()

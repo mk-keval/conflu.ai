@@ -34,6 +34,7 @@ This section contains Architecture Decision Records (ADRs) for significant proje
 - [D-30: Remove Header TickerTape Component](D-30-remove-header-ticker-tape.md)
 - [D-31: Morning Brief Caching & Non-Blocking yfinance Fetches](D-31-morning-brief-caching.md)
 - [D-32: TV Screener-First Alignment — DuckDB Optional, IndicatorCache Retired](D-32-tv-screener-first-alignment.md)
+- [D-33: Synthesis Plan-Geometry Invariants & Classifier Calibration](D-33-synthesis-geometry-invariants-classifier-calibration.md)
 
 ## Other Decision Records
 - [Phase 9: Advanced Backtest](2026-06-19-phase9-advanced-backtest.md) — ATR-based sizing, vectorized signals, parameter optimization, monte carlo, multi-symbol backtest 

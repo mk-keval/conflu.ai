@@ -326,8 +326,9 @@ def analyze(info: dict[str, Any]) -> FundamentalAnalysis:
         name_lower = (short_name + " " + long_name + " " + business_summary).lower()
         total_revenue = info.get("totalRevenue")
         has_no_revenue = total_revenue is None or (total_revenue is not None and total_revenue < 1_000_000)
-        has_negative_pe = (info.get("trailingPE") is not None and info.get("trailingPE") < 0)
-        has_no_trailing_pe = info.get("trailingPE") is None
+        trailing_pe = info.get("trailingPE")
+        has_negative_pe = trailing_pe is not None and trailing_pe < 0
+        has_no_trailing_pe = trailing_pe is None
         has_no_forward_pe = info.get("forwardPE") is None
         ent_val = info.get("enterpriseValue")
 
@@ -339,9 +340,50 @@ def analyze(info: dict[str, Any]) -> FundamentalAnalysis:
         is_biotech_sector = (sector and "biotechnology" in sector.lower()) or (sector and "healthcare" in sector.lower())
         is_biotech_industry = industry and any(kw in industry.lower() for kw in biotech_industry_keywords)
 
+        # Compute product-revenue signal BEFORE the clinical-stage elif chain so
+        # that commercial-product biotechs (e.g., KURA with FDA-approved KOMZIFTI)
+        # are not wrongly classified as clinical_stage based on the partnership/
+        # milestone heuristic below.
+        #
+        # Design (two paths):
+        #   (a) an explicit product-revenue field is present and > 0, OR
+        #   (b) totalRevenue > $20M TTM AND commercial-sale keywords:
+        #       • BIOTECH sector/industry: require PRODUCT-level evidence phrases
+        #         ("commercial product", "approved product", "fda-approved",
+        #         "product revenue/sales", "marketed", "sales of its"). NO
+        #         profitability requirement — launch-phase biotechs run deep
+        #         operating losses by design while selling approved products
+        #         (KURA: ~-350% op margin on real KOMZIFTI sales). Generic
+        #         self-labels are ignored because yfinance summaries lag reality
+        #         (KURA's own summary still opens with "clinical-stage").
+        #       • Non-biotech: require marginally positive operating performance.
+        #         This keeps pre-profit development companies (ASTS: $85M rev,
+        #         -1014% op margin, -$1.4B FCF) in the development/staging bucket.
+        has_product_revenue = False
+        explicit_product_rev = info.get("productRevenue") or info.get("revenueFromProducts")
+        if explicit_product_rev is not None and explicit_product_rev > 0:
+            has_product_revenue = True
+        elif total_revenue is not None and total_revenue > 20_000_000:
+            commercial_summary = business_summary.lower()
+            if is_biotech_sector or is_biotech_industry:
+                # Biotech path: product-level evidence only, no profitability gate.
+                product_evidence = any(kw in commercial_summary for kw in (
+                    "commercial product", "approved product", "fda-approved",
+                    "product revenue", "product sales", "sales of its", "marketed",
+                ))
+                if product_evidence:
+                    has_product_revenue = True
+            else:
+                commercial_kw = any(kw in commercial_summary for kw in (
+                    "approved", "commercial", "fda-approved", "product revenue",
+                    "launch of", "sales of", "marketed",
+                ))
+                if commercial_kw and op_margin is not None and op_margin > -0.5:
+                    has_product_revenue = True
+
         if is_biotech_sector or is_biotech_industry:
             # Clinical-stage requires no/minimal revenue as primary signal
-            # (pre-revenue biotech) OR negative PE with no revenue growth
+            # (pre-revenue biotech) OR no PE with no revenue growth
             if has_no_revenue:
                 lifecycle_stage = "clinical_stage"
                 is_development_stage = True
@@ -350,6 +392,17 @@ def analyze(info: dict[str, Any]) -> FundamentalAnalysis:
                     "Binary pipeline-driven value. Standard P/E, margin, and growth analysis "
                     "does not apply. Evaluate based on cash runway, trial milestones, "
                     "and pipeline probability-adjusted value."
+                )
+            elif has_product_revenue:
+                # Commercial-product biotech (e.g., KURA with FDA-approved drug sales):
+                # revenue comes from approved product sales, not partnerships/milestones.
+                # Skip clinical-stage classification — company gets standard operating
+                # analysis downstream.
+                findings.append(
+                    "🧬 Commercial-stage biotechnology company — detected approved-product "
+                    "revenue (e.g., KOMZIFTI sales). Revenue is from commercial sales of "
+                    "FDA-approved products, not licensing/partnership milestones. Treating "
+                    "as operating business for standard fundamental analysis."
                 )
             elif total_revenue is not None and total_revenue < 500_000_000:
                 # Biotech with partnership/milestone revenue ($1M-$500M) but no approved
@@ -405,7 +458,10 @@ def analyze(info: dict[str, Any]) -> FundamentalAnalysis:
         # pre-clinical biotech with token revenue, mineral explorers, etc.
         # Standalone check (not elif) in case the sector elif chain was entered
         # but the inner conditions didn't match.
-        if (lifecycle_stage == "operating"
+        # Exemption: has_product_revenue companies are commercial businesses in
+        # launch phase (KURA: $77M TTM KOMZIFTI sales, -350% op margin) — their
+        # losses are growth investment on real product revenue, not development.
+        if (lifecycle_stage == "operating" and not has_product_revenue
             and total_revenue is not None and not has_no_revenue and total_revenue < 100_000_000
             and ((op_margin is not None and op_margin < -0.5) or (margin is not None and margin < -0.5))
             and fcf is not None and fcf < 0):
@@ -421,7 +477,8 @@ def analyze(info: dict[str, Any]) -> FundamentalAnalysis:
 
         # Catch companies with >$100M revenue but devastating cash burn
         # (FCF burn > 30% of market cap = catastrophic, burns through market cap in 3 yrs)
-        if (lifecycle_stage == "operating"
+        # Same has_product_revenue exemption as above.
+        if (lifecycle_stage == "operating" and not has_product_revenue
             and total_revenue is not None and total_revenue >= 100_000_000 and total_revenue < 1_000_000_000
             and ((op_margin is not None and op_margin < -0.8) or (margin is not None and margin < -0.8))
             and fcf is not None and fcf < 0

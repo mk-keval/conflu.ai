@@ -230,6 +230,150 @@ class TestLifecycleStage:
         })
         assert result.lifecycle_stage == "clinical_stage"
 
+    def test_kura_commercial_biotech(self):
+        """KURA-shaped: biotech with FDA-approved product revenue → NOT clinical_stage.
+
+        KURA (~9.1M/quarter = ~$36M TTM from approved drug KOMZIFTI) lands in the
+        $1M-$500M biotech branch which wrongly classified it clinical_stage.
+        With commercial-sale evidence in the business summary, it must classify
+        as operating so downstream synthesis emits a real trade plan.
+        """
+        result = _analyze_fundamentals({
+            "shortName": "Kura Oncology plc",
+            "longName": "Kura Oncology plc",
+            "longBusinessSummary": (
+                "Kura Oncology is a commercial-stage biotechnology company "
+                "developing precision medicines for cancer. The company has an "
+                "FDA-approved product, KOMZIFTI (quisotentinalactone), which is "
+                "commercially launched and generating sales of approved drug "
+                "products to patients with solid tumors."
+            ),
+            "sector": "Healthcare",
+            "industry": "Biotechnology",
+            "quoteType": "EQUITY",
+            "exchange": "NMS",
+            "totalRevenue": 36_000_000,
+            "profitMargins": 0.15,
+            "operatingMargins": 0.10,
+            "freeCashflow": -50_000_000,
+            "trailingPE": None,
+            "forwardPE": None,
+            "marketCap": 3_000_000_000,
+        })
+        assert result.lifecycle_stage != "clinical_stage"
+        assert result.lifecycle_stage == "operating"
+        # Should have a finding documenting the commercial-stage detection
+        assert any("commercial-stage" in f.lower() or "commercial-stage" in f for f in result.findings)
+
+    def test_kura_live_shape_deep_loss_commercial(self):
+        """KURA live-data shape (2026-08-21 replay) → operating, NOT clinical/development.
+
+        Live yfinance: $77.2M TTM revenue, op margin -350%, gross margin negative,
+        summary self-labels "clinical-stage biopharmaceutical company" but states
+        "first commercial product, KOMZIFTI". The old profitability guard blocked
+        detection and the pre-profit demotion re-caught it downstream — both must
+        yield to product-level evidence for biotechs.
+        """
+        result = _analyze_fundamentals({
+            "shortName": "Kura Oncology, Inc.",
+            "longName": "Kura Oncology, Inc.",
+            "longBusinessSummary": (
+                "Kura Oncology, Inc., a clinical-stage biopharmaceutical company, "
+                "develops medicines for the treatment of cancer. The company's "
+                "first commercial product, KOMZIFTI (ziftomenib), a potent, "
+                "selective, reversible and oral small molecule menin inhibitor; "
+                "Darlifarnib, a Phase 1 first-in-human trial."
+            ),
+            "sector": "Healthcare",
+            "industry": "Biotechnology",
+            "quoteType": "EQUITY",
+            "exchange": "NMS",
+            "totalRevenue": 77_225_000,
+            "operatingMargins": -3.4976501,
+            "grossMargins": -2.3672,
+            "freeCashflow": -120_000_000,
+            "trailingPE": None,
+            "forwardPE": None,
+            "marketCap": 1_058_000_000,
+        })
+        assert result.lifecycle_stage == "operating"
+        assert any("commercial-stage" in f.lower() for f in result.findings)
+
+    def test_pure_clinical_biotech(self):
+        """True pre-revenue/clinical biotech (no revenue, no product language) → clinical_stage."""
+        result = _analyze_fundamentals({
+            "shortName": "Preclinical Bio Inc.",
+            "longName": "Preclinical Bio Inc.",
+            "longBusinessSummary": (
+                "a clinical-stage biotechnology company developing novel immunotherapies. "
+                "No approved products. Revenue from research grants."
+            ),
+            "sector": "Healthcare",
+            "industry": "Biotechnology",
+            "quoteType": "EQUITY",
+            "exchange": "NMS",
+            "totalRevenue": None,
+            "trailingPE": None,
+            "forwardPE": None,
+        })
+        assert result.lifecycle_stage == "clinical_stage"
+
+    def test_partnership_revenue_biotech(self):
+        """Partnership/milestone-only revenue biotech (no product language) → clinical_stage.
+
+        Small revenue, no product language, deeply unprofitable, no PE. The
+        commercial-sale keyword signal must NOT fire here.
+        """
+        result = _analyze_fundamentals({
+            "shortName": "Partnership Bio Ltd.",
+            "longName": "Partnership Bio Ltd.",
+            "longBusinessSummary": (
+                "a clinical-stage biotechnology company focused on developing gene "
+                "therapies. Revenue from collaboration and license agreements with "
+                "pharmaceutical partners for development milestones."
+            ),
+            "sector": "Healthcare",
+            "industry": "Biotechnology",
+            "quoteType": "EQUITY",
+            "exchange": "NMS",
+            "totalRevenue": 75_000_000,
+            "profitMargins": -1.10,
+            "operatingMargins": -1.40,
+            "freeCashflow": -300_000_000,
+            "trailingPE": None,
+            "forwardPE": None,
+            "marketCap": 800_000_000,
+        })
+        assert result.lifecycle_stage == "clinical_stage"
+
+    def test_astst_spy_pre_profit_not_reclassified(self):
+        """ASTS-style pre-profit tech (~$85M rev, <50% op margin, negative FCF) → development.
+
+        Regression guard: the product-revenue keyword signal must NOT reclassify
+        pre-profit tech companies. ASTS has no biotech sector and no commercial-
+        sale keywords, so it stays in the development bucket via L408-420.
+        """
+        result = _analyze_fundamentals({
+            "shortName": "ASTS Inc.",
+            "longName": "ASTS Inc.",
+            "longBusinessSummary": (
+                "operates satellite communications network providing connectivity "
+                "services to enterprise and government customers"
+            ),
+            "sector": "Technology",
+            "industry": "Communication Equipment",
+            "quoteType": "EQUITY",
+            "exchange": "NMS",
+            "totalRevenue": 85_000_000,
+            "operatingMargins": -10.14,
+            "profitMargins": 0.0,
+            "freeCashflow": -1_400_000_000,
+            "trailingPE": None,
+            "forwardPE": None,
+            "marketCap": 8_000_000_000,
+        })
+        assert result.lifecycle_stage == "development"
+
     def test_pre_profit_high_revenue(self):
         """>$100M revenue but extreme cash burn → development."""
         result = _analyze_fundamentals({
@@ -498,6 +642,42 @@ class TestAssetCategory:
         })
         assert result.asset_category == "treasury_asset"
 
+    def test_mstr_treasury(self):
+        """MSTR-like: Bitcoin treasury company with operating software revenue → treasury_asset + operating.
+
+        MicroStrategy holds bitcoin as primary reserve asset while also operating
+        business intelligence software. asset_category must be 'treasury_asset' (not
+        operating) and lifecycle_stage must be 'operating' (excluded from dev-stage
+        detection because treasury_asset companies skip lifecycle analysis).
+        """
+        result = _analyze_fundamentals({
+            "shortName": "MicroStrategy",
+            "longName": "MicroStrategy Incorporated",
+            "longBusinessSummary": (
+                "MicroStrategy Incorporated acquires and holds bitcoin as primary "
+                "treasury reserve asset. The company also provides enterprise business "
+                "intelligence software powered by AI, with commercial license revenue "
+                "and subscription services. Bitcoin treasury strategy as primary "
+                "investment focus."
+            ),
+            "sector": "Technology",
+            "industry": "Software - Infrastructure",
+            "quoteType": "EQUITY",
+            "exchange": "NMS",
+            "totalRevenue": 500_000_000,
+            "trailingPE": 45.0,
+            "forwardPE": 40.0,
+            "profitMargins": 0.22,
+            "operatingMargins": 0.25,
+            "freeCashflow": 100_000_000,
+            "marketCap": 60_000_000_000,
+        })
+        assert result.asset_category == "treasury_asset"
+        assert result.lifecycle_stage == "operating"
+        # Must NOT be classified as crypto_miner (excluded via "mining" check
+        # — this summary must not contain "mining")
+        assert not any("mining" in f.lower() for f in result.findings)
+
     def test_otc_caveat_emptor(self):
         """OTC with no book value + no revenue → caveat emptor."""
         result = _analyze_fundamentals({
@@ -672,35 +852,39 @@ class TestSynthesisOverrides:
     """Verify that synthesis override rules fire correctly."""
 
     def _make_technical(self, **kw: Any) -> TechnicalAnalysis:
-        defaults = dict(score=0.0, ma_alignment="mixed", rsi=50.0, rsi_regime="neutral",
-                        adx=20.0, adx_verdict="weak", atr_pct=2.0, volatility_regime="normal",
-                        volume_ratio=1.0, bb_position="inside", macd_status="neutral",
-                        findings=[])
-        defaults.update(kw)
-        return TechnicalAnalysis(**defaults)
+        base = TechnicalAnalysis(
+            score=0.0, ma_alignment="mixed", rsi=50.0, rsi_regime="neutral",
+            adx=20.0, adx_verdict="weak", atr_pct=2.0, volatility_regime="normal",
+            volume_ratio=1.0, bb_position="inside", macd_status="neutral",
+            findings=[],
+        )
+        return base.model_copy(update=kw) if kw else base
 
     def _make_fundamental(self, **kw: Any) -> FundamentalAnalysis:
-        defaults = dict(score=0.0, instrument_type="equity", exchange_category="primary",
-                        asset_category="operating", lifecycle_stage="operating",
-                        market_cap=10_000_000_000, pe_ratio=20.0, eps=2.0,
-                        profit_margin=10.0, debt_to_equity=0.5, revenue_growth_yoy=10.0,
-                        findings=[])
-        defaults.update(kw)
-        return FundamentalAnalysis(**defaults)
+        base = FundamentalAnalysis(
+            score=0.0, instrument_type="equity", exchange_category="primary",
+            asset_category="operating", lifecycle_stage="operating",
+            market_cap=10_000_000_000, pe_ratio=20.0, eps=2.0,
+            profit_margin=10.0, debt_to_equity=0.5, revenue_growth_yoy=10.0,
+            findings=[],
+        )
+        return base.model_copy(update=kw) if kw else base
 
     def _make_sentiment(self, **kw: Any) -> SentimentAnalysis:
-        defaults = dict(score=0.0, analyst_consensus="Hold", insider_status="neutral",
-                        short_interest_pct=None, days_to_cover=None,
-                        institutional_ownership=None, beta=1.0, findings=[])
-        defaults.update(kw)
-        return SentimentAnalysis(**defaults)
+        base = SentimentAnalysis(
+            score=0.0, analyst_consensus="Hold", insider_status="neutral",
+            short_interest_pct=None, days_to_cover=None,
+            institutional_ownership=None, beta=1.0, findings=[],
+        )
+        return base.model_copy(update=kw) if kw else base
 
     def _make_risk(self, **kw: Any) -> RiskAssessment:
-        defaults = dict(score=0.0, volatility_regime="normal",
-                        suggested_stop_pct=5.0, suggested_position_size_pct=10.0,
-                        findings=[])
-        defaults.update(kw)
-        return RiskAssessment(**defaults)
+        base = RiskAssessment(
+            score=0.0, volatility_regime="normal",
+            suggested_stop_pct=5.0, suggested_position_size_pct=10.0,
+            findings=[],
+        )
+        return base.model_copy(update=kw) if kw else base
 
     def _synthesise(self, technical: TechnicalAnalysis | None = None,
                     fundamental: FundamentalAnalysis | None = None,

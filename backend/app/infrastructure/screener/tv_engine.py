@@ -78,9 +78,19 @@ class TVScreenEngine:
         async with self.rate_limiter:
             result = await self.specialist.discover(config)
 
-        # Cache result if non-empty
-        if result.raw_data is not None:
+        # Cache result only when non-empty (non-None AND non-empty DataFrame).
+        # Empty discoveries must NOT be cached — they would be served as sticky
+        # zero-match responses for 60s, masking transient upstream failures
+        # (e.g. broken filter compilation returning 0 rows).
+        if result.raw_data is not None and not result.raw_data.empty:
             self.cache.set(cache_key, result)
+        else:
+            self.log.info(
+                "empty_discovery_not_cached",
+                screen=config.name,
+                matches=result.total_matches,
+                key=cache_key,
+            )
 
         self.log.info(
             "discover_complete",
