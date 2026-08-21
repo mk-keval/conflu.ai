@@ -215,8 +215,14 @@ class TVScreenEngine:
         *,
         start: float,
         limit: int = 500,
+        rs_map: dict[str, dict[str, float | None]] | None = None,
     ) -> dict[str, Any]:
-        """Shared post-discovery pipeline: elite enrichment + confluence scoring."""
+        """Shared post-discovery pipeline: elite enrichment + confluence scoring.
+
+        ``rs_map`` (P1.3) carries universe-wide RS percentiles from the base
+        snapshot; matched items get an additive ``item["rs"]`` block when a
+        mapping exists for their symbol.
+        """
         if result.raw_data is None:
             return {
                 "screen_name": config.name,
@@ -255,6 +261,12 @@ class TVScreenEngine:
             pf_flag, pf_reason = _detect_probable_fund(item)
             item["probable_fund"] = pf_flag
             item["probable_fund_reason"] = pf_reason
+
+            # ── RS-vs-index percentile enrichment (P1.3) ──
+            if rs_map is not None:
+                rs = rs_map.get(sym)
+                if rs is not None:
+                    item["rs"] = rs
 
         return {
             "screen_name": config.name,
@@ -344,6 +356,12 @@ class TVScreenEngine:
 
         local_results = snapshot_engine.discover_all_local(snapshot_df, configs)
 
+        # P1.3: universe-wide RS percentiles from the SAME snapshot —
+        # zero extra upstream calls. Legacy fallbacks get no rs block.
+        from backend.app.infrastructure.screener.rs_enrichment import compute_rs_percentiles
+
+        rs_map = compute_rs_percentiles(snapshot_df)
+
         out: list[dict[str, Any] | Exception] = []
         for config in configs:
             local = local_results.get(config.name)
@@ -351,7 +369,9 @@ class TVScreenEngine:
                 # Fail-closed template → legacy discovery just for this one.
                 out.append(await _fallback_single(config))
                 continue
-            out.append(await self._finalize_screen(config, local, start=start, limit=limit))
+            out.append(
+                await self._finalize_screen(config, local, start=start, limit=limit, rs_map=rs_map)
+            )
         return out
 
     async def screen_multi_tf(self, config: ScreenConfig) -> dict[str, Any]:

@@ -307,6 +307,9 @@ SNAPSHOT_COLUMNS: list[str] = [
     "supertrend",
     "supertrend.up",
     "supertrend.down",
+    # Perf columns — P1.3 RS-vs-index percentile enrichment (zero extra calls)
+    "Perf.1M",
+    "Perf.3M",
 ]
 
 
