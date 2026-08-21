@@ -1,0 +1,48 @@
+# Regime → screen weights for the Morning Brief discovery flow (P1.1).
+#
+# Higher weight = more relevant to the regime. The RegimeScreenSelector picks
+# the top-3 screens by weight, guaranteeing exactly one `role: defensive`
+# secondary so NEUTRAL/CHOPPY regimes still surface momentum/breakout/
+# catalyst setups as PRIMARY instead of collapsing into all-defensive lists.
+#
+# Screen names are filename stems under config/screens/.
+# Unknown/failed screens are skipped gracefully; regimes missing from this
+# file fall back to heuristic scoring, then to the hardcoded fallback map.
+
+version: 1
+
+regimes:
+  strong_trend:
+    - { name: trend-follower, weight: 95 }
+    - { name: 52week-breakout, weight: 85 }
+    - { name: institutional-trend-follower-mtf, weight: 75 }
+    - { name: quality-trend-fundamentals, weight: 65 }
+    - { role: defensive, name: high-conviction-stack, weight: 55 }
+
+  # Momentum/breakout/catalyst PRIMARY + one defensive secondary (RC1 fix):
+  # a 50-ish composite is NOT a reason to serve only mean-reversion.
+  neutral:
+    - { name: 52week-breakout, weight: 90 }
+    - { name: short-squeeze, weight: 85 }
+    - { name: volume-trend-accumulation, weight: 80 }
+    - { name: bull-flag-continuation, weight: 75 }
+    - { role: defensive, name: statistical-mean-reversion, weight: 60 }
+
+  choppy:
+    - { name: bull-flag-continuation, weight: 85 }
+    - { name: short-squeeze, weight: 80 }
+    - { name: volatility-expansion, weight: 70 }
+    - { role: defensive, name: low-vol-setup, weight: 65 }
+    - { role: defensive, name: statistical-mean-reversion, weight: 55 }
+
+  ranging:
+    - { name: statistical-mean-reversion, weight: 80 }
+    - { name: mean-reversion, weight: 75 }
+    - { name: volume-trend-accumulation, weight: 65 }
+    - { role: defensive, name: low-vol-setup, weight: 60 }
+
+  high_vol:
+    - { name: institutional-swing-quality, weight: 85 }
+    - { name: volatility-expansion, weight: 80 }
+    - { name: short-squeeze, weight: 70 }
+    - { role: defensive, name: quality-trend-fundamentals, weight: 60 }

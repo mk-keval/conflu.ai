@@ -53,11 +53,14 @@ _SECTOR_CONCURRENCY: int = 4
 _BRIEF_CACHE_TTL: float = 6 * 60 * 60  # 6h — covers pre-market through close
 
 # ── Regime label mapping ──
+# "neutral" and "choppy" are first-class config regimes (P1.1): a mid-range
+# composite is NOT a reason to serve only defensive screens — the weighted
+# config in config/regime_screens.yaml keeps momentum/breakout primary.
 _REGIME_LABEL_MAP: dict[str, str] = {
     "Exuberance": "strong_trend",
     "Risk-On": "strong_trend",
-    "Neutral": "ranging",
-    "Cautious": "ranging",
+    "Neutral": "neutral",
+    "Cautious": "choppy",
     "Risk-Off": "high_vol",
     "Crisis": "high_vol",
 }
@@ -528,6 +531,8 @@ def _regime_description(label: str) -> str:
         "strong_trend": "Bullish trend conditions detected.",
         "ranging": "Range-bound market conditions.",
         "high_vol": "High volatility environment — wider stops required.",
+        "neutral": "Mixed signals — stock-specific momentum/breakout setups primary, one defensive hedge.",
+        "choppy": "Choppy tape — smaller size, favor volume-confirmed breakouts.",
     }
     return descriptions.get(label, f"Market regime: {label}")
 
