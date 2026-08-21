@@ -227,6 +227,20 @@ class ScreenSettings(BaseSettings):
         ge=1,
         le=20,
     )
+    snapshot_multi_screen: bool = Field(
+        default=False,
+        description=(
+            "One-Snapshot-Multi-Screen (P1.2): ONE broad TV base query + local "
+            "pandas filter masking instead of one upstream query per template. "
+            "Auto-falls back to legacy discovery when the circuit breaker is open."
+        ),
+    )
+    snapshot_size: int = Field(
+        default=1500,
+        description="Row cap for the One-Snapshot-Multi-Screen base query",
+        ge=100,
+        le=5000,
+    )
 
 
 class OptimizationSettings(BaseSettings):

@@ -13,6 +13,8 @@ import asyncio
 import time
 from typing import Any
 
+import pandas as pd
+
 from backend.app.infrastructure.screener.tv_specialist import TVScreenerSpecialist, TVDiscoveryResult
 from backend.app.infrastructure.screener.confluence_scorer import TVConfluenceScorer, ConfluenceScore
 from backend.app.infrastructure.screener.tv_rate_limiter import TVRateLimiter
@@ -204,6 +206,26 @@ class TVScreenEngine:
                 "results": [],
             }
 
+        return await self._finalize_screen(config, result, start=start, limit=limit)
+
+    async def _finalize_screen(
+        self,
+        config: ScreenConfig,
+        result: TVDiscoveryResult,
+        *,
+        start: float,
+        limit: int = 500,
+    ) -> dict[str, Any]:
+        """Shared post-discovery pipeline: elite enrichment + confluence scoring."""
+        if result.raw_data is None:
+            return {
+                "screen_name": config.name,
+                "total_matches": 0,
+                "execution_ms": round((time.monotonic() - start) * 1000),
+                "timeframe": config.timeframes[0] if config.timeframes else "1D",
+                "results": [],
+            }
+
         # ── Elite signal enrichment (post-TV, no OHLCV needed) ──
         from backend.app.infrastructure.screener.elite_signal import EliteSignalProcessor
 
@@ -241,6 +263,96 @@ class TVScreenEngine:
             "timeframe": timeframe,
             "results": scored[:limit],
         }
+
+    async def screen_batch(
+        self, configs: list[ScreenConfig], limit: int = 500
+    ) -> list[dict[str, Any] | Exception]:
+        """Screen multiple templates for one discovery cycle.
+
+        One-Snapshot-Multi-Screen path (P1.2), gated by:
+        - feature flag ``settings.screen.snapshot_multi_screen`` (default OFF)
+        - circuit breaker: open breaker ⇒ legacy per-template discovery
+
+        The snapshot itself flows through the engine cache with
+        stale-while-revalidate; per-template results are derived locally at
+        zero upstream cost. Templates whose local masking fails closed fall
+        back to legacy ``screen()`` individually.
+
+        Response schema is IDENTICAL to
+        ``await asyncio.gather(*[self.screen(c) ...], return_exceptions=True)``
+        — per-item dicts, with Exceptions in place of failed screens.
+        Additive-only mandate holds.
+        """
+        from backend.app.core.config import settings
+        from backend.app.infrastructure.screener.snapshot_engine import (
+            SnapshotMultiScreenEngine,
+            build_base_config,
+        )
+
+        if not configs:
+            return []
+
+        async def _fallback_single(cfg: ScreenConfig) -> dict[str, Any] | Exception:
+            try:
+                return await self.screen(cfg, limit=limit)
+            except Exception as exc:  # noqa: BLE001 — caller handles per-item failures
+                return exc
+
+        use_snapshot = (
+            settings.screen.snapshot_multi_screen and not self.circuit_breaker.is_open()
+        )
+        if not use_snapshot:
+            # Mirror legacy gather semantics: per-item exceptions, not raises.
+            legacy = [_fallback_single(config) for config in configs]
+            return list(await asyncio.gather(*legacy))
+
+        start = time.monotonic()
+        base_config = build_base_config(configs, size=settings.screen.snapshot_size)
+        snapshot_engine = SnapshotMultiScreenEngine(
+            self.specialist, size=settings.screen.snapshot_size
+        )
+
+        # Snapshot participates in the SWR cache like any discovery.
+        cache_key = self.cache.make_key(base_config, settings.screen.snapshot_size)
+        cached, is_stale = self.cache.get_with_freshness(cache_key)
+        snapshot_df: pd.DataFrame | None = None
+        if cached is not None and not is_stale:
+            snapshot_df = getattr(cached, "raw_data", None)
+            self.log.info("snapshot_cache_hit", key=cache_key)
+        elif cached is not None and is_stale:
+            snapshot_df = getattr(cached, "raw_data", None)
+            self.log.info("snapshot_stale_hit_refreshing", key=cache_key)
+
+        if snapshot_df is None or snapshot_df.empty:
+            snapshot_df = await snapshot_engine.fetch_snapshot(configs)
+            if snapshot_df is None or snapshot_df.empty:
+                # Hard fallback: never serve silently-empty states.
+                self.log.warning("snapshot_fetch_empty_falling_back_legacy")
+                return list(await asyncio.gather(*[self.screen(c, limit=limit) for c in configs]))
+
+            result = TVDiscoveryResult(
+                screen_name=base_config.name,
+                total_matches=len(snapshot_df),
+                tickers=snapshot_df["ticker"].str.split(":").str[-1].unique().tolist()
+                if "ticker" in snapshot_df.columns
+                else [],
+                execution_ms=round((time.monotonic() - start) * 1000),
+                raw_data=snapshot_df,
+                timeframe="1D",
+            )
+            self.cache.set(cache_key, result)
+
+        local_results = snapshot_engine.discover_all_local(snapshot_df, configs)
+
+        out: list[dict[str, Any] | Exception] = []
+        for config in configs:
+            local = local_results.get(config.name)
+            if local is None:
+                # Fail-closed template → legacy discovery just for this one.
+                out.append(await _fallback_single(config))
+                continue
+            out.append(await self._finalize_screen(config, local, start=start, limit=limit))
+        return out
 
     async def screen_multi_tf(self, config: ScreenConfig) -> dict[str, Any]:
         """

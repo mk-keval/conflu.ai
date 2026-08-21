@@ -156,9 +156,24 @@ class MorningBriefService:
         # 3. Fetch sector rotation early to get the leading sector for a 4th screen
         sector_rotation, sector_list, weekly_leader_etf = await _fetch_sector_rotation()
 
-        # 4. Run the 3 regime screens in parallel
-        screen_tasks = [self._screen_engine.screen(config) for config in screens]
-        screen_results = await asyncio.gather(*screen_tasks, return_exceptions=True)
+        # 4. Run the regime screens — batched when One-Snapshot-Multi-Screen
+        # is enabled (one upstream TV call + local masking), else parallel
+        # per-template discovery. screen_batch returns the same per-screen
+        # dicts (or Exception objects) that the legacy gather produces.
+        if hasattr(self._screen_engine, "screen_batch"):
+            raw_results = await self._screen_engine.screen_batch(screens)
+            screen_results: list[Any] = []
+            for config, result in zip(screens, raw_results):
+                if isinstance(result, Exception):
+                    screen_results.append(result)
+                elif isinstance(result, dict):
+                    screen_results.append(result)
+                else:
+                    log.warning("unexpected_batch_result_type", type=type(result).__name__)
+                    screen_results.append(RuntimeError(f"bad result for {config.name}"))
+        else:
+            screen_tasks = [self._screen_engine.screen(config) for config in screens]
+            screen_results = list(await asyncio.gather(*screen_tasks, return_exceptions=True))
 
         # 5. Build screen sections from regime screens
         screen_sections: list[ScreenSection] = []
