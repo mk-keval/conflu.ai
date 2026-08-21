@@ -1,0 +1,63 @@
+name: "Distribution"
+description: "Institutional selling dressed as quiet drift — heavy volume on down moves while price bleeds below key averages. Signals: falling OBV proxy, price under EMA50, bearish MACD. Use for short-side setups or to exit longs before the crowd notices."
+asset_classes:
+  - equities
+timeframes:
+  - 1D
+filters:
+  # Institutional quality gates — distribution matters where institutions trade
+  - category: fundamental
+    indicator: market_cap_gt
+    params:
+      value: 2000000000
+    timeframe: "1D"
+  - category: fundamental
+    indicator: exchange_in
+    params:
+      exchanges:
+        - "NYSE"
+        - "NASDAQ"
+    timeframe: "1D"
+  - category: fundamental
+    indicator: country_in
+    params:
+      countries:
+        - "United States"
+    timeframe: "1D"
+  - category: fundamental
+    indicator: close_above
+    params:
+      threshold: 5.0
+    timeframe: "1D"
+  - category: volume
+    indicator: avg_volume_gt
+    params:
+      threshold: 500000
+    timeframe: "1D"
+  # Unusual volume on weakness — someone big is exiting
+  - category: volume
+    indicator: rvol_high
+    params:
+      threshold: 1.5
+    timeframe: "1D"
+  # OBV falling proxy — price below SMA20 with sustained above-average volume
+  - category: volume
+    indicator: obv_falling
+    params:
+      min_rvol: 1.0
+    timeframe: "1D"
+  # Structure broken — price under the intermediate trend average
+  - category: trend
+    indicator: price_below_ema
+    params:
+      period: 50
+    operator: lt
+    timeframe: "1D"
+  # Momentum confirming the exit
+  - category: momentum
+    indicator: macd_bearish
+    timeframe: "1D"
+  # Full bearish alignment — fast MAs below slow
+  - category: trend
+    indicator: ema_stack_bearish
+    timeframe: "1D"

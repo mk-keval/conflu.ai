@@ -1,0 +1,62 @@
+name: "Short Squeeze"
+description: "Heavily-shorted names catching a bid — abnormal relative volume ignites forced buying from trapped shorts. Signals: rvol 2x+, price reclaiming VWAP, fresh MACD cross. High-octane setups: size down, respect stops, take profits into strength."
+asset_classes:
+  - equities
+timeframes:
+  - 1D
+filters:
+  # Institutional quality gates — squeeze candidates must be tradeable
+  - category: fundamental
+    indicator: market_cap_gt
+    params:
+      value: 2000000000
+    timeframe: "1D"
+  - category: fundamental
+    indicator: exchange_in
+    params:
+      exchanges:
+        - "NYSE"
+        - "NASDAQ"
+    timeframe: "1D"
+  - category: fundamental
+    indicator: country_in
+    params:
+      countries:
+        - "United States"
+    timeframe: "1D"
+  - category: fundamental
+    indicator: close_above
+    params:
+      threshold: 5.0
+    timeframe: "1D"
+  - category: volume
+    indicator: avg_volume_gt
+    params:
+      threshold: 500000
+    timeframe: "1D"
+  # Squeeze ignition — abnormal volume vs 10-day norm
+  - category: volume
+    indicator: rvol_high
+    params:
+      threshold: 2.0
+    timeframe: "1D"
+  # Intraday strength — buyers in control at the print
+  - category: trend
+    indicator: price_above_vwap
+    timeframe: "1D"
+  # Momentum turn — fresh bullish MACD crossover
+  - category: momentum
+    indicator: macd_cross_above
+    timeframe: "1D"
+  # Momentum participation — RSI in the bullish half
+  - category: momentum
+    indicator: rsi_gt
+    params:
+      threshold: 55
+    timeframe: "1D"
+  # Trend forming, not just noise — ADX confirms directional conviction
+  - category: trend
+    indicator: adx_trending
+    params:
+      threshold: 20
+    timeframe: "1D"
