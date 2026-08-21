@@ -5,8 +5,10 @@ Unit tests with mocked specialist to avoid live TV API calls.
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pandas as pd
 import pytest
 
 from backend.app.infrastructure.screener.tv_engine import TVScreenEngine
@@ -14,6 +16,7 @@ from backend.app.infrastructure.screener.tv_specialist import TVDiscoveryResult
 from backend.app.infrastructure.screener.configs import ScreenConfig, FilterRule
 from backend.app.infrastructure.screener.tv_rate_limiter import TVRateLimiter
 from backend.app.infrastructure.screener.tv_cache import TVCache
+from backend.app.infrastructure.screener.tv_circuit_breaker import TVCircuitBreaker
 
 
 @pytest.fixture
@@ -275,3 +278,248 @@ class TestTVCache:
         assert stats["ttl"] == 30.0
         assert stats["maxsize"] == 100
         assert stats["hit_rate"] == 0.0
+
+
+def _make_result(
+    tickers: list[str],
+    *,
+    empty: bool = False,
+) -> TVDiscoveryResult:
+    """Build a TVDiscoveryResult with the given tickers (or an empty one)."""
+    if empty:
+        return TVDiscoveryResult(
+            screen_name="Test",
+            total_matches=0,
+            tickers=[],
+            execution_ms=10,
+            raw_data=pd.DataFrame(),
+            timeframe="1D",
+        )
+    return TVDiscoveryResult(
+        screen_name="Test",
+        total_matches=len(tickers),
+        tickers=tickers,
+        execution_ms=100,
+        raw_data=pd.DataFrame({
+            "ticker": [f"NASDAQ:{t}" for t in tickers],
+            "close": [180.0] * len(tickers),
+        }),
+        timeframe="1D",
+    )
+
+
+def _age_entry(cache: TVCache, key: str, seconds: float) -> None:
+    """Rewind a cache entry's expiry to simulate the passage of time."""
+    expires_at, value = cache._cache[key]
+    cache._cache[key] = (expires_at - seconds, value)
+
+
+class TestTVCacheStaleWhileRevalidate:
+    """Stale-while-revalidate semantics on TVCache (swing-parity P1.0)."""
+
+    def test_fresh_hit_returns_not_stale(self) -> None:
+        cache = TVCache(ttl=60.0, stale_ttl=300.0)
+        cache.set("k", _make_result(["AAPL"]))
+        value, is_stale = cache.get_with_freshness("k")
+        assert value is not None
+        assert is_stale is False
+        assert cache.hits == 1
+        assert cache._stale_hits == 0
+
+    def test_stale_within_stale_ttl_served_with_label(self) -> None:
+        cache = TVCache(ttl=60.0, stale_ttl=300.0)
+        cache.set("k", _make_result(["AAPL"]))
+        _age_entry(cache, "k", seconds=100)  # past ttl, inside stale window
+
+        value, is_stale = cache.get_with_freshness("k")
+        assert value is not None
+        assert is_stale is True
+        assert cache._stale_hits == 1
+
+    def test_legacy_get_never_serves_stale_entries(self) -> None:
+        """The pre-SWR getter keeps strict freshness semantics."""
+        cache = TVCache(ttl=60.0, stale_ttl=300.0)
+        cache.set("k", _make_result(["AAPL"]))
+        _age_entry(cache, "k", seconds=100)
+
+        assert cache.get("k") is None  # expired → miss (and evicted)
+        assert cache.size == 0
+
+    def test_hard_expired_beyond_stale_ttl_dropped(self) -> None:
+        cache = TVCache(ttl=60.0, stale_ttl=300.0)
+        cache.set("k", _make_result(["AAPL"]))
+        _age_entry(cache, "k", seconds=301)
+
+        value, is_stale = cache.get_with_freshness("k")
+        assert value is None
+        assert is_stale is False
+        assert cache.size == 0  # entry evicted
+
+    def test_empty_result_never_served_stale(self) -> None:
+        """Defensive guard: silently-empty cached states are unserveable."""
+        cache = TVCache(ttl=60.0, stale_ttl=300.0)
+        cache.set("k", _make_result([], empty=True))
+        _age_entry(cache, "k", seconds=100)
+
+        value, is_stale = cache.get_with_freshness("k")
+        assert value is None
+        assert is_stale is False
+
+    def test_stats_include_stale_fields(self) -> None:
+        cache = TVCache(ttl=60.0, stale_ttl=120.0)
+        stats = cache.stats()
+        assert stats["stale_ttl"] == 120.0
+        assert stats["stale_hits"] == 0
+
+
+class TestTVCircuitBreaker:
+    """Sliding-window circuit breaker guarding upstream call volume."""
+
+    def test_below_threshold_not_open(self) -> None:
+        breaker = TVCircuitBreaker(max_calls=20, window_seconds=60.0)
+        for i in range(20):
+            breaker.record_call(now=float(i))
+        assert breaker.calls_in_window(now=30.0) == 20
+        assert breaker.is_open(now=30.0) is False
+
+    def test_opens_above_threshold(self) -> None:
+        breaker = TVCircuitBreaker(max_calls=20, window_seconds=60.0)
+        for i in range(21):
+            breaker.record_call(now=float(i))
+        assert breaker.is_open(now=30.0) is True
+
+    def test_window_prune_closes_breaker(self) -> None:
+        breaker = TVCircuitBreaker(max_calls=20, window_seconds=60.0)
+        for i in range(25):
+            breaker.record_call(now=float(i))  # calls at t=0..24s
+        assert breaker.is_open(now=30.0) is True
+        # After the burst ages out of the 60s window the breaker closes.
+        assert breaker.calls_in_window(now=100.0) == 0
+        assert breaker.is_open(now=100.0) is False
+
+    def test_opened_count_edge_triggered_once_per_episode(self) -> None:
+        breaker = TVCircuitBreaker(max_calls=5, window_seconds=60.0)
+        for i in range(10):
+            breaker.record_call(now=float(i))
+        assert breaker.is_open(now=30.0) is True
+        assert breaker.is_open(now=31.0) is True  # still open — no double count
+        assert breaker.opened_count == 1
+
+    def test_reset_clears_state(self) -> None:
+        breaker = TVCircuitBreaker(max_calls=5, window_seconds=60.0)
+        for i in range(10):
+            breaker.record_call(now=float(i))
+        breaker.is_open()
+        breaker.reset()
+        assert breaker.calls_in_window() == 0
+        assert breaker.is_open() is False
+        assert breaker.stats()["calls_in_window"] == 0
+
+    def test_stats_structure(self) -> None:
+        breaker = TVCircuitBreaker(max_calls=20, window_seconds=60.0)
+        stats = breaker.stats()
+        assert stats["max_calls"] == 20
+        assert stats["window_seconds"] == 60.0
+        assert stats["open"] is False
+        assert stats["opened_count"] == 0
+
+
+class TestDiscoverStaleWhileRevalidate:
+    """Engine-level SWR behavior: serve stale fast, refresh in background."""
+
+    @pytest.mark.asyncio
+    async def test_stale_hit_serves_immediately_then_refreshes(
+        self, sample_config: ScreenConfig
+    ) -> None:
+        eng = TVScreenEngine()
+        result_a = _make_result(["AAPL"])
+        result_b = _make_result(["AAPL", "MSFT"])
+
+        mock = MagicMock()
+        mock.discover = AsyncMock(side_effect=[result_a, result_b])
+        eng.specialist = mock
+
+        first = await eng.discover(sample_config)
+        assert first.tickers == ["AAPL"]
+        assert mock.discover.call_count == 1
+
+        key = eng.cache.make_key(sample_config, 500)
+        _age_entry(eng.cache, key, seconds=100)  # stale but within stale_ttl
+
+        second = await eng.discover(sample_config)
+        assert second.tickers == ["AAPL"], "stale value must be served immediately"
+        assert mock.discover.call_count == 1, "provider must NOT be called synchronously"
+
+        # Deterministically await the scheduled background refresh.
+        tasks = list(eng._refresh_tasks)
+        assert tasks, "stale serve must schedule exactly one refresh"
+        await asyncio.gather(*tasks)
+
+        assert mock.discover.call_count == 2, "background refresh should hit provider once"
+        refreshed = eng.cache.get(key)
+        assert refreshed is not None
+        assert refreshed.tickers == ["AAPL", "MSFT"], "cache must be updated in place"
+
+    @pytest.mark.asyncio
+    async def test_background_refresh_empty_keeps_stale_entry(
+        self, sample_config: ScreenConfig
+    ) -> None:
+        eng = TVScreenEngine()
+        good = _make_result(["AAPL"])
+        empty = _make_result([], empty=True)
+
+        mock = MagicMock()
+        mock.discover = AsyncMock(side_effect=[good, empty])
+        eng.specialist = mock
+
+        await eng.discover(sample_config)
+        key = eng.cache.make_key(sample_config, 500)
+        _age_entry(eng.cache, key, seconds=100)
+
+        served = await eng.discover(sample_config)
+        assert served.tickers == ["AAPL"]
+
+        tasks = list(eng._refresh_tasks)
+        assert tasks
+        await asyncio.gather(*tasks)
+
+        cached, is_stale = eng.cache.get_with_freshness(key)
+        assert cached is not None
+        assert cached.tickers == ["AAPL"], "empty refresh must not overwrite good data"
+        assert is_stale is True, "entry must remain in the stale window (not overwritten)"
+
+    @pytest.mark.asyncio
+    async def test_background_refresh_failure_is_swallowed(
+        self, sample_config: ScreenConfig
+    ) -> None:
+        eng = TVScreenEngine()
+        good = _make_result(["AAPL"])
+
+        mock = MagicMock()
+        mock.discover = AsyncMock(side_effect=[good, RuntimeError("upstream boom")])
+        eng.specialist = mock
+
+        await eng.discover(sample_config)
+        key = eng.cache.make_key(sample_config, 500)
+        _age_entry(eng.cache, key, seconds=100)
+
+        served = await eng.discover(sample_config)
+        assert served.tickers == ["AAPL"]
+
+        tasks = list(eng._refresh_tasks)
+        assert tasks
+        await asyncio.gather(*tasks)
+
+        cached, _ = eng.cache.get_with_freshness(key)
+        assert cached is not None, "failed refresh must leave the stale entry intact"
+        assert eng._inflight_refreshes == set()
+
+    @pytest.mark.asyncio
+    async def test_discover_records_circuit_breaker_calls(
+        self, engine: TVScreenEngine, sample_config: ScreenConfig
+    ) -> None:
+        assert engine.circuit_breaker.calls_in_window() == 0
+        await engine.discover(sample_config)  # miss → 1 upstream call
+        assert engine.circuit_breaker.calls_in_window() == 1
+        await engine.discover(sample_config)  # fresh hit → no upstream call
+        assert engine.circuit_breaker.calls_in_window() == 1
