@@ -12,6 +12,7 @@ services:
       - ./backend:/app/backend
       - ./config.yaml:/app/config.yaml
       - ./config/screens:/app/config/screens
+      - ./config/regime_screens.yaml:/app/config/regime_screens.yaml
     environment:
       - CONFLU_CORE__LOG_LEVEL=INFO
       - CONFLU_CORE__LOG_JSON=true
@@ -41,6 +42,7 @@ services:
       - ./backend:/app/backend
       - ./config.yaml:/app/config.yaml
       - ./config/screens:/app/config/screens
+      - ./config/regime_screens.yaml:/app/config/regime_screens.yaml
     environment:
       - CONFLU_CORE__LOG_LEVEL=INFO
       - CELERY_BROKER_URL=redis://redis:6379/0
@@ -75,6 +77,7 @@ services:
       - ./backend:/app/backend
       - ./config.yaml:/app/config.yaml
       - ./config/screens:/app/config/screens
+      - ./config/regime_screens.yaml:/app/config/regime_screens.yaml
     environment:
       - CONFLU_CORE__LOG_LEVEL=INFO
       - CELERY_BROKER_URL=redis://redis:6379/0
