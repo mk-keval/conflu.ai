@@ -258,6 +258,15 @@ class MorningBriefService:
                     )
                     ticker.catalyst_breakout = cat_on
                     ticker.catalyst_breakout_reason = cat_reason
+                    # P1.5: earnings-proximity warning chip.
+                    ts = data.get("next_earnings_ts")
+                    if isinstance(ts, (int, float)):
+                        from datetime import datetime as _dt
+
+                        earnings_dt = _dt.fromtimestamp(float(ts)).astimezone()
+                        ticker.days_to_earnings = (
+                            earnings_dt.date() - _dt.now().astimezone().date()
+                        ).days
 
         # 8. Market internals
         market_internals = await _fetch_market_internals()
@@ -700,10 +709,17 @@ def _premarket_quotes_sync(symbols: list[str]) -> dict[str, dict[str, float | No
                 raw_surprise = info.get("earningsSurprisePct")
                 if isinstance(raw_surprise, (int, float)):
                     eps_surprise = float(raw_surprise)
+                # P1.5: next earnings timestamp rides along on the same
+                # .info payload (zero extra upstream calls).
+                raw_ts = info.get("earningsTimestampStart") or info.get("earningsTimestamp")
+                next_earnings_ts: float | None = None
+                if isinstance(raw_ts, (int, float)):
+                    next_earnings_ts = float(raw_ts)
                 payload: dict[str, float | None] = {
                     "live_price": None,
                     "premarket_change_pct": None,
                     "earnings_surprise_pct": eps_surprise,
+                    "next_earnings_ts": next_earnings_ts,
                 }
                 if premarket_price is not None and premarket_change is not None:
                     payload["live_price"] = float(premarket_price)

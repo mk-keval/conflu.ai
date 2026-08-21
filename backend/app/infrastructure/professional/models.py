@@ -45,6 +45,9 @@ class TickerBrief(BaseModel):
     # for premarket quotes — zero extra upstream calls).
     catalyst_breakout: bool = False
     catalyst_breakout_reason: str | None = None
+    # P1.5 earnings-proximity warning chip (calendar days; negative = last
+    # print in the past). None when yfinance has no scheduled date.
+    days_to_earnings: int | None = None
 
 
 class ScreenSection(BaseModel):
@@ -140,6 +143,8 @@ class WatchlistItemResponse(BaseModel):
     verdict: str
     conviction: int
     position_size: dict[str, float] | None = None
+    # P1.5 earnings-proximity warning chip (calendar days).
+    days_to_earnings: int | None = None
 
 
 class WatchlistAnalyzeResponse(BaseModel):

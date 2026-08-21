@@ -84,6 +84,9 @@ class EarningsAnalysis(BaseModel):
     beat_rate: str | None = None  # e.g., "3/4"
     avg_reaction_pct: float | None = None
     next_earnings_date: str | None = None
+    # P1.5 earnings-proximity chip: calendar days until the next report
+    # (negative when the last print is in the past).
+    days_until_earnings: int | None = None
     findings: list[str]
 
 

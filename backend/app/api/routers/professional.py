@@ -211,6 +211,12 @@ async def analyze_watchlist(
                         verdict=result.verdict.action if result.verdict else "N/A",
                         conviction=result.verdict.conviction if result.verdict else 1,
                         position_size=pos_size_dict,
+                        # P1.5 earnings-proximity chip (data already analyzed).
+                        days_to_earnings=(
+                            result.earnings.days_until_earnings
+                            if result.earnings is not None
+                            else None
+                        ),
                     )
                 )
             except Exception as e:
