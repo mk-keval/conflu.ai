@@ -127,7 +127,7 @@ async def get_simplified_verdict(symbol: str) -> ApiResponse[SimplifiedVerdictRe
         from backend.app.domain.ticker_analysis.orchestrator import TickerAnalysisService
 
         engine = TickerAnalysisService()
-        result = engine.analyze(TickerAnalysisRequest(symbol=symbol.upper()))
+        result = await engine.analyze_async(TickerAnalysisRequest(symbol=symbol.upper()))
 
         # Extract position size context
         pos_size: dict[str, Any] | None = None
@@ -198,7 +198,7 @@ async def analyze_watchlist(
 
         for sym in request.symbols:
             try:
-                result = engine.analyze(TickerAnalysisRequest(symbol=sym.upper()))
+                result = await engine.analyze_async(TickerAnalysisRequest(symbol=sym.upper()))
                 pos_size_dict = None
                 if result.risk and result.price:
                     pos_size_dict = {

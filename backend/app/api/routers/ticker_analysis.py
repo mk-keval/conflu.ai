@@ -55,7 +55,9 @@ async def analyze_ticker(
     """
     log.info("ticker_analysis_requested", symbol=symbol)
 
-    result = engine.analyze(request)
+    # P3: async entry — pipeline makes blocking upstream calls; running it
+    # via to_thread keeps the event loop responsive (D-31 discipline).
+    result = await engine.analyze_async(request)
 
     return ApiResponse(
         data=result.model_dump(mode="json") if hasattr(result, "model_dump") else result,
