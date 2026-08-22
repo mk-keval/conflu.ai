@@ -574,6 +574,28 @@ class TickerAnalysisService:
         except Exception:
             self.log.exception("macro_overlay_failed", symbol=symbol)
 
+        # ── 3c. Mentor narration (P2.1) — deterministic reasoning chain on
+        # the FINAL verdict (post-macro), so what-kills-it matches the
+        # levels actually emitted.
+        try:
+            from backend.app.domain.ticker_analysis.narration import build_narration
+
+            verdict = verdict.model_copy(
+                update={
+                    "narration": build_narration(
+                        symbol=symbol,
+                        price=price,
+                        verdict=verdict,
+                        technical=tech_daily,
+                        fundamental=fund,
+                        earnings=earn,
+                        sentiment=sent,
+                    )
+                }
+            )
+        except Exception:
+            self.log.exception("narration_failed", symbol=symbol)
+
         # ── 4. Build response ──
         duration_ms = round((time.monotonic() - start) * 1000)
 

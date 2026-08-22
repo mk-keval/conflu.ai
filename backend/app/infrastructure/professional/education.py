@@ -382,6 +382,9 @@ class EducationService:
                 "{value > 30 ? 'This suggests the stock is priced for perfection "
                 "— expensive.' : value < 15 ? 'This suggests the stock may be "
                 "undervalued — but check why.' : 'This is in a reasonable range.'}"
+                " Veteran lens: multiple only matters at the exit — institutions "
+                "pay up for earnings power they can see; we care whether the "
+                "next report defends it."
             ),
             "llm_prompt": (
                 "Explain P/E ratio of {value} for {symbol} in the {sector} sector. "
@@ -394,6 +397,9 @@ class EducationService:
                 "{value > 70 ? 'This is overbought — a pullback may be coming.' "
                 ": value < 30 ? 'This is oversold — a bounce could be imminent.' "
                 ": 'This is in neutral territory.'}"
+                " Veteran lens: overbought in a strong trend is strength, not a "
+                "sell signal — institutions add there; we just demand tighter "
+                "entries and honor the stop."
             ),
             "llm_prompt": "Explain RSI of {value} for {symbol} in simple terms.",
         },
@@ -403,6 +409,9 @@ class EducationService:
                 "{value > 5 ? 'High volatility — use wider stop losses.' "
                 ": value < 2 ? 'Low volatility — tighter stops work fine.' "
                 ": 'Normal volatility range.'}"
+                " Veteran lens: this volatility number sets position size — "
+                "wider ATR means fewer shares for the same dollar risk, never "
+                "a wider mental stop."
             ),
             "llm_prompt": "Explain ATR% of {value} for {symbol}.",
         },
@@ -412,6 +421,8 @@ class EducationService:
                 "{value > 1.5 ? 'Aggressive — it amplifies market moves.' "
                 ": value < 0.5 ? 'Defensive — it barely moves with the market.' "
                 ": 'It moves roughly in line with the market.'}"
+                " Veteran lens: beta is portfolio heat — high-beta names get "
+                "smaller size so a market wobble can't take out the whole week."
             ),
             "llm_prompt": "Explain beta of {value} for {symbol}.",
         },

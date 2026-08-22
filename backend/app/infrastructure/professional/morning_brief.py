@@ -331,6 +331,19 @@ generated_at=now_utc.isoformat(),
             if verdict == "WATCH" and conviction >= 7:
                 verdict = "ACCUMULATE"
             education_hints = _build_education_hints(r.get("tv_data", {}))
+            # P2.2: trader-style thesis one-liner from screener-grade data.
+            from backend.app.domain.ticker_analysis.narration import brief_thesis_line
+
+            rs_block = r.get("rs") or {}
+            thesis_line = brief_thesis_line(
+                symbol=r.get("symbol", "UNKNOWN"),
+                verdict=verdict,
+                entry=float(confluence.entry),
+                stop_loss=float(confluence.stop_loss),
+                targets=[float(t) for t in confluence.targets],
+                tv_data=r.get("tv_data", {}),
+                rs_composite=rs_block.get("composite") if isinstance(rs_block, dict) else None,
+            )
             briefs.append(
                 TickerBrief(
                     symbol=r.get("symbol", "UNKNOWN"),
@@ -345,6 +358,7 @@ generated_at=now_utc.isoformat(),
                     verdict=verdict,
                     conviction=conviction,
                     education_hints=education_hints,
+                    thesis_one_liner=thesis_line,
                 )
             )
         return briefs

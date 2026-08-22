@@ -151,6 +151,22 @@ class TradePlan(BaseModel):
     notes: list[str] = []
 
 
+class MentorNarration(BaseModel):
+    """Deterministic veteran-style reasoning chain (P2.1).
+
+    Template-built from module outputs and plan geometry — fast/free with
+    no external calls. ``what_kills_it`` always names a concrete level +
+    condition when a plan exists; a refusal without invalidation is not a
+    mentor answer.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    why_this: list[str] = []       # module confluences backing the setup
+    why_now: list[str] = []        # catalyst / liquidity event timing
+    what_kills_it: list[str] = []  # invalidation level + condition
+    thesis_one_liner: str = ""     # trader-style compression of the above
+
+
 class AnalysisVerdict(BaseModel):
     """Final actionable verdict synthesised from all modules."""
     model_config = ConfigDict(extra="forbid")
@@ -169,6 +185,8 @@ class AnalysisVerdict(BaseModel):
     thesis: str = ""
     # Dynamic trade management (new)
     trade_plan: TradePlan | None = None
+    # P2.1 mentor reasoning chain (additive)
+    narration: MentorNarration | None = None
 
 
 class TickerAnalysisResponse(BaseModel):

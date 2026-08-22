@@ -48,6 +48,8 @@ class TickerBrief(BaseModel):
     # P1.5 earnings-proximity warning chip (calendar days; negative = last
     # print in the past). None when yfinance has no scheduled date.
     days_to_earnings: int | None = None
+    # P2.2 trader-style one-liner (deterministic, template-built).
+    thesis_one_liner: str | None = None
 
 
 class ScreenSection(BaseModel):
