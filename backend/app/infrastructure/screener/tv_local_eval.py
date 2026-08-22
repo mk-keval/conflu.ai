@@ -70,9 +70,7 @@ class LocalColumn:
         try:
             self._raw = frame[name]
         except KeyError as exc:
-            raise FilterEvaluationError(
-                f"column '{name}' missing from base snapshot"
-            ) from exc
+            raise FilterEvaluationError(f"column '{name}' missing from base snapshot") from exc
 
     @property
     def name(self) -> str:

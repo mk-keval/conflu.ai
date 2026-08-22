@@ -536,7 +536,7 @@ def synthesise(
             change_pct = ((tv_close / prev_close) - 1) * 100
         
         # Detect distribution: price down on elevated volume
-        if (tv_close is not None and tv_volume is not None 
+        if (tv_close is not None and tv_volume is not None
                 and avg_volume is not None and avg_volume > 0):
             vol_ratio = tv_volume / avg_volume
             if vol_ratio > 1.5 and change_pct is not None and change_pct < -2:
@@ -871,7 +871,7 @@ def synthesise(
         # TREASURY PATH: Allow plan emission when guards pass
         # Guards: ma_alignment == "bullish" AND volatility_regime != "extreme"
         treasury_guards_pass = (
-            technical is not None 
+            technical is not None
             and technical.ma_alignment == "bullish"
             and risk is not None
             and risk.volatility_regime != "extreme"
@@ -997,7 +997,7 @@ def synthesise(
 
     # Major dealbreakers block positive actions entirely
     major_dealbreakers = [
-        d for d in dealbreakers 
+        d for d in dealbreakers
         if any(kw in d.lower() for kw in ["earnings miss", "micro-cap", "illiquid", "cash burn", "triple-negative", "pump-and-dump", "size near zero", "penny stock", "manipulation"])
     ]
     has_major_dealbreaker = len(major_dealbreakers) > 0

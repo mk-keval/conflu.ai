@@ -176,17 +176,11 @@ class SnapshotMultiScreenEngine:
 
         mask = self.specialist.evaluate_filters_local(snapshot, list(config.filters))
         if mask is None:
-            self.log.warning(
-                "template_mask_failed_closed", screen=config.name
-            )
+            self.log.warning("template_mask_failed_closed", screen=config.name)
             return None
 
         matched = snapshot.loc[mask]
-        tickers = (
-            matched["ticker"].str.split(":").str[-1].unique().tolist()
-            if "ticker" in matched.columns
-            else []
-        )
+        tickers = matched["ticker"].str.split(":").str[-1].unique().tolist() if "ticker" in matched.columns else []
 
         return TVDiscoveryResult(
             screen_name=config.name,

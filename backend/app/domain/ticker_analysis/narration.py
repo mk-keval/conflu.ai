@@ -57,20 +57,19 @@ def _why_this(
             lines.append(line + ".")
         if technical.pullback_quality in ("A+", "A"):
             lines.append(
-                f"Pullback quality {technical.pullback_quality} — the retest is "
-                "institutional-grade, not noise."
+                f"Pullback quality {technical.pullback_quality} — the retest is institutional-grade, not noise."
             )
         if technical.structure == "bullish":
             lines.append("Market structure is bullish: higher lows into resistance.")
         if technical.volume_ratio is not None and technical.volume_ratio >= 1.5:
             lines.append(
-                f"Volume running {_fmt(technical.volume_ratio)}x average — real "
-                "participation behind the move."
+                f"Volume running {_fmt(technical.volume_ratio)}x average — real participation behind the move."
             )
     if fundamental is not None and fundamental.score >= 0.15:
-        positive = next((f for f in fundamental.findings if any(
-            w in f.lower() for w in ("✅", "strong", "growth", "quality")
-        )), None)
+        positive = next(
+            (f for f in fundamental.findings if any(w in f.lower() for w in ("✅", "strong", "growth", "quality"))),
+            None,
+        )
         lines.append(positive or "Fundamental quality clears the bar for swing capital.")
     if earnings is not None and (earnings.last_surprise_pct or 0) > 0 and earnings.beat_rate:
         lines.append(f"Earnings track record supports the story: {earnings.beat_rate} beats.")
@@ -86,35 +85,23 @@ def _why_now(
     lines: list[str] = []
     if earnings is not None and (earnings.last_surprise_pct or 0) > 3:
         surprise = earnings.last_surprise_pct or 0
-        lines.append(
-            f"Fresh catalyst: last quarter beat by {surprise:.1f}% — momentum "
-            "buyers have new fuel."
-        )
+        lines.append(f"Fresh catalyst: last quarter beat by {surprise:.1f}% — momentum buyers have new fuel.")
     if earnings is not None and earnings.days_until_earnings is not None:
         days = earnings.days_until_earnings
         if 0 <= days <= 14:
-            lines.append(
-                f"Earnings lands in {days}d — the catalyst window is open; "
-                "size down through the print."
-            )
+            lines.append(f"Earnings lands in {days}d — the catalyst window is open; size down through the print.")
     if technical is not None:
         if technical.bb_position == "above_upper" and technical.rsi is not None and technical.rsi > 70:
             # Expansion, not caution: breakout contexts live above the band.
             lines.append("Pressing the upper Bollinger band — expansion phase in progress.")
-        if (
-            technical.key_resistance
-            and all(r > 0 for r in technical.key_resistance[:1])
-        ):
+        if technical.key_resistance and all(r > 0 for r in technical.key_resistance[:1]):
             nearest = min(technical.key_resistance)
             lines.append(
                 f"Liquidity overhead at {_fmt(nearest)} — that's where the trade "
                 "gets paid; structure below still has to hold."
             )
     if not lines:
-        lines.append(
-            "No fresh catalyst yet — this is a staged setup: enter on "
-            "confirmation, not anticipation."
-        )
+        lines.append("No fresh catalyst yet — this is a staged setup: enter on confirmation, not anticipation.")
     return lines
 
 
@@ -124,11 +111,7 @@ def _what_kills_it(verdict: AnalysisVerdict, price: float | None) -> list[str]:
     # marginal setups actually appear — always state their invalidation.
     if verdict.stop_loss is not None and verdict.action in ("BUY", "SELL", "ACCUMULATE", "WATCH"):
         side = "below" if verdict.action != "SELL" else "above"
-        anchor = (
-            "the structural invalidation"
-            if verdict.entry_zone_low is not None
-            else "the setup"
-        )
+        anchor = "the structural invalidation" if verdict.entry_zone_low is not None else "the setup"
         line = f"A close {side} {_fmt(verdict.stop_loss)} breaks {anchor} — exit, no averaging down."
         kills.append(line)
     plan = verdict.trade_plan
@@ -140,8 +123,7 @@ def _what_kills_it(verdict: AnalysisVerdict, price: float | None) -> list[str]:
     if verdict.trade_plan is not None and verdict.trade_plan.move_to_breakeven_at_r:
         r = verdict.trade_plan.move_to_breakeven_at_r
         kills.append(
-            f"At +{_fmt(r)}R the stop moves to breakeven — after that, the market "
-            "pays you to stay wrong-free."
+            f"At +{_fmt(r)}R the stop moves to breakeven — after that, the market pays you to stay wrong-free."
         )
     if not kills:
         kills.append("No plan, no invalidation — that's exactly why there's no position.")
@@ -153,14 +135,8 @@ def _thesis_one_liner(symbol: str, verdict: AnalysisVerdict, price: float | None
     zone = ""
     if verdict.entry_zone_low is not None and verdict.entry_zone_high is not None:
         zone = f" zone {_fmt(verdict.entry_zone_low)}–{_fmt(verdict.entry_zone_high)}"
-    rr = (
-        f" at {verdict.risk_reward:.1f}R"
-        if verdict.risk_reward is not None
-        else ""
-    )
-    return f"{action} {symbol}:{zone}{rr} — {verdict.thesis}" if verdict.thesis else (
-        f"{action} {symbol}:{zone}{rr}."
-    )
+    rr = f" at {verdict.risk_reward:.1f}R" if verdict.risk_reward is not None else ""
+    return f"{action} {symbol}:{zone}{rr} — {verdict.thesis}" if verdict.thesis else (f"{action} {symbol}:{zone}{rr}.")
 
 
 def build_narration(

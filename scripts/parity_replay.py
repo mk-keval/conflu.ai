@@ -45,7 +45,14 @@ from typing import Any
 import httpx
 
 VETERAN_SYMBOLS: list[str] = ["ADBE", "MELI", "BULL", "KURA", "MSTR"]
-MOMENTUM_SECTION_MARKERS: tuple[str, ...] = ("breakout", "squeeze", "momentum", "accumulation", "bull-flag", "trend-leader")
+MOMENTUM_SECTION_MARKERS: tuple[str, ...] = (
+    "breakout",
+    "squeeze",
+    "momentum",
+    "accumulation",
+    "bull-flag",
+    "trend-leader",
+)
 MIN_RR = 2.0
 CONVICTION_FLOOR_GRADE = 7
 BREAKOUT_RVOL_MIN = 1.5
@@ -80,9 +87,7 @@ class ReplayReport:
         for r in self.results:
             status = "PASS" if r.passed else "FAIL"
             lines.append(f"  [{status}] ({r.key}) {r.detail}")
-        lines.append(
-            "OVERALL: PASS" if self.all_passed else "OVERALL: FAIL"
-        )
+        lines.append("OVERALL: PASS" if self.all_passed else "OVERALL: FAIL")
         return "\n".join(lines)
 
 
@@ -102,9 +107,7 @@ def _post(client: httpx.Client, path: str, json_body: dict[str, Any]) -> dict[st
 
 def _plan_levels(verdict: dict[str, Any]) -> bool:
     return bool(
-        verdict.get("entry_zone_low") is not None
-        and verdict.get("stop_loss") is not None
-        and verdict.get("targets")
+        verdict.get("entry_zone_low") is not None and verdict.get("stop_loss") is not None and verdict.get("targets")
     )
 
 
@@ -209,7 +212,8 @@ def check_no_sticky_empty(runs: list[dict[str, Any]], report: ReplayReport) -> N
             name = section.get("screen_name", "?")
             by_screen.setdefault(name, []).append(len(section.get("tickers", [])))
     sticky = [
-        f"{name}{counts}" for name, counts in by_screen.items()
+        f"{name}{counts}"
+        for name, counts in by_screen.items()
         if len(counts) >= 2 and counts[-1] == 0 and counts[-2] == 0
     ]
     report.add(
@@ -317,13 +321,11 @@ def check_veteran_plans(
         # (f) confirmed breakout + rvol floor ⇒ conviction floor
         rvol = technical.get("volume_ratio")
         aligned = technical.get("ma_alignment") == "bullish"
-        near_high = (technical.get("bb_position") == "above_upper")
+        near_high = technical.get("bb_position") == "above_upper"
         if rvol is not None and float(rvol) >= BREAKOUT_RVOL_MIN and aligned and near_high:
             conviction = int(verdict.get("conviction", 0))
             if conviction < BREAKOUT_CONVICTION_MIN:
-                breakout_conviction_issues.append(
-                    f"{sym}: rvol {rvol} confirmed-bull but conviction {conviction}"
-                )
+                breakout_conviction_issues.append(f"{sym}: rvol {rvol} confirmed-bull but conviction {conviction}")
 
     report.add(
         "b2",

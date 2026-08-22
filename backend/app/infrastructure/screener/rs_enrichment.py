@@ -92,9 +92,13 @@ def compute_rs_percentiles(
     # Seed neutral entries so both horizons write into the same record.
     for sym in df["symbol"]:
         out[str(sym)] = {
-            "perf_1m": None, "perf_3m": None,
-            "excess_1m": None, "excess_3m": None,
-            "pct_1m": 50.0, "pct_3m": 50.0, "composite": 50.0,
+            "perf_1m": None,
+            "perf_3m": None,
+            "excess_1m": None,
+            "excess_3m": None,
+            "pct_1m": 50.0,
+            "pct_3m": 50.0,
+            "composite": 50.0,
         }
 
     for horizon in _PERF_COLUMNS:
