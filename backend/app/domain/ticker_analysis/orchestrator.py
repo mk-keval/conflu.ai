@@ -23,6 +23,7 @@ from backend.app.domain.ticker_analysis import (
 from backend.app.domain.ticker_analysis.models import (
     EarningsAnalysis,
     FundamentalAnalysis,
+    MultiTimeframeTechnical,
     RiskAssessment,
     SentimentAnalysis,
     TechnicalAnalysis,
@@ -633,6 +634,18 @@ class TickerAnalysisService:
         # ── 4. Build response ──
         duration_ms = round((time.monotonic() - start) * 1000)
 
+        # Ship the full multi-timeframe technical when the module produced it
+        # (weekly was already computed + used for MTF verdict alignment above;
+        # dropping it here wasted that fetch and starved the frontend's
+        # Daily/Weekly columns).
+        technical_payload: TechnicalAnalysis | MultiTimeframeTechnical | None
+        if isinstance(tech, dict) and tech_daily is not None:
+            technical_payload = (
+                MultiTimeframeTechnical(daily=tech_daily, weekly=tech_weekly)
+            )
+        else:
+            technical_payload = tech_daily
+
         # Data freshness: yfinance provides market time; fall back to analysis time
         now_utc = datetime.now(UTC)
         analysis_ts = now_utc.isoformat()
@@ -651,7 +664,6 @@ class TickerAnalysisService:
             price=price,
             change_pct=change,
             sector=sector,
-            technical=tech_daily,
             fundamental=fund,
             earnings=earn,
             sentiment=sent,
@@ -660,6 +672,7 @@ class TickerAnalysisService:
             execution_ms=duration_ms,
             analysis_timestamp=analysis_ts,
             data_age_hours=data_age_hours,
+            technical=technical_payload,
             data_sources={
                 "technical_daily": "TV Screener + yfinance (6mo daily)",
                 "technical_weekly": "yfinance (2y weekly)",

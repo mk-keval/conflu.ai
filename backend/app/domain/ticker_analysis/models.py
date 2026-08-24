@@ -179,6 +179,9 @@ class AnalysisVerdict(BaseModel):
     targets: list[float] = []
     risk_reward: float | None = None
     position_size_pct: float = 0
+    # Critical issues that override/downgrade the action (distinct from
+    # advisory red flags so the UI can render them as blocking conditions).
+    dealbreakers: list[str] = []
     key_red_flags: list[str] = []
     buy_triggers: list[str] = []
     sell_triggers: list[str] = []
@@ -189,6 +192,19 @@ class AnalysisVerdict(BaseModel):
     narration: MentorNarration | None = None
 
 
+class MultiTimeframeTechnical(BaseModel):
+    """Multi-timeframe technical payload.
+
+    Emitted when the technical module ran with include_weekly=True: the daily
+    object stays the canonical score source, weekly rides alongside so the
+    frontend can render true multi-timeframe columns.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    daily: TechnicalAnalysis
+    weekly: TechnicalAnalysis | None = None
+
+
 class TickerAnalysisResponse(BaseModel):
     """Complete ticker analysis response combining all dimensions."""
     model_config = ConfigDict(extra="forbid")
@@ -197,7 +213,8 @@ class TickerAnalysisResponse(BaseModel):
     price: float | None = None
     change_pct: float | None = None
     sector: str | None = None
-    technical: TechnicalAnalysis | None = None
+    # Flat daily-only (legacy / short-circuit paths) or multi-timeframe payload
+    technical: TechnicalAnalysis | MultiTimeframeTechnical | None = None
     fundamental: FundamentalAnalysis | None = None
     earnings: EarningsAnalysis | None = None
     sentiment: SentimentAnalysis | None = None

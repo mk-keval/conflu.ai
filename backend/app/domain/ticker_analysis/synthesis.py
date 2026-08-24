@@ -1285,6 +1285,7 @@ def synthesise(
         risk_reward=rr,
         position_size_pct=position_size,
         trade_plan=trade_plan,
+        dealbreakers=list(dealbreakers),
         key_red_flags=dealbreakers + [f for f in all_red_flags if f not in dealbreakers][:5],
         buy_triggers=buy_triggers[:3],
         sell_triggers=sell_triggers[:3],
