@@ -101,6 +101,8 @@ export interface AnalysisVerdict {
   targets: number[];
   risk_reward: number | null;
   position_size_pct: number;
+  // Critical blocking issues (distinct from advisory red flags)
+  dealbreakers?: string[];
   key_red_flags: string[];
   buy_triggers: string[];
   sell_triggers: string[];

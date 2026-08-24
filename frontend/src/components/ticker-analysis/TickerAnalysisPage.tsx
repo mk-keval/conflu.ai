@@ -16,7 +16,7 @@ import {
   Shield, Info, Brain, BookOpen,
   ArrowUp, ArrowDown, Minus, ChevronDown, ChevronUp, HelpCircle,
   FileText, Newspaper, BarChart2, Search,
-  Loader2, ExternalLink, Plus, Check,
+  Loader2, ExternalLink, Plus, Check, OctagonX,
 } from 'lucide-react';
 import type { MetricLesson, ModuleLesson } from './education';
 import {
@@ -407,7 +407,8 @@ function VerdictTab({ data, explain }: { data: TickerAnalysisResponse; explain: 
     { label: 'Sentiment', score: data.sentiment?.score ?? 0 },
     { label: 'Risk', score: data.risk?.score ?? 0 },
   ];
-  const steps = explain ? verdictWalkthrough(v.action, v.conviction, moduleScores, v.key_red_flags) : [];
+  // Prefer the dedicated dealbreakers field; fall back to red flags for older payloads
+  const steps = explain ? verdictWalkthrough(v.action, v.conviction, moduleScores, v.dealbreakers ?? v.key_red_flags) : [];
 
   const positiveCount = moduleScores.filter(m => m.score > 0).length;
   const negativeCount = moduleScores.filter(m => m.score < 0).length;
@@ -466,8 +467,44 @@ function VerdictTab({ data, explain }: { data: TickerAnalysisResponse; explain: 
           <FindingList items={v.sell_triggers} />
         </div>
       )}
-      {/* Red Flags */}
-      {v.key_red_flags.length > 0 && (
+      {/* Deal Breakers — critical blocking issues (distinct from advisory red flags) */}
+      {(() => {
+        const dealbreakers = v.dealbreakers ?? [];
+        if (dealbreakers.length === 0) return null;
+        const dealbreakerSet = new Set(dealbreakers);
+        const advisoryFlags = v.key_red_flags.filter((f) => !dealbreakerSet.has(f));
+        return (
+          <>
+            <div className="bg-loss/10 border border-loss/40 rounded-lg p-4">
+              <h3 className="text-sm font-semibold text-loss mb-2 flex items-center gap-2">
+                <OctagonX className="w-4 h-4" /> Deal Breakers
+                <span className="text-[10px] font-normal uppercase tracking-wide text-loss/70 bg-loss/10 rounded px-1.5 py-0.5">blocks the setup</span>
+              </h3>
+              <ul className="space-y-2">
+                {dealbreakers.map((d, i) => (
+                  <li key={i} className="text-sm text-text-primary flex items-start gap-2 bg-loss/5 rounded-md px-3 py-2 border-l-2 border-loss/60">
+                    <OctagonX className="w-3.5 h-3.5 mt-0.5 shrink-0 text-loss" />
+                    <span>{d}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-text-muted mt-2">
+                Any one of these overrides positive signals until resolved.
+              </p>
+            </div>
+            {advisoryFlags.length > 0 && (
+              <div className="bg-surface/50 border border-warning/20 rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-warning mb-2 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" /> Red Flags
+                </h3>
+                <FindingList items={advisoryFlags} />
+              </div>
+            )}
+          </>
+        );
+      })()}
+      {/* Red Flags — fallback when payload predates the separate dealbreakers field */}
+      {!(v.dealbreakers && v.dealbreakers.length > 0) && v.key_red_flags.length > 0 && (
         <div className="bg-surface/50 border border-warning/20 rounded-lg p-4">
           <h3 className="text-sm font-semibold text-warning mb-2 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4" /> Red Flags
@@ -619,16 +656,40 @@ function VerdictTab({ data, explain }: { data: TickerAnalysisResponse; explain: 
           </button>
           {walkthroughOpen && (
             <div className="space-y-3 animate-in slide-in-from-top-1 duration-150">
-              {steps.map((step, i) => (
-                <div key={i} className="bg-background/60 border border-border/30 rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-accent/20 text-accent text-xs font-bold">{i + 1}</span>
-                    <span className="text-xs font-semibold text-text-primary">{step.module}</span>
-                    <span className="text-xs text-text-muted">Score: {step.score}</span>
+              {steps.map((step, i) => {
+                // Explanations are multi-line: prose + "• " bullets separated by \n.
+                // Render each line properly instead of collapsing into one blob.
+                const lines = step.explanation.split('\n');
+                const bulletLines = lines.filter((l) => l.trim().startsWith('•'));
+                const proseLines = lines.filter((l) => l.trim() && !l.trim().startsWith('•'));
+                return (
+                  <div key={i} className="bg-background/60 border border-border/30 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2 pb-2 border-b border-border/30">
+                      <span className="flex items-center justify-center w-6 h-6 rounded-full bg-accent/20 text-accent text-xs font-bold shrink-0">{i + 1}</span>
+                      <span className="text-sm font-semibold text-text-primary">Step {i + 1}: {step.module}</span>
+                      <span className={cn(
+                        'ml-auto text-xs font-mono font-semibold px-2 py-0.5 rounded-full shrink-0',
+                        /passed/i.test(step.score) ? 'bg-gain/15 text-gain' :
+                        /issue/i.test(step.score) ? 'bg-loss/15 text-loss' :
+                        'bg-surface-hover text-text-secondary'
+                      )}>{step.score}</span>
+                    </div>
+                    {proseLines.map((line, j) => (
+                      <p key={`p${j}`} className="text-sm text-text-secondary leading-relaxed mb-1.5 last:mb-0">{line}</p>
+                    ))}
+                    {bulletLines.length > 0 && (
+                      <ul className="mt-2 space-y-1.5 bg-surface-hover/40 rounded-md p-3">
+                        {bulletLines.map((line, j) => (
+                          <li key={`b${j}`} className="text-sm text-text-primary flex items-start gap-2">
+                            <Check className="w-3.5 h-3.5 mt-0.5 shrink-0 text-accent" />
+                            <span>{line.replace(/^\s*•\s*/, '')}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
-                  <p className="text-xs text-text-secondary leading-relaxed">{step.explanation}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </>
@@ -808,8 +869,9 @@ function TechnicalDetail({ data, explain }: { data: NonNullable<TickerAnalysisRe
       )}
       
       <ScoreCard title="Technical Analysis (Multi-Timeframe)" icon={<TrendingUp className="w-4 h-4" />} score={daily.score} findings={daily.findings} lesson={explain ? MODULE_LESSONS.technical : undefined} />
-      
-      <div className="grid md:grid-cols-2 gap-4">
+
+      {/* Adaptive grid: side-by-side when Weekly exists, full width when only Daily */}
+      <div className={cn('grid gap-4', weekly ? 'md:grid-cols-2' : 'grid-cols-1')}>
         {renderTimeframe(daily, 'Daily')}
         {weekly && renderTimeframe(weekly, 'Weekly')}
       </div>
@@ -1161,19 +1223,25 @@ function NewsDetail({ data }: { data: NewsResponse; explain: boolean }) {
                   {item.sentiment === 'neutral' && <Minus className="w-3 h-3" />}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <a
-                    href={item.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-text-primary hover:text-accent font-medium block truncate"
-                  >
-                    {item.title}
-                  </a>
+                  {item.link ? (
+                    <a
+                      href={item.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-text-primary hover:text-accent font-medium block truncate"
+                    >
+                      {item.title}
+                    </a>
+                  ) : (
+                    <span className="text-text-primary font-medium block truncate cursor-default" title="Source link unavailable">
+                      {item.title}
+                    </span>
+                  )}
                   <div className="flex items-center gap-2 mt-1 text-xs text-text-muted">
                     <span>{item.publisher}</span>
                     <span>•</span>
                     <span>{item.date ? new Date(item.date).toLocaleDateString() : 'Unknown date'}</span>
-                    <ExternalLink className="w-3 h-3 opacity-50" />
+                    {item.link && <ExternalLink className="w-3 h-3 opacity-50" />}
                   </div>
                 </div>
               </div>
