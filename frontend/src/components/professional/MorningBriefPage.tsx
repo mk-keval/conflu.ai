@@ -7,6 +7,7 @@ import { useProModeStore } from '@/store/professional';
 import { TickerCard } from './TickerCard';
 import { MarketInternalsStrip } from './MarketInternalsStrip';
 import { SectorHeatmapMini } from './SectorHeatmapMini';
+import { SectorFocusCard } from '@/components/sector-rotation/SectorFocusCard';
 import { EducationTooltip } from './EducationTooltip';
 import type { ScreenSection } from '@/types/professional';
 
@@ -218,6 +219,7 @@ export function MorningBriefPage() {
           <h2 className="text-sm font-semibold text-text-primary">Sector Rotation</h2>
           <EducationTooltip metricKey="sector_rotation" metricLabel="Sector Rotation" compact />
         </div>
+        <SectorFocusCard compact />
         <SectorHeatmapMini sectors={brief.sectors} />
       </div>
 

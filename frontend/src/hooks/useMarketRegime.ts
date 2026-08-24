@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchMarketRegime, fetchSectorRotation } from '@/api/sectorRotation';
+import { fetchMarketRegime, fetchSectorFocus, fetchSectorRotation } from '@/api/sectorRotation';
 import { queryKeys } from '@/lib/queryKeys';
-import type { MarketRegimeResponse, SectorRotationResponse } from '@/types/sector';
+import type { MarketRegimeResponse, SectorFocusSnapshot, SectorRotationResponse } from '@/types/sector';
 
 const REGIME_STALE_MS = 3_600_000; // daily data changes at market close
 const REGIME_REFRESH_MS = 3_600_000; // matching the old RegimeBar setInterval(1h)
@@ -33,5 +33,20 @@ export function useSectorRotation(enabled = true) {
     queryFn: fetchSectorRotation,
     staleTime: 300_000, // matches the backend _SECTOR_CACHE TTL (5 min)
     enabled,
+  });
+}
+/**
+ * Weekly sector hunt verdicts (FOCUS/WATCH/AVOID) — shared by the rotation
+ * page card and the Morning Brief embed so both render one snapshot.
+ */
+const FOCUS_STALE_MS = 4 * 60_000; // backend caches ~5 min
+
+export function useSectorFocus(enabled = true) {
+  return useQuery<SectorFocusSnapshot>({
+    queryKey: queryKeys.sectorFocus(),
+    queryFn: fetchSectorFocus,
+    staleTime: FOCUS_STALE_MS,
+    refetchInterval: enabled ? 5 * 60_000 : false,
+    refetchIntervalInBackground: false,
   });
 }

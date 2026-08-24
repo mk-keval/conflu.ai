@@ -55,6 +55,9 @@ export function SectorHeatMap({ timeframe, onSectorClick }: SectorHeatMapProps) 
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-semibold uppercase tracking-widest text-text-muted">
           Sector Performance — {label}
+          <span className="normal-case tracking-normal font-normal text-text-muted/70 ml-2">
+            (today = noise · this week = signal)
+          </span>
         </h3>
         <div className="flex items-center gap-3 text-[11px] text-text-muted">
           <span className="flex items-center gap-1">

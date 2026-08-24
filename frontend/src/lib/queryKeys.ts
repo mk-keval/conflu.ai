@@ -6,6 +6,7 @@
 export const queryKeys = {
   marketRegime: () => ['market-regime'] as const,
   sectorRotation: () => ['sector-rotation'] as const,
+  sectorFocus: () => ['sectors', 'focus'] as const,
   sectorDetail: (symbol: string) => ['sector-rotation', symbol] as const,
   rotationHistory: () => ['sector-rotation', 'history'] as const,
   marketEvents: () => ['market-events'] as const,
