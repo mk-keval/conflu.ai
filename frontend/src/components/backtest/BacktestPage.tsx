@@ -14,8 +14,17 @@ function RecentRuns() {
 
   if (!recentRunIds.length) {
     return (
-      <div className="flex h-24 items-center justify-center rounded border border-dashed border-dark-600 text-xs text-dark-400">
-        No recent backtests
+      <div className="rounded border border-dashed border-dark-600 bg-dark-800 p-4 text-center text-xs text-dark-300">
+        <h3 className="mb-1 text-sm font-semibold text-dark-50">What is a backtest?</h3>
+        <p className="mb-2 max-w-md text-xs text-dark-400">
+          A backtest replays your rules against real historical data to see how they would have
+          performed. It proves nothing about the future — it filters out ideas that never worked at
+          all.
+        </p>
+        <p className="text-[10px] text-dark-400">
+          Run your first test using the form to the left: pick a symbol, timeframe, and strategy
+          parameters, then click Run.
+        </p>
       </div>
     );
   }
