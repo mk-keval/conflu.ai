@@ -12,6 +12,8 @@ import { PositionSizer } from './PositionSizer';
 import { BetaCards } from './BetaCards';
 import { VarGauge } from './VarGauge';
 import { KellyResult } from './KellyResult';
+import { EducationTooltip } from '@/components/professional/EducationTooltip';
+import { findLesson } from '@/content/index';
 
 const TABS = [
   { id: 'correlation', label: 'Correlation' },
@@ -143,34 +145,43 @@ function RiskContent() {
       {/* Content area */}
       <div className="flex-1 overflow-auto p-4">
         {activeView === 'correlation' && (
-          <CorrelationHeatmap
-            data={corrQuery.data ?? null}
-            isLoading={corrQuery.isLoading}
-            error={corrQuery.error?.message ?? null}
-          />
+          <>
+            <RiskTabExplainer metricKey="correlation_matrix" />
+            <CorrelationHeatmap
+              data={corrQuery.data ?? null}
+              isLoading={corrQuery.isLoading}
+              error={corrQuery.error?.message ?? null}
+            />
+          </>
         )}
 
         {activeView === 'position-size' && (
           <div className="max-w-lg">
+            <RiskTabExplainer metricKey="suggested_position_size_pct" />
             <PositionSizer />
             <div className="mt-4">
-              <KellyResult
-                data={null}
-              />
+              <KellyResult data={null} />
             </div>
           </div>
         )}
 
         {activeView === 'beta' && (
-          <BetaCards
-            data={betaQuery.data ?? []}
-            isLoading={betaQuery.isLoading}
-            error={betaQuery.error?.message ?? null}
-          />
+          <>
+            <RiskTabExplainer metricKey="beta" />
+            <BetaCards
+              data={betaQuery.data ?? []}
+              isLoading={betaQuery.isLoading}
+              error={betaQuery.error?.message ?? null}
+            />
+          </>
         )}
 
         {activeView === 'var' && (
           <div className="max-w-lg">
+            <div className="mb-3 flex items-center gap-2">
+              <EducationTooltip metricKey="var" compact />
+              <EducationTooltip metricKey="cvar" compact />
+            </div>
             <div className="mb-4 flex items-center gap-3">
               <div>
                 <label className="mb-1 block text-[10px] text-dark-400">Confidence</label>
@@ -214,5 +225,28 @@ export function RiskPage() {
     <ErrorBoundary>
       <RiskContent />
     </ErrorBoundary>
+  );
+}
+
+/**
+ * One-to-two sentence plain-English explainer strip shown at the top of each
+ * Risk tab, sourced from the canonical education content.
+ */
+function RiskTabExplainer({ metricKey }: { metricKey: string }) {
+  const lesson = findLesson(metricKey);
+  if (!lesson) return null;
+  return (
+    <div className="mb-4 rounded border border-dark-600 bg-dark-800/60 p-3">
+      <div className="mb-0.5 flex items-center justify-between">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-dark-400">
+          {lesson.label}
+        </span>
+        <EducationTooltip metricKey={metricKey} metricLabel={lesson.label} compact />
+      </div>
+      <p className="text-xs text-dark-300">
+        {lesson.oneLiner}
+        {lesson.what ? ` ${lesson.what.slice(0, 180)}${lesson.what.length > 180 ? '…' : ''}` : ''}
+      </p>
+    </div>
   );
 }
