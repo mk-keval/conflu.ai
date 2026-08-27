@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useMarketStore } from '@/store/market';
 import { useMarketRegime } from '@/hooks/useMarketRegime';
 import { cn } from '@/lib/cn';
+import { findLesson } from '@/content/index';
 import { TrendingUp, TrendingDown, Activity, ChevronDown, AlertCircle, RefreshCw } from 'lucide-react';
 
 function scoreToColor(score: number): string {
@@ -116,6 +117,20 @@ export function RegimeBar() {
       return () => document.removeEventListener('mousedown', handleClick);
     }
   }, [expanded]);
+
+  // Plain-language explanation for the current regime state, from
+  // education.json concepts.regime_states.what (semicolon-separated states).
+  // NOTE: hooks must run unconditionally (before any early returns below).
+  const regimeExplanation = useMemo(() => {
+    if (!regime?.regime_label) return null;
+    const concept = findLesson('regime_states');
+    if (!concept?.what) return null;
+    const key = regime.regime_label.toLowerCase().replace(/[\s_]+/g, '_');
+    // Split on "; State:" patterns and find the segment describing this label.
+    const parts = concept.what.split(/;\s*/);
+    const match = parts.find((p) => p.toLowerCase().includes(key));
+    return (match ?? null)?.trim() || null;
+  }, [regime]);
 
   // ── First load: regime data not yet available ──
   if (!regime && isLoading) {
@@ -250,6 +265,10 @@ export function RegimeBar() {
                 {regime_label}
               </span>
             </div>
+            {/* Plain-language explanation of this regime state (from education.json concepts.regime_states) */}
+            {regimeExplanation && (
+              <p className="mt-2 text-[11px] leading-relaxed text-text-muted">{regimeExplanation}</p>
+            )}
           </div>
 
           {/* Sub-indicators */}
