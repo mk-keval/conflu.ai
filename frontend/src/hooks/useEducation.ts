@@ -1,86 +1,81 @@
 import { useQuery } from '@tanstack/react-query';
 import { explainMetric } from '@/api/professional';
 import {
-  TECHNICAL_LESSONS,
-  FUNDAMENTAL_LESSONS,
-  EARNINGS_LESSONS,
-  SENTIMENT_LESSONS,
-  GROWTH_LESSONS,
-  MODULE_LESSONS,
-  GLOSSARY,
-  type MetricLesson,
-  type ModuleLesson,
-} from '@/components/ticker-analysis/education';
+  getMetrics,
+  getBacktestMetrics,
+  findLesson,
+  getModules,
+  searchGlossary as searchGlossaryContent,
+  getGlossary as getGlossaryContent,
+  type Lesson,
+} from '@/content/index';
+import { METRIC_LESSON_ALIASES } from '@/components/ticker-analysis/education';
 
-// ── Consolidated Lookup ──
+// ── Consolidated Lookup (delegates to canonical education.json) ──
 
-const ALL_METRIC_LESSONS: Record<string, MetricLesson> = {
-  ...TECHNICAL_LESSONS,
-  ...FUNDAMENTAL_LESSONS,
-  ...EARNINGS_LESSONS,
-  ...SENTIMENT_LESSONS,
-  ...GROWTH_LESSONS,
+/**
+ * All metric lessons from education.json, plus legacy alias keys
+ * (relative_volume → volume_ratio etc.) resolving to the same object.
+ * Kept for backward compatibility with existing consumers.
+ */
+export const ALL_METRIC_LESSONS: Record<string, Lesson> = {
+  ...getMetrics(),
+  ...Object.fromEntries(
+    Object.entries(METRIC_LESSON_ALIASES).map(([alias, canonical]) => [alias, getMetrics()[canonical]])
+  ),
 };
 
-/** Get the local lesson template for a metric name. */
-export function getMetricLesson(metric: string): MetricLesson | undefined {
-  return ALL_METRIC_LESSONS[metric];
+/** Get the lesson for a metric name — searches ALL sections + aliases. */
+export function getMetricLesson(metric: string): Lesson | undefined {
+  return findLesson(metric) ?? ALL_METRIC_LESSONS[metric];
 }
 
 /** Get all known metric names grouped by category. */
 export function getMetricCategories() {
-  return {
-    technical: Object.keys(TECHNICAL_LESSONS),
-    fundamental: Object.keys(FUNDAMENTAL_LESSONS),
-    earnings: Object.keys(EARNINGS_LESSONS),
-    sentiment: Object.keys(SENTIMENT_LESSONS),
-    growth: Object.keys(GROWTH_LESSONS),
-  };
+  const groups: Record<string, string[]> = {};
+  for (const [key, lesson] of Object.entries(getMetrics())) {
+    const cat = lesson.category ?? 'technical';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(key);
+  }
+  // backtest metrics surface under their own group
+  groups.backtest = Object.keys(getBacktestMetrics());
+  return groups;
 }
 
-/** Search metrics by name/label (case-insensitive). */
-export function searchMetrics(query: string): Array<{ key: string; lesson: MetricLesson; category: string }> {
+/** Search lessons by key/label (case-insensitive). */
+export function searchMetrics(query: string): Array<{ key: string; lesson: Lesson; category: string }> {
   const q = query.toLowerCase();
-  const results: Array<{ key: string; lesson: MetricLesson; category: string }> = [];
-  for (const [key, lesson] of Object.entries(TECHNICAL_LESSONS)) {
-    if (key.includes(q) || lesson.label.toLowerCase().includes(q)) results.push({ key, lesson, category: 'technical' });
+  const results: Array<{ key: string; lesson: Lesson; category: string }> = [];
+  for (const [key, lesson] of Object.entries(getMetrics())) {
+    const cat = lesson.category ?? 'technical';
+    if (key.includes(q) || lesson.label.toLowerCase().includes(q)) results.push({ key, lesson, category: cat });
   }
-  for (const [key, lesson] of Object.entries(FUNDAMENTAL_LESSONS)) {
-    if (key.includes(q) || lesson.label.toLowerCase().includes(q)) results.push({ key, lesson, category: 'fundamental' });
-  }
-  for (const [key, lesson] of Object.entries(EARNINGS_LESSONS)) {
-    if (key.includes(q) || lesson.label.toLowerCase().includes(q)) results.push({ key, lesson, category: 'earnings' });
-  }
-  for (const [key, lesson] of Object.entries(SENTIMENT_LESSONS)) {
-    if (key.includes(q) || lesson.label.toLowerCase().includes(q)) results.push({ key, lesson, category: 'sentiment' });
-  }
-  for (const [key, lesson] of Object.entries(GROWTH_LESSONS)) {
-    if (key.includes(q) || lesson.label.toLowerCase().includes(q)) results.push({ key, lesson, category: 'growth' });
+  for (const [key, lesson] of Object.entries(getBacktestMetrics())) {
+    const cat = lesson.category ?? 'backtest';
+    if (key.includes(q) || lesson.label.toLowerCase().includes(q)) results.push({ key, lesson, category: cat });
   }
   return results;
 }
 
 /** Get module lesson by name. */
-export function getModuleLesson(name: string): ModuleLesson | undefined {
-  return MODULE_LESSONS[name];
+export function getModuleLesson(name: string) {
+  return getModules()[name];
 }
 
 /** Get all module lessons. */
-export function getAllModuleLessons(): Record<string, ModuleLesson> {
-  return MODULE_LESSONS;
+export function getAllModuleLessons() {
+  return getModules();
 }
 
 /** Search glossary terms. */
-export function searchGlossary(query: string): typeof GLOSSARY {
-  const q = query.toLowerCase();
-  return GLOSSARY.filter(
-    (entry) => entry.term.toLowerCase().includes(q) || entry.definition.toLowerCase().includes(q)
-  );
+export function searchGlossary(query: string) {
+  return searchGlossaryContent(query);
 }
 
 /** Get the full glossary. */
-export function getGlossary(): typeof GLOSSARY {
-  return GLOSSARY;
+export function getGlossary() {
+  return getGlossaryContent();
 }
 
 // ── React Query Hooks ──

@@ -6,6 +6,17 @@
 
 // ── Metric Explanations (plain English) ──
 
+/**
+ * Alias map: several metric keys are THE SAME measurement under different
+ * names (verified against backend `technical.py` — `volume_ratio` is assigned
+ * directly from `relative_volume_10d_calc`). Each alias resolves to a single
+ * canonical lesson below, so we never maintain duplicate copy that drifts.
+ */
+export const METRIC_LESSON_ALIASES: Record<string, string> = {
+  relative_volume: 'volume_ratio',
+  days_to_cover: 'short_ratio',
+};
+
 export interface MetricLesson {
   label: string;
   /** What this metric measures — simple, no jargon */
@@ -70,8 +81,8 @@ export const TECHNICAL_LESSONS: Record<string, MetricLesson> = {
     scoringImpact: "Used to calculate suggested stop loss and position size. Extreme volatility is flagged as a dealbreaker. Normal volatility is ideal.",
   },
   volume_ratio: {
-    label: "Volume Ratio",
-    what: "Compares today's trading volume to the average volume over the last 10 days. It tells us if there's unusual interest in this stock right now.",
+    label: "Volume Ratio / Relative Volume",
+    what: "Compares today's trading volume to the average volume over the last 10 days. It tells us if there's unusual interest in this stock right now. You may see this called 'Relative Volume' (rvol) elsewhere — it is the same number.",
     readValue: (v) => {
       const num = parseFloat(v);
       if (num > 3) return `${v} — unusually HIGH volume. Something is happening! Big money is moving in or out of this stock.`;
@@ -80,21 +91,7 @@ export const TECHNICAL_LESSONS: Record<string, MetricLesson> = {
       return `${v} — below-average volume. Less interest than usual. Moves on low volume can be unreliable.`;
     },
     whyMatters: "High volume confirms that a price move is real. A stock going up on high volume = genuine buying pressure. A stock going up on low volume = might be a false move.",
-    scoringImpact: "High volume adds positive points when direction aligns with the trend. Low volume doesn't hurt but doesn't help either.",
-  },
-  relative_volume: {
-    label: "Relative Volume",
-    what: "Same as Volume Ratio — compares today's volume to the 10-day average. A value of 2.0 means today's volume is double the average.",
-    readValue: (v) => {
-      const num = parseFloat(v);
-      if (num > 3) return `${v} — EXCEPTIONALLY HIGH volume. Major institutional activity happening right now.`;
-      if (num > 2) return `${v} — very high volume. Significant unusual interest in this stock.`;
-      if (num > 1.5) return `${v} — elevated volume. More trading than normal.`;
-      if (num >= 1) return `${v} — normal volume. Typical trading activity.`;
-      return `${v} — below average. Light trading, moves may lack conviction.`;
-    },
-    whyMatters: "Relative volume highlights when something unusual is happening. High relative volume with a price move = conviction. Low volume = the move might not be trustworthy.",
-    scoringImpact: "High relative volume reinforces trend direction. Used alongside volume_ratio for confirmation.",
+    scoringImpact: "High volume adds positive points when direction aligns with the trend. Low volume doesn't hurt but doesn't help either. The screener's '×2.3' volume badge uses this same value.",
   },
   bb_position: {
     label: "Bollinger Band Position",
@@ -442,30 +439,17 @@ export const SENTIMENT_LESSONS: Record<string, MetricLesson> = {
     whyMatters: "High short interest is controversial — it means many smart investors think the stock will fall. But if they're wrong, they're forced to buy back shares, creating a 'squeeze' that pushes prices even higher. It's a double-edged sword.",
     scoringImpact: "Very high short interest (>30%) is flagged as a dealbreaker — it signals serious doubt about the company. Moderate levels add interest but don't change the score much.",
   },
-  days_to_cover: {
-    label: "Days to Cover",
-    what: "How many trading days it would take for ALL the short sellers to buy back their borrowed shares, based on average daily trading volume. It shows how 'crowded' the short side is.",
-    readValue: (v) => {
-      const num = parseFloat(v);
-      if (num > 10) return `${v} days — extremely high. Would take over 10 days of normal trading to cover all shorts. If a squeeze starts, it'll be VIOLENT.`;
-      if (num > 5) return `${v} days — high. Significant squeeze potential. Any positive catalyst could trigger forced buying.`;
-      if (num > 2) return `${v} days — moderate. Short sellers could exit relatively quickly if needed.`;
-      return `${v} days — low. Short sellers can cover positions easily. Less squeeze potential.`;
-    },
-    whyMatters: "Days to Cover tells you how 'trapped' short sellers are. The higher the number, the more painful a short squeeze would be. When a heavily-shorted stock with high days to cover gets positive news, the forced buying can push the price up 50-100%+.",
-    scoringImpact: "High days to cover (>5) doesn't directly change the score but is flagged as a notable risk. Combined with high short interest, it signals potential squeeze dynamics.",
-  },
   short_ratio: {
     label: "Short Ratio (Days to Cover)",
-    what: "How many trading days it would take for ALL short sellers to buy back their borrowed shares, based on average daily volume. Same as 'Days to Cover'. Higher = more squeeze potential.",
+    what: "How many trading days it would take for ALL short sellers to buy back their borrowed shares, based on average daily volume. You may see this called 'Days to Cover' elsewhere — it is the same number. Higher = more squeeze potential.",
     readValue: (v) => {
       const num = parseFloat(v);
-      if (num > 10) return `${num.toFixed(1)} days — extremely high squeeze potential. If positive news hits, the forced buying could be explosive.`;
+      if (num > 10) return `${num.toFixed(1)} days — extremely high squeeze potential. Would take over 10 days of normal trading to cover all shorts. If a squeeze starts, it'll be VIOLENT.`;
       if (num > 5) return `${num.toFixed(1)} days — high squeeze risk. Short sellers are crowded and vulnerable to positive catalysts.`;
       if (num > 2) return `${num.toFixed(1)} days — moderate. Short sellers could cover in a few days if needed. Some squeeze potential.`;
       return `${num.toFixed(1)} days — low. Short positions can be closed quickly. Less squeeze risk.`;
     },
-    whyMatters: "Together with short interest percentage, the short ratio tells you how 'trapped' short sellers are. High short interest + high days to cover = squeeze setup. But a high short ratio alone isn't a buy signal — the shorts might be right.",
+    whyMatters: "Together with short interest percentage, this tells you how 'trapped' short sellers are. High short interest + high days to cover = squeeze setup. When a heavily-shorted stock gets positive news, the forced buying can push the price up 50-100%+. But a high ratio alone isn't a buy signal — the shorts might be right.",
     scoringImpact: "Does not directly change the score but is cross-referenced with short interest to flag squeeze potential. High values combined with positive momentum = boost.",
   },
   institutional_ownership: {

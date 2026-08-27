@@ -12,6 +12,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { renderValueText } from '@/content/index';
 import {
   searchMetrics,
   getMetricLesson,
@@ -93,10 +94,10 @@ function MetricDetail({ metricKey, onBack }: { metricKey: string; onBack: () => 
 
         <Section title="How to read the value">
           <div className="bg-bg-muted/50 rounded-lg p-3 font-mono text-sm text-text-primary border border-border/50">
-            {lesson.readValue('example')}
+            {renderValueText(metricKey, 'example') ?? lesson.what?.slice(0, 120) ?? '—'}
           </div>
           <p className="text-xs text-text-muted mt-1 italic">
-            Shows an example — actual value will vary based on the stock.
+            Shows how a value would be interpreted — actual wording adapts to each stock's number.
           </p>
         </Section>
 
@@ -321,7 +322,7 @@ export function ConceptExplorer({ initialMetric, onClose, className }: ConceptEx
 
         {activeTab === 'glossary' && (
           <div className="p-3 space-y-0.5">
-            {glossaryEntries.map((entry) => (
+            {glossaryEntries.map((entry: { term: string; definition: string }) => (
               <div
                 key={entry.term}
                 className="px-3 py-2 rounded-lg hover:bg-bg-muted transition-colors"
