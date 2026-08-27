@@ -1,4 +1,5 @@
-import { Target, Eye, Ban, ShieldAlert, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
+import { Target, Eye, Ban, ShieldAlert, ChevronRight, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useSectorFocus } from '@/hooks/useMarketRegime';
 import type { SectorFocusEntry } from '@/types/sector';
@@ -33,6 +34,7 @@ function EntryRow({
 }) {
   const style = VERDICT_STYLES[entry.verdict] ?? VERDICT_STYLES.WATCH;
   const isFocus = entry.verdict === 'FOCUS';
+
   return (
     <div
       className={cn(
@@ -49,9 +51,7 @@ function EntryRow({
           <span className="text-text-muted font-normal"> · {entry.symbol}</span>
         </span>
         {entry.score != null && (
-          <span className="ml-auto text-xs font-mono text-text-secondary" title="Composite of weekly relative strength, institutional flow, momentum, and volume confirmation">
-            {Math.round(entry.score)}/100
-          </span>
+          <FocusScore score={entry.score} />
         )}
       </div>
       {!compact && entry.reasons.length > 0 && (
@@ -77,8 +77,7 @@ function EntryRow({
   );
 }
 
-export function SectorFocusCard({ compact = false }: { compact?: boolean }) {
-  const { data, isLoading, error } = useSectorFocus();
+export function SectorFocusCard({ compact = false }: { compact?: boolean }) {  const { data, isLoading, error } = useSectorFocus();
 
   if (isLoading && !data) {
     return (
@@ -165,5 +164,59 @@ export function SectorFocusCard({ compact = false }: { compact?: boolean }) {
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * Visible FOCUS-score breakdown — surfaces the scoring formula that was
+ * previously hidden in a title attribute. Shows the WEIGHT LEGEND only;
+ * per-component values are not exposed by the API, so we never fabricate them.
+ * Formula verified against backend sector_focus/service.py.
+ */
+function FocusScore({ score }: { score: number }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="relative ml-auto">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        className="inline-flex items-center gap-1 text-xs font-mono text-text-secondary hover:text-accent transition-colors"
+        aria-expanded={open}
+      >
+        {Math.round(score)}/100
+        <ChevronDown className={cn('h-3 w-3 transition-transform', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-1 w-64 rounded-lg border border-border bg-surface p-3 shadow-xl text-xs">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+            How this score is built
+          </p>
+          <ul className="space-y-1.5">
+            {[
+              ['Weekly relative strength', '40%'],
+              ['Institutional flow', '25%'],
+              ['Momentum', '20%'],
+              ['Volume confirmation', '15%'],
+            ].map(([label, weight]) => (
+              <li key={label} className="flex items-center gap-2">
+                <span className="h-1.5 rounded-sm bg-accent/60" style={{ width: `${parseInt(weight) * 1.6}px` }} />
+                <span className="text-text-primary">{label}</span>
+                <span className="ml-auto font-mono text-text-muted">{weight}</span>
+              </li>
+            ))}
+            <li className="flex items-center justify-between pt-1 border-t border-border/50">
+              <span className="text-text-muted">Improvement bonus</span>
+              <span className="font-mono text-gain">up to +10</span>
+            </li>
+          </ul>
+          <p className="mt-2 text-[10px] leading-relaxed text-text-muted">
+            In weak markets the score is capped or demoted to WATCH regardless of components — capital protection first.
+          </p>
+        </div>
+      )}
+    </span>
   );
 }
