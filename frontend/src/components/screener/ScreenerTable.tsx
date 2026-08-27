@@ -1,9 +1,11 @@
-import { useRef, useState, useMemo, useCallback, type ReactNode } from 'react';
+import { useRef, useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Info } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { formatPrice, formatLargeNumber, changePct } from '@/lib/format';
 import type { TVScoredTicker, TVDataFields } from '@/types/screener';
+import { ConfluenceDecoder } from './ConfluenceDecoder';
 
 // ── Column metadata — defines ALL available columns and their defaults ───────
 
@@ -14,19 +16,21 @@ export interface ColumnMeta {
   weight: number;
   /** Columns the user cannot hide. */
   alwaysOn: boolean;
+  /** Plain-language explanation shown in a header tooltip / popover. */
+  help?: string;
 }
 
 export const ALL_COLUMNS_META: ColumnMeta[] = [
   { key: 'symbol',      label: 'Symbol',      weight: 8,  alwaysOn: true  },
   { key: 'price',       label: 'Price',       weight: 10, alwaysOn: true  },
-  { key: 'score',       label: 'Scr',         weight: 6,  alwaysOn: true  },
+  { key: 'score',       label: 'Scr',         weight: 6,  alwaysOn: true,  help: 'Confluence Score: 0–100 points across five pillars — Trend, Momentum, Volume, Quality, Fundamental.' },
   { key: 'change',      label: 'Change',      weight: 13, alwaysOn: true  },
   { key: 'entry',       label: 'Entry/SL',    weight: 12, alwaysOn: false },
   { key: 'confluence',  label: 'Confluence',  weight: 14, alwaysOn: true  },
   { key: 'volume',      label: 'Volume',      weight: 10, alwaysOn: true  },
-  { key: 'rs_rating',   label: 'RS Rtg',      weight: 6,  alwaysOn: false },
-  { key: 'inst_qual',   label: 'Inst Q',      weight: 6,  alwaysOn: false },
-  { key: 'conviction',  label: 'Conv',        weight: 6,  alwaysOn: false },
+  { key: 'rs_rating',   label: 'RS Rtg',      weight: 6,  alwaysOn: false, help: 'Relative Strength rating: 0–100 vs the whole market (IBD-style).' },
+  { key: 'inst_qual',   label: 'Inst Q',      weight: 6,  alwaysOn: false, help: 'Institutional ownership quality grade.' },
+  { key: 'conviction',  label: 'Conv',        weight: 6,  alwaysOn: false, help: 'Conviction: 1–10 confidence in the setup.' },
   { key: 'market_cap',  label: 'Mkt Cap',     weight: 8,  alwaysOn: false },
   { key: 'pe_ratio',    label: 'P/E',         weight: 6,  alwaysOn: false },
   { key: 'eps',         label: 'EPS',         weight: 6,  alwaysOn: false },
@@ -37,7 +41,7 @@ export const ALL_COLUMNS_META: ColumnMeta[] = [
   { key: 'vol_change',  label: 'Vol %',       weight: 6,  alwaysOn: false },
   { key: 'atr_pct',     label: 'ATR%',        weight: 6,  alwaysOn: false },
   { key: 'sector',      label: 'Sector',      weight: 7,  alwaysOn: false },
-  { key: 'rating',      label: 'Rtg',         weight: 8,  alwaysOn: true  },
+  { key: 'rating',      label: 'Rtg',         weight: 8,  alwaysOn: true,  help: 'Letter grade from score: A+ (≥80), A (≥70), B+ (≥60), B (≥50), C (≥40), else D.' },
 ];
 
 /** Default set of visible column keys — everything except Div %, Rel Vol, and Vol %. */
@@ -112,18 +116,9 @@ function CellEntry({ ticker }: { ticker: TVScoredTicker }) {
 }
 
 function CellConfluence({ breakdown }: { breakdown: Record<string, number> }) {
+  const code = `T${breakdown.trend ?? 0} · M${breakdown.momentum ?? 0} · V${breakdown.volume ?? 0} · Q${breakdown.quality ?? 0} · F${breakdown.fundamental ?? 0}`;
   return (
-    <span className="text-xs tabular-nums leading-none">
-      <span className="text-info">T{breakdown.trend ?? 0}</span>
-      <span className="text-text-muted mx-1">·</span>
-      <span className="text-accent">M{breakdown.momentum ?? 0}</span>
-      <span className="text-text-muted mx-1">·</span>
-      <span className="text-warning">V{breakdown.volume ?? 0}</span>
-      <span className="text-text-muted mx-1">·</span>
-      <span className="text-purple-400">Q{breakdown.quality ?? 0}</span>
-      <span className="text-text-muted mx-1">·</span>
-      <span className="text-cyan-400">F{breakdown.fundamental ?? 0}</span>
-    </span>
+    <ConfluenceDecoder value={code} className="text-xs tabular-nums leading-none" />
   );
 }
 
@@ -316,6 +311,7 @@ interface ColumnDef {
   key: string;
   label: string;
   align: 'left' | 'right' | 'center';
+  help?: string;
   render: (ticker: TVScoredTicker, data: TVDataFields, onClick?: () => void) => ReactNode;
   noSort?: boolean;
 }
@@ -373,6 +369,7 @@ function buildColumns(
     return {
       key: meta.key,
       label: meta.label,
+      help: meta.help,
       align,
       render,
       noSort: meta.key === 'sector' || meta.key === 'rating',
@@ -389,6 +386,73 @@ function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
   return dir === 'asc'
     ? <ChevronUp className="w-3 h-3 text-accent" />
     : <ChevronDown className="w-3 h-3 text-accent" />;
+}
+
+/** Minimal inline popover for column header help text.
+ *  Reuses EducationTooltip only when a metricKey maps to education.json; here
+ *  the help strings are column-specific, so a lightweight local popover keeps
+ *  the table layout intact (inline-flex, whitespace-nowrap — icon won't shift). */
+function HeaderHelp({ help }: { help: string }) {
+  const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState<{ left: number; top: number } | null>(null);
+  const ref = useRef<HTMLButtonElement>(null);
+
+  const onToggle = () => {
+    if (!open && ref.current) {
+      const r = ref.current.getBoundingClientRect();
+      setCoords({ left: r.left + r.width / 2, top: r.bottom + 6 });
+    }
+    setOpen((o) => !o);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        // allow clicks inside the popover
+        const popover = document.getElementById('header-help-popover');
+        if (popover && popover.contains(e.target as Node)) return;
+        setOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    const onScroll = () => setOpen(false);
+    document.addEventListener('mousedown', onDoc, true);
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', onScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', onDoc, true);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', onScroll, true);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        ref={ref}
+        type="button"
+        onClick={onToggle}
+        aria-label="Column info"
+        className="inline-flex items-center justify-center shrink-0 ml-0.5 rounded-full text-text-muted hover:text-accent transition-colors"
+      >
+        <Info className="h-3 w-3" />
+      </button>
+      {open && coords && createPortal(
+        <div
+          id="header-help-popover"
+          role="tooltip"
+          className="fixed z-[9999] max-w-xs w-56 rounded-lg border border-border bg-surface shadow-xl text-xs text-text-secondary backdrop-blur-sm"
+          style={{ left: coords.left, top: coords.top, transform: 'translateX(-50%)' }}
+        >
+          <div className="p-2.5">
+            {help}
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
 }
 
 function ColumnHeader({ column, colPct, sortKey, sortDir, onSort }: {
@@ -411,7 +475,10 @@ function ColumnHeader({ column, colPct, sortKey, sortDir, onSort }: {
       style={{ flex: `0 0 ${colPct[column.key]}%` }}
       onClick={() => !column.noSort && onSort(column.key)}
     >
-      {column.label && <span className="truncate">{column.label}</span>}
+      <span className="inline-flex items-center whitespace-nowrap">
+        <span className="truncate">{column.label}</span>
+        {column.help && <HeaderHelp help={column.help} />}
+      </span>
       {!column.noSort && <SortIcon active={isActive} dir={isActive && sortDir ? sortDir : 'asc'} />}
     </div>
   );
