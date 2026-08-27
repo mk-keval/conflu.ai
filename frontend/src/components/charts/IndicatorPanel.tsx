@@ -2,6 +2,7 @@ import { useChartStore } from '@/store/chart';
 import { formatNumber } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { INDICATOR_COLORS } from '@/lib/constants';
+import { EducationTooltip } from '@/components/professional/EducationTooltip';
 
 interface IndicatorPanelProps {
   symbol: string;
@@ -13,6 +14,14 @@ const INDICATOR_LABELS: Record<string, string> = {
   macd: 'MACD',
   ema_20: 'EMA (20)',
   bb: 'Bollinger Bands',
+};
+
+/** Chart indicator → education.json lesson key. */
+const INDICATOR_LESSON_KEYS: Record<string, string> = {
+  rsi: 'rsi',
+  macd: 'macd_status',
+  ema_20: 'ma_alignment',
+  bb: 'bb_position',
 };
 
 function getIndicatorZone(name: string, value: number): 'bullish' | 'bearish' | 'neutral' {
@@ -52,11 +61,20 @@ export function IndicatorPanel({ symbol, indicatorValues }: IndicatorPanelProps)
           if (value == null) return null;
 
           const zone = getIndicatorZone(name, value);
+          const lessonKey = INDICATOR_LESSON_KEYS[name];
 
           return (
             <div key={name} className="space-y-0.5">
-              <div className="text-xs text-text-secondary">
-                {INDICATOR_LABELS[name] || name}
+              <div className="flex items-center gap-1 text-xs text-text-secondary">
+                <span>{INDICATOR_LABELS[name] || name}</span>
+                {lessonKey && (
+                  <EducationTooltip
+                    metricKey={lessonKey}
+                    metricLabel={INDICATOR_LABELS[name] || name}
+                    metricValue={String(value)}
+                    compact
+                  />
+                )}
               </div>
               <div
                 className={cn(
