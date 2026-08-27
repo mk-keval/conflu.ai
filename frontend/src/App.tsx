@@ -11,6 +11,7 @@ import { WorkflowPage } from './components/workflow/WorkflowPage';
 import { DashboardPage } from './components/dashboard/DashboardPage';
 import { PortfolioPage } from './components/portfolio/PortfolioPage';
 import { MorningBriefPage, SimpleVerdictPage, WatchlistBuilderPage, ProSettingsPage } from './components/professional';
+import { LearnPage } from './components/learn/LearnPage';
 import { useProModeStore } from './store/professional';
 
 function HomeRedirect() {
@@ -35,6 +36,7 @@ export function App() {
         <Route path="/portfolio" element={<PortfolioPage />} />
         <Route path="/ticker" element={<TickerAnalysisPage />} />
         <Route path="/ticker/:symbol" element={<TickerAnalysisPage />} />
+        <Route path="/learn" element={<LearnPage />} />
         <Route path="/shared/screen" element={<SharedScreenerView />} />
         <Route path="/shared/screen/:token" element={<SharedScreenerView />} />
         {/* Professional Mode routes */}

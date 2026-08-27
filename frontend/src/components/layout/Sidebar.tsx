@@ -3,7 +3,7 @@ import { useWS } from '@/ws/WebSocketProvider';
 import { useProModeStore } from '@/store/professional';
 import { cn } from '@/lib/cn';
 import { BrandMark } from './BrandMark';
-import { Home, LayoutDashboard, TrendingUp, BarChart2, Shield, RotateCcw, Search, Briefcase, Sun } from 'lucide-react';
+import { Home, LayoutDashboard, TrendingUp, BarChart2, Shield, RotateCcw, Search, Briefcase, Sun, BookOpen } from 'lucide-react';
 
 interface NavItemProps {
   to: string;
@@ -21,6 +21,7 @@ const navItems: NavItemProps[] = [
   { to: '/risk', label: 'Risk', icon: <Shield className="w-5 h-5" /> },
   { to: '/portfolio', label: 'Portfolio', icon: <Briefcase className="w-5 h-5" /> },
   { to: '/workflow', label: 'Swing Desk', icon: <Briefcase className="w-5 h-5" /> },
+  { to: '/learn', label: 'Learn', icon: <BookOpen className="w-5 h-5" /> },
 ];
 
 function NavItem({ to, label, icon }: NavItemProps) {
