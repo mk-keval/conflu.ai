@@ -56,3 +56,4 @@ This section contains Architecture Decision Records (ADRs) for significant proje
 46: ## Consequences
 47: What are the trade-offs, benefits, and risks?
 48: ```
+- [D-35: Education Content Single Source of Truth - education.json + Bands DSL](D-07-education-single-source-of-truth.md)
