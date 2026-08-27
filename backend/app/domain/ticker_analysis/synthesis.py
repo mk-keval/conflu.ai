@@ -1400,18 +1400,27 @@ def _generate_thesis(
     """Generate a concise one-paragraph thesis from all evidence."""
     parts: list[str] = []
 
+    # Beginner-friendly score phrasing: -1..+1 → plain-language strength word
+    # plus the raw number for transparency.
+    def _score_phrase(s: float) -> str:
+        if s >= 0.55: return "strongly bullish"
+        if s >= 0.20: return "moderately bullish"
+        if s > -0.10: return "neutral"
+        if s > -0.40: return "moderately bearish"
+        return "strongly bearish"
+
     if action == "BUY":
-        parts.append(f"Bullish setup with conviction score {score:.0%}.")
+        parts.append(f"Bullish setup — signals lean {_score_phrase(score)} (score {score:+.2f} on our −1 to +1 scale).")
     elif action == "ACCUMULATE":
-        parts.append(f"Moderately bullish (score {score:.0%}). Build position on pullbacks.")
+        parts.append(f"Moderately bullish (score {score:+.2f}). Build position gradually on pullbacks — dips toward support, not drops below it.")
     elif action == "AVOID":
-        parts.append(f"Bearish outlook (score {score:.0%}). Avoid until conditions improve.")
+        parts.append(f"Bearish outlook (score {score:+.2f}). Avoid until conditions improve.")
     elif action == "REDUCE":
-        parts.append(f"Moderately bearish (score {score:.0%}). Reduce position size or tighten stops.")
+        parts.append(f"Moderately bearish (score {score:+.2f}). Reduce position size or tighten stops.")
     elif action == "WATCH":
-        parts.append(f"Mixed signals (score {score:.0%}). Monitoring for setup to develop.")
+        parts.append(f"Mixed signals (score {score:+.2f}). Waiting for the setup to develop before acting.")
     else:
-        parts.append(f"Neutral outlook (score {score:.0%}). No strong directional edge.")
+        parts.append(f"Neutral outlook (score {score:+.2f}). No strong directional edge either way.")
 
     # Top positive signal
     pos_findings = [f for _, _, flist in modules for f in flist if f.startswith("✅") or f.startswith("💰")]
