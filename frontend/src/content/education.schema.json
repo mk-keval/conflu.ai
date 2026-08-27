@@ -1,0 +1,142 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "education.schema.json",
+  "title": "conflu.ai Education Content",
+  "description": "Single source of truth for all user-facing teaching content. Validated by scripts/validate-education.ts (ajv) and backend startup pydantic checks.",
+  "type": "object",
+  "required": ["meta", "metrics", "modules", "concepts", "glossary", "backtestMetrics", "tradePlan"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["version", "updatedAt"],
+      "properties": {
+        "version": { "type": "string" },
+        "updatedAt": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+      }
+    },
+    "thresholds": {
+      "description": "Central numeric cutoffs. Copy may cite these values; bands logic must reference them by name.",
+      "type": "object",
+      "additionalProperties": { "type": "number" }
+    },
+    "metrics": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+      "additionalProperties": { "$ref": "#/$defs/lesson" }
+    },
+    "backtestMetrics": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+      "additionalProperties": { "$ref": "#/$defs/lesson" }
+    },
+    "tradePlan": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["label", "oneLiner", "what"],
+        "properties": {
+          "label": { "type": "string", "minLength": 1 },
+          "oneLiner": { "type": "string", "minLength": 1 },
+          "what": { "type": "string", "minLength": 1 },
+          "example": { "type": "string" },
+          "related": { "$ref": "#/$defs/relatedList" }
+        }
+      }
+    },
+    "modules": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["title", "whatItIs", "whyItMatters", "howScoreWorks"],
+        "properties": {
+          "title": { "type": "string" },
+          "whatItIs": { "type": "string", "minLength": 1 },
+          "whyItMatters": { "type": "string", "minLength": 1 },
+          "howScoreWorks": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "concepts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["label", "oneLiner", "what"],
+        "properties": {
+          "label": { "type": "string", "minLength": 1 },
+          "oneLiner": { "type": "string", "minLength": 1 },
+          "what": { "type": "string", "minLength": 1 },
+          "example": { "type": "string" },
+          "related": { "$ref": "#/$defs/relatedList" }
+        }
+      }
+    },
+    "glossary": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["term", "definition"],
+        "properties": {
+          "term": { "type": "string", "minLength": 1 },
+          "definition": { "type": "string", "minLength": 1 },
+          "related": { "$ref": "#/$defs/relatedList" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "bandsInterpretation": {
+      "type": "object",
+      "required": ["type", "bands"],
+      "properties": {
+        "type": { "const": "bands" },
+        "transform": {
+          "enum": ["percent", "ratio", "compactNumber", "money", "plain", null]
+        },
+        "bands": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["if", "text"],
+            "properties": {
+              "if": {
+                "type": "string",
+                "description": "'value <op> rhs' or '' for unconditional fallback (last band only)",
+                "pattern": "^$|^\\s*value\\s*(>=|<=|==|!=|>|<)\\s*(?:'[^']*'|-?\\d+(?:\\.\\d+)?)\\s*$"
+              },
+              "text": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "lesson": {
+      "type": "object",
+      "required": ["label", "category", "oneLiner", "what", "whyMatters", "scoringImpact", "commonMistakes", "example"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "category": {
+          "enum": ["technical", "fundamental", "earnings", "sentiment", "growth", "risk", "market"]
+        },
+        "oneLiner": { "type": "string", "minLength": 1 },
+        "what": { "type": "string", "minLength": 40, "description": "must include an analogy — length floor nudges editorial standard" },
+        "howCalculated": { "type": "string" },
+        "valueInterpretation": { "$ref": "#/$defs/bandsInterpretation" },
+        "whyMatters": { "type": "string", "minLength": 1 },
+        "scoringImpact": { "type": "string", "minLength": 1 },
+        "commonMistakes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "example": { "type": "string", "minLength": 1 },
+        "related": { "$ref": "#/$defs/relatedList" }
+      }
+    },
+    "relatedList": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}
