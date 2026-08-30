@@ -9,6 +9,7 @@ import { MarketInternalsStrip } from './MarketInternalsStrip';
 import { SectorHeatmapMini } from './SectorHeatmapMini';
 import { SectorFocusCard } from '@/components/sector-rotation/SectorFocusCard';
 import { EducationTooltip } from './EducationTooltip';
+import { TermLink } from '@/components/learn/TermLink';
 import type { ScreenSection } from '@/types/professional';
 
 const REGIME_COLORS: Record<string, string> = {
@@ -46,7 +47,7 @@ function ScreenSectionView({
       <div className="flex items-center justify-between px-4 py-3 bg-surface-tertiary/30">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-sm text-text-primary">
-            {section.screenLabel || section.screenName}
+            <TermLink text={section.screenLabel || section.screenName} />
           </span>
           <span className="text-2xs px-1.5 py-0.5 rounded-full bg-accent/10 text-accent font-mono">
             {(section.regimeMatchScore * 100).toFixed(0)}% match
@@ -204,7 +205,7 @@ export function MorningBriefPage() {
             REGIME_COLORS[brief.regime] || REGIME_COLORS.neutral
           )}
         >
-          {brief.regime.replace(/_/g, ' ').toUpperCase()}
+          <TermLink text={brief.regime.replace(/_/g, '-').toUpperCase()} />
         </div>
         <span className="text-sm text-text-muted">{brief.regimeDescription}</span>
         <EducationTooltip metricKey="market_regime" metricLabel="Market Regime" compact />

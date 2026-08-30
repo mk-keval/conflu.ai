@@ -3,6 +3,7 @@ import { useMarketStore } from '@/store/market';
 import { useMarketRegime } from '@/hooks/useMarketRegime';
 import { cn } from '@/lib/cn';
 import { findLesson } from '@/content/index';
+import { TermLink } from '@/components/learn/TermLink';
 import { TrendingUp, TrendingDown, Activity, ChevronDown, AlertCircle, RefreshCw } from 'lucide-react';
 
 function scoreToColor(score: number): string {
@@ -190,7 +191,9 @@ export function RegimeBar() {
             />
           </div>
 
-          <span className="text-text-muted max-w-[80px] truncate">{regime_label}</span>
+          <span className="text-text-muted max-w-[80px] truncate">
+            {regime_label}
+          </span>
           {/* "As of" timestamp — daily data reference */}
           {regime.timestamp && (
             <span className="text-[10px] text-text-muted/50 tabular-nums whitespace-nowrap">
@@ -262,12 +265,14 @@ export function RegimeBar() {
                 </div>
               </div>
               <span className="text-sm font-bold" style={{ color: regime_color }}>
-                {regime_label}
+                <TermLink text={regime_label} />
               </span>
             </div>
             {/* Plain-language explanation of this regime state (from education.json concepts.regime_states) */}
             {regimeExplanation && (
-              <p className="mt-2 text-[11px] leading-relaxed text-text-muted">{regimeExplanation}</p>
+              <p className="mt-2 text-[11px] leading-relaxed text-text-muted">
+                <TermLink text={regimeExplanation} />
+              </p>
             )}
           </div>
 

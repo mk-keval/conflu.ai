@@ -8,11 +8,23 @@ import { usePortfolioStore } from '@/store/portfolio';
 import {
   TrendingUp, TrendingDown, Activity, Gauge, Search, BarChart3,
   Plus, X, Loader2, AlertTriangle, ChevronRight,
-  Brain, PieChart,
+  Brain, PieChart, CalendarCheck2, Target,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { formatPrice } from '@/lib/format';
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary';
+import { DailyRoutine } from './DailyRoutine';
+import { AdherenceDashboard } from './AdherenceDashboard';
+
+type TabId = 'market' | 'routine' | 'watchlist' | 'portfolio' | 'adherence';
+
+const TABS: { id: TabId; label: string; icon: typeof Gauge }[] = [
+  { id: 'market', label: 'Market Context', icon: Gauge },
+  { id: 'routine', label: 'Daily Routine', icon: CalendarCheck2 },
+  { id: 'watchlist', label: 'Watchlist', icon: Search },
+  { id: 'portfolio', label: 'Portfolio', icon: PieChart },
+  { id: 'adherence', label: 'Skill Score', icon: Target },
+];
 
 function regimeColor(score: number): string {
   if (score >= 65) return 'text-green-400';
@@ -101,6 +113,9 @@ function WorkflowContent() {
   // ── Portfolio results ──
   const [portfolioResult, setPortfolioResult] = useState<PortfolioResponse | null>(null);
 
+  // ── Active desktop tab ──
+  const [activeTab, setActiveTab] = useState<TabId>('market');
+
   // ── Market regime ──
   const { data: regime } = useMarketRegime();
 
@@ -159,18 +174,68 @@ function WorkflowContent() {
   })();
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto">
+    <div className="flex h-full flex-col">
       <div className="border-b border-border bg-surface/50 px-4 py-3">
         <h1 className="font-display text-xl font-semibold tracking-tight text-text-primary flex items-center gap-2">
           <Activity className="h-5 w-5 text-accent" />
           Swing Trading Desk
         </h1>
-        <p className="text-sm text-text-muted">Institutional workflow — market context → screen → analyze → portfolio</p>
+        <p className="text-sm text-text-muted">Institutional workflow — market context → daily routine → screen → analyze → portfolio</p>
       </div>
 
-      <div className="flex-1 space-y-4 p-4 max-w-6xl mx-auto w-full">
+      <div className="flex flex-1 min-h-0">
+        {/* ── Sidebar tab rail ── */}
+        <nav className="hidden md:flex w-48 shrink-0 flex-col gap-1 border-r border-border bg-surface/40 p-3">
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors',
+                  isActive
+                    ? 'bg-accent/10 text-accent border border-accent/30'
+                    : 'text-text-muted hover:bg-surface/40 hover:text-text-primary border border-transparent'
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
 
-        {/* ── Step 1: Market Context ── */}
+        {/* ── Mobile tab bar ── */}
+        <div className="md:hidden flex gap-1 overflow-x-auto border-b border-border bg-surface/40 px-2 py-2">
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors',
+                  isActive
+                    ? 'bg-accent/10 text-accent border border-accent/30'
+                    : 'text-text-muted border border-transparent'
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── Active panel ── */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="flex h-full flex-col space-y-4 p-4 max-w-6xl mx-auto w-full">
+
+        {/* ── Tab: Market Context ── */}
+        {activeTab === 'market' && (
         <section className="rounded-xl border border-border/50 bg-surface/20 p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
@@ -233,8 +298,15 @@ function WorkflowContent() {
             )}
           </div>
         </section>
+        )}
 
-        {/* ── Step 2: Watchlist ── */}
+        {/* ── Tab: Daily Routine ── */}
+        {activeTab === 'routine' && (
+          <DailyRoutine />
+        )}
+
+        {/* ── Tab: Watchlist ── */}
+        {activeTab === 'watchlist' && (
         <section className="rounded-xl border border-border/50 bg-surface/20 p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
@@ -305,7 +377,11 @@ function WorkflowContent() {
             </div>
           )}
         </section>
+        )}
 
+        {/* ── Tab: Portfolio ── */}
+        {activeTab === 'portfolio' && (
+        <>
         {/* ── Step 3: Results ── */}
         {portfolioResult && portfolioResult.analyses.length > 0 && (
           <>
@@ -459,8 +535,16 @@ function WorkflowContent() {
             <span className="ml-3 text-sm text-text-muted">Analyzing portfolio...</span>
           </div>
         )}
+        </>
+        )}
 
+        {/* ── Tab: Skill Score (Adherence Dashboard) ── */}
+        {activeTab === 'adherence' && (
+          <AdherenceDashboard />
+        )}
       </div>
+      </div>
+    </div>
     </div>
   );
 }

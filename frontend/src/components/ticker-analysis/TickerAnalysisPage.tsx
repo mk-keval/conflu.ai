@@ -16,7 +16,7 @@ import {
   Shield, Info, Brain, BookOpen,
   ArrowUp, ArrowDown, Minus, ChevronDown, ChevronUp, HelpCircle,
   FileText, Newspaper, BarChart2, Search,
-  Loader2, ExternalLink, Plus, Check, OctagonX,
+  Loader2, ExternalLink, Plus, Check, OctagonX, PlayCircle,
 } from 'lucide-react';
 import type { MetricLesson, ModuleLesson } from './education';
 import {
@@ -27,6 +27,12 @@ import {
 import { ScoreLegendCard } from './ScoreLegendCard';
 import { EducationTooltip } from '@/components/professional/EducationTooltip';
 import { TermLink } from '@/components/learn/TermLink';
+import { ValidationGate } from '@/components/workflow/ValidationGate';
+import { ExecutionEngine } from '@/components/workflow/ExecutionEngine';
+import { PaperTradeLogger } from '@/components/workflow/PaperTradeLogger';
+import type { GateInput } from '@/workflow/gate';
+import type { ExecutionPlan } from '@/workflow/execution';
+import type { ExecutionSetup } from '@/types/workflow';
 
 /** Inline info icon opening a Trade Plan concept tooltip (entry from education.json tradePlan section). */
 function PlanHelp({ metricKey }: { metricKey: string }) {
@@ -239,7 +245,9 @@ function ConvictionRing({ conviction, weightedScore }: { conviction: number; wei
   );
 }
 
-function VerdictBanner({ data, weightedScore }: { data: TickerAnalysisResponse; weightedScore?: number }) {
+function VerdictBanner({ data, weightedScore, onValidate, onExecute }: {
+data: TickerAnalysisResponse; weightedScore?: number; onValidate?: () => void; onExecute?: () => void;
+}) {
   const v = data.verdict;
   const cfg = verdictConfig(v.action);
   const changeStr = data.change_pct != null ? formatPct(data.change_pct) : null;
@@ -277,6 +285,28 @@ function VerdictBanner({ data, weightedScore }: { data: TickerAnalysisResponse; 
                 {inPortfolio ? <Check className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
                 {inPortfolio ? 'In Portfolio' : 'Add to Portfolio'}
               </button>
+              {/* Validate Setup — launches the 5-step guided Validation Gate (Phase 1, Sprint 3) */}
+              {onValidate && (
+                <button
+                  onClick={onValidate}
+                  className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors bg-accent/10 border-accent/30 text-accent hover:bg-accent/20"
+                  title="Walk through the 5 checks behind this trade before sizing it"
+                >
+                  <Shield className="h-3 w-3" />
+                  Validate Setup
+                </button>
+              )}
+              {/* Execution Engine — size the trade + tranche ladder + OCO bracket (Phase 1, Sprint 4) */}
+              {onExecute && (
+                <button
+                  onClick={onExecute}
+                  className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors bg-surface border-border/50 text-text-muted hover:text-text-primary hover:border-text-muted"
+                  title="Size the position and build the entry ladder + bracket"
+                >
+                  <PlayCircle className="h-3 w-3" />
+                  Execution Engine
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-3 mt-1">
               <span className={cn('text-lg font-bold', cfg.text)}>
@@ -305,7 +335,9 @@ function VerdictBanner({ data, weightedScore }: { data: TickerAnalysisResponse; 
 
       {/* Thesis */}
       {v.thesis && (
-        <p className="mt-4 text-sm text-text-secondary leading-relaxed">{v.thesis}</p>
+        <p className="mt-4 text-sm text-text-secondary leading-relaxed">
+          <TermLink text={v.thesis} />
+        </p>
       )}
 
       {/* Entry/Stop/Targets */}
@@ -654,7 +686,7 @@ function VerdictTab({ data, explain }: { data: TickerAnalysisResponse; explain: 
                 </h4>
                 <ul className="ml-4 space-y-1 text-sm text-text-secondary list-disc">
                   {v.trade_plan.notes.map((note: string, i: number) => (
-                    <li key={i}>{note}</li>
+                    <li key={i}><TermLink text={note} /></li>
                   ))}
                 </ul>
               </div>
@@ -1294,6 +1326,10 @@ export function TickerAnalysisPage() {
   const [searchInput, setSearchInput] = useState('');
   const [activeTab, setActiveTab] = useState<TabKey>('verdict');
   const [explain, setExplain] = useState(true);
+  const [gateOpen, setGateOpen] = useState(false);
+  const [execOpen, setExecOpen] = useState(false);
+  const [loggerOpen, setLoggerOpen] = useState(false);
+  const [loggerPlan, setLoggerPlan] = useState<ExecutionPlan | null>(null);
 
   // If we have a route param, use it. Otherwise from search params.
   const symbol = routeSymbol ?? searchParams.get('symbol') ?? '';
@@ -1424,6 +1460,49 @@ export function TickerAnalysisPage() {
     ? available.reduce((sum, m) => sum + m.score * (m.weight / totalWeight), 0)
     : 0;
 
+  // Derive the Validation Gate inputs from the live verdict + multi-timeframe technical.
+  const techDaily = data.technical && 'daily' in data.technical ? data.technical.daily : data.technical;
+  const techWeekly = data.technical && 'weekly' in data.technical ? data.technical.weekly : undefined;
+  const gateInput: GateInput = {
+    symbol: data.symbol,
+    avgDailyVolumeUsd: null, // not exposed in the analysis payload
+    volumeRatio: techDaily?.volume_ratio ?? null,
+    dailyTrend: techDaily?.ma_alignment ?? null,
+    weeklyTrend: techWeekly?.ma_alignment ?? null,
+    price: data.price,
+    entryLow: data.verdict.entry_zone_low,
+    entryHigh: data.verdict.entry_zone_high,
+    stopLoss: data.verdict.stop_loss,
+    targets: data.verdict.targets,
+    riskReward: data.verdict.risk_reward,
+    conviction: data.verdict.conviction,
+    catalystBias: data.verdict.catalyst_bias?.bias ?? null,
+  };
+
+  // Derive the Execution Engine setup from the verdict + trade plan.
+  // Entry mid = middle of the entry zone; triggers come from the scale-in ladder;
+  // scale-out targets come from the plan (r-multiples); time stop from max hold days.
+  const tp = data.verdict.trade_plan;
+  const execSetup: ExecutionSetup = {
+    symbol: data.symbol,
+    conviction: data.verdict.conviction,
+    accountEquity: 0, // user editable, defaults to 25k in the engine
+    entryLow: data.verdict.entry_zone_low ?? 0,
+    entryHigh: data.verdict.entry_zone_high ?? 0,
+    entryMid: data.verdict.entry_zone_low != null && data.verdict.entry_zone_high != null
+      ? (data.verdict.entry_zone_low + data.verdict.entry_zone_high) / 2
+      : (data.price ?? 0),
+    stopLoss: data.verdict.stop_loss ?? 0,
+    targets: data.verdict.targets ?? [],
+    scaleOut: tp?.scale_out?.map((s) => ({
+      r_multiple: s.r_multiple,
+      size_pct: s.size_pct,
+    })) ?? [],
+    timeStopDays: tp?.max_hold_days ?? 5,
+    triggerPrices: tp?.scale_in?.map((s) => s.price) ?? [],
+  };
+
+
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
       {/* Header bar */}
@@ -1462,7 +1541,12 @@ export function TickerAnalysisPage() {
       </div>
 
       {/* Verdict Banner */}
-      <VerdictBanner data={data} weightedScore={weightedScore} />
+      <VerdictBanner
+        data={data}
+        weightedScore={weightedScore}
+        onValidate={() => setGateOpen(true)}
+        onExecute={() => setExecOpen(true)}
+      />
 
       {/* Module Score Overview */}
       <div className="grid grid-cols-5 gap-3">
@@ -1533,6 +1617,39 @@ export function TickerAnalysisPage() {
           )
         )}
       </div>
+
+      {/* Validation Gate modal — 5-step guided setup check (Phase 1, Sprint 3) */}
+      <ValidationGate
+        open={gateOpen}
+        onClose={() => setGateOpen(false)}
+        symbol={data.symbol}
+        input={gateInput}
+        onProceed={() => {
+          setGateOpen(false);
+          setExecOpen(true);
+        }}
+      />
+
+      {/* Execution Engine modal — size + tranche ladder + OCO bracket (Phase 1, Sprint 4) */}
+      <ExecutionEngine
+        open={execOpen}
+        onClose={() => setExecOpen(false)}
+        setup={execSetup}
+        onLogPaperTrade={(plan) => {
+          setLoggerPlan(plan);
+          setLoggerOpen(true);
+        }}
+      />
+
+      {/* Paper Trade Logger modal — record + score adherence (Phase 1, Sprint 5) */}
+      {loggerPlan && (
+        <PaperTradeLogger
+          open={loggerOpen}
+          onClose={() => setLoggerOpen(false)}
+          setup={execSetup}
+          plan={loggerPlan}
+        />
+      )}
     </div>
   );
 }

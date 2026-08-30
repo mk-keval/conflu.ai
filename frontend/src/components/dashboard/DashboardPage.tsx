@@ -7,6 +7,7 @@ import {
   Search, BarChart3, Calendar, ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { TermLink } from '@/components/learn/TermLink';
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary';
 
 function regimeColor(score: number): string {
@@ -96,7 +97,9 @@ function DashboardContent() {
             <div className="text-[10px] font-semibold uppercase text-text-muted tracking-wider mb-2">Market Regime</div>
             {comp != null ? (
               <>
-                <div className={cn('text-lg font-bold', regimeColor(comp))}>{label}</div>
+                <div className={cn('text-lg font-bold', regimeColor(comp))}>
+                  <TermLink text={label ?? ''} />
+                </div>
                 <div className="mt-1 h-1.5 rounded-full bg-border overflow-hidden">
                   <div className={cn('h-full rounded-full', regimeBg(comp))} style={{ width: `${comp}%` }} />
                 </div>

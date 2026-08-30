@@ -2952,6 +2952,53 @@
         "avg_volume_20d",
         "liquidity"
       ]
+    },
+    {
+      "term": "Market Regime",
+      "definition": "The overall personality of the market right now — trending up, chopping sideways, or swinging wildly. The best setups differ in each regime, so the first question an elite trader asks is: what kind of market am I in?",
+      "related": [
+        "regime"
+      ]
+    },
+    {
+      "term": "Risk-On",
+      "definition": "A market mood where capital flows freely into stocks and other risky assets. Prices tend to rise and momentum setups work well. The opposite of Risk-Off.",
+      "related": [
+        "risk_off",
+        "market_regime"
+      ]
+    },
+    {
+      "term": "Risk-Off",
+      "definition": "A defensive market mood where investors flee risky assets and hoard cash or bonds. Prices fall, rallies fade, and you want smaller size and wider stops. The opposite of Risk-On.",
+      "related": [
+        "risk_on",
+        "market_regime"
+      ]
+    },
+    {
+      "term": "Exuberance",
+      "definition": "A frothy, greed-driven phase where buyers chase strength and pullbacks barely happen. Legitimate but dangerous — late entries catch the reversal, so the plan (stop + target) matters even more.",
+      "related": [
+        "risk_on",
+        "market_regime"
+      ]
+    },
+    {
+      "term": "Crisis",
+      "definition": "A fear-driven phase of heavy selling and wild volatility. Most systems tighten or stand aside; if you trade, size is tiny and stops are non-negotiable.",
+      "related": [
+        "risk_off",
+        "market_regime"
+      ]
+    },
+    {
+      "term": "NEUTRAL",
+      "definition": "A range-bound market with no strong trend. In a neutral regime, fade-the-extremes and breakout-from-range setups often beat chasing momentum; respect the two boundaries instead of betting on a breakout.",
+      "related": [
+        "market_regime",
+        "risk_off"
+      ]
     }
   ]
 }
