@@ -49,6 +49,71 @@ class TechnicalAnalysis(BaseModel):
     pullback_quality: str | None = None  # A+ / A / B / C / D / F
     pullback_score: float | None = None  # 0-100
     findings: list[str]
+    # Advanced chart reading (optional, populated when OHLCV data available)
+    chart_reading: ChartReadingAnalysis | None = None
+
+
+# ── Chart Reading Analysis Sub-Model ──
+
+from typing import Literal
+from dataclasses import dataclass, field
+
+
+@dataclass
+class TimeframeChartReading:
+    """Chart reading signals for a single timeframe."""
+    timeframe: str  # "daily", "weekly", "4h", "1h"
+    
+    # Market Structure (structure.py)
+    bos_events: list[dict] = field(default_factory=list)
+    choch_events: list[dict] = field(default_factory=list)
+    structure_label: str | None = None
+    
+    # Professional Volume Profile TPO (volume_profile.py) - only for daily
+    tpo_profiles: list[dict] = field(default_factory=list)
+    composite_tpo_profile: dict | None = None
+    
+    # Smart Money Concepts (smc.py)
+    order_blocks: list[dict] = field(default_factory=list)
+    fair_value_gaps: list[dict] = field(default_factory=list)
+    breaker_blocks: list[dict] = field(default_factory=list)
+    liquidity_levels: list[dict] = field(default_factory=list)
+    
+    # Validated Breakouts (breakout.py)
+    breakout_events: list[dict] = field(default_factory=list)
+    
+    # Metadata
+    data_quality_warnings: list[str] = field(default_factory=list)
+    timeframes_analyzed: list[str] = field(default_factory=list)
+
+
+@dataclass
+class ChartReadingAnalysis:
+    """All advanced chart reading signals across timeframes — separated from core TechnicalAnalysis.
+    
+    This sub-model groups all institutional-grade chart reading signals:
+    - BOS/CHoCH (structure.py)
+    - Volume Profile TPO (volume_profile.py)
+    - Smart Money Concepts: OB, FVG, Breakers, Liquidity (smc.py)
+    - Validated Breakouts (breakout.py)
+    - Multi-timeframe Confluence (mtf_confluence.py)
+    
+    Keeping these separate from TechnicalAnalysis prevents model bloat
+    and allows optional computation (only when OHLCV data is available).
+    """
+    # Per-timeframe chart reading
+    daily: TimeframeChartReading | None = None
+    weekly: TimeframeChartReading | None = None
+    h4: TimeframeChartReading | None = None
+    h1: TimeframeChartReading | None = None
+    
+    # Multi-Timeframe Confluence (mtf_confluence.py) - combines all timeframes
+    mtf_confluence: dict | None = None
+    
+    # Metadata
+    computation_time_ms: float = 0.0
+    data_quality_warnings: list[str] = field(default_factory=list)
+    timeframes_analyzed: list[str] = field(default_factory=list)
 
 
 class FundamentalAnalysis(BaseModel):

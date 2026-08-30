@@ -21,6 +21,7 @@ from typing import Any
 
 from backend.app.domain.ticker_analysis.models import (
     AnalysisVerdict,
+    ChartReadingAnalysis,
     EarningsAnalysis,
     FundamentalAnalysis,
     MentorNarration,
@@ -61,6 +62,54 @@ def _why_this(
             )
         if technical.structure == "bullish":
             lines.append("Market structure is bullish: higher lows into resistance.")
+        
+        # Chart Reading: BOS/CHoCH
+        if technical.chart_reading:
+            cr = technical.chart_reading
+            if cr.bos_events:
+                for bos in cr.bos_events[:2]:
+                    direction = "bullish" if bos["type"] == "bullish_bos" else "bearish"
+                    lines.append(f"Confirmed {direction} BOS at {bos['structure_level']:.2f} with {bos['volume_ratio']:.1f}x volume — structure holding.")
+            if cr.choch_events:
+                for choch in cr.choch_events[:2]:
+                    direction = "bullish" if choch["type"] == "bullish_choch" else "bearish"
+                    lines.append(f"{direction.capitalize()} CHoCH confirmed at {choch['confirmation_price']:.2f} — structure shift.")
+            
+            # Chart Reading: Order Blocks / FVG
+            if cr.order_blocks:
+                for ob in cr.order_blocks[:2]:
+                    if not ob.get("mitigated"):
+                        direction = "bullish" if ob["type"] == "bullish_ob" else "bearish"
+                        lines.append(f"Unmitigated {direction} Order Block at {ob['midpoint']:.2f} — institutional entry zone.")
+            if cr.fair_value_gaps:
+                for fvg in cr.fair_value_gaps[:2]:
+                    if not fvg.get("filled"):
+                        direction = "bullish" if fvg["type"] == "bullish_fvg" else "bearish"
+                        lines.append(f"Unfilled {direction} FVG {fvg['bottom']:.2f}-{fvg['top']:.2f} — price vacuum to fill.")
+            
+            # Chart Reading: Volume Profile
+            if cr.composite_tpo_profile:
+                comp = cr.composite_tpo_profile
+                if comp.get("poc_migration") == "up":
+                    lines.append(f"Volume Profile POC migrating up to {comp.get('composite_poc', 0):.2f} — accumulation.")
+                elif comp.get("poc_migration") == "down":
+                    lines.append(f"Volume Profile POC migrating down to {comp.get('composite_poc', 0):.2f} — distribution.")
+            
+            # MTF Confluence
+            if cr.mtf_confluence:
+                mtf = cr.mtf_confluence
+                if mtf.get("overall_bias") == "bullish" and not mtf.get("has_critical_conflict"):
+                    lines.append(f"MTF Confluence: {mtf.get('overall_bias', 'neutral').title()} bias across Daily/4H/1H — high confidence.")
+                if mtf.get("conflicts"):
+                    for conflict in mtf.get("conflicts", [])[:1]:
+                        lines.append(f"⚠️ MTF Conflict: {conflict}")
+            
+            # Validated Breakouts
+            if cr.breakout_events:
+                for bo in cr.breakout_events[:1]:
+                    if bo.get("status") == "validated":
+                        lines.append(f"Validated breakout of {bo.get('level_type', 'level')} at {bo.get('level_price', 0):.2f} with {bo.get('volume_ratio', 0):.1f}x volume.")
+
         if technical.volume_ratio is not None and technical.volume_ratio >= 1.5:
             lines.append(
                 f"Volume running {_fmt(technical.volume_ratio)}x average — real participation behind the move."
@@ -100,12 +149,42 @@ def _why_now(
                 f"Liquidity overhead at {_fmt(nearest)} — that's where the trade "
                 "gets paid; structure below still has to hold."
             )
+        
+        # Chart Reading: BOS/CHoCH timing
+        if technical.chart_reading:
+            cr = technical.chart_reading
+            if cr.bos_events:
+                latest_bos = cr.bos_events[-1]
+                direction = "bullish" if latest_bos["type"] == "bullish_bos" else "bearish"
+                lines.append(f"Recent {direction} BOS at {latest_bos['structure_level']:.2f} — structure confirmed, now watching for pullback entry.")
+            if cr.choch_events:
+                latest_choch = cr.choch_events[-1]
+                direction = "bullish" if latest_choch["type"] == "bullish_choch" else "bearish"
+                lines.append(f"Recent {direction} CHoCH — structure shift confirmed, new trend emerging.")
+            
+            # Chart Reading: Order Block / FVG entries
+            if cr.order_blocks:
+                for ob in cr.order_blocks[:1]:
+                    if not ob.get("mitigated"):
+                        direction = "bullish" if ob["type"] == "bullish_ob" else "bearish"
+                        lines.append(f"Unmitigated {direction} OB at {ob['midpoint']:.2f} — waiting for pullback to enter.")
+            if cr.fair_value_gaps:
+                for fvg in cr.fair_value_gaps[:1]:
+                    if not fvg.get("filled"):
+                        direction = "bullish" if fvg["type"] == "bullish_fvg" else "bearish"
+                        lines.append(f"Unfilled {direction} FVG — price vacuum waiting to fill.")
+            
+            # MTF Confluence entry zones
+            if cr.mtf_confluence and cr.mtf_confluence.get("entry_zones"):
+                for zone in cr.mtf_confluence.get("entry_zones", [])[:1]:
+                    lines.append(f"MTF {zone.get('timeframe','4h')} {zone.get('type','OB')} entry zone at {zone.get('zone_low',0):.2f}-{zone.get('zone_high',0):.2f}.")
+    
     if not lines:
         lines.append("No fresh catalyst yet — this is a staged setup: enter on confirmation, not anticipation.")
     return lines
 
 
-def _what_kills_it(verdict: AnalysisVerdict, price: float | None) -> list[str]:
+def _what_kills_it(verdict: AnalysisVerdict, price: float | None, technical: TechnicalAnalysis | None = None) -> list[str]:
     kills: list[str] = []
     # Level-bearing plans — including WATCH-with-levels, which is how live
     # marginal setups actually appear — always state their invalidation.
@@ -125,6 +204,35 @@ def _what_kills_it(verdict: AnalysisVerdict, price: float | None) -> list[str]:
         kills.append(
             f"At +{_fmt(r)}R the stop moves to breakeven — after that, the market pays you to stay wrong-free."
         )
+    
+    # Chart Reading: MTF invalidation levels
+    if technical and technical.chart_reading:
+        cr = technical.chart_reading
+        if cr.mtf_confluence and cr.mtf_confluence.get("invalidation_level"):
+            invalidation = cr.mtf_confluence.get("invalidation_level")
+            reason = cr.mtf_confluence.get("invalidation_reason", "structure break")
+            kills.append(f"MTF invalidation: {invalidation:.2f} — {reason}")
+        
+        # Chart Reading: Break of Order Block / FVG
+        if cr.order_blocks:
+            for ob in cr.order_blocks[:1]:
+                if not ob.get("mitigated"):
+                    direction = "bullish" if ob["type"] == "bullish_ob" else "bearish"
+                    kills.append(f"Break of {direction} OB at {ob['midpoint']:.2f} — institutional thesis invalidated.")
+        if cr.fair_value_gaps:
+            for fvg in cr.fair_value_gaps[:1]:
+                if not fvg.get("filled"):
+                    direction = "bullish" if fvg["type"] == "bullish_fvg" else "bearish"
+                    kills.append(f"Fill of {direction} FVG at {fvg['midpoint']:.2f} — imbalance resolved, thesis weakened.")
+        
+        # Chart Reading: Volume Profile POC break
+        if cr.composite_tpo_profile:
+            comp = cr.composite_tpo_profile
+            if comp.get("poc_migration") == "down" and price is not None and price > comp.get("composite_poc", 0):
+                kills.append(f"Price below composite POC at {comp.get('composite_poc', 0):.2f} — distribution confirmed.")
+            elif comp.get("poc_migration") == "up" and price is not None and price < comp.get("composite_poc", 0):
+                kills.append(f"Price above composite POC at {comp.get('composite_poc', 0):.2f} — accumulation confirmed.")
+    
     if not kills:
         kills.append("No plan, no invalidation — that's exactly why there's no position.")
     return kills
@@ -153,7 +261,7 @@ def build_narration(
     return MentorNarration(
         why_this=_why_this(technical, fundamental, earnings, sentiment),
         why_now=_why_now(technical, earnings),
-        what_kills_it=_what_kills_it(verdict, price),
+        what_kills_it=_what_kills_it(verdict, price, technical),
         thesis_one_liner=_thesis_one_liner(symbol, verdict, price),
     )
 

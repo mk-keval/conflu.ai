@@ -6,6 +6,7 @@ from typing import Any
 
 from backend.app.domain.ticker_analysis.models import (
     AnalysisVerdict,
+    ChartReadingAnalysis,
     EarningsAnalysis,
     FundamentalAnalysis,
     RiskAssessment,
@@ -1273,6 +1274,7 @@ def synthesise(
         rr=rr,
         position_size=position_size,
         technical_weekly=technical_weekly,
+        chart_reading=technical.chart_reading if technical else None,
     )
 
     return AnalysisVerdict(
@@ -1307,40 +1309,66 @@ def _generate_trade_plan(
     rr: float | None,
     position_size: float,
     technical_weekly: TechnicalAnalysis | None = None,
+    chart_reading: ChartReadingAnalysis | None = None,
 ) -> TradePlan | None:
-    """Generate a dynamic trade management plan based on setup quality and market structure."""
+    """Generate a dynamic trade management plan based on setup quality and market structure.
+    
+    Enhanced with MTF confluence data from chart_reading for:
+    - Entry zones from 4H OB/FVG
+    - Invalidation levels
+    - Conflict warnings
+    """
     if action in ("AVOID", "REDUCE", "HOLD") or not price:
         return None
     
     plan = TradePlan()
+    
+    # Extract MTF confluence data if available
+    mtf = chart_reading.mtf_confluence if chart_reading else None
+    mtf_bias = mtf.get("overall_bias") if mtf else None
+    mtf_conflicts = mtf.get("conflicts", []) if mtf else []
+    mtf_entry_zones = mtf.get("entry_zones", []) if mtf else []
+    mtf_invalidation = mtf.get("invalidation_level") if mtf else None
     
     # Determine ATR for trailing
     atr_mult = 2.0
     if risk and risk.suggested_stop_pct > 0:
         atr_mult = 2.0  # Default 2x ATR
     
-    # Scale-in plan: split entry into 2-3 tranches
+    # Scale-in plan: Use MTF entry zones if available, otherwise fallback
     if entry_low and entry_high:
         plan.scale_in = [
             {"price": entry_high, "size_pct": round(position_size * 0.5, 1), "reason": "Initial entry at upper zone"},
             {"price": round(entry_low + (entry_high - entry_low) * 0.3, 2), "size_pct": round(position_size * 0.3, 1), "reason": "Add on pullback to lower zone"},
             {"price": entry_low, "size_pct": round(position_size * 0.2, 1), "reason": "Final add at lower zone"},
         ]
+    elif mtf_entry_zones:
+        # Use MTF entry zones for scale-in
+        for i, zone in enumerate(mtf_entry_zones[:3]):
+            plan.scale_in.append({
+                "price": zone.get("price", price),
+                "size_pct": round(position_size * (0.5 - i * 0.15), 1),
+                "reason": f"MTF {zone.get('timeframe', '4h')} {zone.get('type', 'OB')} entry"
+            })
     
     # Scale-out plan based on R:R
-    # All levels must be strictly >= 1.0R so breakeven activates before any partial exit.
     if rr and rr > 0:
-        mid_r = max(round(1.0 + (rr - 1.0) * 0.5, 1), 1.1)  # Midpoint between 1R and full R (min 1.1)
+        mid_r = max(round(1.0 + (rr - 1.0) * 0.5, 1), 1.1)
         plan.scale_out = [
             {"r_multiple": 1.0, "size_pct": round(position_size * 0.3, 1), "reason": "Take 30% at 1R — secure base and move stop to breakeven"},
             {"r_multiple": mid_r, "size_pct": round(position_size * 0.3, 1), "reason": f"Take 30% at {mid_r}R — intermediate target"},
             {"r_multiple": rr, "size_pct": round(position_size * 0.4, 1), "reason": f"Final 40% at full target ({rr}R)"},
         ]
     
-    # Trailing stop configuration
+    # MTF Confluence conflict warnings
+    if mtf_conflicts:
+        for conflict in mtf_conflicts:
+            plan.notes.append(f"⚠️ MTF Conflict: {conflict}")
+    
+    # Trailing stop configuration - enhanced with MTF invalidation
     if technical and technical.ma_alignment == "bullish":
         plan.trail_type = "structure"
-        plan.trail_value = 1.0  # Trail below key MAs
+        plan.trail_value = 1.0
         plan.trail_activation_r = 1.0
         plan.notes.append("Trail below rising SMA20/SMA50 structure")
     elif risk and risk.volatility_regime == "high":
@@ -1353,12 +1381,15 @@ def _generate_trade_plan(
         plan.trail_value = 2.0
         plan.trail_activation_r = 1.0
     
+    # Use MTF invalidation level for stop management if available
+    if mtf_invalidation and stop_loss:
+        plan.notes.append(f"MTF invalidation level: {mtf_invalidation:.2f} (thesis invalid if breached)")
+    
     # Breakeven rule
     plan.move_to_breakeven_at_r = 1.0
     plan.notes.append("Move stop to breakeven at 1R")
     
     # Time-based exit
-    # Every trade needs a max hold — prevents indefinite drift for once-a-day traders
     if technical and technical.ma_alignment == "bearish":
         plan.max_hold_days = 20
         plan.notes.append("Counter-trend: max 20-day hold")
@@ -1381,11 +1412,16 @@ def _generate_trade_plan(
     else:
         plan.notes.append("Low conviction — reduced position")
     
-    # Structure-based trailing
+    # Structure-based trailing (enhanced with chart reading data)
     if technical and technical.key_support:
         plan.trail_type = "structure"
-        plan.trail_value = 0.0  # Will use key support levels
+        plan.trail_value = 0.0
         plan.notes.append(f"Trail below key support at {technical.key_support[0]:.2f}")
+    
+    # Add MTF entry zones to notes
+    if mtf_entry_zones:
+        for zone in mtf_entry_zones:
+            plan.notes.append(f"MTF Entry Zone ({zone.get('timeframe','4h')} {zone.get('type','OB')}): {zone.get('zone_low',0):.2f}-{zone.get('zone_high',0):.2f}")
     
     return plan
 

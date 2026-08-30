@@ -32,6 +32,13 @@ from backend.app.domain.ticker_analysis.models import (
     AnalysisVerdict,
 )
 
+# Import OHLCV fetchers from technical module
+from backend.app.domain.ticker_analysis.technical import (
+    _fetch_daily_ohlcv,
+    _fetch_weekly_ohlcv,
+    _fetch_intraday_ohlcv,
+)
+
 log = get_logger("conflu.ticker_analysis")
 
 # Simple in-memory TTL cache for yfinance results
@@ -529,7 +536,18 @@ class TickerAnalysisService:
 
         module_pool = ThreadPoolExecutor(max_workers=5, thread_name_prefix="ta-mod")
         try:
-            f_tech = module_pool.submit(_run_module, "technical", technical.analyze, tv_data, symbol=symbol, include_weekly=True)
+            # Pre-fetch OHLCV data for advanced chart reading (daily + weekly + intraday)
+            daily_ohlcv = _fetch_daily_ohlcv(symbol) if symbol else None
+            weekly_ohlcv = _fetch_weekly_ohlcv(symbol) if symbol else None
+            intraday_4h_ohlcv = _fetch_intraday_ohlcv(symbol, "4h", "3mo") if symbol else None
+            intraday_1h_ohlcv = _fetch_intraday_ohlcv(symbol, "1h", "1mo") if symbol else None
+            
+            f_tech = module_pool.submit(
+                _run_module, "technical", technical.analyze, 
+                tv_data, symbol=symbol, include_weekly=True,
+                daily_ohlcv=daily_ohlcv, weekly_ohlcv=weekly_ohlcv,
+                intraday_4h_ohlcv=intraday_4h_ohlcv, intraday_1h_ohlcv=intraday_1h_ohlcv
+            )
             f_fund = module_pool.submit(_run_module, "fundamental", fundamentals.analyze, info)
             f_earn = module_pool.submit(_run_module, "earnings", earnings.analyze, info)
             f_sent = module_pool.submit(_run_module, "sentiment", sentiment.analyze, info)
