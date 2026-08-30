@@ -588,6 +588,8 @@ function ColumnCustomizer({
   }, [open]);
 
   const toggleable = ALL_COLUMNS_META.filter((m) => !m.alwaysOn);
+  const normalCols = toggleable.filter((m) => !m.advanced);
+  const advancedCols = toggleable.filter((m) => m.advanced);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
   useEffect(() => {
@@ -600,6 +602,21 @@ function ColumnCustomizer({
       zIndex: 9999,
     });
   }, [open]);
+
+  const renderItem = (meta: (typeof ALL_COLUMNS_META)[number]) => (
+    <label
+      key={meta.key}
+      className="flex items-center gap-2 px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover/40 cursor-pointer select-none"
+    >
+      <input
+        type="checkbox"
+        checked={visibleColumns.has(meta.key)}
+        onChange={() => onToggle(meta.key)}
+        className="accent-accent"
+      />
+      {meta.label}
+    </label>
+  );
 
   return (
     <div ref={ref} className="relative">
@@ -618,20 +635,15 @@ function ColumnCustomizer({
           style={dropdownStyle}
           className="w-44 bg-surface-elevated border border-border/50 rounded-lg shadow-xl py-1"
         >
-          {toggleable.map((meta) => (
-            <label
-              key={meta.key}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover/40 cursor-pointer select-none"
-            >
-              <input
-                type="checkbox"
-                checked={visibleColumns.has(meta.key)}
-                onChange={() => onToggle(meta.key)}
-                className="accent-accent"
-              />
-              {meta.label}
-            </label>
-          ))}
+          {normalCols.map(renderItem)}
+          {advancedCols.length > 0 && (
+            <>
+              <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-text-muted border-t border-border/40 mt-1">
+                Advanced
+              </div>
+              {advancedCols.map(renderItem)}
+            </>
+          )}
         </div>,
         document.body
       )}

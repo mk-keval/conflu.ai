@@ -18,6 +18,9 @@ export interface ColumnMeta {
   alwaysOn: boolean;
   /** Plain-language explanation shown in a header tooltip / popover. */
   help?: string;
+  /** Advanced institutional metric — hidden by default for beginners, but
+   *  still available to experienced traders via the column customizer. */
+  advanced?: boolean;
 }
 
 export const ALL_COLUMNS_META: ColumnMeta[] = [
@@ -25,28 +28,36 @@ export const ALL_COLUMNS_META: ColumnMeta[] = [
   { key: 'price',       label: 'Price',       weight: 10, alwaysOn: true  },
   { key: 'score',       label: 'Scr',         weight: 6,  alwaysOn: true,  help: 'Confluence Score: 0–100 points across five pillars — Trend, Momentum, Volume, Quality, Fundamental.' },
   { key: 'change',      label: 'Change',      weight: 13, alwaysOn: true  },
+  { key: 'verdict',     label: 'Verdict',     weight: 22, alwaysOn: false, help: 'Plain-English second opinion: is this a clean swing setup right now, or should you wait / avoid?' },
   { key: 'entry',       label: 'Entry/SL',    weight: 12, alwaysOn: false },
-  { key: 'confluence',  label: 'Confluence',  weight: 14, alwaysOn: true  },
+  { key: 'confluence',  label: 'Confluence',  weight: 14, alwaysOn: false, advanced: true, help: 'Advanced: how each confluence pillar scores — T(rend) · M(omentum) · V(olume) · Q(uality) · F(undamental).' },
   { key: 'volume',      label: 'Volume',      weight: 10, alwaysOn: true  },
-  { key: 'rs_rating',   label: 'RS Rtg',      weight: 6,  alwaysOn: false, help: 'Relative Strength rating: 0–100 vs the whole market (IBD-style).' },
-  { key: 'inst_qual',   label: 'Inst Q',      weight: 6,  alwaysOn: false, help: 'Institutional ownership quality grade.' },
-  { key: 'conviction',  label: 'Conv',        weight: 6,  alwaysOn: false, help: 'Conviction: 1–10 confidence in the setup.' },
+  { key: 'rs_rating',   label: 'RS Rtg',      weight: 6,  alwaysOn: false, advanced: true, help: 'Advanced: Relative Strength rating: 0–100 vs the whole market (IBD-style).' },
+  { key: 'inst_qual',   label: 'Inst Q',      weight: 6,  alwaysOn: false, advanced: true, help: 'Advanced: Institutional ownership quality grade.' },
+  { key: 'conviction',  label: 'Conv',        weight: 6,  alwaysOn: false, advanced: true, help: 'Advanced: Conviction — confidence in the setup from elite signal processing.' },
   { key: 'market_cap',  label: 'Mkt Cap',     weight: 8,  alwaysOn: false },
   { key: 'pe_ratio',    label: 'P/E',         weight: 6,  alwaysOn: false },
   { key: 'eps',         label: 'EPS',         weight: 6,  alwaysOn: false },
   { key: 'div_yield',   label: 'Div %',       weight: 6,  alwaysOn: false },
   { key: 'rel_vol',     label: 'Rel Vol',     weight: 6,  alwaysOn: false },
   { key: 'rsi',         label: 'RSI',         weight: 5,  alwaysOn: false },
-  { key: 'adx',         label: 'ADX',         weight: 5,  alwaysOn: false },
+  { key: 'adx',         label: 'ADX',         weight: 5,  alwaysOn: false, advanced: true, help: 'Advanced: Average Directional Index — trend strength (below 20 = choppy).' },
   { key: 'vol_change',  label: 'Vol %',       weight: 6,  alwaysOn: false },
-  { key: 'atr_pct',     label: 'ATR%',        weight: 6,  alwaysOn: false },
+  { key: 'atr_pct',     label: 'ATR%',        weight: 6,  alwaysOn: false, advanced: true, help: 'Advanced: Average True Range as % of price — how volatile / how wide your stop may need to be.' },
   { key: 'sector',      label: 'Sector',      weight: 7,  alwaysOn: false },
   { key: 'rating',      label: 'Rtg',         weight: 8,  alwaysOn: true,  help: 'Letter grade from score: A+ (≥80), A (≥70), B+ (≥60), B (≥50), C (≥40), else D.' },
 ];
 
-/** Default set of visible column keys — everything except Div %, Rel Vol, and Vol %. */
+/**
+ * Default set of visible column keys — a beginner-friendly view:
+ *  - Div %, Rel Vol, Vol % stay hidden (redundant with Volume).
+ *  - Advanced institutional proxy columns (Confluence, RS Rtg, Inst Q, Conv,
+ *    ADX, ATR%) are hidden by default so novices aren't faced with cryptic
+ *    metrics — but they remain fully available to experienced traders via the
+ *    show/hide columns customizer.
+ */
 export const DEFAULT_VISIBLE_COLUMNS: string[] = ALL_COLUMNS_META
-  .filter((m) => m.key !== 'div_yield' && m.key !== 'rel_vol' && m.key !== 'vol_change')
+  .filter((m) => m.key !== 'div_yield' && m.key !== 'rel_vol' && m.key !== 'vol_change' && !m.advanced)
   .map((m) => m.key);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -305,6 +316,40 @@ function CellATRPct({ data }: { data: TVDataFields }) {
   );
 }
 
+function CellVerdict({ ticker }: { ticker: TVScoredTicker }) {
+  const verdict = ticker.verdict;
+  // Fall back to a neutrally-colored watch chip if the backend didn't supply one.
+  const action = verdict?.action ?? 'WATCH';
+  const tone = verdict?.tone ?? 'caution';
+  const summary = verdict?.summary;
+
+  const chipColor =
+    tone === 'positive' ? 'bg-accent/15 text-accent' :
+    tone === 'negative' ? 'bg-loss/15 text-loss' :
+    'bg-warning/15 text-warning';
+
+  const chipLabel =
+    action === 'STRONG_BUY' ? 'Strong Buy' :
+    action === 'BUY' ? 'Buy' :
+    action === 'ACCUMULATE' ? 'Accumulate' :
+    action === 'AVOID' ? 'Avoid' :
+    'Watch';
+
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 w-full min-w-0"
+      title={summary ?? 'Plain-English second opinion'}
+    >
+      <span className={cn('inline-flex items-center justify-center shrink-0 h-[18px] px-2 rounded-[3px] text-[10px] font-bold uppercase leading-none tracking-wide', chipColor)}>
+        {chipLabel}
+      </span>
+      {summary && (
+        <span className="text-xs text-text-secondary truncate min-w-0">{summary}</span>
+      )}
+    </span>
+  );
+}
+
 // ── Column definition ────────────────────────────────────────────────────────
 
 interface ColumnDef {
@@ -323,6 +368,7 @@ const COL_RENDERERS: Record<string, (t: TVScoredTicker, d: TVDataFields, onClick
   score:      (t, _d) => <CellScore score={t.score} />,
   change:     (_t, d) => <CellChange change={d.change} price={d.close} />,
   entry:      (t, _d) => <CellEntry ticker={t} />,
+  verdict:    (t, _d) => <CellVerdict ticker={t} />,
   confluence: (t, _d) => <CellConfluence breakdown={t.breakdown} />,
   volume:     (_t, d) => <CellVolume data={d} />,
   rs_rating:  (t, _d) => <CellRSRating rating={t.elite?.rs_rating} />,
@@ -362,7 +408,7 @@ function buildColumns(
       : base;
 
     const align: 'left' | 'right' | 'center' =
-      meta.key === 'symbol' || meta.key === 'sector' ? 'left' :
+      meta.key === 'symbol' || meta.key === 'sector' || meta.key === 'verdict' ? 'left' :
       meta.key === 'score' || meta.key === 'confluence' || meta.key === 'rating' ? 'center' :
       'right';
 
@@ -614,6 +660,17 @@ export function ScreenerTable({
       const db = b.tv_data;
       let aVal: number | string = 0;
       let bVal: number | string = 0;
+      const verdictRank = (v?: { action?: string }): number => {
+        switch (v?.action) {
+          case 'STRONG_BUY': return 6;
+          case 'BUY': return 5;
+          case 'ACCUMULATE': return 4;
+          case 'WATCH': return 3;
+          case 'HOLD': return 2;
+          case 'AVOID': return 1;
+          default: return 0;
+        }
+      };
       switch (sortKey) {
         case 'symbol':   aVal = a.symbol; bVal = b.symbol; break;
         case 'price':    aVal = da.close ?? 0; bVal = db.close ?? 0; break;
@@ -622,6 +679,7 @@ export function ScreenerTable({
         case 'entry':    aVal = a.entry; bVal = b.entry; break;
         case 'confluence': aVal = a.score; bVal = b.score; break;
         case 'volume':   aVal = da.volume ?? 0; bVal = db.volume ?? 0; break;
+        case 'verdict':  aVal = verdictRank(a.verdict); bVal = verdictRank(b.verdict); break;
         case 'market_cap': aVal = da.market_cap_basic ?? 0; bVal = db.market_cap_basic ?? 0; break;
         case 'pe_ratio': aVal = da.price_earnings_ttm ?? 0; bVal = db.price_earnings_ttm ?? 0; break;
         case 'eps': aVal = da.earnings_per_share_diluted_ttm ?? 0; bVal = db.earnings_per_share_diluted_ttm ?? 0; break;
