@@ -94,18 +94,6 @@ compute:
     - ema
     - sma
     - atr
-  cached_indicators:
-    - rsi
-    - macd
-    - ema_20
-    - ema_50
-    - ema_200
-    - sma_20
-    - sma_50
-    - sma_200
-    - atr
-    - adx
-  indicator_cache_enabled: true
   screen_default_timeframes:
     - 1D
     - 4h

@@ -172,19 +172,11 @@ class ComputeSettings(BaseSettings):
     )
     cache_indicators: bool = Field(
         default=True,
-        description="Cache computed indicators in DuckDB materialized views",
+        description="Cache computed indicators in DuckDB materialized views (DEPRECATED - precompute pipeline retired; kept for backward-compat with existing config.yaml)",
     )
     broadcast_indicators: list[str] = Field(
         default=["rsi", "macd", "ema", "sma", "atr"],
         description="Indicators to broadcast to lower timeframes",
-    )
-    cached_indicators: list[str] = Field(
-        default=["rsi", "macd", "ema", "sma", "atr", "adx", "obv", "bb", "vwap", "stoch"],
-        description="Indicator names to pre-compute and cache in indicator_values table",
-    )
-    indicator_cache_enabled: bool = Field(
-        default=True,
-        description="Enable DuckDB indicator cache (indicator_values table)",
     )
     screen_default_timeframes: list[str] = Field(
         default=["1D", "4h", "1h"],
