@@ -36,6 +36,12 @@ This section contains Architecture Decision Records (ADRs) for significant proje
 - [D-32: TV Screener-First Alignment — DuckDB Optional, IndicatorCache Retired](D-32-tv-screener-first-alignment.md)
 - [D-33: Synthesis Plan-Geometry Invariants & Classifier Calibration](D-33-synthesis-geometry-invariants-classifier-calibration.md)
 - [D-34: Discovery Flow Redesign — Regime Weights, Snapshot Multi-Screen, RS/Catalyst/Earnings Enrichment](D-34-discovery-redesign-snapshot-multiscreen.md)
+- [D-36: Chart-Reading Instrumental Fixes — Populated Return Value + MTF Confluence + Structure-None Robustness](D-36-chart-reading-mtf-confluence-fix.md)
+- [D-37: Screener Plain-English Verdict + Guided Column Defaults](D-37-screener-verdict-guided-columns.md)
+- [D-38: Ticker-Page Narrative Auto-Glossing — TermLink-glossed VerdictBanner thesis + trade-plan notes (persona gap #3)](D-38-ticker-narrative-auto-glossing.md)
+- [D-39: Phase-1 Guided Workflow — Persistence (DuckDB) + Approved 7-Sprint Plan (persona gap #4)](D-39-phase1-persistence-and-workflow-plan.md) — item 1 **SUPERSEDED by D-40**
+- [D-40: Phase-1 Workflow Persistence — SUPERSEDE DuckDB → localStorage (frontend-only)](D-40-phase1-workflow-persistence-localstorage-supersede.md)
+- [D-41: Housekeeping — Retire Zombie `indicator_values` Cache + GitNexus Re-index + Frontend Build Fix](D-41-retire-indicator-values-cache.md)
 
 ## Other Decision Records
 - [Phase 9: Advanced Backtest](2026-06-19-phase9-advanced-backtest.md) — ATR-based sizing, vectorized signals, parameter optimization, monte carlo, multi-symbol backtest 
