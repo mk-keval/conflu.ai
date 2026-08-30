@@ -57,3 +57,21 @@ export type {
   WSBacktestUpdate,
   WSSubscriptionMessage,
 } from './ws';
+
+export type {
+  RoutineStep,
+  RoutineStepSeq,
+  RoutineStepLabel,
+  RoutineStepStatus,
+  DailyRoutine,
+  RoutineStatus,
+  GateVerdict,
+  GateStepName,
+  GateStepResult,
+  ValidationGate,
+  PaperTrade,
+  PaperTradeStatus,
+  PaperTradeOutcome,
+} from './workflow';
+
+export { PAPER_TRADE_PLAN_STEPS, ADHERENCE_MAX_STEPS } from './workflow';

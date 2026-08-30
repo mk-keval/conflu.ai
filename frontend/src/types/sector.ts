@@ -68,3 +68,35 @@ export interface MarketRegimeResponse {
   yield_curve: RegimeIndicator;
   timestamp: string;
 }
+
+// -- Sector Focus verdict types --
+
+export interface SectorFocusEntry {
+  symbol: string;
+  name: string;
+  verdict: 'FOCUS' | 'WATCH' | 'NEUTRAL' | 'AVOID' | 'AVOID_RELATIVE';
+  score: number | null;
+  reasons: string[];
+  metrics: Partial<{
+    rs_rank: number | null;
+    rs_z_1w: number | null;
+    flow_strength_1w: number | null;
+    momentum: number | null;
+    volume_vs_avg_1w: number | null;
+    change_1w: number | null;
+  }>;
+}
+
+export interface SectorFocusSnapshot {
+  snapshot_id: string;
+  generated_at: string;
+  next_refresh_at: string;
+  market_regime: string;
+  no_hunt_mode: boolean;
+  methodology_version: string;
+  cadence: string;
+  focus: SectorFocusEntry[];
+  watch: SectorFocusEntry[];
+  avoid: SectorFocusEntry[];
+  all_entries?: SectorFocusEntry[];
+}

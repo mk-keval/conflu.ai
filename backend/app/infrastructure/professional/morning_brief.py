@@ -53,11 +53,14 @@ _SECTOR_CONCURRENCY: int = 4
 _BRIEF_CACHE_TTL: float = 6 * 60 * 60  # 6h — covers pre-market through close
 
 # ── Regime label mapping ──
+# "neutral" and "choppy" are first-class config regimes (P1.1): a mid-range
+# composite is NOT a reason to serve only defensive screens — the weighted
+# config in config/regime_screens.yaml keeps momentum/breakout primary.
 _REGIME_LABEL_MAP: dict[str, str] = {
     "Exuberance": "strong_trend",
     "Risk-On": "strong_trend",
-    "Neutral": "ranging",
-    "Cautious": "ranging",
+    "Neutral": "neutral",
+    "Cautious": "choppy",
     "Risk-Off": "high_vol",
     "Crisis": "high_vol",
 }
@@ -153,18 +156,41 @@ class MorningBriefService:
         # 3. Fetch sector rotation early to get the leading sector for a 4th screen
         sector_rotation, sector_list, weekly_leader_etf = await _fetch_sector_rotation()
 
-        # 4. Run the 3 regime screens in parallel
-        screen_tasks = [self._screen_engine.screen(config) for config in screens]
-        screen_results = await asyncio.gather(*screen_tasks, return_exceptions=True)
+        # 4. Run the regime screens — batched when One-Snapshot-Multi-Screen
+        # is enabled (one upstream TV call + local masking), else parallel
+        # per-template discovery. screen_batch returns the same per-screen
+        # dicts (or Exception objects) that the legacy gather produces.
+        if hasattr(self._screen_engine, "screen_batch"):
+            raw_results = await self._screen_engine.screen_batch(screens)
+            screen_results: list[Any] = []
+            for config, result in zip(screens, raw_results):
+                if isinstance(result, Exception):
+                    screen_results.append(result)
+                elif isinstance(result, dict):
+                    screen_results.append(result)
+                else:
+                    log.warning("unexpected_batch_result_type", type=type(result).__name__)
+                    screen_results.append(RuntimeError(f"bad result for {config.name}"))
+        else:
+            screen_tasks = [self._screen_engine.screen(config) for config in screens]
+            screen_results = list(await asyncio.gather(*screen_tasks, return_exceptions=True))
 
         # 5. Build screen sections from regime screens
         screen_sections: list[ScreenSection] = []
         all_ticker_symbols: list[str] = []
+        # P1.4: TV snapshot rows per symbol — the badge is evaluated once,
+        # in the quote-attach pass, where EPS surprise data also exists.
+        tv_data_by_symbol: dict[str, dict[str, Any]] = {}
         for config, result in zip(screens, screen_results):
             if isinstance(result, Exception):
                 log.warning("screen_failed_skipping", screen=config.name, error=str(result))
                 continue
             assert isinstance(result, dict), f"Expected dict, got {type(result)}"
+            for item in result.get("results", []):
+                sym = item.get("symbol")
+                tv_row = item.get("tv_data")
+                if sym and isinstance(tv_row, dict) and sym not in tv_data_by_symbol:
+                    tv_data_by_symbol[sym] = tv_row
             tickers = self._build_ticker_briefs(config.name, result)
             for t in tickers:
                 all_ticker_symbols.append(t.symbol)
@@ -223,6 +249,24 @@ class MorningBriefService:
                     data = premarket_data[ticker.symbol]
                     ticker.live_price = data.get("live_price")
                     ticker.premarket_change_pct = data.get("premarket_change_pct")
+                    # P1.4: single evaluation point — TV structural data from
+                    # the snapshot + EPS surprise that rode along on the same
+                    # yfinance .info payload as the premarket quote.
+                    eps = data.get("earnings_surprise_pct")
+                    cat_on, cat_reason = _catalyst_breakout_state(
+                        tv_data_by_symbol.get(ticker.symbol, {}), eps
+                    )
+                    ticker.catalyst_breakout = cat_on
+                    ticker.catalyst_breakout_reason = cat_reason
+                    # P1.5: earnings-proximity warning chip.
+                    ts = data.get("next_earnings_ts")
+                    if isinstance(ts, (int, float)):
+                        from datetime import datetime as _dt
+
+                        earnings_dt = _dt.fromtimestamp(float(ts)).astimezone()
+                        ticker.days_to_earnings = (
+                            earnings_dt.date() - _dt.now().astimezone().date()
+                        ).days
 
         # 8. Market internals
         market_internals = await _fetch_market_internals()
@@ -287,6 +331,19 @@ generated_at=now_utc.isoformat(),
             if verdict == "WATCH" and conviction >= 7:
                 verdict = "ACCUMULATE"
             education_hints = _build_education_hints(r.get("tv_data", {}))
+            # P2.2: trader-style thesis one-liner from screener-grade data.
+            from backend.app.domain.ticker_analysis.narration import brief_thesis_line
+
+            rs_block = r.get("rs") or {}
+            thesis_line = brief_thesis_line(
+                symbol=r.get("symbol", "UNKNOWN"),
+                verdict=verdict,
+                entry=float(confluence.entry),
+                stop_loss=float(confluence.stop_loss),
+                targets=[float(t) for t in confluence.targets],
+                tv_data=r.get("tv_data", {}),
+                rs_composite=rs_block.get("composite") if isinstance(rs_block, dict) else None,
+            )
             briefs.append(
                 TickerBrief(
                     symbol=r.get("symbol", "UNKNOWN"),
@@ -301,6 +358,7 @@ generated_at=now_utc.isoformat(),
                     verdict=verdict,
                     conviction=conviction,
                     education_hints=education_hints,
+                    thesis_one_liner=thesis_line,
                 )
             )
         return briefs
@@ -528,6 +586,8 @@ def _regime_description(label: str) -> str:
         "strong_trend": "Bullish trend conditions detected.",
         "ranging": "Range-bound market conditions.",
         "high_vol": "High volatility environment — wider stops required.",
+        "neutral": "Mixed signals — stock-specific momentum/breakout setups primary, one defensive hedge.",
+        "choppy": "Choppy tape — smaller size, favor volume-confirmed breakouts.",
     }
     return descriptions.get(label, f"Market regime: {label}")
 
@@ -547,6 +607,63 @@ def _rating_to_verdict(rating: str) -> str:
 def _compute_regime_match_score(config: ScreenConfig, regime_key: str) -> float:
     _ = config
     return 1.0
+
+
+# ── Catalyst-Breakout badge (P1.4) ──
+# Veteran logic: a real catalyst setup = fresh EPS beat + volume expansion
+# (rvol > 1.2) + price pressing against the 52-week high (within 3%).
+_CATALYST_RVOL_MIN = 1.2
+_CATALYST_HIGH_PROXIMITY = 0.97  # close >= 97% of the 52-week high
+
+
+def _catalyst_breakout_state(
+    tv_data: dict[str, Any],
+    eps_surprise_pct: float | None,
+) -> tuple[bool, str | None]:
+    """Evaluate the Catalyst-Breakout badge for one candidate.
+
+    Returns (badge_on, reason). Structural conditions come from TV snapshot
+    columns (rvol, close vs 52-week high); the EPS-beat confirmation comes
+    from yfinance info already fetched for premarket quotes. When any
+    component is unknown the badge stays off — we never claim a catalyst we
+    can't see.
+    """
+    if not tv_data:
+        return False, None
+
+    def _num(key: str) -> float | None:
+        try:
+            value = tv_data.get(key)
+            return float(value) if value is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    rvol = _num("relative_volume_10d_calc")
+    close = _num("close")
+    high_52w = _num("price_52_week_high")
+
+    rvol_ok = rvol is not None and rvol > _CATALYST_RVOL_MIN
+    near_high_ok = (
+        close is not None
+        and high_52w is not None
+        and high_52w > 0
+        and close >= high_52w * _CATALYST_HIGH_PROXIMITY
+    )
+    eps_ok = eps_surprise_pct is not None and eps_surprise_pct > 0
+
+    if not (rvol_ok and near_high_ok and eps_ok):
+        return False, None
+
+    parts: list[str] = []
+    if close is not None and high_52w is not None and high_52w > 0:
+        pct_below = (1.0 - close / high_52w) * 100.0
+        parts.append(f"within {pct_below:.1f}% of 52-week high")
+    if rvol is not None:
+        parts.append(f"rvol {rvol:.1f}x")
+    if eps_surprise_pct is not None:
+        parts.append(f"EPS beat +{eps_surprise_pct:.1f}%")
+
+    return True, "Catalyst breakout: " + ", ".join(parts)
 
 
 def _build_education_hints(tv_data: dict[str, Any]) -> dict[str, str]:
@@ -585,7 +702,11 @@ async def _fetch_premarket_quotes(symbols: list[str]) -> dict[str, dict[str, flo
 
 
 def _premarket_quotes_sync(symbols: list[str]) -> dict[str, dict[str, float | None]]:
-    """Fetch pre-market/regular quotes for a batch of symbols (blocking, thread)."""
+    """Fetch pre-market/regular quotes for a batch of symbols (blocking, thread).
+
+    Also extracts the last EPS surprise from the same .info payload so the
+    Catalyst-Breakout badge (P1.4) needs zero extra upstream calls.
+    """
     result: dict[str, dict[str, float | None]] = {}
     try:
         tickers = yf.Tickers(" ".join(symbols))
@@ -598,10 +719,28 @@ def _premarket_quotes_sync(symbols: list[str]) -> dict[str, dict[str, float | No
                 regular_price = info.get("regularMarketPrice") or info.get("currentPrice")
                 premarket_price = info.get("preMarketPrice")
                 premarket_change = info.get("preMarketChangePercent")
+                eps_surprise: float | None = None
+                raw_surprise = info.get("earningsSurprisePct")
+                if isinstance(raw_surprise, (int, float)):
+                    eps_surprise = float(raw_surprise)
+                # P1.5: next earnings timestamp rides along on the same
+                # .info payload (zero extra upstream calls).
+                raw_ts = info.get("earningsTimestampStart") or info.get("earningsTimestamp")
+                next_earnings_ts: float | None = None
+                if isinstance(raw_ts, (int, float)):
+                    next_earnings_ts = float(raw_ts)
+                payload: dict[str, float | None] = {
+                    "live_price": None,
+                    "premarket_change_pct": None,
+                    "earnings_surprise_pct": eps_surprise,
+                    "next_earnings_ts": next_earnings_ts,
+                }
                 if premarket_price is not None and premarket_change is not None:
-                    result[sym] = {"live_price": float(premarket_price), "premarket_change_pct": float(premarket_change)}
+                    payload["live_price"] = float(premarket_price)
+                    payload["premarket_change_pct"] = float(premarket_change)
                 elif regular_price is not None:
-                    result[sym] = {"live_price": float(regular_price), "premarket_change_pct": None}
+                    payload["live_price"] = float(regular_price)
+                result[sym] = payload
             except Exception:
                 log.debug("premarket_fetch_failed", symbol=sym, exc_info=True)
                 continue

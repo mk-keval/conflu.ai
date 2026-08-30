@@ -22,10 +22,12 @@ from backend.app.infrastructure.screener.tv_models import (
     TVScreenResponse,
     ScoredTickerResponse,
     EliteEnrichment,
+    VerdictResponse,
     DeepAnalysisRequest,
     DeepAnalysisResponse,
     dict_to_screen_config,
 )
+from backend.app.infrastructure.screener.verdict import build_verdict
 from backend.app.infrastructure.screener.configs import (
     ScreenConfig,
     load_screen_template,
@@ -86,24 +88,37 @@ def _resolve_config(config: dict[str, Any] | str) -> Any:
 
 def _build_scored_response(scored: list[dict]) -> list[ScoredTickerResponse]:
     """Build typed response from scored tickers (includes elite enrichment)."""
-    return [
-        ScoredTickerResponse(
+    out: list[ScoredTickerResponse] = []
+    for r in scored:
+        conf = r["confluence"]
+        elite_raw = r.get("elite") or {}
+        verdict = build_verdict(
             symbol=r["symbol"],
-            score=r["confluence"].total,
-            breakdown=r["confluence"].breakdown,
-            entry=r["confluence"].entry,
-            stop_loss=r["confluence"].stop_loss,
-            targets=r["confluence"].targets,
-            risk_reward=r["confluence"].risk_reward,
-            rating=r["confluence"].rating,
-            rationale=r["confluence"].rationale,
-            tv_data=r["tv_data"],
-            elite=EliteEnrichment(**r.get("elite", {})) if r.get("elite") else None,
-            probable_fund=r.get("probable_fund", False),
-            probable_fund_reason=r.get("probable_fund_reason"),
+            score_total=conf.total,
+            rating=conf.rating,
+            breakdown=conf.breakdown,
+            elite=elite_raw,
+            tv_data=r.get("tv_data") or {},
         )
-        for r in scored
-    ]
+        out.append(
+            ScoredTickerResponse(
+                symbol=r["symbol"],
+                score=conf.total,
+                breakdown=conf.breakdown,
+                entry=conf.entry,
+                stop_loss=conf.stop_loss,
+                targets=conf.targets,
+                risk_reward=conf.risk_reward,
+                rating=conf.rating,
+                rationale=conf.rationale,
+                tv_data=r["tv_data"],
+                elite=EliteEnrichment(**elite_raw) if elite_raw else None,
+                probable_fund=r.get("probable_fund", False),
+                probable_fund_reason=r.get("probable_fund_reason"),
+                verdict=VerdictResponse(**verdict.to_dict()),
+            )
+        )
+    return out
 
 
 @router.post("", response_model=TVScreenResponse)

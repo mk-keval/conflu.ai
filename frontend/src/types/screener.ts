@@ -23,6 +23,18 @@ export interface TVEliteEnrichment {
   factor_conflicts: string[];
 }
 
+/** Plain-English "second opinion" for a screened ticker (helps beginners). */
+export interface TVVerdict {
+  /** STRONG_BUY / BUY / ACCUMULATE / WATCH / AVOID (same vocab as ticker page). */
+  action: string;
+  /** positive / caution / negative — drives column color. */
+  tone: 'positive' | 'caution' | 'negative';
+  /** One plain-English sentence explaining the action. */
+  summary: string;
+  /** 1-3 plain-English bullet reasons. */
+  reasons: string[];
+}
+
 export interface TVScoredTicker {
   symbol: string;
   score: number;
@@ -42,6 +54,8 @@ export interface TVScoredTicker {
   probable_fund?: boolean;
   /** Why the fund detection heuristic triggered. */
   probable_fund_reason?: string | null;
+  /** Plain-English second opinion for this candidate. */
+  verdict?: TVVerdict;
 }
 
 export interface TVMTFBreakdown {

@@ -27,13 +27,29 @@ log = get_logger("conflu.screener.tv_specialist")
 
 
 def _and(*conds: Any) -> Any:
-    """Import And lazily and combine conditions."""
+    """Combine conditions conjunctively.
+
+    Polymorphic (P1.2): locally-evaluated conditions (:class:`LocalCond`)
+    reduce via ``&``; TV query expressions use tradingview_screener's And.
+    """
+    from backend.app.infrastructure.screener.tv_local_eval import _is_local_cond
+    if conds and all(_is_local_cond(c) for c in conds):
+        result = conds[0]
+        for c in conds[1:]:
+            result = result & c
+        return result
     from tradingview_screener.query import And as _And
     return _And(*conds)
 
 
 def _or(*conds: Any) -> Any:
-    """Import Or lazily and combine conditions."""
+    """Combine conditions disjunctively (local shims reduce via ``|``)."""
+    from backend.app.infrastructure.screener.tv_local_eval import _is_local_cond
+    if conds and all(_is_local_cond(c) for c in conds):
+        result = conds[0]
+        for c in conds[1:]:
+            result = result | c
+        return result
     from tradingview_screener.query import Or as _Or
     return _Or(*conds)
 
@@ -238,6 +254,67 @@ class TVDiscoveryResult:
     timestamp: datetime = field(default_factory=datetime.utcnow)
 
 
+# Columns selected for every TV discovery query: everything the confluence
+# scorer references + all indicator columns FILTER_MAP can evaluate + the
+# elite/frontend display fields. Shared by the legacy per-template query
+# builder AND the P1.2 One-Snapshot-Multi-Screen base query.
+SNAPSHOT_COLUMNS: list[str] = [
+    # TV defaults the scorer needs (+ frontend display columns)
+    "close",
+    "change",
+    "volume",
+    "relative_volume_10d_calc",
+    "sector",
+    "industry",
+    "AnalystRating",
+    "market_cap_basic",
+    "price_earnings_ttm",
+    "earnings_per_share_diluted_ttm",
+    "dividends_yield_current",
+    # Exchange, country, price, volume, IPO date, institutional ownership
+    "exchange",
+    "country",
+    "price",
+    "volume",
+    "average_volume_10d_calc",
+    "ipo_date",
+    "institutional_ownership",
+    "short_float",
+    "float_shares",
+    # Trend
+    "EMA20",
+    "EMA50",
+    "EMA200",
+    # Momentum
+    "MACD.macd",
+    "MACD.signal",
+    "MACD.hist",
+    "RSI",
+    "STOCH.K",
+    "STOCH.D",
+    "CCI20",
+    # Volume
+    "volume_change",
+    "VWAP",
+    "OBV",
+    # Quality/volatility
+    "ADX",
+    "ATR",
+    "BB.upper",
+    "BB.middle",
+    "BB.lower",
+    # Supertrend — trend-following overlay
+    "supertrend",
+    "supertrend.up",
+    "supertrend.down",
+    # Perf columns — P1.3 RS-vs-index percentile enrichment (zero extra calls)
+    "Perf.1M",
+    "Perf.3M",
+    # P1.4 Catalyst-Breakout badge — proximity to 52-week high
+    "price_52_week_high",
+]
+
+
 class TVScreenerSpecialist:
     """Domain expert for tradingview-screener package."""
 
@@ -274,6 +351,53 @@ class TVScreenerSpecialist:
             return conditions[0]
         return And(*conditions)
 
+    def evaluate_filters_local(self, df: pd.DataFrame, filters: list[FilterRule]) -> pd.Series | None:
+        """Evaluate FILTER_MAP rules LOCALLY against a snapshot DataFrame.
+
+        Feeds :class:`LocalColumn` as the Column factory so every lambda
+        produces boolean masks instead of TV query expressions — one source
+        of truth for filter semantics (P1.2 One-Snapshot-Multi-Screen).
+
+        Fail-closed: any rule that can't be evaluated locally (unknown
+        indicator, missing column) makes the whole template unmatched and
+        logs loudly — we never silently widen a template's match set.
+        """
+        from backend.app.infrastructure.screener.tv_local_eval import (
+            FilterEvaluationError,
+            LocalColumn,
+            LocalCond,
+        )
+
+        def col_factory(name: str) -> LocalColumn:
+            return LocalColumn(df, name)
+
+        mask = pd.Series(True, index=df.index)
+        matched_any_rule = False
+        for flt in filters:
+            builder = FILTER_MAP.get(flt.indicator)
+            if builder is None:
+                log.warning("local_eval_unknown_filter", indicator=flt.indicator)
+                return None
+            try:
+                cond = builder(flt.params, col_factory)
+            except FilterEvaluationError as exc:
+                log.warning(
+                    "local_eval_missing_column",
+                    indicator=flt.indicator,
+                    error=str(exc),
+                )
+                return None
+            if not isinstance(cond, LocalCond):
+                # e.g. a nested TV-side And/Or slipped through — cannot evaluate
+                log.warning("local_eval_non_local_condition", indicator=flt.indicator)
+                return None
+            mask = mask & cond.mask
+            matched_any_rule = True
+
+        if not matched_any_rule:
+            return None
+        return mask
+
     # ------------------------------------------------------------------
     # Query building
     # ------------------------------------------------------------------
@@ -299,56 +423,7 @@ class TVScreenerSpecialist:
         # Select columns needed by the confluence scorer + all elite filters
         # NOTE: .select() replaces TV's default columns, so we must include
         # all the default columns the scorer references here too.
-        q.select(
-            # TV defaults the scorer needs (+ frontend display columns)
-            "close",
-            "change",
-            "volume",
-            "relative_volume_10d_calc",
-            "sector",
-            "industry",
-            "AnalystRating",
-            "market_cap_basic",
-            "price_earnings_ttm",
-            "earnings_per_share_diluted_ttm",
-            "dividends_yield_current",
-            # NEW: Exchange, country, price, volume, IPO date, institutional ownership
-            "exchange",
-            "country",
-            "price",
-            "volume",
-            "average_volume_10d_calc",
-            "ipo_date",
-            "institutional_ownership",
-            "short_float",
-            "float_shares",
-            # Trend
-            "EMA20",
-            "EMA50",
-            "EMA200",
-            # Momentum
-            "MACD.macd",
-            "MACD.signal",
-            "MACD.hist",
-            "RSI",
-            "STOCH.K",
-            "STOCH.D",
-            "CCI20",
-            # Volume
-            "volume_change",
-            "VWAP",
-            "OBV",
-            # Quality/volatility
-            "ADX",
-            "ATR",
-            "BB.upper",
-            "BB.middle",
-            "BB.lower",
-            # Supertrend — trend-following overlay
-            "supertrend",
-            "supertrend.up",
-            "supertrend.down",
-        )
+        q.select(*SNAPSHOT_COLUMNS)
 
         # Apply filters
         condition = self.compile_filters(config.filters)

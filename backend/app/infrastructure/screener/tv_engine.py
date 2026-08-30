@@ -9,12 +9,16 @@ Rate limited (25 req/min) and cached (60s TTL) to stay within TV free tier.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from typing import Any
+
+import pandas as pd
 
 from backend.app.infrastructure.screener.tv_specialist import TVScreenerSpecialist, TVDiscoveryResult
 from backend.app.infrastructure.screener.confluence_scorer import TVConfluenceScorer, ConfluenceScore
 from backend.app.infrastructure.screener.tv_rate_limiter import TVRateLimiter
+from backend.app.infrastructure.screener.tv_circuit_breaker import TVCircuitBreaker
 from backend.app.infrastructure.screener.tv_cache import TVCache
 from backend.app.infrastructure.screener.configs import ScreenConfig
 from backend.app.core.logging import get_logger
@@ -59,28 +63,52 @@ class TVScreenEngine:
         self.scorer = TVConfluenceScorer()
         self.rate_limiter = TVRateLimiter(max_rate=25, interval=60.0, burst=5)
         self.cache = TVCache(ttl=60.0, maxsize=50)
+        # Circuit breaker: auto-disables speculative multi-screen fan-out
+        # (P1.2 flag consumer) when upstream call volume exceeds 20/60s.
+        self.circuit_breaker = TVCircuitBreaker(max_calls=20, window_seconds=60.0)
+        self._refresh_tasks: set[asyncio.Task[None]] = set()
+        self._inflight_refreshes: set[str] = set()
         self.log = get_logger("conflu.screener.tv_engine")
 
     async def discover(self, config: ScreenConfig, limit: int = 500) -> TVDiscoveryResult:
         """
         Stage 1: Run screen on TradingView server.
-        Cached + rate limited.
+        Cached + rate limited + stale-while-revalidate.
+
+        Cache policy:
+        - fresh hit (< ttl): serve immediately
+        - stale hit (ttl..stale_ttl): serve immediately AND schedule a
+          background refresh — prefer stale-with-freshness-label over
+          provider hammering
+        - miss: rate-limited synchronous discovery; only non-empty results
+          are cached (empty results are valid answers but never sticky).
         """
         cache_key = self.cache.make_key(config, limit)
 
-        # Check cache first
-        cached = self.cache.get(cache_key)
-        if cached is not None:
-            self.log.info("cache_hit", screen=config.name, key=cache_key)
-            return cached
+        value, is_stale = self.cache.get_with_freshness(cache_key)
+        if value is not None:
+            if is_stale:
+                self.log.info("stale_hit_refreshing", screen=config.name, key=cache_key)
+                self._schedule_refresh(cache_key, config, limit)
+            else:
+                self.log.info("cache_hit", screen=config.name, key=cache_key)
+            return value
 
-        # Rate limit + discover
-        async with self.rate_limiter:
-            result = await self.specialist.discover(config)
+        result = await self._rate_limited_discover(config)
 
-        # Cache result if non-empty
-        if result.raw_data is not None:
+        # Cache result only when non-empty (non-None AND non-empty DataFrame).
+        # Empty discoveries must NOT be cached — they would be served as sticky
+        # zero-match responses for 60s, masking transient upstream failures
+        # (e.g. broken filter compilation returning 0 rows).
+        if result.raw_data is not None and not result.raw_data.empty:
             self.cache.set(cache_key, result)
+        else:
+            self.log.info(
+                "empty_discovery_not_cached",
+                screen=config.name,
+                matches=result.total_matches,
+                key=cache_key,
+            )
 
         self.log.info(
             "discover_complete",
@@ -90,9 +118,51 @@ class TVScreenEngine:
         )
         return result
 
+    async def _rate_limited_discover(self, config: ScreenConfig) -> TVDiscoveryResult:
+        """Run one TV discovery under the rate limiter, recording the call."""
+        async with self.rate_limiter:
+            self.circuit_breaker.record_call()
+            return await self.specialist.discover(config)
+
+    def _schedule_refresh(self, cache_key: str, config: ScreenConfig, limit: int) -> None:
+        """Schedule a background refresh for a stale cache entry (deduped)."""
+        if cache_key in self._inflight_refreshes:
+            return
+
+        task: asyncio.Task[None] = asyncio.create_task(self._refresh(cache_key, config, limit))
+        self._refresh_tasks.add(task)
+        task.add_done_callback(self._refresh_tasks.discard)
+
+    async def _refresh(self, cache_key: str, config: ScreenConfig, limit: int) -> None:
+        """Background stale-while-revalidate refresh; never raises."""
+        self._inflight_refreshes.add(cache_key)
+        try:
+            result = await self._rate_limited_discover(config)
+            if result.raw_data is not None and not result.raw_data.empty:
+                self.cache.set(cache_key, result)
+                self.log.info("background_refresh_complete", screen=config.name, key=cache_key)
+            else:
+                # Keep serving the stale entry rather than replacing a good
+                # cached state with an empty one.
+                self.log.info(
+                    "background_refresh_empty_kept_stale",
+                    screen=config.name,
+                    key=cache_key,
+                    matches=result.total_matches,
+                )
+        except Exception as exc:  # noqa: BLE001 — background task must never propagate
+            log.error("background_refresh_failed", screen=config.name, error=str(exc))
+        finally:
+            self._inflight_refreshes.discard(cache_key)
+
     async def discover_multi_tf(self, config: ScreenConfig) -> list[TVDiscoveryResult]:
         """Multi-timeframe discovery: run per-TF, return all results."""
-        return await self.specialist.discover_multi_tf(config)
+        results = await self.specialist.discover_multi_tf(config)
+        # Account each returned timeframe as one upstream call so the
+        # circuit breaker sees true volume from multi-TF fan-out too.
+        for _ in results:
+            self.circuit_breaker.record_call()
+        return results
 
     async def score_discovery(self, result: TVDiscoveryResult, direction: str = "long") -> list[dict]:
         """
@@ -136,6 +206,32 @@ class TVScreenEngine:
                 "results": [],
             }
 
+        return await self._finalize_screen(config, result, start=start, limit=limit)
+
+    async def _finalize_screen(
+        self,
+        config: ScreenConfig,
+        result: TVDiscoveryResult,
+        *,
+        start: float,
+        limit: int = 500,
+        rs_map: dict[str, dict[str, float | None]] | None = None,
+    ) -> dict[str, Any]:
+        """Shared post-discovery pipeline: elite enrichment + confluence scoring.
+
+        ``rs_map`` (P1.3) carries universe-wide RS percentiles from the base
+        snapshot; matched items get an additive ``item["rs"]`` block when a
+        mapping exists for their symbol.
+        """
+        if result.raw_data is None:
+            return {
+                "screen_name": config.name,
+                "total_matches": 0,
+                "execution_ms": round((time.monotonic() - start) * 1000),
+                "timeframe": config.timeframes[0] if config.timeframes else "1D",
+                "results": [],
+            }
+
         # ── Elite signal enrichment (post-TV, no OHLCV needed) ──
         from backend.app.infrastructure.screener.elite_signal import EliteSignalProcessor
 
@@ -166,6 +262,12 @@ class TVScreenEngine:
             item["probable_fund"] = pf_flag
             item["probable_fund_reason"] = pf_reason
 
+            # ── RS-vs-index percentile enrichment (P1.3) ──
+            if rs_map is not None:
+                rs = rs_map.get(sym)
+                if rs is not None:
+                    item["rs"] = rs
+
         return {
             "screen_name": config.name,
             "total_matches": result.total_matches,
@@ -173,6 +275,104 @@ class TVScreenEngine:
             "timeframe": timeframe,
             "results": scored[:limit],
         }
+
+    async def screen_batch(
+        self, configs: list[ScreenConfig], limit: int = 500
+    ) -> list[dict[str, Any] | Exception]:
+        """Screen multiple templates for one discovery cycle.
+
+        One-Snapshot-Multi-Screen path (P1.2), gated by:
+        - feature flag ``settings.screen.snapshot_multi_screen`` (default OFF)
+        - circuit breaker: open breaker ⇒ legacy per-template discovery
+
+        The snapshot itself flows through the engine cache with
+        stale-while-revalidate; per-template results are derived locally at
+        zero upstream cost. Templates whose local masking fails closed fall
+        back to legacy ``screen()`` individually.
+
+        Response schema is IDENTICAL to
+        ``await asyncio.gather(*[self.screen(c) ...], return_exceptions=True)``
+        — per-item dicts, with Exceptions in place of failed screens.
+        Additive-only mandate holds.
+        """
+        from backend.app.core.config import settings
+        from backend.app.infrastructure.screener.snapshot_engine import (
+            SnapshotMultiScreenEngine,
+            build_base_config,
+        )
+
+        if not configs:
+            return []
+
+        async def _fallback_single(cfg: ScreenConfig) -> dict[str, Any] | Exception:
+            try:
+                return await self.screen(cfg, limit=limit)
+            except Exception as exc:  # noqa: BLE001 — caller handles per-item failures
+                return exc
+
+        use_snapshot = (
+            settings.screen.snapshot_multi_screen and not self.circuit_breaker.is_open()
+        )
+        if not use_snapshot:
+            # Mirror legacy gather semantics: per-item exceptions, not raises.
+            legacy = [_fallback_single(config) for config in configs]
+            return list(await asyncio.gather(*legacy))
+
+        start = time.monotonic()
+        base_config = build_base_config(configs, size=settings.screen.snapshot_size)
+        snapshot_engine = SnapshotMultiScreenEngine(
+            self.specialist, size=settings.screen.snapshot_size
+        )
+
+        # Snapshot participates in the SWR cache like any discovery.
+        cache_key = self.cache.make_key(base_config, settings.screen.snapshot_size)
+        cached, is_stale = self.cache.get_with_freshness(cache_key)
+        snapshot_df: pd.DataFrame | None = None
+        if cached is not None and not is_stale:
+            snapshot_df = getattr(cached, "raw_data", None)
+            self.log.info("snapshot_cache_hit", key=cache_key)
+        elif cached is not None and is_stale:
+            snapshot_df = getattr(cached, "raw_data", None)
+            self.log.info("snapshot_stale_hit_refreshing", key=cache_key)
+
+        if snapshot_df is None or snapshot_df.empty:
+            snapshot_df = await snapshot_engine.fetch_snapshot(configs)
+            if snapshot_df is None or snapshot_df.empty:
+                # Hard fallback: never serve silently-empty states.
+                self.log.warning("snapshot_fetch_empty_falling_back_legacy")
+                return list(await asyncio.gather(*[self.screen(c, limit=limit) for c in configs]))
+
+            result = TVDiscoveryResult(
+                screen_name=base_config.name,
+                total_matches=len(snapshot_df),
+                tickers=snapshot_df["ticker"].str.split(":").str[-1].unique().tolist()
+                if "ticker" in snapshot_df.columns
+                else [],
+                execution_ms=round((time.monotonic() - start) * 1000),
+                raw_data=snapshot_df,
+                timeframe="1D",
+            )
+            self.cache.set(cache_key, result)
+
+        local_results = snapshot_engine.discover_all_local(snapshot_df, configs)
+
+        # P1.3: universe-wide RS percentiles from the SAME snapshot —
+        # zero extra upstream calls. Legacy fallbacks get no rs block.
+        from backend.app.infrastructure.screener.rs_enrichment import compute_rs_percentiles
+
+        rs_map = compute_rs_percentiles(snapshot_df)
+
+        out: list[dict[str, Any] | Exception] = []
+        for config in configs:
+            local = local_results.get(config.name)
+            if local is None:
+                # Fail-closed template → legacy discovery just for this one.
+                out.append(await _fallback_single(config))
+                continue
+            out.append(
+                await self._finalize_screen(config, local, start=start, limit=limit, rs_map=rs_map)
+            )
+        return out
 
     async def screen_multi_tf(self, config: ScreenConfig) -> dict[str, Any]:
         """
@@ -387,4 +587,5 @@ class TVScreenEngine:
         return {
             "tokens": round(self.rate_limiter.tokens, 1),
             "total_blocked": self.rate_limiter.total_blocked,
+            "circuit_breaker": self.circuit_breaker.stats(),
         }

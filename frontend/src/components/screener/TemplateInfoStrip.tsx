@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { cn } from '@/lib/cn';
-import { Info, ChevronDown } from 'lucide-react';
+import { Info, ChevronDown, Check } from 'lucide-react';
 import type { ScreenTemplateDetail } from '@/types/screener';
-import { formatFilterList } from './filterDescriptions';
+import { formatFilterList, filtersByCategory, CATEGORY_HINTS, type FilterRuleDisplay } from './filterDescriptions';
 
 interface TemplateInfoStripProps {
   template: ScreenTemplateDetail | null;
@@ -13,6 +13,12 @@ export function TemplateInfoStrip({ template }: TemplateInfoStripProps) {
 
   if (!template) return null;
 
+  // Group rules by category so the expander reads as a structured checklist
+  const grouped: { category: string; rules: string[] }[] =
+    expanded && Array.isArray(template.filters)
+      ? filtersByCategory(template.filters as unknown as FilterRuleDisplay[])
+      : [];
+
   return (
     <div className="border-b border-border bg-surface/30 px-4 py-2">
       <div className="flex items-start gap-2">
@@ -21,9 +27,42 @@ export function TemplateInfoStrip({ template }: TemplateInfoStripProps) {
           <p className="text-xs leading-relaxed text-text-secondary">
             {template.description}
           </p>
+          {expanded && (
+            <p className="mt-1 text-xs text-text-muted/70 leading-relaxed">
+              A stock must pass <span className="text-text-primary font-semibold">every rule below</span> to appear in results:
+            </p>
+          )}
+          {expanded && (
+            <div className="mt-2 space-y-2.5">
+              {grouped.map(({ category, rules }) => (
+                <div key={category} className="rounded-md border border-border/40 bg-background/40 p-2.5">
+                  <div className="flex items-baseline gap-2 mb-1.5">
+                    <span className="text-xs font-semibold text-text-primary">{category}</span>
+                    <span className="text-[10px] text-text-muted leading-tight">{rules.length} rule{rules.length > 1 ? 's' : ''}</span>
+                  </div>
+                  <ul className="space-y-1">
+                    {rules.map((rule, i) => (
+                      <li key={i} className="text-xs text-text-secondary flex items-start gap-2">
+                        <Check className="h-3 w-3 mt-0.5 shrink-0 text-gain" />
+                        <span>{rule}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {CATEGORY_HINTS[category.toLowerCase()] && (
+                    <p className="text-[10px] text-text-muted/80 italic mt-1.5 pl-5">
+                      Why it matters: {CATEGORY_HINTS[category.toLowerCase()]}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {!expanded && template.filters?.length > 0 && (
+            <p className="mt-1 text-xs text-text-muted/70 truncate">{formatFilterList(template.filters)}</p>
+          )}
           <button
             onClick={() => setExpanded(!expanded)}
-            className="mt-1 flex items-center gap-1 text-xs text-text-muted hover:text-text-primary transition-colors"
+            className="mt-1 flex items-center gap-1 text-xs text-accent hover:text-accent/80 transition-colors"
           >
             <span>{expanded ? 'Hide' : 'View'} filters</span>
             <ChevronDown className={cn(
@@ -31,11 +70,6 @@ export function TemplateInfoStrip({ template }: TemplateInfoStripProps) {
               expanded && 'rotate-180'
             )} />
           </button>
-          {expanded && (
-            <p className="mt-1 text-xs text-text-muted/70 leading-relaxed">
-              {formatFilterList(template.filters)}
-            </p>
-          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className={cn(

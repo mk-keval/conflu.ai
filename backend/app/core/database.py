@@ -214,51 +214,6 @@ CREATE TABLE IF NOT EXISTS ingestion_health (
 """
 
 
-# Indicator cache table (tall format — one row per indicator value per timestamp per symbol)
-INDICATOR_VALUES_DDL = """
-CREATE TABLE IF NOT EXISTS indicator_values (
-    symbol VARCHAR,
-    timestamp TIMESTAMPTZ,
-    indicator_name VARCHAR,
-    value DOUBLE,
-    timeframe VARCHAR,
-    params VARCHAR,
-    computed_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_iv_lookup ON indicator_values (symbol, indicator_name, timeframe, timestamp);
-CREATE INDEX IF NOT EXISTS idx_iv_scan ON indicator_values (indicator_name, timeframe, timestamp DESC);
-"""
-
-# Optional wide snapshot for screening performance (created on demand)
-INDICATOR_SNAPSHOT_DDL = """
-CREATE TABLE IF NOT EXISTS indicator_snapshot (
-    symbol VARCHAR,
-    timestamp TIMESTAMPTZ,
-    timeframe VARCHAR DEFAULT '1D',
-    rsi_14 DOUBLE,
-    macd_line DOUBLE,
-    macd_signal DOUBLE,
-    macd_hist DOUBLE,
-    ema_20 DOUBLE,
-    ema_50 DOUBLE,
-    ema_200 DOUBLE,
-    sma_50 DOUBLE,
-    sma_200 DOUBLE,
-    atr_14 DOUBLE,
-    obv DOUBLE,
-    vwap DOUBLE,
-    bb_lower_20 DOUBLE,
-    bb_middle_20 DOUBLE,
-    bb_upper_20 DOUBLE,
-    stoch_k_14 DOUBLE,
-    stoch_d_14 DOUBLE,
-    adx_14 DOUBLE,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_is_scan ON indicator_snapshot (timeframe, symbol);
-"""
-
-
 # Backtest results tables
 BACKTEST_RESULTS_DDL = """
 CREATE TABLE IF NOT EXISTS backtest_results (
@@ -580,8 +535,6 @@ def initialize_database() -> None:
         con.execute(OHLCV_DDL)
         con.execute(SYMBOL_METADATA_DDL)
         con.execute(INGESTION_HEALTH_DDL)
-        con.execute(INDICATOR_VALUES_DDL)
-        con.execute(INDICATOR_SNAPSHOT_DDL)
         con.execute(BACKTEST_RESULTS_DDL)
         con.execute(BACKTEST_TRADES_DDL)
         con.execute(BACKTEST_EQUITY_CURVES_DDL)

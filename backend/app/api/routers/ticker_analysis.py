@@ -55,7 +55,9 @@ async def analyze_ticker(
     """
     log.info("ticker_analysis_requested", symbol=symbol)
 
-    result = engine.analyze(request)
+    # P3: async entry — pipeline makes blocking upstream calls; running it
+    # via to_thread keeps the event loop responsive (D-31 discipline).
+    result = await engine.analyze_async(request)
 
     return ApiResponse(
         data=result.model_dump(mode="json") if hasattr(result, "model_dump") else result,
@@ -438,6 +440,66 @@ async def get_news(
     limit: int = Query(20, ge=1, le=50, description="Number of news items to return"),
 ) -> ApiResponse:
     """Get news feed from Yahoo Finance with basic sentiment scoring."""
+    def _extract_news_item(item: dict) -> dict:
+        """Normalize a yfinance news item across schema generations.
+
+        Legacy schema (yfinance < 0.2.50): flat keys — title / link /
+        publisher / providerPublishTime.
+        Current schema: nested under 'content' — content.title,
+        content.clickThroughUrl.url (or content.canonicalUrl.url),
+        content.provider.displayName, content.pubTime (ISO-8601).
+        Missing URLs are common when Yahoo omits clickThroughUrl; the
+        frontend renders those as non-clickable headlines.
+        """
+        content = item.get("content") if isinstance(item.get("content"), dict) else None
+
+        if content is not None:
+            title = content.get("title") or item.get("title", "")
+            provider = content.get("provider") or {}
+            publisher = (
+                provider.get("displayName")
+                if isinstance(provider, dict)
+                else None
+            ) or item.get("publisher", "")
+            link = ""
+            for url_key in ("clickThroughUrl", "canonicalUrl"):
+                url_obj = content.get(url_key)
+                if isinstance(url_obj, dict) and url_obj.get("url"):
+                    link = url_obj["url"]
+                    break
+            if not link and isinstance(content.get("url"), str):
+                link = content["url"]
+            pub_time_raw = content.get("pubTime") or item.get("providerPublishTime", 0)
+            timestamp = 0
+            date_iso: str | None = None
+            if isinstance(pub_time_raw, (int, float)) and pub_time_raw:
+                timestamp = int(pub_time_raw)
+            elif isinstance(pub_time_raw, str) and pub_time_raw:
+                try:
+                    timestamp = int(datetime.fromisoformat(
+                        pub_time_raw.replace("Z", "+00:00")
+                    ).timestamp())
+                except ValueError:
+                    timestamp = 0
+        else:
+            title = item.get("title", "")
+            publisher = item.get("publisher", "")
+            link = item.get("link", "") or ""
+            timestamp = int(item.get("providerPublishTime", 0) or 0)
+            date_iso = None
+
+        return {
+            "title": title,
+            "publisher": publisher,
+            "link": link,
+            "timestamp": timestamp,
+            "date": (
+                datetime.fromtimestamp(timestamp, UTC).isoformat()
+                if timestamp
+                else date_iso
+            ),
+        }
+
     def _fetch():
         ticker = yf.Ticker(symbol.upper())
         news = ticker.news
@@ -463,20 +525,10 @@ async def get_news(
             return "neutral"
         
         items = []
-        for item in news[:limit]:
-            title = item.get('title', '')
-            publisher = item.get('publisher', '')
-            link = item.get('link', '')
-            timestamp = item.get('providerPublishTime', 0)
-            
-            items.append({
-                "title": title,
-                "publisher": publisher,
-                "link": link,
-                "timestamp": timestamp,
-                "date": datetime.fromtimestamp(timestamp, UTC).isoformat() if timestamp else None,
-                "sentiment": score_sentiment(title),
-            })
+        for raw in news[:limit]:
+            normalized = _extract_news_item(raw)
+            normalized["sentiment"] = score_sentiment(normalized["title"])
+            items.append(normalized)
         
         return {
             "symbol": symbol.upper(),

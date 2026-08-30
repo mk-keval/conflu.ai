@@ -180,6 +180,7 @@ def create_app() -> FastAPI:
 
     # ── Routers ──
     from backend.app.api.routers import (
+        sector_focus_router,
         backtest_router,
         data_router,
         health_router,
@@ -199,6 +200,7 @@ def create_app() -> FastAPI:
     app.include_router(professional_router, prefix="/api/v1")
     app.include_router(regime_router, prefix="/api/v1")
     app.include_router(risk_router, prefix="/api/v1")
+    app.include_router(sector_focus_router, prefix="/api/v1")
     app.include_router(sector_rotation_router, prefix="/api/v1")
     app.include_router(ticker_analysis_router, prefix="/api/v1")
     app.include_router(tv_screener_router, prefix="/api/v1")

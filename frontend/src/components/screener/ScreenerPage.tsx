@@ -62,6 +62,25 @@ const REGIME_SCREENER_MAP: Record<string, { recommended: string[]; avoid: string
 
 const DEFAULT_REGIME_RECOMMENDATION = { recommended: [], avoid: [] };
 
+/**
+ * Sector Focus deep-link mapping: ETF-family names (from /sectors/focus) to
+ * TV-result industry substrings (the sector pills). First pill whose name
+ * contains any keyword wins.
+ */
+const SECTOR_NAME_KEYWORDS: Record<string, string[]> = {
+  'Health Care': ['Health'],
+  Technology: ['Electronic Technology', 'Technology Services'],
+  Financials: ['Finance'],
+  Industrials: ['Industrial Services', 'Producer Manufacturing'],
+  Materials: ['Non-Energy Minerals'],
+  Energy: ['Energy Minerals'],
+  Utilities: ['Utilities'],
+  'Real Estate': ['Real Estate'],
+  'Consumer Cyclical': ['Retail Trade', 'Consumer Non-Durables', 'Commercial Services'],
+  'Consumer Staples': ['Consumer Non-Durables', 'Retail Trade'],
+  'Communication Services': ['Technology Services', 'Commercial Services'],
+};
+
 function getScreenerRecommendation(templateName: string, regimeLabel: string | null): 'recommended' | 'avoid' | null {
   if (!regimeLabel) return null;
   const mapping = REGIME_SCREENER_MAP[regimeLabel] ?? DEFAULT_REGIME_RECOMMENDATION;
@@ -94,7 +113,7 @@ function ScreenerContent() {
   const setConfig = useScreenStore((s) => s.setConfig);
   const { subscribe, unsubscribe, onMessage } = useWS();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // State
   const [templates, setTemplates] = useState<TVTemplate[]>([]);
@@ -304,6 +323,34 @@ function ScreenerContent() {
     }
     return [...sectors].sort();
   }, [results]);
+
+  // ── Focus-card deep-link resolution ──
+  // /screener?sector=Health Care arrives with an ETF-family name ("Health Care")
+  // but result pills carry TV industry names ("Health Technology"). Resolve the
+  // param to the first matching pill once results load; clear the param after.
+  useEffect(() => {
+    const requested = searchParams.get('sector');
+    if (!requested || uniqueSectors.length === 0 || sectorFilter) return;
+    if (uniqueSectors.includes(requested)) {
+      setSectorFilter(requested);
+      searchParams.delete('sector');
+      setSearchParams(searchParams, { replace: true });
+      return;
+    }
+    const keywords = SECTOR_NAME_KEYWORDS[requested];
+    if (!keywords) {
+      searchParams.delete('sector');
+      setSearchParams(searchParams, { replace: true });
+      return;
+    }
+    const match = uniqueSectors.find((s) =>
+      keywords.some((kw) => s.toLowerCase().includes(kw.toLowerCase()))
+    );
+    setSectorFilter(match ?? '');
+    searchParams.delete('sector');
+    setSearchParams(searchParams, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, uniqueSectors, sectorFilter]);
 
   // Clear sector filter when it no longer matches any result sector
   useEffect(() => {
@@ -541,6 +588,8 @@ function ColumnCustomizer({
   }, [open]);
 
   const toggleable = ALL_COLUMNS_META.filter((m) => !m.alwaysOn);
+  const normalCols = toggleable.filter((m) => !m.advanced);
+  const advancedCols = toggleable.filter((m) => m.advanced);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
   useEffect(() => {
@@ -553,6 +602,21 @@ function ColumnCustomizer({
       zIndex: 9999,
     });
   }, [open]);
+
+  const renderItem = (meta: (typeof ALL_COLUMNS_META)[number]) => (
+    <label
+      key={meta.key}
+      className="flex items-center gap-2 px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover/40 cursor-pointer select-none"
+    >
+      <input
+        type="checkbox"
+        checked={visibleColumns.has(meta.key)}
+        onChange={() => onToggle(meta.key)}
+        className="accent-accent"
+      />
+      {meta.label}
+    </label>
+  );
 
   return (
     <div ref={ref} className="relative">
@@ -571,20 +635,15 @@ function ColumnCustomizer({
           style={dropdownStyle}
           className="w-44 bg-surface-elevated border border-border/50 rounded-lg shadow-xl py-1"
         >
-          {toggleable.map((meta) => (
-            <label
-              key={meta.key}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover/40 cursor-pointer select-none"
-            >
-              <input
-                type="checkbox"
-                checked={visibleColumns.has(meta.key)}
-                onChange={() => onToggle(meta.key)}
-                className="accent-accent"
-              />
-              {meta.label}
-            </label>
-          ))}
+          {normalCols.map(renderItem)}
+          {advancedCols.length > 0 && (
+            <>
+              <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-text-muted border-t border-border/40 mt-1">
+                Advanced
+              </div>
+              {advancedCols.map(renderItem)}
+            </>
+          )}
         </div>,
         document.body
       )}

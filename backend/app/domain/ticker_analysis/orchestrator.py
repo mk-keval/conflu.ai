@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timezone
 from typing import Any
 
@@ -22,12 +23,20 @@ from backend.app.domain.ticker_analysis import (
 from backend.app.domain.ticker_analysis.models import (
     EarningsAnalysis,
     FundamentalAnalysis,
+    MultiTimeframeTechnical,
     RiskAssessment,
     SentimentAnalysis,
     TechnicalAnalysis,
     TickerAnalysisRequest,
     TickerAnalysisResponse,
     AnalysisVerdict,
+)
+
+# Import OHLCV fetchers from technical module
+from backend.app.domain.ticker_analysis.technical import (
+    _fetch_daily_ohlcv,
+    _fetch_weekly_ohlcv,
+    _fetch_intraday_ohlcv,
 )
 
 log = get_logger("conflu.ticker_analysis")
@@ -339,7 +348,17 @@ class TickerAnalysisService:
 
     def __init__(self) -> None:
         self.log = get_logger("conflu.ticker_analysis.service")
-        self.log = get_logger("conflu.ticker_analysis.service")
+
+    async def analyze_async(self, request: TickerAnalysisRequest) -> TickerAnalysisResponse:
+        """Async entry point (P3): off-blocks the event loop via to_thread.
+
+        Routers must prefer this over the sync :meth:`analyze` — the pipeline
+        makes several blocking yfinance/TV calls, and running them on the
+        loop stalls every other request (D-31 lesson).
+        """
+        import asyncio
+
+        return await asyncio.to_thread(self.analyze, request)
 
     def analyze(self, request: TickerAnalysisRequest) -> TickerAnalysisResponse:
         """Run full analysis on a ticker."""
@@ -348,7 +367,22 @@ class TickerAnalysisService:
 
         # ── 1. Gather data ──
         tv_data: dict[str, Any] = request.tv_data or {}
-        info: dict[str, Any] = _fetch_info(symbol)
+
+        # P3: yfinance .info and the OHLCV-based technical computation are
+        # independent blocking calls — run them concurrently instead of
+        # paying both latencies serially (~18s cold → ~half).
+        _pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ta-fetch")
+        try:
+            f_info = _pool.submit(_fetch_info, symbol)
+            f_computed = _pool.submit(_compute_missing_technicals, symbol, tv_data)
+            info: dict[str, Any] = f_info.result()
+            computed: dict[str, Any] = {}
+            try:
+                computed = f_computed.result()
+            except Exception:
+                self.log.warning("compute_technicals_failed", symbol=symbol, exc_info=True)
+        finally:
+            _pool.shutdown(wait=False)
 
         # Guard: if yfinance returned an empty/404 response (WBA-style delisted
         # ticker), short-circuit with a synthetic empty-data verdict rather than
@@ -444,7 +478,7 @@ class TickerAnalysisService:
         # (more current from the screener), but cross-reference for
         # discrepancies. When TV data is missing, the yfinance computed
         # values fill in the gap.
-        computed = _compute_missing_technicals(symbol, tv_data)
+        # P3: already computed CONCURRENTLY with _fetch_info above.
 
         # Populate missing fields from yfinance-computed data
         for key in ("RSI", "ADX", "MACD.macd", "MACD.signal", "SMA20"):
@@ -478,44 +512,63 @@ class TickerAnalysisService:
         sector = info.get("sector") or tv_data.get("sector")
 
         # ── 2. Run analysis modules ──
+        # P3: the five modules are independent — fan them out on threads.
+        # technical.analyze(include_weekly=True) hides a blocking 2y weekly
+        # yfinance fetch, so overlapping it with the rest is the big win;
+        # per-module exception semantics are preserved exactly.
         tech: TechnicalAnalysis | dict[str, TechnicalAnalysis] | None = None
         fund: FundamentalAnalysis | None = None
         earn: EarningsAnalysis | None = None
         sent: SentimentAnalysis | None = None
         risk: RiskAssessment | None = None
 
+        def _run_module(
+            name: str,
+            fn: Any,
+            *args: Any,
+            **kwargs: Any,
+        ) -> Any:
+            try:
+                return fn(*args, **kwargs)
+            except Exception:
+                self.log.exception(f"{name}_analysis_failed", symbol=symbol)
+                return None
+
+        module_pool = ThreadPoolExecutor(max_workers=5, thread_name_prefix="ta-mod")
         try:
-            # Include weekly technical analysis for multi-timeframe perspective
-            tech = technical.analyze(tv_data, symbol=symbol, include_weekly=True)
-        except Exception:
-            self.log.exception("technical_analysis_failed", symbol=symbol)
+            # Pre-fetch OHLCV data for advanced chart reading (daily + weekly + intraday)
+            daily_ohlcv = _fetch_daily_ohlcv(symbol) if symbol else None
+            weekly_ohlcv = _fetch_weekly_ohlcv(symbol) if symbol else None
+            intraday_4h_ohlcv = _fetch_intraday_ohlcv(symbol, "4h", "3mo") if symbol else None
+            intraday_1h_ohlcv = _fetch_intraday_ohlcv(symbol, "1h", "1mo") if symbol else None
+            
+            f_tech = module_pool.submit(
+                _run_module, "technical", technical.analyze, 
+                tv_data, symbol=symbol, include_weekly=True,
+                daily_ohlcv=daily_ohlcv, weekly_ohlcv=weekly_ohlcv,
+                intraday_4h_ohlcv=intraday_4h_ohlcv, intraday_1h_ohlcv=intraday_1h_ohlcv
+            )
+            f_fund = module_pool.submit(_run_module, "fundamental", fundamentals.analyze, info)
+            f_earn = module_pool.submit(_run_module, "earnings", earnings.analyze, info)
+            f_sent = module_pool.submit(_run_module, "sentiment", sentiment.analyze, info)
+            f_risk = module_pool.submit(_run_module, "risk", risk_module.analyze, tv_data, info)
+
+            tech = f_tech.result()
+            fund = f_fund.result()
+            earn = f_earn.result()
+            sent = f_sent.result()
+            risk = f_risk.result()
+        finally:
+            module_pool.shutdown(wait=False)
+
+        if fund is not None:
+            # Pass instrument type to risk module via info dict (post-fan-out,
+            # risk already consumed tv_data; instrument_type informs sizing).
+            info["instrument_type"] = fund.instrument_type
 
         # Extract daily + weekly technical for synthesis
         tech_daily = tech["daily"] if isinstance(tech, dict) else tech
         tech_weekly = tech.get("weekly") if isinstance(tech, dict) else None
-
-        try:
-            fund = fundamentals.analyze(info)
-            # Pass instrument type to risk module via info dict
-            if fund:
-                info["instrument_type"] = fund.instrument_type
-        except Exception:
-            self.log.exception("fundamental_analysis_failed", symbol=symbol)
-
-        try:
-            earn = earnings.analyze(info)
-        except Exception:
-            self.log.exception("earnings_analysis_failed", symbol=symbol)
-
-        try:
-            sent = sentiment.analyze(info)
-        except Exception:
-            self.log.exception("sentiment_analysis_failed", symbol=symbol)
-
-        try:
-            risk = risk_module.analyze(tv_data, info)
-        except Exception:
-            self.log.exception("risk_analysis_failed", symbol=symbol)
 
         # ── 2b. M&A Detection ──
         # Heuristic: if price is pinned near analyst target with ultra-low volatility
@@ -574,8 +627,42 @@ class TickerAnalysisService:
         except Exception:
             self.log.exception("macro_overlay_failed", symbol=symbol)
 
+        # ── 3c. Mentor narration (P2.1) — deterministic reasoning chain on
+        # the FINAL verdict (post-macro), so what-kills-it matches the
+        # levels actually emitted.
+        try:
+            from backend.app.domain.ticker_analysis.narration import build_narration
+
+            verdict = verdict.model_copy(
+                update={
+                    "narration": build_narration(
+                        symbol=symbol,
+                        price=price,
+                        verdict=verdict,
+                        technical=tech_daily,
+                        fundamental=fund,
+                        earnings=earn,
+                        sentiment=sent,
+                    )
+                }
+            )
+        except Exception:
+            self.log.exception("narration_failed", symbol=symbol)
+
         # ── 4. Build response ──
         duration_ms = round((time.monotonic() - start) * 1000)
+
+        # Ship the full multi-timeframe technical when the module produced it
+        # (weekly was already computed + used for MTF verdict alignment above;
+        # dropping it here wasted that fetch and starved the frontend's
+        # Daily/Weekly columns).
+        technical_payload: TechnicalAnalysis | MultiTimeframeTechnical | None
+        if isinstance(tech, dict) and tech_daily is not None:
+            technical_payload = (
+                MultiTimeframeTechnical(daily=tech_daily, weekly=tech_weekly)
+            )
+        else:
+            technical_payload = tech_daily
 
         # Data freshness: yfinance provides market time; fall back to analysis time
         now_utc = datetime.now(UTC)
@@ -595,7 +682,6 @@ class TickerAnalysisService:
             price=price,
             change_pct=change,
             sector=sector,
-            technical=tech_daily,
             fundamental=fund,
             earnings=earn,
             sentiment=sent,
@@ -604,6 +690,7 @@ class TickerAnalysisService:
             execution_ms=duration_ms,
             analysis_timestamp=analysis_ts,
             data_age_hours=data_age_hours,
+            technical=technical_payload,
             data_sources={
                 "technical_daily": "TV Screener + yfinance (6mo daily)",
                 "technical_weekly": "yfinance (2y weekly)",

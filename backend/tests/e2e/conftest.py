@@ -48,7 +48,15 @@ def run_server() -> None:
     uvicorn.run(app, host="0.0.0.0", port=8001, log_level="info")
 
 
-@pytest.fixture(scope="session")
+# NOTE: These fixtures are module-scoped, not session-scoped.
+# sync_playwright() runs its dispatcher event loop in the main thread via
+# greenlets and leaves it suspended mid-run_until_complete for the lifetime of
+# the instance. With session scope, that suspended loop poisons the thread's
+# running-loop state for every later pytest-asyncio test in the same process,
+# making asyncio.Runner.run() raise "Runner.run() cannot be called from a
+# running event loop" (observed breaking backend/tests/integration async
+# tests). Module scope guarantees full teardown before the next test module.
+@pytest.fixture(scope="module")
 def test_server() -> Generator[str, None, None]:
     """Start a live uvicorn server in a subprocess for e2e tests.
 
@@ -79,7 +87,7 @@ def test_server() -> Generator[str, None, None]:
     proc.join(timeout=5)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def playwright() -> Generator[Playwright, None, None]:
     """Create a Playwright instance."""
     from playwright.sync_api import sync_playwright
@@ -87,7 +95,7 @@ def playwright() -> Generator[Playwright, None, None]:
         yield p
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def browser(playwright: Playwright) -> Generator[Browser, None, None]:
     """Launch a Chromium browser instance."""
     browser = playwright.chromium.launch(headless=True)
@@ -95,7 +103,7 @@ def browser(playwright: Playwright) -> Generator[Browser, None, None]:
     browser.close()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def api_context(
     playwright: Playwright,
     test_server: str,

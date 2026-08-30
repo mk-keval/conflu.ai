@@ -429,42 +429,23 @@ def _detect_market_regime(sectors: list[SectorPerformance]) -> str:
     return "mixed"
 
 
-# ── Routes ──
-
-
-@router.get("")
-async def get_sector_rotation() -> ApiResponse[SectorRotationResponse]:
-    """Get current sector rotation snapshot with 1D/1W performance, RS rankings, and smart money flow signals."""
-    start = datetime.now(UTC)
-
-    df, volume_ratios, latest_volumes, volume_ratios_1w = _get_cached_sector_data()
-    if df.empty or len(df.columns) < 2:
-        log.warning("sector_rotation_no_data")
-        return ApiResponse(
-            data=SectorRotationResponse(
-                sectors=[],
-                leaders=[],
-                laggards=[],
-                rotation_phase="unknown",
-                market_regime="unknown",
-                timestamp=start.isoformat(),
-            ),
-            meta=MetaInfo(request_id="", duration_ms=0),
-        )
-
-    # Compute returns
+def _build_sector_performances(
+    df: pd.DataFrame,
+    volume_ratios: dict[str, float],
+    latest_volumes: dict[str, float],
+    volume_ratios_1w: dict[str, float],
+) -> list[SectorPerformance]:
+    """Shared pipeline used by BOTH the rotation snapshot and the focus verdict so
+    every surface renders byte-identical sector numbers from one cache."""
     returns = _compute_returns(df)
 
-    # Relative strength
     rs_1d = _compute_relative_strength(returns, "change_1d")
     rs_1w = _compute_relative_strength(returns, "change_1w")
 
-    # Build sector performance objects
     sectors: list[SectorPerformance] = []
     for sym in SECTOR_SYMBOLS:
         info = SECTOR_ETFS.get(sym, {"name": sym, "description": ""})
 
-        # Get latest price
         prices = df[sym].dropna() if sym in df.columns else pd.Series(dtype=float)
         price = float(prices.iloc[-1]) if len(prices) > 0 else 0.0
 
@@ -508,6 +489,34 @@ async def get_sector_rotation() -> ApiResponse[SectorRotationResponse]:
         perf.flow_strength_1w = flow_1w_str
 
         sectors.append(perf)
+
+    return sectors
+
+
+# ── Routes ───────────────────────────────────────────────────────────────
+
+
+@router.get("")
+async def get_sector_rotation() -> ApiResponse[SectorRotationResponse]:
+    """Get current sector rotation snapshot with 1D/1W performance, RS rankings, and smart money flow signals."""
+    start = datetime.now(UTC)
+
+    df, volume_ratios, latest_volumes, volume_ratios_1w = _get_cached_sector_data()
+    if df.empty or len(df.columns) < 2:
+        log.warning("sector_rotation_no_data")
+        return ApiResponse(
+            data=SectorRotationResponse(
+                sectors=[],
+                leaders=[],
+                laggards=[],
+                rotation_phase="unknown",
+                market_regime="unknown",
+                timestamp=start.isoformat(),
+            ),
+            meta=MetaInfo(request_id="", duration_ms=0),
+        )
+
+    sectors = _build_sector_performances(df, volume_ratios, latest_volumes, volume_ratios_1w)
 
     # Sort by momentum for leaders/laggards
     sorted_by_mom = sorted(sectors, key=lambda s: s.momentum_score or 0, reverse=True)

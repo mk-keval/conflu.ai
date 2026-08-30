@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 from backend.app.domain.ticker_analysis.models import EarningsAnalysis
@@ -85,6 +86,7 @@ def analyze(info: dict[str, Any]) -> EarningsAnalysis:
     # ── Next Earnings Date ──
     next_date = info.get("earningsTimestampStart") or info.get("earningsTimestamp")
     next_date_str = None
+    days_until_earnings: int | None = None
     if next_date:
         from datetime import datetime
 
@@ -93,8 +95,16 @@ def analyze(info: dict[str, Any]) -> EarningsAnalysis:
                 dt = datetime.fromtimestamp(next_date)
             else:
                 dt = datetime.fromisoformat(str(next_date).replace("Z", "+00:00"))
+            # Normalize to aware-local so the subtraction below can never
+            # hit naive-vs-aware TypeError (which previously swallowed the
+            # whole proximity computation into the except branch).
+            if dt.tzinfo is None:
+                dt = dt.astimezone()
             next_date_str = dt.strftime("%b %d, %Y")
-            days_until = (dt - datetime.now().astimezone()).days
+            days_until = (dt - datetime.now(timezone.utc).astimezone()).days
+            # P1.5: persist the proximity so brief cards + watchlist rows can
+            # render a warning chip without re-deriving it.
+            days_until_earnings = int(days_until)
             if 0 <= days_until <= 14:
                 findings.append(f"⚠️ Earnings in {days_until}d ({next_date_str}) — earnings risk window")
                 score -= 0.1  # Uncertainty premium
@@ -131,5 +141,6 @@ def analyze(info: dict[str, Any]) -> EarningsAnalysis:
         beat_rate=beat_rate_str,
         avg_reaction_pct=None,
         next_earnings_date=next_date_str,
+        days_until_earnings=days_until_earnings,
         findings=findings,
     )

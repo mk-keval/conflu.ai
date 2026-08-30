@@ -1,0 +1,3004 @@
+{
+  "meta": {
+    "version": "1.1.0-glossary-enriched",
+    "updatedAt": "2026-08-26"
+  },
+  "thresholds": {
+    "RSI_OVERBOUGHT": 70,
+    "RSI_OVERSOLD": 30,
+    "ATR_HIGH_PCT": 5,
+    "ATR_LOW_PCT": 2,
+    "DE_HIGH": 2,
+    "PE_EXPENSIVE": 30,
+    "PE_CHEAP": 15
+  },
+  "metrics": {
+    "rsi": {
+      "label": "Relative Strength Index",
+      "category": "technical",
+      "oneLiner": "A 0–100 speedometer for price movement — how hard the stock has been rising or falling recently.",
+      "what": "RSI measures how strongly a stock has been moving over roughly the last two weeks, on a scale of 0 to 100. Think of it as a speedometer: it does not tell you the direction of the road (that is the trend), only how fast the price is travelling and whether that pace is sustainable. Above 70 is 'overbought' — like an engine at redline; below 30 is 'oversold' — a car braking hard.",
+      "howCalculated": "Compares the average size of recent up-days to down-days over 14 periods, squeezed into a 0–100 range.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [
+          {
+            "if": "value > 85",
+            "text": "${value} — extreme overbought. In strong trends this can persist, but risk/reward for new entries is poor."
+          },
+          {
+            "if": "value >= 70",
+            "text": "${value} — overbought territory. The stock has risen fast; pullback risk is elevated but this alone is NOT a sell signal in a strong trend."
+          },
+          {
+            "if": "value >= 50",
+            "text": "${value} — the sweet spot: upward momentum without being stretched."
+          },
+          {
+            "if": "value >= 30",
+            "text": "${value} — downward pressure, but not yet at extreme oversold levels."
+          },
+          {
+            "if": "",
+            "text": "${value} — oversold. A bounce may be near, OR something fundamental is wrong. Check the news before treating it as a bargain."
+          }
+        ]
+      },
+      "whyMatters": "RSI helps answer: 'Is this move running out of steam, or still has room?' It times entries better than it predicts reversals.",
+      "scoringImpact": "In our engine: RSI 50–70 adds positive points; extreme overbought (>85) without fundamental support can trigger a dealbreaker flag; oversold is judged by surrounding context, not mechanically.",
+      "commonMistakes": [
+        "Selling just because RSI is overbought — in strong uptrends stocks can stay above 70 for weeks while making huge gains.",
+        "Buying just because RSI is oversold — a stock can stay oversold while a company deteriorates.",
+        "Using RSI alone instead of combining with trend (MA alignment) and volume confirmation."
+      ],
+      "example": "NVDA at RSI 72 during a product-launch rally stayed overbought for three weeks and gained another 18% — overbought marked STRENGTH there. The same reading on a stock with falling revenue preceded a 25% drop.",
+      "related": [
+        "ma_alignment",
+        "volume_ratio",
+        "adx"
+      ]
+    },
+    "ma_alignment": {
+      "label": "MA Alignment",
+      "category": "technical",
+      "oneLiner": "Checks whether the 20-, 50-, and 200-day moving averages are stacked in order — like confirming all traffic lights are green.",
+      "what": "Moving averages smooth out daily price noise to reveal the underlying trend. We look at three timeframes: 20 days (short-term), 50 days (medium-term), and 200 days (long-term). Alignment means they are stacked in the same direction — like a set of traffic lights all showing green for an uptrend or red for a downtrend.",
+      "howCalculated": "Compares the relative positions of SMA20, SMA50, and SMA200. If SMA20 > SMA50 > SMA200 it is bullish; if SMA20 < SMA50 < SMA200 it is bearish; anything else is mixed.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "plain",
+        "bands": [
+          {
+            "if": "value == 'bullish'",
+            "text": "BULLISH — short-term > mid-term > long-term. All three trends agree: the stock is in a clear uptrend."
+          },
+          {
+            "if": "value == 'bearish'",
+            "text": "BEARISH — short-term < mid-term < long-term. All three trends agree: the stock is in a clear downtrend."
+          },
+          {
+            "if": "",
+            "text": "MIXED — no clear order among the three averages. The stock lacks a strong directional trend right now."
+          }
+        ]
+      },
+      "whyMatters": "A stock with aligned moving averages is like a car with all passengers agreeing on the destination — the ride is smoother. Mixed alignment means conflicting signals, making entries riskier.",
+      "scoringImpact": "This is one of the heaviest-weighted factors. Bullish alignment contributes a large positive boost. Bearish alignment pushes the score negative. Mixed adds nothing.",
+      "commonMistakes": [
+        "Treating mixed alignment as a signal — it is the absence of a signal, not a third trend direction.",
+        "Ignoring alignment and chasing a stock that is above its 20-day MA but below its 200-day MA."
+      ],
+      "example": "AAPL shows SMA20 at $175, SMA50 at $170, SMA200 at $160 — all stacked upward. This bullish alignment added +0.4 to the technical score and helped confirm the uptrend before a 12% rally.",
+      "related": [
+        "sma_50_200",
+        "rsi",
+        "adx"
+      ]
+    },
+    "adx": {
+      "label": "ADX (Average Directional Index)",
+      "category": "technical",
+      "oneLiner": "A volume knob for trend strength — higher ADX means the trend has more conviction behind it, regardless of direction.",
+      "what": "ADX measures how strong a trend is, not which way it goes. Think of it as a volume knob: the higher the number, the more 'volume' or conviction behind the move. A reading above 25 means a trend is in place; above 50 means it is very strong; below 20 means the market is choppy or range-bound.",
+      "howCalculated": "Derived from the smoothed difference between the positive and negative directional indicators (+DI and -DI) over 14 periods. The result is a 0–100 scale where higher equals stronger trend.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "plain",
+        "bands": [
+          {
+            "if": "value >= 50",
+            "text": "${value} — very strong trend. Big moves are happening with high conviction."
+          },
+          {
+            "if": "value >= 25",
+            "text": "${value} — trending market with decent strength. A trend exists and has some power behind it."
+          },
+          {
+            "if": "",
+            "text": "${value} — weak or choppy price action. No clear trend; trend-following strategies are less effective here."
+          }
+        ]
+      },
+      "whyMatters": "A stock can be going up, but if ADX is low, the move might be weak and easily reversed. High ADX gives confidence that the trend will continue — like a strong current in a river versus a stagnant pond.",
+      "scoringImpact": "Strong trends (ADX >= 25) boost the technical score. Very strong trends (ADX >= 50) add more. Weak trends (ADX < 20) are neutral. Extreme ADX with poor positioning can signal an exhausted trend.",
+      "commonMistakes": [
+        "Assuming high ADX means 'buy' — it only means the trend is strong, not that the direction favors you.",
+        "Ignoring ADX and trading crossovers in choppy markets (ADX < 20) where whipsaws are frequent."
+      ],
+      "example": "TSLA during its 2020 run had ADX above 40 for months — the trend was powerful. In summer 2022, ADX dropped below 15 while price drifted sideways — traders using trend-following lost money on false breakouts.",
+      "related": [
+        "ma_alignment",
+        "rsi",
+        "macd_status"
+      ]
+    },
+    "atr_pct": {
+      "label": "ATR % (Average True Range Percent)",
+      "category": "technical",
+      "oneLiner": "The stock's typical daily move as a percentage of price — your guide for how wide to set stop losses and how many shares to buy.",
+      "what": "ATR measures how much a stock typically moves each day (its volatility). We express it as a percentage of price so you can compare a $10 stock to a $500 stock. A 5% ATR means the stock swings ~$5 on a $100 stock or ~$25 on a $500 stock — same percentage, very different dollar moves.",
+      "howCalculated": "Average True Range over 14 periods divided by current price, multiplied by 100. True Range captures the full daily move including gaps.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "percent",
+        "bands": [
+          {
+            "if": "value > 5",
+            "text": "${value}% — HIGH volatility. This stock moves a lot each day. Bigger potential gains, but also bigger potential losses. Use wider stops and smaller positions."
+          },
+          {
+            "if": "value > 2",
+            "text": "${value}% — moderate volatility. Normal stock movement with occasional bigger days. Standard stop-loss sizing works well."
+          },
+          {
+            "if": "",
+            "text": "${value}% — low volatility. This stock is steady and predictable. Smaller day-to-day moves mean tighter stops and potentially larger positions."
+          }
+        ]
+      },
+      "whyMatters": "Volatility tells you how bumpy the ride will be. High volatility stocks need wider stop losses and smaller position sizes — like driving a monster truck versus a sedan. Low volatility stocks are calmer but may have less profit potential.",
+      "scoringImpact": "Used to calculate suggested stop loss and position size. Extreme volatility (>5%) is flagged as a dealbreaker. Normal volatility (2–5%) is ideal.",
+      "commonMistakes": [
+        "Using the same stop-loss percentage on a 1% ATR stock and a 6% ATR stock — the latter will stop you out on normal noise.",
+        "Confusing ATR% with beta — ATR% is the stock's own daily range; beta is how it moves relative to the market."
+      ],
+      "example": "NVDA at $400 with ATR% of 3.5% means a typical day sees a $14 swing. A 2 ATR stop would be $28 (7%). If you risk 1% of a $50K account ($500), you'd buy ~18 shares. Same math on a 1% ATR stock would buy ~60 shares.",
+      "related": [
+        "suggested_stop_pct",
+        "suggested_position_size_pct",
+        "beta"
+      ]
+    },
+    "volume_ratio": {
+      "label": "Volume Ratio (Relative Volume)",
+      "category": "technical",
+      "oneLiner": "Today's volume compared to the 10-day average — tells you if big money is paying attention right now.",
+      "what": "Compares today's trading volume to the average volume over the last 10 days. A ratio of 2.0 means today's volume is double the norm. You may see this called 'Relative Volume' (rvol) elsewhere — it is the same number. High volume confirms a price move is real; low volume suggests it might be a head fake.",
+      "howCalculated": "Current day's volume divided by the 10-day average volume. A ratio of 1.0 is exactly average; 3.0 is three times average.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "ratio",
+        "bands": [
+          {
+            "if": "value > 3",
+            "text": "${value}x — EXTREME volume. Something major is happening. Big institutions are aggressively buying or selling."
+          },
+          {
+            "if": "value > 1.5",
+            "text": "${value}x — above-average volume. More interest than usual, confirming the current price move."
+          },
+          {
+            "if": "value >= 1",
+            "text": "${value}x — normal volume. Typical trading activity; no unusual conviction."
+          },
+          {
+            "if": "",
+            "text": "${value}x — below-average volume. Less interest than usual. Moves on low volume can be unreliable."
+          }
+        ]
+      },
+      "whyMatters": "High volume confirms that a price move is real. A stock going up on high volume = genuine buying pressure. A stock going up on low volume = might be a false move. Volume is the 'lie detector' for price action.",
+      "scoringImpact": "High volume (>1.5x) adds positive points when direction aligns with the trend. Low volume doesn't hurt but doesn't help either. The screener's volume badge (e.g., '×2.3') uses this same value.",
+      "commonMistakes": [
+        "Getting excited by high volume on a down day — heavy selling volume is bearish, not bullish.",
+        "Ignoring low volume breakouts — a stock breaking resistance on 0.5x volume often fails."
+      ],
+      "example": "META earnings day: volume ratio 4.2x. The stock gapped up 15% on massive volume — institutions were aggressively accumulating. Two weeks later, a 5% rally on 0.6x volume quickly reversed — no conviction behind it.",
+      "related": [
+        "avg_volume_20d",
+        "ma_alignment",
+        "consecutive_gains"
+      ]
+    },
+    "bb_position": {
+      "label": "Bollinger Band Position",
+      "category": "technical",
+      "oneLiner": "Where the price sits inside its volatility channel — inside is normal, outside means something unusual is happening.",
+      "what": "Bollinger Bands create a 'price channel' around the 20-day moving average. The bands widen when volatility increases and narrow when it decreases. This metric tells you whether the price is inside the channel (normal), above the upper band (strong momentum or over-extended), or below the lower band (sharp decline or oversold).",
+      "howCalculated": "Compares current price to the upper and lower Bollinger Bands (2 standard deviations from the 20-day SMA). Three states: above the upper band ('above_upper'), inside, or below the lower band ('below_lower').",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "plain",
+        "bands": [
+          {
+            "if": "value == 'above_upper'",
+            "text": "ABOVE UPPER BAND — an unusually strong move. Could be a breakout with momentum, or over-extended and due for a pullback. Check RSI and volume."
+          },
+          {
+            "if": "value == 'below_lower'",
+            "text": "BELOW LOWER BAND — an unusually sharp decline. Could be a buying opportunity if oversold, or a sign of serious trouble. Check fundamentals."
+          },
+          {
+            "if": "",
+            "text": "INSIDE BANDS — normal trading within the expected volatility range. No extreme pressure in either direction."
+          }
+        ]
+      },
+      "whyMatters": "When price touches or breaks through the bands, it signals something unusual. Combined with RSI and volume, this can indicate breakout opportunities (above upper with high volume + rising RSI) or warning signs (above upper with falling RSI + low volume).",
+      "scoringImpact": "Inside the bands = neutral. Above upper during a strong trend (ADX > 25) with confirming volume = positive. Below lower = typically negative unless other factors (RSI oversold, insider buying) suggest a bounce.",
+      "commonMistakes": [
+        "Shorting just because price is above the upper band — in strong trends, price can ride the upper band for weeks.",
+        "Buying just because price is below the lower band — a falling knife can cut deeper; wait for a reversal signal."
+      ],
+      "example": "NVDA broke above the upper band in May 2023 with RSI at 65 and volume 2.5x — continued up 40% over two months. The same stock pierced the upper band in July 2022 with RSI at 82 and volume 0.8x — pulled back 15% in a week.",
+      "related": [
+        "rsi",
+        "volume_ratio",
+        "atr_pct"
+      ]
+    },
+    "macd_status": {
+      "label": "MACD (Moving Average Convergence Divergence)",
+      "category": "technical",
+      "oneLiner": "Spots momentum shifts by comparing two moving averages — like feeling the wind change before the weather turns.",
+      "what": "MACD compares the 12-day and 26-day exponential moving averages to spot changes in momentum. The MACD line crossing above the signal line is a classic bullish signal; crossing below is bearish. It helps you catch trend changes early.",
+      "howCalculated": "MACD line = EMA12 minus EMA26. Signal line = 9-day EMA of MACD line. Status is bullish (MACD > signal), bearish (MACD < signal), or neutral (very close).",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "plain",
+        "bands": [
+          {
+            "if": "value == 'bullish'",
+            "text": "BULLISH — the shorter-term average crossed above the longer-term one. Momentum is shifting upward. A classic buy signal."
+          },
+          {
+            "if": "value == 'bearish'",
+            "text": "BEARISH — the shorter-term average crossed below the longer-term one. Downward momentum is building. A warning sign."
+          },
+          {
+            "if": "",
+            "text": "NEUTRAL — the two averages are close together. No clear momentum signal. The stock is 'coasting' without a directional push."
+          }
+        ]
+      },
+      "whyMatters": "MACD helps you catch trend changes EARLY. It's like feeling the wind shift before the weather changes. Traders use it to time entries (bullish cross) and exits (bearish cross) rather than predicting tops and bottoms.",
+      "scoringImpact": "Bullish MACD adds to the technical score. Bearish MACD subtracts. Neutral has no impact.",
+      "commonMistakes": [
+        "Trading every MACD cross in a choppy market (ADX < 20) — whipsaws will bleed the account.",
+        "Ignoring the histogram — the distance between MACD and signal line shows momentum acceleration/deceleration before the cross happens."
+      ],
+      "example": "AMD bullish MACD cross in November 2022 at $65 preceded a 60% rally over four months. Bearish cross in July 2023 at $110 preceded a 25% correction. The histogram started shrinking two weeks before the bearish cross — early warning.",
+      "related": [
+        "rsi",
+        "adx",
+        "ma_alignment"
+      ]
+    },
+    "avg_volume_20d": {
+      "label": "Avg Volume (20d)",
+      "category": "fundamental",
+      "oneLiner": "How many shares trade daily on average — the 'width of the door' for getting in and out.",
+      "what": "Average 20-day volume is the mean number of shares traded each day over the last month. Higher volume means more liquidity — you can buy or sell large positions without moving the price. Low volume means wide spreads and slippage.",
+      "howCalculated": "Sum of daily volume over 20 trading days ÷ 20.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "compactNumber",
+        "bands": [
+          {
+            "if": "value >= 10000000",
+            "text": "${value} shares/day — very liquid. Huge volume means you can trade large positions without affecting the price."
+          },
+          {
+            "if": "value >= 1000000",
+            "text": "${value} shares/day — decent liquidity. Normal for mid-to-large cap stocks."
+          },
+          {
+            "if": "value >= 100000",
+            "text": "${value} shares/day — moderate. Tradeable but larger orders may affect the price."
+          },
+          {
+            "if": "",
+            "text": "${value} shares/day — low volume. Be careful with position size as the spread may be wide."
+          }
+        ]
+      },
+      "whyMatters": "Volume is like the 'width' of the market. High volume = easy to get in and out. Low volume = price can move against you when you try to trade. Always check volume before buying an unfamiliar stock.",
+      "scoringImpact": "Not a scoring factor itself, but a liquidity gate: our screener templates filter out stocks under ~500K shares/day. High average volume is assumed by every other score — without it, entries/exits get unreliable.",
+      "commonMistakes": [
+        "Confusing average volume with current volume — today's volume might be 10× average on news, but that doesn't make the stock 10× more liquid permanently.",
+        "Ignoring that volume tends to scale with market cap — a $10B stock trading 1M shares/day is normal; a $100M stock trading 1M shares/day is extremely active.",
+        "Not checking if volume is real — some low-float stocks show high volume from a few large trades, not broad participation."
+      ],
+      "example": "Apple trades ~50M shares/day — you can buy $1M worth instantly. A micro-cap might trade 50K shares/day — a $10K order could move the price 5%. The screener's '×2.3' volume badge uses current volume vs this 20-day average.",
+      "related": [
+        "volume_ratio",
+        "market_cap",
+        "bid_ask_spread",
+        "liquidity"
+      ]
+    },
+    "sma_50_200": {
+      "label": "SMA 50/200 (Golden Cross / Death Cross)",
+      "category": "technical",
+      "oneLiner": "The 50-day vs 200-day moving average crossover — one of the most watched long-term trend signals in the market.",
+      "what": "Compares the 50-day moving average to the 200-day moving average. When the 50-day crosses ABOVE the 200-day, it's called a 'Golden Cross' — historically bullish. When it crosses BELOW, it's a 'Death Cross' — historically bearish. These don't happen often, so when they do, traders pay attention.",
+      "howCalculated": "Simple comparison of SMA50 and SMA200. Golden Cross = SMA50 crosses above SMA200. Death Cross = SMA50 crosses below SMA200. No cross = neither has occurred recently.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "plain",
+        "bands": [
+          {
+            "if": "value == 'golden_cross'",
+            "text": "GOLDEN CROSS — the 50-day average crossed ABOVE the 200-day! This is one of the most reliable bullish signals. Short-term trend is now stronger than long-term."
+          },
+          {
+            "if": "value == 'death_cross'",
+            "text": "DEATH CROSS — the 50-day average crossed BELOW the 200-day. A serious bearish signal. Short-term trend has broken down; the stock may be entering a downtrend."
+          },
+          {
+            "if": "",
+            "text": "NO CROSS — the 50 and 200-day averages are maintaining their current order. No extreme trend change signal right now."
+          }
+        ]
+      },
+      "whyMatters": "Golden Crosses historically precede major bull runs. Death Crosses often (but not always) precede bear markets. They don't happen often, so when they do, pay attention — but confirm with other indicators.",
+      "scoringImpact": "Golden Cross = strong positive score boost. Death Cross = strong negative. No cross = neutral. This is a high-impact signal that can override other factors.",
+      "commonMistakes": [
+        "Trading the cross in isolation — many Death Crosses in 2022 were followed by rallies (false signals in a bear market rally).",
+        "Expecting immediate moves — crosses are long-term signals; the payoff can take months."
+      ],
+      "example": "S&P 500 Golden Cross in April 2019 preceded a 35% rally over 18 months. Death Cross in March 2020 was a false signal — the market bottomed days later and rallied 100%+. Context (Fed policy, earnings) matters more than the cross alone.",
+      "related": [
+        "ma_alignment",
+        "adx",
+        "consecutive_gains"
+      ]
+    },
+    "consecutive_gains": {
+      "label": "Consecutive Gains",
+      "category": "technical",
+      "oneLiner": "How many days in a row the stock closed higher — a streak shows momentum, but long streaks often end with a pullback.",
+      "what": "The number of consecutive trading days the stock has closed higher than the previous day. A streak of up days shows persistent buying pressure. Think of it like a winning streak in sports — it shows the team is playing well, but the longer it goes, the more 'due' a loss feels.",
+      "howCalculated": "Counts sequential days where close > previous close. Resets to 0 on a down day (or negative).",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "plain",
+        "bands": [
+          {
+            "if": "value >= 7",
+            "text": "${value} days — EXCEPTIONAL streak! Over a week straight up. Intense buying pressure, but statistically due for a breather or pullback."
+          },
+          {
+            "if": "value >= 5",
+            "text": "${value} days — STRONG streak. A full trading week of gains. Clear bullish momentum."
+          },
+          {
+            "if": "value >= 3",
+            "text": "${value} days — MODERATE streak. Three up days in a row is a positive short-term momentum signal."
+          },
+          {
+            "if": "value == 1",
+            "text": "${value} day — JUST STARTED. One up day doesn't make a trend, but it's a start."
+          },
+          {
+            "if": "",
+            "text": "${value} days — DECLINING. The stock has been going down recently. Check other indicators for context."
+          }
+        ]
+      },
+      "whyMatters": "Streaks show momentum. A stock that keeps going up day after day has strong buying pressure. But beware: long streaks (7+) often end with a pullback. The longer the streak, the closer the potential reversal — like a rubber band stretched too far.",
+      "scoringImpact": "Moderate streaks (3–5 days) add to the momentum score. Very long streaks (7+) can be a double-edged sword — strong momentum but higher pullback risk.",
+      "commonMistakes": [
+        "Chasing a 7+ day streak thinking 'it keeps going up' — statistically, mean reversion risk rises sharply after 5–7 days.",
+        "Ignoring the magnitude — 5 days of +0.2% gains is not the same as 5 days of +2% gains."
+      ],
+      "example": "NVDA had 8 consecutive up days in May 2023 (AI rally) — gained 22% during the streak, then pulled back 8% over the next week. A 3-day streak in a boring utility stock might mean nothing.",
+      "related": [
+        "rsi",
+        "volume_ratio",
+        "ma_alignment"
+      ]
+    },
+    "change_1w": {
+      "label": "1-Week Change",
+      "category": "technical",
+      "oneLiner": "The stock's percentage move over the last 5 trading days — a snapshot of recent momentum.",
+      "what": "Shows how much the stock has moved (up or down) over the past 5 trading days (one week). It's a quick pulse check on recent momentum. A +5% week means the stock gained 5% in five sessions; -3% means it lost 3%.",
+      "howCalculated": "(Current price - Price 5 trading days ago) / Price 5 trading days ago × 100. Expressed as a percentage.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "percent",
+        "bands": [
+          {
+            "if": "value > 10",
+            "text": "${value}% — EXCEPTIONAL weekly gain. The stock surged. Check for news, earnings, or a breakout. May be extended short-term."
+          },
+          {
+            "if": "value > 5",
+            "text": "${value}% — STRONG weekly gain. Solid momentum. Confirm with volume and trend alignment."
+          },
+          {
+            "if": "value > 2",
+            "text": "${value}% — MODERATE gain. Normal positive week. Nothing unusual."
+          },
+          {
+            "if": "value > -2",
+            "text": "${value}% — FLAT week. Minimal net change. The stock drifted sideways."
+          },
+          {
+            "if": "value > -5",
+            "text": "${value}% — MODERATE decline. Normal pullback in an uptrend or continued weakness."
+          },
+          {
+            "if": "value > -10",
+            "text": "${value}% — STRONG weekly loss. Significant selling pressure. Check for news or trend break."
+          },
+          {
+            "if": "",
+            "text": "${value}% — SEVERE weekly decline. Major selling. Could be a crash, bad earnings, or sector rotation. High risk."
+          }
+        ]
+      },
+      "whyMatters": "A strong weekly move can signal the start of a new trend, the acceleration of an existing one, or an overbought/oversold extreme. It's the 'what happened this week' summary that contextualizes daily moves.",
+      "scoringImpact": "Positive weekly changes (+2% to +5%) add to the momentum score. Extreme weekly moves (>10% either direction) are scrutinized for sustainability — often mean-reversion candidates.",
+      "commonMistakes": [
+        "Reacting to a single week's move without checking the broader trend (monthly, quarterly).",
+        "Confusing a 1-week change with a 1-month or 1-year change — timeframe matters enormously."
+      ],
+      "example": "META +12% in one week after Q1 2023 earnings — confirmed a trend reversal from the 2022 bear market. The same week, a small biotech +15% on FDA approval news — but volume was 0.5x average, and it gave back all gains in two weeks.",
+      "related": [
+        "consecutive_gains",
+        "volume_ratio",
+        "rsi"
+      ]
+    },
+    "beta": {
+      "label": "Beta (Market Correlation)",
+      "category": "technical",
+      "oneLiner": "How much the stock amplifies or dampens market moves — your risk thermostat for portfolio construction.",
+      "what": "Beta measures how much the stock moves compared to the overall market (S&P 500). A beta of 1 means the stock moves in line with the market. A beta of 1.5 means it moves 50% more than the market — if the S&P rises 1%, this stock tends to rise 1.5%. A beta of 0.5 means it moves half as much. Negative beta means it moves opposite the market (rare).",
+      "howCalculated": "Regression of the stock's daily returns against S&P 500 daily returns over a lookback period (typically 1–2 years). The slope coefficient is beta.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "ratio",
+        "bands": [
+          {
+            "if": "value > 1.5",
+            "text": "${value} — HIGH beta. The stock amplifies market moves. If the market goes up 1%, this stock often goes up 1.5%+. But it also falls harder. Aggressive risk profile."
+          },
+          {
+            "if": "value > 1.3",
+            "text": "${value} — above-market beta. Moves more than the S&P but not extremely. Growth stocks often sit here."
+          },
+          {
+            "if": "value > 0.8",
+            "text": "${value} — MARKET-LIKE beta. Moves roughly in line with the overall market. Typical for most large-cap stocks."
+          },
+          {
+            "if": "value > 0.3",
+            "text": "${value} — LOW beta. The stock is more stable than the market. Good for defensive/conservative positioning. Utilities, consumer staples often here."
+          },
+          {
+            "if": "",
+            "text": "${value} — VERY LOW or NEGATIVE beta. The stock barely reacts to the market or moves opposite to it. Rare — found in gold miners, deep value, or heavily distressed names."
+          }
+        ]
+      },
+      "whyMatters": "Beta helps you understand a stock's risk profile and how it will behave in your portfolio. High beta = high risk, high reward. Low beta = stable but less upside. If you're building a portfolio, mixing high and low beta stocks balances risk — like mixing spicy and mild dishes.",
+      "scoringImpact": "High beta (>1.5) is a slight negative (more risk). Low beta (<0.8) is a slight positive (more stable). Market-like beta (0.8–1.3) is neutral. Combined with other risk metrics.",
+      "commonMistakes": [
+        "Assuming low beta means 'safe' — a low-beta stock can still crash on company-specific news (earnings miss, fraud, product failure).",
+        "Using beta as a predictor — it describes past correlation, not future causation. Correlations change during crises (everything correlates to 1 in a crash)."
+      ],
+      "example": "NVDA beta ~1.8 — in 2022 when S&P fell 19%, NVDA fell ~50%. In 2023 when S&P rose 24%, NVDA rose ~240%. JNJ beta ~0.6 — in 2022 fell only ~5%; in 2023 rose ~10%. Beta predicts the 'gearing' to market moves.",
+      "related": [
+        "atr_pct",
+        "market_regime",
+        "suggested_position_size_pct"
+      ]
+    },
+    "market_regime": {
+      "label": "Market Regime",
+      "category": "market",
+      "oneLiner": "The current 'weather' of the overall market — bull, bear, choppy, or crisis — so you can match your strategy to the environment.",
+      "what": "Market regime classifies the broad market environment into categories like bull market (rising with low volatility), bear market (falling), choppy/range-bound (no clear direction), or crisis (high volatility, panic). Just as you dress differently for summer vs. winter, you trade differently in a bull vs. bear regime.",
+      "howCalculated": "Combines S&P 500 trend (price vs. moving averages), breadth (advance/decline), volatility (VIX), and momentum indicators into a regime classification.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "plain",
+        "bands": [
+          {
+            "if": "value == 'bull_strong'",
+            "text": "STRONG BULL MARKET — uptrend with low volatility and broad participation. Favorable for trend-following and growth strategies."
+          },
+          {
+            "if": "value == 'bull_weak'",
+            "text": "WEAK BULL MARKET — uptrend but narrowing breadth or rising volatility. Be selective; avoid chasing."
+          },
+          {
+            "if": "value == 'choppy'",
+            "text": "CHOPPY / RANGE-BOUND — no clear direction. Whipsaws common. Mean-reversion and range-trading work better than trend-following."
+          },
+          {
+            "if": "value == 'bear'",
+            "text": "BEAR MARKET — sustained downtrend. Defensive positioning, cash raising, or short strategies favored. Long-only entries need strong catalysts."
+          },
+          {
+            "if": "value == 'crisis'",
+            "text": "CRISIS / PANIC — extreme volatility, forced selling, correlation convergence to 1. Capital preservation is priority. Most strategies fail here."
+          },
+          {
+            "if": "",
+            "text": "${value} — regime unclear or transitioning. Reduce size and wait for clarity."
+          }
+        ]
+      },
+      "whyMatters": "Your strategy must match the regime. Buying breakouts in a bear market is like surfing in a hurricane — you'll get crushed. Shorting in a strong bull is like standing in front of a freight train. Regime awareness is the single biggest edge for swing traders.",
+      "scoringImpact": "Regime acts as a portfolio-level filter. Bull regimes boost conviction thresholds for longs. Bear regimes raise dealbreaker sensitivity. Crisis regime can disable new entries entirely.",
+      "commonMistakes": [
+        "Using the same strategy in all regimes — a trend-following system that works in a bull market loses money in a choppy market.",
+        "Ignoring regime transitions — the market often gives warning signs (breadth divergence, VIX spikes) weeks before a regime shift."
+      ],
+      "example": "2021: Strong bull regime — trend-following on growth stocks worked beautifully. 2022: Bear regime — the same strategy lost 30%+. 2023 H1: Bull regime returned — trend-following worked again. Traders who adapted to regime survived; those who didn't blew up.",
+      "related": [
+        "vix",
+        "advance_decline_ratio",
+        "sp500_futures",
+        "sector_rotation"
+      ]
+    },
+    "sector_rotation": {
+      "label": "Sector Rotation",
+      "category": "market",
+      "oneLiner": "Which sectors are leading or lagging — tells you where the big money is flowing right now.",
+      "what": "Sector rotation tracks which industry groups are outperforming or underperforming the market. Money flows from sector to sector like seasons — tech leads in early expansion, energy in late cycle, utilities in downturns. Knowing the current rotation helps you fish where the fish are.",
+      "howCalculated": "Compares each sector ETF's performance (e.g., XLK, XLE, XLF) against the S&P 500 over multiple timeframes (1-week, 1-month, 3-month). Ranks sectors by relative strength.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "plain",
+        "bands": [
+          {
+            "if": "value == 'tech_leading'",
+            "text": "TECHNOLOGY LEADING — growth sectors outperforming. Risk-on environment. Favorable for momentum and growth strategies."
+          },
+          {
+            "if": "value == 'defensive_leading'",
+            "text": "DEFENSIVE LEADING (utilities, staples, healthcare) — risk-off environment. Money seeking safety. Favorable for dividend/value strategies."
+          },
+          {
+            "if": "value == 'cyclical_leading'",
+            "text": "CYCLICALS LEADING (financials, industrials, materials) — economic expansion expectations. Early-to-mid cycle signal."
+          },
+          {
+            "if": "value == 'energy_leading'",
+            "text": "ENERGY LEADING — often late-cycle or inflation-driven. Commodity strength benefiting producers."
+          },
+          {
+            "if": "",
+            "text": "${value} — mixed or unclear rotation. No dominant sector theme. Stock-picking matters more than sector bets."
+          }
+        ]
+      },
+      "whyMatters": "A rising tide lifts most boats, but the *fastest* boats are in the leading sectors. Buying a strong stock in a lagging sector is swimming upstream. Sector tailwinds can add 5–15% annualized alpha over random selection.",
+      "scoringImpact": "Stocks in leading sectors get a sentiment boost. Stocks in lagging sectors face a higher bar for entry. Sector rotation is a moderate-weight factor in the overall score.",
+      "commonMistakes": [
+        "Chasing yesterday's leading sector — rotation moves fast; by the time retail notices, smart money is rotating out.",
+        "Ignoring sector context — a 'great chart' in a hated sector often fails, while a 'mediocre chart' in a loved sector rips."
+      ],
+      "example": "2022: Energy (XLE) +60% while Tech (XLK) -30% — rotating into energy early was the trade. 2023: Tech +50%, Energy -5% — rotation flipped. Traders who stayed in energy 'because it worked last year' missed the tech rally.",
+      "related": [
+        "market_regime",
+        "vix",
+        "institutional_flow"
+      ]
+    },
+    "vix": {
+      "label": "VIX (Volatility Index)",
+      "category": "market",
+      "oneLiner": "The market's 'fear gauge' — measures expected 30-day volatility from S&P 500 options. Low = complacency; high = panic.",
+      "what": "The VIX (CBOE Volatility Index) measures the market's expectation of 30-day volatility, derived from S&P 500 option prices. It's called the 'fear gauge' because it spikes when investors are scared and buy protection (puts). Below 15 = calm/complacent; 15–25 = normal; 25–35 = nervous; above 35 = panic/fear.",
+      "howCalculated": "Model-free implied volatility from a strip of S&P 500 options across strikes and expirations, annualized. Quoted in percentage points (e.g., VIX 18 = 18% expected annualized volatility).",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "plain",
+        "bands": [
+          {
+            "if": "value < 12",
+            "text": "${value} — EXTREMELY CALM. Complacency is high. Markets often top out near VIX lows. 'Buy the dip' mentality dominates."
+          },
+          {
+            "if": "value < 15",
+            "text": "${value} — CALM. Low fear, steady uptrend typical. Good for trend-following but watch for complacency."
+          },
+          {
+            "if": "value < 20",
+            "text": "${value} — NORMAL. Balanced fear/greed. Typical trading environment."
+          },
+          {
+            "if": "value < 30",
+            "text": "${value} — ELEVATED. Nervousness rising. Pullbacks more frequent. Tighten stops, reduce size."
+          },
+          {
+            "if": "value < 40",
+            "text": "${value} — HIGH FEAR. Significant uncertainty. Sharp moves both ways. Difficult for directional strategies."
+          },
+          {
+            "if": "",
+            "text": "${value} — PANIC / CRISIS. Extreme fear. Forced liquidation, margin calls. Capital preservation mode. Most strategies break."
+          }
+        ]
+      },
+      "whyMatters": "VIX is the market's heart rate monitor. Low VIX = market is relaxed (often near tops). High VIX = market is stressed (often near bottoms). But VIX can stay elevated for weeks in a crisis — don't try to catch a falling knife just because VIX is high.",
+      "scoringImpact": "Low VIX (<15) slightly reduces dealbreaker thresholds (market is forgiving). High VIX (>30) tightens dealbreakers and reduces position sizes. VIX > 40 can trigger portfolio-level risk-off.",
+      "commonMistakes": [
+        "Thinking VIX predicts direction — it predicts *magnitude* of moves, not direction. High VIX means big moves coming; could be up or down.",
+        "Shorting VIX (selling volatility) as a 'free money' strategy — works until it doesn't. VIX spikes can wipe out months of gains in days."
+      ],
+      "example": "VIX 12 in January 2018 — market topped weeks later. VIX 82 in March 2020 — market bottomed that week. VIX 35 in October 2022 — bear market low. VIX is best used as a contrarian *context* tool, not a timing signal.",
+      "related": [
+        "market_regime",
+        "advance_decline_ratio",
+        "sp500_futures"
+      ]
+    },
+    "advance_decline_ratio": {
+      "label": "Advance/Decline Ratio",
+      "category": "market",
+      "oneLiner": "The ratio of advancing to declining stocks — shows whether a rally is broad (healthy) or narrow (fragile).",
+      "what": "Counts how many stocks went up vs. down on a given day. A ratio of 2.0 means two stocks advanced for every one that declined. A ratio above 1 = more gainers than losers; below 1 = more losers. Broad participation (ratio > 2) confirms a healthy trend; narrow participation (ratio < 1 while index rises) is a divergence warning.",
+      "howCalculated": "Number of advancing issues divided by number of declining issues on the NYSE/NASDAQ. Can be daily, weekly, or cumulative (advance/decline line).",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "ratio",
+        "bands": [
+          {
+            "if": "value > 3",
+            "text": "${value} — VERY BROAD participation. Over 3 advancers per decliner. Extremely healthy breadth. Strong bullish confirmation."
+          },
+          {
+            "if": "value > 2",
+            "text": "${value} — BROAD participation. Most stocks rising with the index. Trend is confirmed by the 'troops'."
+          },
+          {
+            "if": "value > 1",
+            "text": "${value} — POSITIVE but narrowing. More advancers than decliners, but not overwhelmingly. Monitor for divergence."
+          },
+          {
+            "if": "value > 0.5",
+            "text": "${value} — NEGATIVE breadth. More decliners than advancers. If the index is rising, this is a BEARISH DIVERGENCE — few stocks carrying the load."
+          },
+          {
+            "if": "",
+            "text": "${value} — VERY NEGATIVE breadth. Severe selling pressure across the board. Confirms downtrend or panic."
+          }
+        ]
+      },
+      "whyMatters": "A rally led by 5 mega-caps while 80% of stocks fall is a 'fake out' — the generals are advancing but the army is retreating. Broad participation means the move has legs; narrow participation means it's vulnerable.",
+      "scoringImpact": "Broad A/D (>2) adds to market regime bullishness. Negative A/D (<1) with rising index is a dealbreaker flag for new longs. Used in market_regime classification.",
+      "commonMistakes": [
+        "Watching only the S&P 500 level — the index can rise on 5 stocks while 495 fall. That's not a bull market.",
+        "Using daily A/D alone — too noisy. Look at the cumulative A/D line or 5–10 day averages for signal."
+      ],
+      "example": "January 2022: S&P 500 made a new high but A/D ratio was 0.6 — only 37% of stocks participating. Classic divergence. The index peaked days later and fell 25%. June 2023: S&P 500 broke out with A/D ratio 3.2 — broad participation confirmed the new bull leg.",
+      "related": [
+        "market_regime",
+        "vix",
+        "sector_rotation"
+      ]
+    },
+    "dollar_index": {
+      "label": "Dollar Index (DXY)",
+      "category": "market",
+      "oneLiner": "The US dollar's value vs. a basket of major currencies — a stronger dollar hurts multinational earnings and commodities.",
+      "what": "The Dollar Index (DXY) measures the US dollar against a basket of six major currencies (euro, yen, pound, Canadian dollar, Swedish krona, Swiss franc). A rising DXY means the dollar is strengthening. This matters because: (1) ~40% of S&P 500 revenue is overseas — a strong dollar reduces those earnings when converted back to USD; (2) commodities are priced in dollars — strong dollar = lower commodity prices; (3) emerging markets borrow in dollars — strong dollar = debt stress.",
+      "howCalculated": "Geometric weighted average of the six currency pairs. Index started at 100 in 1973. Current level reflects dollar strength/weakness since then.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "plain",
+        "bands": [
+          {
+            "if": "value > 110",
+            "text": "${value} — VERY STRONG dollar. Headwind for multinational earnings and commodities. Favorable for domestic-focused small caps."
+          },
+          {
+            "if": "value > 105",
+            "text": "${value} — STRONG dollar. Modest headwind for international earnings. Monitor commodity exposure."
+          },
+          {
+            "if": "value > 95",
+            "text": "${value} — NEUTRAL zone. Dollar neither a significant help nor hindrance. Normal range for recent years."
+          },
+          {
+            "if": "value > 90",
+            "text": "${value} — WEAK dollar. Tailwind for multinational earnings and commodities. Emerging markets benefit."
+          },
+          {
+            "if": "",
+            "text": "${value} — VERY WEAK dollar. Strong tailwind for international revenue and commodities. Inflation risk rises."
+          }
+        ]
+      },
+      "whyMatters": "The dollar is the 'denominator' for global assets. When DXY rises, it's like the tide going out — exposes who's swimming naked (high foreign revenue, high dollar debt). Sector rotation often follows dollar turns: weak dollar helps energy, materials, tech (international); strong dollar helps domestic retailers, utilities, regional banks.",
+      "scoringImpact": "Strong DXY (>105) is a slight negative for large-cap tech/multinationals. Weak DXY (<95) is a slight positive for the same. Used in sector_rotation and market_regime context.",
+      "commonMistakes": [
+        "Assuming strong dollar is always 'bad for stocks' — domestic companies with no foreign revenue benefit from cheaper imports.",
+        "Ignoring the *rate of change* — a dollar that rises 5% in a month hurts earnings more than one that rises 5% over a year (companies hedge)."
+      ],
+      "example": "DXY 114 in September 2022 — S&P 500 earnings estimates cut 5–10% for high-international-revenue names. DXY 90 in July 2023 — same companies raised guidance. The dollar moved 20% in 10 months; earnings followed.",
+      "related": [
+        "market_regime",
+        "sector_rotation",
+        "sp500_futures"
+      ]
+    },
+    "sp500_futures": {
+      "label": "S&P 500 Futures",
+      "category": "market",
+      "oneLiner": "Pre-market and after-hours price action for the S&P 500 — the overnight 'preview' of where the market will open.",
+      "what": "S&P 500 futures (E-mini, ticker /ES) trade nearly 24/7 and indicate where the cash market will open. If futures are up 0.5% at 8 AM ET, the market will likely open higher. They reflect global news, earnings, and positioning while the US market is closed.",
+      "howCalculated": "Fair value of the S&P 500 index based on the front-month futures contract, adjusted for dividends and interest rates. Quoted in index points (e.g., 4500).",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "plain",
+        "bands": [
+          {
+            "if": "value > 0.5",
+            "text": "${value}% — futures UP significantly. Positive overnight catalyst (earnings, data, geopolitical). Expect gap-up open."
+          },
+          {
+            "if": "value > 0.1",
+            "text": "${value}% — futures modestly UP. Slight positive bias. Normal overnight drift."
+          },
+          {
+            "if": "value > -0.1",
+            "text": "${value}% — futures FLAT. No strong overnight signal. Open likely near prior close."
+          },
+          {
+            "if": "value > -0.5",
+            "text": "${value}% — futures modestly DOWN. Slight negative bias. Normal overnight drift."
+          },
+          {
+            "if": "",
+            "text": "${value}% — futures DOWN significantly. Negative overnight catalyst. Expect gap-down open. Check news."
+          }
+        ]
+      },
+      "whyMatters": "Futures set the opening tone. A gap up on high volume often leads to follow-through; a gap down can trigger stop-loss cascades. Swing traders use futures to size positions before the open — if futures are -1%, you might reduce new long size.",
+      "scoringImpact": "Used for pre-market position sizing and entry timing. Not a direct scoring factor but influences execution. Large gap (>1%) triggers dealbreaker review for pending entries.",
+      "commonMistakes": [
+        "Trading the futures move directly — futures are for hedging/institutional access; retail should wait for the cash open for liquidity.",
+        "Assuming futures predict the *day's close* — they only predict the *open*. The market often reverses the futures move by 10 AM."
+      ],
+      "example": "NVDA earnings May 2023: futures +1.5% pre-market on blowout guide. Market opened +1.2%, closed +3%. Same quarter 2022: futures -2% on miss; opened -2.5%, closed -5%. Futures direction matched the day's direction 70%+ of earnings days.",
+      "related": [
+        "nasdaq_futures",
+        "market_regime",
+        "vix"
+      ]
+    },
+    "nasdaq_futures": {
+      "label": "Nasdaq 100 Futures",
+      "category": "market",
+      "oneLiner": "Pre-market/after-hours for the Nasdaq 100 — more tech-heavy and volatile than S&P futures.",
+      "what": "Nasdaq 100 futures (/NQ) track the tech-heavy Nasdaq 100 index. They trade 24/7 like S&P futures but are more volatile because tech stocks have higher beta. A 1% move in /ES often means a 1.5% move in /NQ. Tech traders watch /NQ more closely.",
+      "howCalculated": "Fair value of the Nasdaq 100 index based on the front-month futures contract. Quoted in index points (e.g., 15000).",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "plain",
+        "bands": [
+          {
+            "if": "value > 1",
+            "text": "${value}% — /NQ UP significantly. Tech sentiment very positive. Expect gap-up in growth names."
+          },
+          {
+            "if": "value > 0.2",
+            "text": "${value}% — /NQ modestly UP. Slight positive tech bias."
+          },
+          {
+            "if": "value > -0.2",
+            "text": "${value}% — /NQ FLAT. No strong tech-specific overnight signal."
+          },
+          {
+            "if": "value > -1",
+            "text": "${value}% — /NQ modestly DOWN. Slight negative tech bias."
+          },
+          {
+            "if": "",
+            "text": "${value}% — /NQ DOWN significantly. Tech sentiment negative. Growth stocks likely to gap down."
+          }
+        ]
+      },
+      "whyMatters": "If you trade tech/growth stocks, /NQ is your pre-market compass. It often leads /ES (S&P futures) on tech-specific news (AI announcements, chip earnings, Fed tech-sensitive policy). Divergence between /NQ and /ES (e.g., /NQ up 1%, /ES flat) signals sector rotation into tech.",
+      "scoringImpact": "Used for pre-market tech-position sizing. Not a direct scoring factor. Large /NQ gap (>1.5%) triggers dealbreaker review for pending tech longs.",
+      "commonMistakes": [
+        "Using /NQ for non-tech stocks — a bank stock doesn't care about /NQ nearly as much as /ES.",
+        "Overreacting to /NQ moves — higher beta means more noise. A 1% /NQ move can reverse in the first 15 minutes."
+      ],
+      "example": "ChatGPT launch Nov 2022: /NQ futures +3% pre-market on Microsoft/OpenAI news. /ES only +0.8%. Tech leadership confirmed. Feb 2025: DeepSeek news — /NQ -2.5% pre-market, /ES -0.8%. Tech-specific panic.",
+      "related": [
+        "sp500_futures",
+        "sector_rotation",
+        "beta"
+      ]
+    },
+    "market_cap": {
+      "label": "Market Cap",
+      "category": "fundamental",
+      "oneLiner": "The total value of all the company's shares — the price tag for buying the whole company.",
+      "what": "Market cap is the stock price multiplied by the number of shares outstanding. It tells you how big the company is, like a price tag on the entire business. A $10 billion company is considered mid-cap, while $200 billion+ puts it in mega-cap territory alongside Apple and Microsoft.",
+      "howCalculated": "Current stock price × total shares outstanding.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "compactNumber",
+        "bands": [
+          {
+            "if": "value >= 200",
+            "text": "${value}B — mega-cap giant. One of the largest companies in the world, extremely stable but slower growth."
+          },
+          {
+            "if": "value >= 10",
+            "text": "${value}B — large-cap. Established industry leader with proven business model and steady growth."
+          },
+          {
+            "if": "value >= 2",
+            "text": "${value}B — mid-cap. Growing company with room to expand, moderate risk."
+          },
+          {
+            "if": "value >= 0.3",
+            "text": "${value}B — small-cap. Younger company with high growth potential but higher risk of failure."
+          },
+          {
+            "if": "",
+            "text": "${value}B — micro-cap. Very small company, speculative investment with significant risk."
+          }
+        ]
+      },
+      "whyMatters": "Company size affects risk and return profile. Large caps are stable but grow slower; small caps can multiply but can also disappear. Your strategy should match the size tier.",
+      "scoringImpact": "Market cap doesn't directly add or subtract from the score, but very small caps (<$50M) with poor profitability are flagged as a dealbreaker — too risky.",
+      "commonMistakes": [
+        "Comparing market caps across different industries without context — a $10B bank is tiny compared to a $10B tech company.",
+        "Assuming a low market cap automatically means 'undervalued' — many micro-caps are small for good reason.",
+        "Ignoring that market cap changes daily with the stock price — it's not a fixed attribute of the company."
+      ],
+      "example": "If a stock trades at $50 with 2 billion shares outstanding, its market cap is $100 billion — a large-cap company. If the same company had 100 million shares at $50, it would be a $5 billion mid-cap.",
+      "related": [
+        "pe_ratio",
+        "price_to_book",
+        "price_to_sales",
+        "institutional_ownership"
+      ]
+    },
+    "pe_ratio": {
+      "label": "P/E Ratio (Price to Earnings)",
+      "category": "fundamental",
+      "oneLiner": "How many dollars you pay for each dollar of the company's annual profit — like a price tag on earnings.",
+      "what": "The P/E ratio divides the stock price by earnings per share. If a stock trades at $100 with $5 EPS, the P/E is 20 — you're paying $20 for every $1 of yearly profit. Think of it like a price-to-rent ratio for a house: lower means cheaper, but you need to know why.",
+      "howCalculated": "Stock price ÷ earnings per share (EPS). Can use trailing (last 12 months) or forward (estimated next 12 months) earnings.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [
+          {
+            "if": "value > 50",
+            "text": "${value} — very expensive. Investors expect explosive growth. If growth disappoints, the stock can drop sharply."
+          },
+          {
+            "if": "value > 20",
+            "text": "${value} — above average. The market is optimistic about future growth. Reasonable for quality growing companies."
+          },
+          {
+            "if": "value > 0",
+            "text": "${value} — moderate to low. The stock is reasonably priced relative to current earnings. Could be a value opportunity or the market sees problems ahead."
+          },
+          {
+            "if": "",
+            "text": "${value} — negative. The company is losing money. Common for early-stage growth companies, but means P/E is not useful for valuation here."
+          }
+        ]
+      },
+      "whyMatters": "P/E is the most common valuation shortcut. A high P/E means you're paying a premium — you need strong growth to justify it. A low P/E can mean a bargain or a value trap where the business is declining.",
+      "scoringImpact": "Very high P/E (>50) without strong growth = negative. Reasonable P/E (10-25) = positive. Negative P/E = neutral (common for growth companies).",
+      "commonMistakes": [
+        "Comparing P/E ratios across different sectors — banks trade at 10× earnings while software trades at 30×, both can be fairly valued.",
+        "Using trailing P/E for a company whose earnings just collapsed — forward P/E is more relevant.",
+        "Assuming a low P/E is automatically cheap — a stock at 5× earnings might be heading to zero."
+      ],
+      "example": "Company A earns $2/share and trades at $40 → P/E of 20. Company B earns $2/share and trades at $100 → P/E of 50. Company B needs to grow earnings 2.5× faster just to catch up to Company A's valuation.",
+      "related": [
+        "peg_ratio",
+        "eps",
+        "earnings_growth_yoy",
+        "price_to_sales"
+      ]
+    },
+    "eps": {
+      "label": "EPS (Earnings Per Share)",
+      "category": "fundamental",
+      "oneLiner": "How much profit each share of stock 'owns' — the company's profit divided by its share count.",
+      "what": "EPS takes the company's net income and divides it by the number of shares. If a company earns $1 billion with 100 million shares, EPS is $10. It's the per-share slice of profit. Consistent EPS growth over years is a hallmark of quality companies.",
+      "howCalculated": "Net income ÷ weighted average shares outstanding. Diluted EPS includes potential shares from options and convertibles.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "money",
+        "bands": [
+          {
+            "if": "value > 10",
+            "text": "${value} — high EPS. Substantial profit per share, typical of mature profitable companies."
+          },
+          {
+            "if": "value > 1",
+            "text": "${value} — positive EPS. The company is profitable on a per-share basis."
+          },
+          {
+            "if": "value > 0",
+            "text": "${value} — small but positive EPS. Barely profitable per share."
+          },
+          {
+            "if": "",
+            "text": "${value} — negative EPS. The company lost money per share. Common for growth companies investing heavily."
+          }
+        ]
+      },
+      "whyMatters": "EPS is the foundation of stock value. Over the long run, stock prices follow earnings. If EPS keeps growing, the stock price usually follows. It's also the denominator for P/E ratio.",
+      "scoringImpact": "Positive and growing EPS = positive score contribution. Negative EPS = neutral (common in early-stage companies).",
+      "commonMistakes": [
+        "Ignoring share count changes — if a company issues lots of new shares, EPS can fall even if total profit rises.",
+        "Focusing only on current EPS without looking at the growth trajectory — a company with $1 EPS growing 20% yearly is better than $5 EPS shrinking 10%.",
+        "Confusing basic vs diluted EPS — always use diluted for a conservative view."
+      ],
+      "example": "Apple earned $6.11 per share in 2023. At a $180 stock price, that's a P/E of about 29. If Apple grows EPS to $8 next year and the P/E stays at 29, the stock would be worth ~$232.",
+      "related": [
+        "pe_ratio",
+        "earnings_growth_yoy",
+        "profit_margin",
+        "return_on_equity"
+      ]
+    },
+    "profit_margin": {
+      "label": "Profit Margin",
+      "category": "fundamental",
+      "oneLiner": "The percentage of every revenue dollar the company keeps as profit — its pricing power and efficiency score.",
+      "what": "Profit margin is net income divided by revenue, expressed as a percentage. If a company has $100 million in sales and $20 million in profit, its margin is 20%. It's like asking: for every dollar a customer pays, how many cents does the owner keep?",
+      "howCalculated": "Net income ÷ total revenue × 100.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "percent",
+        "bands": [
+          {
+            "if": "value > 0.20",
+            "text": "${value} — excellent! The company is very efficient at turning revenue into profit."
+          },
+          {
+            "if": "value > 0.10",
+            "text": "${value} — good. Healthy profitability with room to grow."
+          },
+          {
+            "if": "value > 0",
+            "text": "${value} — positive but thin. The company is profitable but doesn't keep much from each sale."
+          },
+          {
+            "if": "",
+            "text": "${value} — negative. The company spends more than it earns. Common for young/high-growth companies."
+          }
+        ]
+      },
+      "whyMatters": "Profit margin shows how much pricing power and efficiency a company has. High margins = strong competitive advantage (like software companies with near-zero marginal cost). Low margins = tough business (like grocery stores competing on price).",
+      "scoringImpact": "Positive margins contribute to the score. Negative margins with small market cap triggers a dealbreaker. High margins = strong positive.",
+      "commonMistakes": [
+        "Comparing margins across industries — a 5% margin is great for a grocery store but terrible for a software company.",
+        "Ignoring that margins can be temporarily depressed by one-time charges or investment cycles.",
+        "Assuming high margins will persist forever — competition eventually erodes excess profits."
+      ],
+      "example": "Microsoft has ~35% net profit margin — for every $100 of Windows/Office/Cloud sales, $35 becomes profit. Walmart has ~2.5% margin — for every $100 of groceries sold, only $2.50 is profit. Both are successful but in completely different ways.",
+      "related": [
+        "operating_margin",
+        "return_on_equity",
+        "fcf_yield",
+        "pe_ratio"
+      ]
+    },
+    "operating_margin": {
+      "label": "Operating Margin",
+      "category": "fundamental",
+      "oneLiner": "Profit from core operations before interest and taxes — how efficient the actual business is.",
+      "what": "Operating margin is operating income divided by revenue. It excludes interest on debt and taxes, so it shows how profitable the core business is regardless of how it's financed or where it's located. Think of it as the 'pure business' profitability.",
+      "howCalculated": "Operating income (EBIT) ÷ total revenue × 100.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "percent",
+        "bands": [
+          {
+            "if": "value > 0.20",
+            "text": "${value} — excellent. The company's core business is highly efficient at turning revenue into operating profit."
+          },
+          {
+            "if": "value > 0.10",
+            "text": "${value} — good. Healthy operating efficiency with room to invest in growth."
+          },
+          {
+            "if": "value > 0.05",
+            "text": "${value} — adequate. The core business is profitable but not highly efficient."
+          },
+          {
+            "if": "value > 0",
+            "text": "${value} — thin. The company makes a small operating profit on each sale. Vulnerable to cost increases."
+          },
+          {
+            "if": "",
+            "text": "${value} — negative. The core business operations are losing money. Different from net loss which could include one-time items."
+          }
+        ]
+      },
+      "whyMatters": "Operating margin focuses on the CORE business, excluding interest and taxes. It tells you if the company's products/services are fundamentally profitable, regardless of financing decisions or tax strategies. A company with great operating margin but high debt can still be a good business.",
+      "scoringImpact": "Strong operating margins (>15%) bolster the fundamental score. Negative operating margins over multiple periods indicate the business model may not be viable.",
+      "commonMistakes": [
+        "Confusing operating margin with profit margin — operating margin is higher because it excludes interest and taxes.",
+        "Ignoring that capital-intensive businesses (manufacturing, telecom) naturally have lower operating margins than asset-light businesses (software, consulting).",
+        "Not checking trends — a declining operating margin often signals rising competition or cost pressures before it hits net profit."
+      ],
+      "example": "Google has ~30% operating margin — its search and ads business is incredibly efficient. Ford has ~5% operating margin — building cars is capital-intensive with high fixed costs. Both can be good investments at the right price.",
+      "related": [
+        "profit_margin",
+        "return_on_equity",
+        "fcf_yield",
+        "debt_to_equity"
+      ]
+    },
+    "debt_to_equity": {
+      "label": "D/E Ratio (Debt to Equity)",
+      "category": "fundamental",
+      "oneLiner": "How much the company owes vs. what it owns — like comparing your mortgage to your home equity.",
+      "what": "Debt-to-equity compares total liabilities to shareholders' equity. A D/E of 1 means the company has equal debt and equity. A D/E of 2 means it has twice as much debt as its own money. It's like a household: if you have a $200K mortgage on a $300K home, your D/E is 2 ($200K debt / $100K equity).",
+      "howCalculated": "Total liabilities ÷ total shareholders' equity.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [
+          {
+            "if": "value > 2",
+            "text": "${value} — HIGH debt. The company owes a lot relative to its own money. Riskier because debt payments eat into profits."
+          },
+          {
+            "if": "value > 0.5",
+            "text": "${value} — moderate debt. Normal for most companies. Some debt is healthy — it funds growth."
+          },
+          {
+            "if": "value >= 0",
+            "text": "${value} — low debt. Conservative financial management. Less risk, but might be growing slower."
+          },
+          {
+            "if": "",
+            "text": "Negative — the company has more cash than debt. Very safe financially, but unusual for growing companies."
+          }
+        ]
+      },
+      "whyMatters": "Too much debt can sink a company if business slows down (like high mortgage payments if you lose your job). Too little debt might mean the company isn't investing in growth. Capital-intensive industries (utilities, real estate) naturally carry more debt.",
+      "scoringImpact": "High debt (>2) is negative. Moderate debt (0.5-1.5) is neutral. Very low or negative debt = slightly positive (financially conservative).",
+      "commonMistakes": [
+        "Comparing D/E across industries — banks and utilities naturally have high D/E; software companies have near zero. Both can be normal.",
+        "Ignoring that some debt is good — it amplifies returns on equity (financial leverage) and interest is tax-deductible.",
+        "Not checking debt maturity — $10B due next year is very different from $10B due in 10 years."
+      ],
+      "example": "Apple has D/E ~1.5 — moderate for a mega-cap. Tesla had negative D/E (more cash than debt) after 2020. A typical utility might have D/E of 2-3 which is normal for their stable, regulated cash flows.",
+      "related": [
+        "current_ratio",
+        "interest_coverage",
+        "operating_margin",
+        "return_on_equity"
+      ]
+    },
+    "fcf_yield": {
+      "label": "FCF Yield (Free Cash Flow Yield)",
+      "category": "fundamental",
+      "oneLiner": "The cash the company generates after expenses as a percentage of its stock price — like a 'cash on cash' return.",
+      "what": "Free cash flow is the cash left after paying for everything needed to run and maintain the business (capital expenditures). FCF yield compares that cash to the company's market cap. If a company generates $5B FCF and has a $100B market cap, the yield is 5% — you're getting 5% of your investment back in cash each year.",
+      "howCalculated": "Free cash flow ÷ market capitalization. FCF = operating cash flow − capital expenditures.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "percent",
+        "bands": [
+          {
+            "if": "value > 0.08",
+            "text": "${value} — HIGH. The company generates lots of cash relative to its price. A sign of a quality business."
+          },
+          {
+            "if": "value > 0.04",
+            "text": "${value} — good. Healthy cash generation."
+          },
+          {
+            "if": "value > 0",
+            "text": "${value} — positive but low. Generates some cash but not a huge amount."
+          },
+          {
+            "if": "",
+            "text": "${value} — negative. The company is burning cash. Very common for high-growth companies. Not a problem if revenue is growing fast."
+          }
+        ]
+      },
+      "whyMatters": "Cash is king. Companies that generate lots of free cash can invest in growth, pay dividends, buy back stock, or weather hard times. Negative FCF means they need to borrow or raise money. FCF yield is harder to manipulate than earnings.",
+      "scoringImpact": "Positive FCF yield = positive score contribution. Negative = neutral or slightly negative. Strong FCF yield with growth = very positive.",
+      "commonMistakes": [
+        "Confusing FCF yield with dividend yield — FCF is cash generated; dividends are cash paid out. A company can have high FCF yield but pay no dividend.",
+        "Ignoring that growing companies often have negative FCF while investing heavily — Amazon had negative FCF for years while building warehouses.",
+        "Not checking if FCF is sustainable — one-time asset sales can temporarily boost FCF."
+      ],
+      "example": "A $50B market cap company generating $3B FCF has a 6% FCF yield. If the stock drops to $40B while FCF stays at $3B, the yield becomes 7.5% — the same cash flow is now cheaper to buy.",
+      "related": [
+        "dividend_yield",
+        "operating_margin",
+        "profit_margin",
+        "revenue_growth_yoy"
+      ]
+    },
+    "dividend_yield": {
+      "label": "Dividend Yield",
+      "category": "fundamental",
+      "oneLiner": "The annual dividend payment as a percentage of the stock price — like the interest rate on your stock.",
+      "what": "Dividend yield is the annual dividend per share divided by the current stock price. If a stock pays $2/year in dividends and trades at $50, the yield is 4%. It's the cash income you get just for owning the stock, like rent on a property.",
+      "howCalculated": "Annual dividends per share ÷ current stock price × 100.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "percent",
+        "bands": [
+          {
+            "if": "value > 0.04",
+            "text": "${value} — HIGH yield. The company returns a lot of cash to shareholders. Can be a sign of a mature, stable business."
+          },
+          {
+            "if": "value > 0.01",
+            "text": "${value} — moderate yield. A reasonable income stream plus growth potential."
+          },
+          {
+            "if": "",
+            "text": "${value} — low or no dividend. The company reinvests profits into growth instead of paying shareholders. Normal for growth companies."
+          }
+        ]
+      },
+      "whyMatters": "Dividends are like rent on your stock. Some investors want regular income (retirees). Others prefer companies that reinvest for growth. Neither is better — it depends on your goals. High yield with sustainable payout is a quality signal.",
+      "scoringImpact": "High dividend yield with sustainable earnings = positive. No dividend = neutral (expected for growth stocks). Suspended dividend = negative flag.",
+      "commonMistakes": [
+        "Chasing high yield without checking payout ratio — a 10% yield backed by 200% payout ratio is a dividend cut waiting to happen.",
+        "Assuming no dividend means a bad company — Amazon, Google, Berkshire Hathaway pay no dividends but created massive wealth.",
+        "Not realizing yield changes daily with stock price — a stock at $100 with $4 dividend has 4% yield; if it drops to $50, yield becomes 8% but the dividend didn't change."
+      ],
+      "example": "A utility stock at $40 paying $1.60/year = 4% yield. A tech stock at $200 paying $0.80/year = 0.4% yield. The utility is an income play; the tech stock is a growth play. Total return = price appreciation + dividends.",
+      "related": [
+        "fcf_yield",
+        "payout_ratio",
+        "earnings_growth_yoy",
+        "profit_margin"
+      ]
+    },
+    "return_on_equity": {
+      "label": "ROE (Return on Equity)",
+      "category": "fundamental",
+      "oneLiner": "How efficiently the company turns shareholders' money into profit — the ultimate efficiency score.",
+      "what": "ROE measures net income as a percentage of shareholders' equity. If shareholders put in $100 million and the company earns $15 million, ROE is 15%. It's the return on the owners' investment. Warren Buffett calls it the single most important metric for judging management quality.",
+      "howCalculated": "Net income ÷ average shareholders' equity × 100.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [
+          {
+            "if": "value > 30",
+            "text": "${value} — exceptional! The company generates outstanding returns from shareholders' money. Often signals a competitive moat."
+          },
+          {
+            "if": "value > 15",
+            "text": "${value} — strong ROE. The company is effectively deploying capital to generate profits."
+          },
+          {
+            "if": "value > 10",
+            "text": "${value} — decent. In line with the overall market average."
+          },
+          {
+            "if": "value > 0",
+            "text": "${value} — positive but below average. The company earns a return, but less than investors might get elsewhere."
+          },
+          {
+            "if": "",
+            "text": "${value} — negative. The company is destroying shareholder value. A serious red flag if persistent."
+          }
+        ]
+      },
+      "whyMatters": "ROE tells you if the company is a good steward of investor money. High ROE suggests the business has a 'moat' — something that lets it earn above-average profits. It's the metric that best captures 'quality' in a single number.",
+      "scoringImpact": "High ROE (>15%) contributes positively to the fundamental score. Negative ROE is a concern. It's used alongside other metrics to gauge overall financial health.",
+      "commonMistakes": [
+        "Ignoring that high debt artificially inflates ROE — a company with little equity (high debt) can show huge ROE even with mediocre profits. Check ROIC (return on invested capital) for the full picture.",
+        "Comparing ROE across industries — banks target 10-15% ROE; software companies can hit 40%+. Both can be excellent.",
+        "Not checking consistency — a one-year spike from a tax benefit or asset sale isn't the same as 10 years of 20%+ ROE."
+      ],
+      "example": "Company A has $100M equity and earns $20M → 20% ROE. Company B has $10M equity (high debt) and earns $20M → 200% ROE. Company B looks better on ROE alone but is much riskier. ROIC would reveal the truth.",
+      "related": [
+        "profit_margin",
+        "operating_margin",
+        "debt_to_equity",
+        "price_to_book"
+      ]
+    },
+    "price_to_book": {
+      "label": "P/B Ratio (Price to Book)",
+      "category": "fundamental",
+      "oneLiner": "Stock price vs. liquidation value — what you'd get if the company sold everything and paid all debts.",
+      "what": "Price-to-book compares the stock price to book value per share (assets minus liabilities). It's like comparing a house's market price to its rebuild cost. A P/B of 1 means the stock trades at exactly its liquidation value. Below 1 means you're buying assets for less than they're worth on paper.",
+      "howCalculated": "Stock price ÷ book value per share. Book value = (total assets − total liabilities) ÷ shares outstanding.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [
+          {
+            "if": "value > 5",
+            "text": "${value} — high premium. Investors are paying far more than the company's assets are worth. Common for tech and service companies where value is in intangibles."
+          },
+          {
+            "if": "value > 2",
+            "text": "${value} — above book value. The market believes the company is worth more than its physical assets. Normal for most profitable companies."
+          },
+          {
+            "if": "value > 1",
+            "text": "${value} — reasonable. Stock price roughly in line with asset value. Could be undervalued or just a capital-intensive business."
+          },
+          {
+            "if": "value > 0",
+            "text": "${value} — below book value. Potentially UNDERVALUED — the market prices the company below its asset value. Could be a bargain or a value trap."
+          },
+          {
+            "if": "",
+            "text": "${value} — negative book value. The company has more liabilities than assets. High risk."
+          }
+        ]
+      },
+      "whyMatters": "P/B is useful for valuing banks, insurance companies, and asset-heavy businesses where tangible assets matter. A low P/B can indicate a bargain, but only if the company is still profitable. Very high P/B is normal for tech companies with few physical assets.",
+      "scoringImpact": "Contributes to the overall fundamental picture but weighted less than P/E and profit margin. Very low P/B with good profitability = positive value signal.",
+      "commonMistakes": [
+        "Using P/B for asset-light companies — Google's book value is mostly servers and offices; its real value is in search algorithms and user data, which aren't on the balance sheet.",
+        "Buying just because P/B < 1 — a bank trading at 0.8× book might have bad loans that aren't marked down yet (a value trap).",
+        "Ignoring that book value uses historical cost accounting — a factory bought 20 years ago for $10M might be worth $50M today but still carried at $10M."
+      ],
+      "example": "JPMorgan trades at ~1.2× book — typical for a well-run bank. Tesla trades at ~15× book — investors pay for future growth, not current assets. A distressed retailer at 0.3× book might be a bargain or might be heading to zero.",
+      "related": [
+        "return_on_equity",
+        "debt_to_equity",
+        "current_ratio",
+        "market_cap"
+      ]
+    },
+    "current_ratio": {
+      "label": "Current Ratio",
+      "category": "fundamental",
+      "oneLiner": "Can the company pay its bills this year? Short-term assets divided by short-term debts.",
+      "what": "Current ratio compares current assets (cash, inventory, receivables) to current liabilities (bills due within a year). A ratio of 2 means the company has $2 in liquid assets for every $1 of near-term debt. It's a 'can they pay the rent?' check.",
+      "howCalculated": "Current assets ÷ current liabilities.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [
+          {
+            "if": "value > 3",
+            "text": "${value} — VERY healthy. The company has far more short-term assets than liabilities. A strong safety cushion."
+          },
+          {
+            "if": "value > 1.5",
+            "text": "${value} — healthy. The company can comfortably cover its short-term obligations. Standard for most businesses."
+          },
+          {
+            "if": "value > 1",
+            "text": "${value} — adequate. The company can just barely cover its short-term debts. Watch for any deterioration."
+          },
+          {
+            "if": "",
+            "text": "${value} — concerning. The company's short-term liabilities exceed its liquid assets. Could face cash flow problems if business slows."
+          }
+        ]
+      },
+      "whyMatters": "Current ratio is a liquidity stress test. A company that can't cover its short-term bills may need to borrow at high rates or sell assets, which hurts shareholders. Below 1.0 is a warning sign for traditional businesses. Some models (subscription software) can run safely below 1.",
+      "scoringImpact": "Current ratio < 1.0 with small market cap = dealbreaker flag. Healthy ratio (1.5-3) = positive. Very high (>5) can mean inefficient use of cash.",
+      "commonMistakes": [
+        "Assuming higher is always better — a current ratio of 10 might mean the company is hoarding cash instead of investing or returning it to shareholders.",
+        "Not checking asset quality — $100M in inventory that can't be sold isn't the same as $100M in cash.",
+        "Ignoring industry norms — retailers operate with lower current ratios than manufacturers because inventory turns fast."
+      ],
+      "example": "Company has $500M current assets and $200M current liabilities → current ratio of 2.5. If it pays off $100M of debt using cash, assets drop to $400M, liabilities to $100M → ratio improves to 4.0. But it now has less cash for operations.",
+      "related": [
+        "debt_to_equity",
+        "fcf_yield",
+        "profit_margin",
+        "quick_ratio"
+      ]
+    },
+    "revenue_growth_yoy": {
+      "label": "Revenue Growth (YoY)",
+      "category": "growth",
+      "oneLiner": "How fast the company's sales are growing year-over-year — the top-line expansion rate.",
+      "what": "Revenue growth compares this year's sales to the same period last year. It shows if the business is getting bigger. 20% growth means the company sold 20% more than a year ago. It's the most basic measure of business momentum.",
+      "howCalculated": "(Current period revenue − year-ago period revenue) ÷ year-ago period revenue.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "percent",
+        "bands": [
+          {
+            "if": "value > 0.30",
+            "text": "${value} — RAPID growth. The company is expanding quickly. Exciting but can be risky if growth isn't profitable."
+          },
+          {
+            "if": "value > 0.10",
+            "text": "${value} — solid growth. Healthy expansion without being reckless. Ideal for most investors."
+          },
+          {
+            "if": "value > 0",
+            "text": "${value} — modest growth. The company is growing, but slowly. Could be a mature company or facing competition."
+          },
+          {
+            "if": "",
+            "text": "${value} — NEGATIVE growth. Sales are shrinking. This is a red flag unless there's a clear one-time reason."
+          }
+        ]
+      },
+      "whyMatters": "Growing revenue means more customers, more sales, a growing business. Shrinking revenue means the opposite. It's the most basic measure of business health. Revenue growth without profit growth = declining margins (bad). Both growing together = ideal.",
+      "scoringImpact": "Strong growth adds to the score. Negative growth subtracts. This is one of the most important fundamental factors.",
+      "commonMistakes": [
+        "Celebrating revenue growth while ignoring margins — growing revenue at a loss is easy (sell $1 bills for 90¢).",
+        "Not checking if growth is organic or from acquisitions — bought revenue is less valuable than built revenue.",
+        "Comparing growth rates across different company sizes — a $10M company doubling to $20M is 100% growth; a $100B company adding $10B is only 10%."
+      ],
+      "example": "A SaaS company growing from $100M to $150M ARR = 50% YoY growth. A retailer growing from $50B to $52B = 4% growth. Both can be healthy depending on context.",
+      "related": [
+        "earnings_growth_yoy",
+        "profit_margin",
+        "operating_margin",
+        "fcf_yield"
+      ]
+    },
+    "earnings_growth_yoy": {
+      "label": "Earnings Growth (YoY)",
+      "category": "growth",
+      "oneLiner": "How fast profits are growing year-over-year — shows if the company is becoming more profitable as it grows.",
+      "what": "Earnings growth compares this year's profit to the same period last year. It shows if the company is getting MORE profitable, not just bigger. Revenue growth + earnings growth = the ideal combination (scale + efficiency).",
+      "howCalculated": "(Current period net income − year-ago period net income) ÷ |year-ago period net income|.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "percent",
+        "bands": [
+          {
+            "if": "value > 0.50",
+            "text": "${value} — EXPLOSIVE growth. Earnings are growing much faster than revenue, meaning the company is becoming more efficient."
+          },
+          {
+            "if": "value > 0.20",
+            "text": "${value} — strong growth. The company is getting more profitable rapidly. A sign of a quality business."
+          },
+          {
+            "if": "value > 0",
+            "text": "${value} — positive growth. Earnings are heading in the right direction."
+          },
+          {
+            "if": "value > -0.20",
+            "text": "${value} — slight decline. Earnings are down a bit. Not a crisis, but worth monitoring."
+          },
+          {
+            "if": "",
+            "text": "${value} — significant decline. Profits are shrinking. A red flag unless there's a clear one-time reason."
+          }
+        ]
+      },
+      "whyMatters": "Revenue growth shows the company is getting bigger. Earnings growth shows it's getting MORE profitable. Both together = the ideal combination. Earnings growing faster than revenue means expanding margins (operating leverage).",
+      "scoringImpact": "Strong earnings growth adds to the fundamental score. Negative earnings growth is a concern, especially if revenue is still growing (shrinking margins).",
+      "commonMistakes": [
+        "Ignoring the base effect — a company going from $1M to $2M profit shows 100% growth; from $100M to $110M shows 10%. The latter adds far more absolute profit.",
+        "Not checking if earnings growth is sustainable — one-time tax benefits, asset sales, or accounting changes can create fake growth.",
+        "Confusing earnings growth with EPS growth — share buybacks can boost EPS growth without any real earnings improvement."
+      ],
+      "example": "Company grows revenue 20% but earnings 40% — margins are expanding (operating leverage). Company grows revenue 20% but earnings only 5% — margins are compressing (investment phase or competition).",
+      "related": [
+        "revenue_growth_yoy",
+        "profit_margin",
+        "operating_margin",
+        "peg_ratio"
+      ]
+    },
+    "peg_ratio": {
+      "label": "PEG Ratio",
+      "category": "growth",
+      "oneLiner": "P/E divided by earnings growth rate — the growth-adjusted price tag. PEG of 1 = fair value.",
+      "what": "PEG ratio takes the P/E ratio and divides it by the earnings growth rate (as a percentage). It answers: 'Is this stock reasonably priced for how fast it's growing?' A P/E of 30 with 30% growth = PEG of 1 (fair). A P/E of 30 with 10% growth = PEG of 3 (expensive).",
+      "howCalculated": "P/E ratio ÷ earnings growth rate (%). Uses forward P/E and estimated growth for forward PEG.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [
+          {
+            "if": "value < 0",
+            "text": "${value} — negative earnings growth. The company's profits are shrinking. The low PEG is NOT a bargain — it's a warning."
+          },
+          {
+            "if": "value < 1",
+            "text": "${value} — UNDERVALUED relative to growth. The stock's price is low compared to how fast earnings are growing. Often a good sign."
+          },
+          {
+            "if": "value < 2",
+            "text": "${value} — fairly valued. The price is reasonable for the growth rate. No obvious bargain or overvaluation."
+          },
+          {
+            "if": "",
+            "text": "${value} — OVERVALUED relative to growth. The stock's price is high compared to its growth rate. Either growth is expected to accelerate, or the stock is too expensive."
+          }
+        ]
+      },
+      "whyMatters": "PEG is P/E with context. A high P/E looks scary, but if the company is growing at 50% per year, a PEG of 1 means it's actually fairly priced. It's the 'growth-adjusted value' measure that lets you compare a 10× P/E slow grower to a 30× P/E fast grower.",
+      "scoringImpact": "PEG < 1 with positive earnings growth = strong value signal. PEG > 2 = potential overvaluation. Negative PEG = caution flag.",
+      "commonMistakes": [
+        "Using trailing P/E with forward growth estimates — mismatch creates nonsense PEG. Use forward P/E with forward growth.",
+        "Trusting PEG for cyclical companies — a homebuilder at 5× P/E with -20% earnings growth has negative PEG but might be at the cycle bottom.",
+        "Ignoring that growth estimates are often wrong — analyst estimates for next year's growth are frequently off by 50%+."
+      ],
+      "example": "Stock A: P/E 20, growth 20% → PEG 1.0 (fair). Stock B: P/E 10, growth 5% → PEG 2.0 (expensive for growth). Stock C: P/E 40, growth 40% → PEG 1.0 (also fair). PEG lets you compare them apples-to-apples.",
+      "related": [
+        "pe_ratio",
+        "earnings_growth_yoy",
+        "price_to_sales",
+        "revenue_growth_yoy"
+      ]
+    },
+    "price_to_sales": {
+      "label": "P/S Ratio (Price to Sales)",
+      "category": "growth",
+      "oneLiner": "Stock price divided by revenue per share — values the company on sales, not profits. Useful for unprofitable companies.",
+      "what": "P/S ratio is market cap divided by revenue. If a company has $10B market cap and $2B revenue, P/S = 5. You're paying $5 for every $1 of sales. It's useful when P/E is meaningless (negative earnings), like for early-stage growth companies.",
+      "howCalculated": "Market capitalization ÷ total revenue. Or: stock price ÷ revenue per share.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [
+          {
+            "if": "value > 20",
+            "text": "${value} — very high. Common for high-growth tech companies. Investors are paying a huge premium for future revenue. High risk if growth slows."
+          },
+          {
+            "if": "value > 5",
+            "text": "${value} — above average. The market is optimistic about future growth. Reasonable for growth companies."
+          },
+          {
+            "if": "value > 1",
+            "text": "${value} — typical range. Normal valuation for most businesses."
+          },
+          {
+            "if": "value > 0",
+            "text": "${value} — low. The company's sales are valued conservatively. Could be a bargain or a value trap."
+          },
+          {
+            "if": "",
+            "text": "${value} — negative (unusual). The company has negative revenue? This is very rare — likely a data issue."
+          }
+        ]
+      },
+      "whyMatters": "P/S is useful for young companies that aren't profitable yet (they have P/E but it's often negative/meaningless). It tells you how much you're paying for each dollar of sales, regardless of profitability. Low P/S with high growth = potential bargain.",
+      "scoringImpact": "Very high P/S (>20) with slow revenue growth = overvalued. Low P/S with high revenue growth = potential bargain. No direct score impact for unprofitable companies — assessed alongside growth rate.",
+      "commonMistakes": [
+        "Comparing P/S across industries — software companies trade at 10-20× sales; retailers at 0.5-1×. Both can be fairly valued.",
+        "Ignoring margins — two companies with same P/S but one has 30% margin and the other 5%. The high-margin one deserves higher P/S.",
+        "Using P/S for mature companies — P/E is better when earnings are positive and stable. P/S ignores profitability entirely."
+      ],
+      "example": "Cloud software company: $20B market cap, $1B revenue → P/S 20. Mature retailer: $50B market cap, $100B revenue → P/S 0.5. The software company is priced for 50%+ growth; the retailer for 2% growth. Both P/S ratios make sense in context.",
+      "related": [
+        "revenue_growth_yoy",
+        "profit_margin",
+        "pe_ratio",
+        "peg_ratio"
+      ]
+    },
+    "institutional_flow": {
+      "label": "Institutional Flow",
+      "category": "growth",
+      "oneLiner": "Net buying or selling by big money (funds, pensions, hedgies) last month — the smart money's verdict.",
+      "what": "Institutional flow tracks whether large institutions are net buyers or sellers of the stock over the past month. Positive means more buying than selling. These are professional investors with research teams — their actions reveal conviction.",
+      "howCalculated": "Net shares bought by institutions − net shares sold by institutions over the reporting period, normalized.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [
+          {
+            "if": "value > 5",
+            "text": "${value} — STRONG institutional buying. Major investors are accumulating shares. One of the most bullish signals available."
+          },
+          {
+            "if": "value > 1",
+            "text": "${value} — moderate buying. Institutions are adding to positions. Mildly bullish."
+          },
+          {
+            "if": "value > -1",
+            "text": "${value} — neutral. No significant institutional activity this month."
+          },
+          {
+            "if": "value > -5",
+            "text": "${value} — moderate selling. Institutions are reducing positions. Mildly bearish."
+          },
+          {
+            "if": "",
+            "text": "${value} — STRONG institutional selling. Smart money is getting out. A significant warning sign."
+          }
+        ]
+      },
+      "whyMatters": "Institutions do extensive research before making moves. When they're consistently buying a stock, it's because their analysts found something compelling. When they're all selling, pay attention. This is real money voting with their feet.",
+      "scoringImpact": "Strong buying = significant positive boost. Strong selling = significant negative. This is weighted heavily in sentiment because it represents real money in action.",
+      "commonMistakes": [
+        "Confusing flow with ownership — high institutional ownership means they already own it; flow tells you if they're adding or reducing.",
+        "Not checking the timeframe — monthly flow can be noisy. Quarterly trends are more meaningful.",
+        "Assuming institutions are always right — they herd, they make mistakes, and they have different time horizons than you."
+      ],
+      "example": "Stock shows +8 institutional flow last month — several large funds added positions. Next month shows -6 — the same funds are taking profits. The trend matters more than any single month.",
+      "related": [
+        "institutional_ownership",
+        "analyst_consensus",
+        "target_upside_pct",
+        "insider_status"
+      ]
+    },
+    "last_surprise_pct": {
+      "label": "Earnings Surprise",
+      "category": "earnings",
+      "oneLiner": "How much a company's actual profit beat or missed analyst predictions, shown as a percentage.",
+      "what": "Think of it as a quarterly report card for profits. Analysts guess what a company will earn. The surprise is how far the real answer is from those guesses, in either direction. A big beat is like the student who aced a test everyone said they would barely pass; a big miss is the opposite.",
+      "howCalculated": "Compares actual earnings per share to the consensus analyst estimate for the same quarter.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "percent",
+        "bands": [
+          {
+            "if": "value > 10",
+            "text": "${value} — BIG BEAT. The company crushed expectations by a wide margin. Often a strong catalyst that pushes the stock price higher the next session."
+          },
+          {
+            "if": "value > 0",
+            "text": "${value} — beat. The company outperformed estimates. Positive but the magnitude determines how much impact."
+          },
+          {
+            "if": "value > -5",
+            "text": "${value} — slight miss. Small enough that many investors shrug it off if the rest of the story still looks good."
+          },
+          {
+            "if": "",
+            "text": "${value} — BIG MISS. Significantly below expectations. Usually a negative catalyst that weighs on the stock price."
+          }
+        ]
+      },
+      "whyMatters": "Consistent beaters tend to earn repeat positive moves, while consistent missers disappoint repeatedly. One quarter alone is noise; a track record is signal.",
+      "scoringImpact": "Positive surprises add points. Large negative surprises deduct points. Repeated strong beaters score higher over time.",
+      "commonMistakes": [
+        "Treating one big beat as proof future earnings will keep growing — surprises can be one-time.",
+        "Ignoring why a miss happened — some misses come from profitable investments that will pay off later."
+      ],
+      "example": "A company estimates $1.00 EPS but reports $1.12: a +12% surprise, landing in the BIG BEAT band. The next quarter it estimates $1.05 but reports $1.03: a -2% surprise, landing in the slight-miss band.",
+      "related": [
+        "beat_rate",
+        "next_earnings_date"
+      ]
+    },
+    "beat_rate": {
+      "label": "Beat Rate",
+      "category": "earnings",
+      "oneLiner": "How many recent quarterly reports the company exceeded analyst expectations.",
+      "what": "One great quarter could be luck. A beat rate asks: out of the last several earnings reports, how many times did the company outperform? A 4-out-of-4 record means the business consistently delivers; a 1-out-of-4 record suggests execution problems.",
+      "howCalculated": "Counts recent quarters where actual earnings per share exceeded the consensus estimate, then expresses it as a fraction or percentage.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "plain",
+        "bands": [
+          {
+            "if": "value > 2",
+            "text": "${value} quarters — strong beat rate. Most recent reports exceeded expectations, signaling reliable execution."
+          },
+          {
+            "if": "value > 1",
+            "text": "${value} quarters — moderate beat rate. The company beats slightly more often than it misses."
+          },
+          {
+            "if": "value > 0",
+            "text": "${value} quarter — low beat rate. Beats are the exception, not the rule."
+          },
+          {
+            "if": "value == 0",
+            "text": "${value} quarters — zero beats. The company has not topped expectations in recent history."
+          },
+          {
+            "if": "",
+            "text": "${value} — beat rate. Review the last few quarters to see the pattern."
+          }
+        ]
+      },
+      "whyMatters": "A high beat rate suggests the business has real momentum. A low beat rate suggests the company consistently underperforms what Wall Street expects.",
+      "scoringImpact": "High beat rate (3+ out of 4) is a strong positive. Low beat rate (0–1 out of 4) is negative. This is one of the more reliable quality indicators.",
+      "commonMistakes": [
+        "Confusing a single big beat with a dependable pattern — one quarter is not a trend.",
+        "Ignoring guidance changes — a company might beat recent estimates but lower future guidance, which matters more."
+      ],
+      "example": "A stock with a 3-out-of-4 beat rate recently delivered positive surprises in three of its last four quarters. That track record earns a positive weight in the earnings score.",
+      "related": [
+        "last_surprise_pct",
+        "next_earnings_date"
+      ]
+    },
+    "next_earnings_date": {
+      "label": "Next Earnings Date",
+      "category": "earnings",
+      "oneLiner": "The scheduled day the company will release its next quarterly profit report.",
+      "what": "Earnings day functions like a company-wide status update: stock prices can gap up or down 10–20% in minutes depending on the numbers. This value simply marks the calendar event so you can plan around the likely volatility without being surprised.",
+      "howCalculated": "Based on the company's historical reporting schedule, confirmed against analyst calendars and official company investor-relations pages.",
+      "whyMatters": "If a stock jumps 15% overnight after earnings, stop-loss orders may not execute at your intended price. Knowing the date lets you reduce upcoming position size or wait until the report passes before entering.",
+      "scoringImpact": "Does not directly change the score. It is informational so you can make smarter timing decisions.",
+      "commonMistakes": [
+        "Buying right before earnings hoping for a positive gap — that is lottery thinking.",
+        "Forgetting that gaps happen overnight and a limit order set during the trading day may not protect you."
+      ],
+      "example": "A stock trading at $120 has earnings in five days. Many swing traders trim position size ahead of the event. If the report is a clean beat, the stock might open near $132 the next morning; a miss could open near $108.",
+      "related": [
+        "last_surprise_pct",
+        "beat_rate"
+      ]
+    },
+    "analyst_consensus": {
+      "label": "Analyst Consensus",
+      "category": "sentiment",
+      "oneLiner": "A blended grade from professional analysts who publish buy, hold, or sell recommendations on the stock.",
+      "what": "Full-time analysts study the company's books, interview management, and model future earnings before publishing a rating. The consensus averages those ratings into one opinion. It is not gospel, but it represents the collected view of people whose job is to be right.",
+      "howCalculated": "Collects all active analyst ratings for a stock, normalises them onto a common scale, and averages to a single consensus statement.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "plain",
+        "bands": [
+          {
+            "if": "value == 'Strong Buy'",
+            "text": "${value} — Wall Street is strongly bullish. Most upgraded analysts expect meaningful upside from here."
+          },
+          {
+            "if": "value == 'Buy'",
+            "text": "${value} — analysts are generally bullish. A majority recommend adding to positions."
+          },
+          {
+            "if": "value == 'Hold'",
+            "text": "${value} — neutral. Analysts see no compelling reason to buy or sell at current levels."
+          },
+          {
+            "if": "value == 'Sell'",
+            "text": "${value} — analysts are bearish. A meaningful number recommend reducing exposure."
+          },
+          {
+            "if": "value == 'Strong Sell'",
+            "text": "${value} — consensus is deeply negative. Analysts expect significant downside."
+          },
+          {
+            "if": "",
+            "text": "${value} — analyst consensus. Review individual ratings for nuance."
+          }
+        ]
+      },
+      "whyMatters": "Analyst ratings are a crowd-sourced second opinion. They are not infallible and often run too optimistic because firms prefer not to publish Sell ratings. Take strong ratings seriously, but still do your own homework.",
+      "scoringImpact": "Strong Buy increases the score. Hold or Neutral is neutral. Sell ratings subtract. This factor carries heavy weight in the sentiment pillar.",
+      "commonMistakes": [
+        "Treating consensus as a guarantee — even strong consensus can be wrong during unexpected events.",
+        "Ignoring the coverage count — a Strong Buy from one analyst is far less meaningful than a consensus from twenty."
+      ],
+      "example": "Stock XYZ has twelve analysts covering it: five rate Strong Buy, four rate Buy, two rate Hold, and one rates Sell. The consensus is highly positive and adds to the sentiment score.",
+      "related": [
+        "target_upside_pct",
+        "institutional_ownership"
+      ]
+    },
+    "insider_status": {
+      "label": "Insider Activity",
+      "category": "sentiment",
+      "oneLiner": "Whether company executives and directors are buying or selling their own stock.",
+      "what": "Insiders — CEOs, CFOs, board members — know their company better than any outsider. When they buy shares with personal cash, they are voting with their wallet that the stock is undervalued. When multiple insiders sell heavily, it can indicate that trouble is ahead, although sales also happen for diversification and personal tax reasons.",
+      "howCalculated": "Tracks SEC Form 4 filings from company insiders to determine net buying versus selling over the trailing quarter.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "plain",
+        "bands": [
+          {
+            "if": "value == 'buying'",
+            "text": "${value} — insiders are BUYING. Executives are putting their own money into the stock, which is one of the strongest bullish confidence signals."
+          },
+          {
+            "if": "value == 'selling'",
+            "text": "${value} — insiders are SELLING. Single sales can be routine (diversification, taxes). Multiple heavy sales together are a warning sign."
+          },
+          {
+            "if": "value == 'none'",
+            "text": "${value} — no recent insider activity. No explicit signal from the people inside the building."
+          },
+          {
+            "if": "",
+            "text": "${value} — insider activity status."
+          }
+        ]
+      },
+      "whyMatters": "Insiders have the deepest knowledge of their business. When they are willing to risk personal wealth on the stock, it signals genuine conviction.",
+      "scoringImpact": "Insider buying gives a positive boost. Heavy or coordinated insider selling is a negative. In extreme cases, this can override other signals.",
+      "commonMistakes": [
+        "Assuming every sale is a red flag — executives routinely sell for life events unrelated to company outlook.",
+        "Missing the bigger picture — one CEO buying $50k means little if the stock is at an all-time high and the CFO sold $5m."
+      ],
+      "example": "Three of the four C-suite officers bought shares in the open market over the last three months. That pattern is labelled buying and contributes a positive insider signal.",
+      "related": [
+        "institutional_ownership",
+        "target_upside_pct"
+      ]
+    },
+    "short_interest_pct": {
+      "label": "Short Interest",
+      "category": "sentiment",
+      "oneLiner": "The percentage of shares that investors have borrowed and sold, betting the stock will fall.",
+      "what": "Short sellers borrow shares and immediately sell them, hoping to buy them back cheaper later. Short interest shows how many people are making that bearish bet. A high number means scepticism is widespread; a low number means almost nobody is betting against the stock.",
+      "howCalculated": "Total shorted shares divided by freely tradable shares outstanding, expressed as a percentage.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "percent",
+        "bands": [
+          {
+            "if": "value > 20",
+            "text": "${value}% — VERY HIGH short interest. A huge crowd is betting this stock falls. If positive news hits instead, a short squeeze can rocket the price higher in days."
+          },
+          {
+            "if": "value > 10",
+            "text": "${value}% — elevated short interest. Notable bearish sentiment. Could be trouble, or it could set up a squeeze opportunity if the stock rallies."
+          },
+          {
+            "if": "value > 5",
+            "text": "${value}% — moderate short interest. Some scepticism is normal and does not imply disaster."
+          },
+          {
+            "if": "",
+            "text": "${value}% — low short interest. Very few investors are betting against this stock, which is generally a positive sign."
+          }
+        ]
+      },
+      "whyMatters": "High short interest is mixed news. It signals doubt, but it also creates a potential squeeze: if short sellers rush to cover (buy back shares), their buying alone can push prices sharply higher. Short interest alone is therefore not a buy or sell signal.",
+      "scoringImpact": "Very high short interest (above 20%) is flagged as a dealbreaker because it signals serious scepticism about the company. Moderate levels are informational and do not move the score much.",
+      "commonMistakes": [
+        "Buying a stock just because it is heavily shorted — the shorts might be right, and the stock can decline for fundamentals, not squeeze.",
+        "Ignoring the short ratio (days to cover) — high short interest with low days to cover is far less dangerous than the reverse."
+      ],
+      "example": "A stock with 22% short interest has many bears betting against it. If it misses earnings and falls 5%, nothing special happens. If it beats earnings and rises 8%, short sellers may rush to cover, accelerating the rally.",
+      "related": [
+        "short_ratio",
+        "volume_ratio",
+        "consecutive_gains"
+      ]
+    },
+    "short_ratio": {
+      "label": "Short Ratio (Days to Cover)",
+      "category": "sentiment",
+      "oneLiner": "How many trading days of normal volume it would take for all short sellers to exit their positions.",
+      "what": "Short sellers hope to buy back shares cheaper later. The short ratio — also called Days to Cover — measures how long that bet has been building. If a restaurant had a reservation waitlist of 50 parties and could only seat 5 per night, it would take ten nights to clear. In the same way, a high short ratio means short sellers are crowded and exit pressure would take many days to clear. This value is identical to Days to Cover — same number, two names.",
+      "howCalculated": "Total shorted shares divided by average daily trading volume over a recent window.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "plain",
+        "bands": [
+          {
+            "if": "value > 10",
+            "text": "${value} days — EXTREME days to cover. Short sellers are deeply crowded; any positive catalyst can cause a violent rush to cover."
+          },
+          {
+            "if": "value > 5",
+            "text": "${value} days — high days to cover. The short crowd is crowded and vulnerable to upward surprises."
+          },
+          {
+            "if": "value > 2",
+            "text": "${value} days — moderate days to cover. Short sellers could cover their positions in a few normal sessions if needed."
+          },
+          {
+            "if": "",
+            "text": "${value} days — low days to cover. Short positions are thin enough that covering would barely register on the tape."
+          }
+        ]
+      },
+      "whyMatters": "Short interest tells you who is betting against the stock; days to cover tells you how trapped those bears are. High interest combined with high days to cover forms a classic squeeze setup. The squeeze itself is not a buy signal — it is a risk amplifier.",
+      "scoringImpact": "Does not directly change the score. Cross-referenced with short interest to flag squeeze potential. High values combined with positive momentum generate a boost.",
+      "commonMistakes": [
+        "Confusing days to cover with the probability of a squeeze — a high ratio only matters if there is a catalyst to trigger buying.",
+        "Treating high days to cover as inherently bullish — the shorts might be correct, and the stock can continue falling."
+      ],
+      "example": "A stock with 18% short interest and 6.2 days to cover sits in the elevated / high band on both measures. If the company guides higher next quarter, short sellers may scramble to buy back shares, adding upward pressure.",
+      "related": [
+        "short_interest_pct",
+        "volume_ratio",
+        "consecutive_gains"
+      ]
+    },
+    "institutional_ownership": {
+      "label": "Institutional Ownership",
+      "category": "sentiment",
+      "oneLiner": "The percentage of a company's shares owned by mutual funds, pension funds, and hedge funds.",
+      "what": "Think of institutions as the grown-ups at the table. These are professional investors who run extensive due diligence before buying. High ownership means the stock has passed scrutiny by teams of analysts and portfolio committees. Light ownership does not automatically mean something is wrong, but it does mean fewer experts have vetted the stock.",
+      "howCalculated": "Aggregates quarterly 13F filings from large institutions to compute the percentage of outstanding shares they collectively hold.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "percent",
+        "bands": [
+          {
+            "if": "value > 60",
+            "text": "${value}% — strong institutional confidence. Big-money players have sized in heavily, usually after deep research."
+          },
+          {
+            "if": "value > 30",
+            "text": "${value}% — moderate ownership. Respectable institutional interest but not an all-in bet."
+          },
+          {
+            "if": "value > 10",
+            "text": "${value}% — light institutional ownership. Few large funds have taken positions."
+          },
+          {
+            "if": "",
+            "text": "${value}% — minimal institutional ownership. Professionals largely avoid the stock, which can signal unresolved risk."
+          }
+        ]
+      },
+      "whyMatters": "Institutions generally have better access to management, research budgets, and legal constraints that prevent reckless gambling. If they avoid a stock, that is worth noticing.",
+      "scoringImpact": "High institutional ownership adds to the sentiment score. Very low ownership is a concern. This factor carries moderate weight in the sentiment pillar.",
+      "commonMistakes": [
+        "Assuming high ownership is always good — if institutions decide to sell together, the stock can gap down with no supportive buyers.",
+        "Ignoring whether the shares are held long term or are just short-term trading inventory."
+      ],
+      "example": "A small-cap biotech with 8% institutional ownership sits in the minimal band. That alone does not say the science is bad, but it does warn that the professional money crowd has not embraced the story yet.",
+      "related": [
+        "analyst_consensus",
+        "target_upside_pct",
+        "insider_status"
+      ]
+    },
+    "target_upside_pct": {
+      "label": "Price Target Upside",
+      "category": "sentiment",
+      "oneLiner": "How much analysts expect the stock to rise from its current price, expressed as a percentage.",
+      "what": "Analysts model a company's future profits and then guess what the stock should be worth. The average of all their target prices, minus the current price, becomes the target upside. A 15% upside means the average analyst thinks the stock could climb 15% before it becomes fairly valued.",
+      "howCalculated": "Average of all published price targets for the stock, compared to the current trading price.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "percent",
+        "bands": [
+          {
+            "if": "value > 30",
+            "text": "${value}% — huge upside. Analysts see massive room to run, but such high targets often come with high uncertainty attached."
+          },
+          {
+            "if": "value > 10",
+            "text": "${value}% — meaningful upside. A reasonable gap between today's price and where analysts think it should go."
+          },
+          {
+            "if": "value > 0",
+            "text": "${value}% — slight upside. The stock is seen as modestly undervalued by the analyst community."
+          },
+          {
+            "if": "value > -10",
+            "text": "${value}% — slight downside risk. Analysts consider the stock a bit expensive at current levels."
+          },
+          {
+            "if": "",
+            "text": "${value}% — significant downside expected. Analysts broadly see the stock as overvalued with meaningful risk ahead."
+          }
+        ]
+      },
+      "whyMatters": "Price targets are not promises, but they reflect a consensus view of fair value. A stock sitting far above consensus targets may be priced for perfection, leaving little room for error.",
+      "scoringImpact": "Strong upside above 15% contributes positively. Downside is negative. The conviction factor is tempered by how many analysts cover the stock — wider coverage means the figure is more reliable.",
+      "commonMistakes": [
+        "Treating price targets as guarantees — analysts routinely miss badly on both the upside and downside.",
+        "Ignoring that targets lag news — they are updated infrequently and may already be stale after an earnings report."
+      ],
+      "example": "A stock at $85 has twelve analysts with an average target of $103. The 21% upside places it firmly in the meaningful band. If four more analysts downgrade after a miss, the average target may fall closer to $92, changing the signal.",
+      "related": [
+        "analyst_consensus",
+        "institutional_ownership",
+        "consecutive_gains"
+      ]
+    },
+    "volatility_regime": {
+      "label": "Volatility Regime",
+      "category": "risk",
+      "oneLiner": "A category describing how wildly the stock price moves from day to day.",
+      "what": "Volatility is the bumpiness of the road. In a low-volatility regime the stock glides along like a luxury sedan on a smooth highway. In an extreme regime it bounces like a dune buggy over rocks. This classification helps your strategy match the ride: calm roads need tight stops, rough roads need room to breathe.",
+      "howCalculated": "Based on Average True Range percentage relative to price and recent historical percentile bands.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "plain",
+        "bands": [
+          {
+            "if": "value == 'low'",
+            "text": "LOW volatility. Steady, predictable day-to-day moves with few shocks. Ideal for tight stop placement."
+          },
+          {
+            "if": "value == 'normal'",
+            "text": "NORMAL volatility. Typical movement that most swing traders expect. The sweet spot for most strategies."
+          },
+          {
+            "if": "value == 'high'",
+            "text": "HIGH volatility. Expect wider swings. Higher potential reward comes with higher risk; wider stops and smaller positions are appropriate."
+          },
+          {
+            "if": "value == 'extreme'",
+            "text": "EXTREME volatility. Moves are unusual and violent. Treat this as either a rare opportunity or a dangerous environment; mandatory wider stops and reduced sizing."
+          },
+          {
+            "if": "",
+            "text": "${value} — volatility regime."
+          }
+        ]
+      },
+      "whyMatters": "Your risk parameters should match the stock's personality. Trading a high-volatility name with tight stops will stop you out constantly; trading a low-volatility name with wide stops wastes capital.",
+      "scoringImpact": "Normal volatility is ideal. Low is slightly positive for stability. High is a negative because it increases risk. Extreme is a dealbreaker unless other factors are exceptional.",
+      "commonMistakes": [
+        "Using the same stop-loss width for all stocks regardless of volatility — a 2% stop on a volatile name is a noise stop that will never stick.",
+        "Chasing high-volatility stocks for excitement without adjusting position size to match the larger swings."
+      ],
+      "example": "A utility stock may live in the low-volatility regime, while a speculative biotech often sits in high or extreme. The same 1% position size on both delivers very different risk profiles.",
+      "related": [
+        "atr_pct",
+        "suggested_stop_pct",
+        "suggested_position_size_pct",
+        "beta"
+      ]
+    },
+    "suggested_stop_pct": {
+      "label": "Suggested Stop Loss",
+      "category": "risk",
+      "oneLiner": "The recommended emergency-exit distance below your entry price.",
+      "what": "A stop loss is a circuit breaker. If the stock falls to this level, the original trade idea is probably wrong and exiting limits further damage. It is calculated from recent volatility, not picked arbitrarily. Think of it as the floor beneath a bungee cord: it does not prevent the jump, it prevents an uncontrolled fall.",
+      "howCalculated": "Driven by the stock's Average True Range (ATR) and the swing-parity stop formula that multiplies ATR by a factor aligned with the volatility regime.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "percent",
+        "bands": [
+          {
+            "if": "value > 8",
+            "text": "${value}% stop. Wide stop indicates a very volatile stock. Make sure position size is small enough that this loss remains within your risk budget."
+          },
+          {
+            "if": "value > 5",
+            "text": "${value}% stop. Above-average stop distance. Acceptable for medium-volatility names; verify it is not inside normal daily noise."
+          },
+          {
+            "if": "value > 2",
+            "text": "${value}% stop. Standard swing-trade stop. Tight enough to protect capital, roomy enough to avoid whipsaw exits."
+          },
+          {
+            "if": "",
+            "text": "${value}% stop. Tight stop suggests low volatility or an aggressive risk setting. Confirm the level gives the trade room to breathe."
+          }
+        ]
+      },
+      "whyMatters": "Stop losses are the single most important risk-management tool. Without them, a 10% loss can silently become a 50% loss. With them, any single bad trade costs a known, bounded amount.",
+      "scoringImpact": "Not a scoring factor. This is a risk-management recommendation calculated from the stock's volatility, not an input to the quality score.",
+      "commonMistakes": [
+        "Moving the stop further away just because you do not want to be wrong — the stop exists to protect you, not to validate your ego.",
+        "Setting stops at psychologically obvious levels like round numbers where algorithms and market makers can easily find them."
+      ],
+      "example": "A stock with a 4.2% suggested stop can drop roughly that amount before the system exits the position. If you risk the full 1% portfolio rule on this trade, position sizing adjusts accordingly so that a stop-out stays within budget.",
+      "related": [
+        "suggested_position_size_pct",
+        "max_risk_per_trade_pct",
+        "atr_pct"
+      ]
+    },
+    "suggested_position_size_pct": {
+      "label": "Suggested Position Size",
+      "category": "risk",
+      "oneLiner": "The percentage of your total trading capital the platform recommends allocating to this single position.",
+      "what": "Professional traders do not go all-in on one stock. They size each bet so that even a losing trade cannot do serious damage to the account. Higher volatility names get smaller allocations; calmer names can carry more weight. Think of it like wearing a helmet: the rougher the ride, the more protection you need.",
+      "howCalculated": "Derived from the 1% risk rule: portfolio value multiplied by max-risk-per-trade, divided by the entry price minus the stop-loss price.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "percent",
+        "bands": [
+          {
+            "if": "value > 20",
+            "text": "${value}% of portfolio. Very large single-name exposure. Review your diversification rules carefully."
+          },
+          {
+            "if": "value > 10",
+            "text": "${value}% of portfolio. Solid position for a high-conviction trade in a well-behaved stock."
+          },
+          {
+            "if": "value > 5",
+            "text": "${value}% of portfolio. Moderate weight that leaves room for multiple concurrent positions."
+          },
+          {
+            "if": "",
+            "text": "${value}% of portfolio. Conservative size — often because the stock is volatile or the stop is wide."
+          }
+        ]
+      },
+      "whyMatters": "Position sizing is how professionals avoid blowing up their accounts. Even the best traders are wrong roughly 40% of the time. Reasonable sizing keeps you in the game long enough for the edge to play out.",
+      "scoringImpact": "Not a scoring factor. This is a risk-management output that protects your capital rather than judging whether the trade itself is good.",
+      "commonMistakes": [
+        "Scaling into a losing position because the stock is cheaper now — that doubles down on a thesis you no longer have evidence for.",
+        "Treating suggested size as a target to maximise — if you override up, you must accept proportionally larger drawdowns."
+      ],
+      "example": "With a $50,000 account and the 1% rule, the maximum loss you can take on any trade is $500. If your stop is 5% below entry, the platform suggests a position near 2% of portfolio because 2% times 5% loss equals the $500 budget.",
+      "related": [
+        "max_risk_per_trade_pct",
+        "suggested_stop_pct",
+        "volatility_regime"
+      ]
+    },
+    "max_risk_per_trade_pct": {
+      "label": "Max Risk Per Trade",
+      "category": "risk",
+      "oneLiner": "The largest percentage of your total portfolio you should allow any single trade to lose.",
+      "what": "This is the golden rule of risk management. Even the best traders are wrong often. If you risk 1% per trade, you would need one hundred consecutive losses to reach zero, which is practically impossible in a lifetime. If you risk 10% per trade, just ten straight losses wipes you out. The difference is the difference between surviving and quitting forever.",
+      "howCalculated": "A configurable risk parameter you set before trading. The platform then sizes positions so that a stop-hit loss equals this percentage of your total capital.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": "percent",
+        "bands": [
+          {
+            "if": "value <= 1",
+            "text": "${value}% max risk. Professional-grade and conservative. A hundred straight losses is needed to reach zero, so survival is very likely."
+          },
+          {
+            "if": "value <= 2",
+            "text": "${value}% max risk. Reasonable for experienced traders who can stomach slightly larger swings per trade."
+          },
+          {
+            "if": "value <= 5",
+            "text": "${value}% max risk. Elevated risk. A string of five losses cuts roughly a quarter of capital — only appropriate for very high-conviction setups."
+          },
+          {
+            "if": "value <= 10",
+            "text": "${value}% max risk. Very aggressive. Ten straight losses ends the account. Reserved for extremely rare, high-edge opportunities."
+          },
+          {
+            "if": "",
+            "text": "${value}% max risk. Highly aggressive sizing. A short losing streak can cause serious damage quickly."
+          }
+        ]
+      },
+      "whyMatters": "Risk of ruin is real and mathematically simple. The 1% rule is why professional traders survive decades while amateurs blow up in months. It is not about being timid — it is about being consistent enough to trade tomorrow.",
+      "scoringImpact": "Not a scoring factor. It is a risk-management parameter that controls position sizing, not a judgement of whether the trade itself is good.",
+      "commonMistakes": [
+        "Raising risk because you feel 'due for a win' — markets do not care about your feelings or past results.",
+        "Trying to make back losses faster by doubling risk — that is the fastest route to a blown account."
+      ],
+      "example": "At 1% max risk per trade with a $100,000 account, each position is sized so that a stop-out costs exactly $1,000. Losing ten trades in a row costs $10,000 — painful, but not catastrophic. At 10%, those same ten losses cost $100,000."
+    }
+  },
+  "backtestMetrics": {
+    "total_return_pct": {
+      "label": "Total Return",
+      "category": "fundamental",
+      "oneLiner": "How much money the strategy made or lost over the test period, expressed as a percentage.",
+      "what": "Total Return measures the raw profit or loss from start to finish. A 50% return means an account grew from $10,000 to $15,000 before fees. It does not account for risk.",
+      "whyMatters": "Return is the most obvious number, but it is meaningless without context. A 30% return looks impressive until you learn the strategy had a 40% max drawdown.",
+      "scoringImpact": "Displayed for context only. Our scoring engine does not use raw return as a quality signal.",
+      "commonMistakes": [
+        "Chasing the highest return you see — highest-return backtests are often overfitted to past noise.",
+        "Ignoring the path to that return — a 40% return that dips -30% halfway feels very different from a steady climb."
+      ],
+      "example": "Strategy A: +40% total return with a -22% max drawdown. Strategy B: +28% total return with a -8% max drawdown. Strategy B is actually better because the ride was smoother."
+    },
+    "sharpe_ratio": {
+      "label": "Sharpe Ratio",
+      "category": "technical",
+      "oneLiner": "Return earned per unit of total risk taken — the classic grade on whether the ride was worth it.",
+      "what": "The Sharpe Ratio divides excess return by total volatility. It answers: for every unit of bumpiness, how much extra return did you get? A Sharpe of 1.0 means you earned 1% extra return for every 1% of volatility.",
+      "whyMatters": "Sharpe lets you compare strategies fairly. Higher Sharpe means smoother, more reliable profits.",
+      "scoringImpact": "Strategies with Sharpe above 1.0 receive a quality boost. Sharpe below 0.5 is flagged as weak. Sharpe above 2.0 triggers an overfit review because extreme values on small samples are usually data mining.",
+      "commonMistakes": [
+        "Treating Sharpe above 2.0 as automatically great — on fewer than 100 trades, a Sharpe of 2.5 is likely just lucky, not skillful.",
+        "Using Sharpe alone — it penalizes upside volatility too, which can unfairly punish strategies with big wins."
+      ],
+      "example": "A strategy with 12% annual return and 10% volatility has Sharpe = 1.0. If that same return came with 18% volatility, Sharpe drops to 0.56.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [
+          {
+            "if": "value < 0.5",
+            "text": "${value} — weak. The strategy is taking a lot of risk for very little extra return."
+          },
+          {
+            "if": "value < 1.0",
+            "text": "${value} — acceptable. The strategy earns enough to justify its volatility. Usable, but not great."
+          },
+          {
+            "if": "value < 2.0",
+            "text": "${value} — good. Solid risk-adjusted returns. Many professional strategies target this range."
+          },
+          {
+            "if": "",
+            "text": "${value} — exceptional but verify. A Sharpe above 2.0 is rare in real trading. Check that you have enough trades (100+) to trust this number."
+          }
+        ]
+      }
+    },
+    "sortino_ratio": {
+      "label": "Sortino Ratio",
+      "category": "technical",
+      "oneLiner": "Like Sharpe, except it only counts the scary downside volatility and ignores pleasant upside bumps.",
+      "what": "The Sortino Ratio is a twist on Sharpe. Instead of dividing by all volatility, it divides only by downside volatility. Upside volatility is good and should not be punished.",
+      "whyMatters": "Many strategies have occasional huge winning trades. Sharpe treats those big wins as risk. Sortino does not, so it is a fairer grade for strategies with asymmetric returns.",
+      "scoringImpact": "Used as a cross-check on Sharpe. When Sortino is meaningfully higher than Sharpe, the strategy likely has positive skew — big wins.",
+      "commonMistakes": [
+        "Assuming Sortino is always better than Sharpe — it is only more useful when returns are asymmetric.",
+        "Using Sortino to hide bad risk — a strategy with frequent small losses and one huge win can have a great Sortino but terrible day-to-day reliability."
+      ],
+      "example": "Strategy X has many small losses and three 30% winning trades. Sharpe = 0.9, but Sortino = 1.6 because downside volatility was mild."
+    },
+    "calmar_ratio": {
+      "label": "Calmar Ratio",
+      "category": "technical",
+      "oneLiner": "Annual return divided by the worst drawdown — a harsh but practical stress test.",
+      "what": "Calmar Ratio takes annualized return and divides it by maximum drawdown. It answers: how much profit did I make for every dollar of peak-to-trough pain? A Calmar of 2.0 means you earned 2x what you briefly lost at the worst point.",
+      "whyMatters": "Drawdown is psychological. Low Calmar means the strategy underperforms relative to its worst drawdown.",
+      "scoringImpact": "Calmar below 1.0 is flagged. Calmar above 2.0 is considered strong.",
+      "commonMistakes": [
+        "Ignoring the time spent in drawdown — Calmar uses max drawdown depth, not duration.",
+        "Comparing Calmar across different time periods — a 6-month Calmar of 2.0 is not the same as a 5-year Calmar of 2.0."
+      ],
+      "example": "A strategy returned 18% annualized with a 12% max drawdown. Calmar = 18 / 12 = 1.5. If drawdown had been 25%, Calmar drops to 0.72.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [
+          {
+            "if": "value < 1.0",
+            "text": "${value} — poor. The strategy did not earn enough to justify its worst drawdown."
+          },
+          {
+            "if": "value < 2.0",
+            "text": "${value} — acceptable. Return roughly keeps pace with the worst loss experienced."
+          },
+          {
+            "if": "value < 3.0",
+            "text": "${value} — good. Solid compensation for drawdown risk."
+          },
+          {
+            "if": "",
+            "text": "${value} — strong. The strategy delivered significant return relative to its worst peak-to-trough decline."
+          }
+        ]
+      }
+    },
+    "max_drawdown_pct": {
+      "label": "Max Drawdown",
+      "category": "risk",
+      "oneLiner": "The largest peak-to-trough loss the strategy ever experienced — the worst losing streak in dollars.",
+      "what": "Max Drawdown is the largest percentage drop from any peak to any subsequent trough in the equity curve. If the account grew to $12,000 then fell to $8,000 before recovering, the max drawdown is -33%.",
+      "whyMatters": "Drawdown is where traders quit. A strategy with a 40% max drawdown requires immense discipline to hold through. Max drawdown is a test of your stomach, not just your math.",
+      "scoringImpact": "Max drawdown is used to flag psychologically brutal strategies. A drawdown above 25% triggers a warning. Below 15% is considered robust.",
+      "commonMistakes": [
+        "Treating the worst so far as the worst possible — future drawdowns can always be deeper than history shows.",
+        "Comparing drawdowns without measuring recovery time — a -20% drawdown that takes 6 months to recover is worse than a -25% drawdown that bounces in 8 weeks."
+      ],
+      "example": "Two strategies both have 15% annual returns. Strategy A max drawdown: -10%. Strategy B max drawdown: -28%. Both made the same money, but Strategy A let you sleep at night.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [
+          {
+            "if": "value < 15",
+            "text": "${value} — robust. The worst loss was mild. Most traders can stick with a strategy through this level of pain."
+          },
+          {
+            "if": "value < 25",
+            "text": "${value} — moderate. A noticeable drawdown, but survivable with disciplined position sizing."
+          },
+          {
+            "if": "",
+            "text": "${value} — psychologically brutal. A drawdown this deep will tempt you to abandon the strategy right before it recovers."
+          }
+        ]
+      }
+    },
+    "win_rate": {
+      "label": "Win Rate",
+      "category": "technical",
+      "oneLiner": "The percentage of trades that finished profitable — but win rate alone can lie.",
+      "what": "Win Rate is the fraction of trades that made money. 55% means 55 out of 100 trades were winners. Win rate is only half the picture. You must also consider how much you win versus how much you lose.",
+      "whyMatters": "Many beginners chase high win rates, but trading is about expectancy — the average amount you make per trade. An 80% win rate strategy with tiny wins and huge losses can lose money.",
+      "scoringImpact": "Win rate is contextualized against reward-to-risk in the engine. A high win rate with poor risk-reward does not receive a quality boost.",
+      "commonMistakes": [
+        "Chasing 80%+ win rate systems — these often use very wide stops and tiny targets, producing negative expectancy.",
+        "Ignoring the relationship between win rate and risk-reward — the only number that matters is expectancy."
+      ],
+      "example": "Strategy A: 80% win rate, average win = $1, average loss = $5. Expectancy = -$0.20 per trade. LOSING. Strategy B: 45% win rate, average win = $3, average loss = $1. Expectancy = +$0.80 per trade. WINNING. Strategy B is better despite the lower win rate.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [
+          {
+            "if": "value < 40",
+            "text": "${value} — low. The strategy wins less than 4 of every 10 trades. It can still be profitable only with very strong reward-to-risk."
+          },
+          {
+            "if": "value < 50",
+            "text": "${value} — below average. Winning fewer than half your trades is normal for trend-following strategies. Check the average win size versus average loss size."
+          },
+          {
+            "if": "value < 60",
+            "text": "${value} — decent. The strategy wins more than it loses, which feels comfortable. You can still lose money with this win rate if losses are too large."
+          },
+          {
+            "if": "value < 70",
+            "text": "${value} — high. Solid majority of trades are winners. This is a strong signal IF the average loss is controlled."
+          },
+          {
+            "if": "",
+            "text": "${value} — very high. An 80%+ win rate sounds amazing, but check the reward-to-risk ratio. If your average win is smaller than your average loss, this system may actually be losing money."
+          }
+        ]
+      }
+    },
+    "profit_factor": {
+      "label": "Profit Factor",
+      "category": "technical",
+      "oneLiner": "Gross profits divided by gross losses — a direct efficiency grade for the strategy.",
+      "what": "Profit Factor is total money won divided by total money lost. A Profit Factor of 1.5 means the strategy made $1.50 for every $1.00 it lost. Every number above 1.0 means the strategy is profitable in aggregate.",
+      "whyMatters": "Profit Factor strips away timing and psychology. It answers the simplest question: did I make more than I lost?",
+      "scoringImpact": "Profit Factor below 1.0 is a hard reject. 1.0-1.3 is marginal. 1.3-1.5 is caution. 1.5-2.0 is good. Above 2.0 on small samples triggers an overfit warning.",
+      "commonMistakes": [
+        "Trusting a Profit Factor of 3.0 from 20 trades — that is almost certainly curve-fit to past data.",
+        "Ignoring the sample size — Profit Factor from 30 trades can flip dramatically with 30 more trades."
+      ],
+      "example": "Strategy X: 40 trades, gross profit = $4,200, gross loss = $2,800. Profit Factor = 1.5. Solid. Strategy Y: 25 trades, gross profit = $1,500, gross loss = $400. Profit Factor = 3.75. Impressive, but with only 25 trades, this could easily regress.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [
+          {
+            "if": "value < 1.0",
+            "text": "${value} — losing. The strategy lost more money than it made. Not usable as-is."
+          },
+          {
+            "if": "value < 1.3",
+            "text": "${value} — marginal. The strategy is barely profitable. It may survive in good markets but is vulnerable to changing conditions."
+          },
+          {
+            "if": "value < 1.5",
+            "text": "${value} — caution. The strategy is profitable, but the margin is thin. Monitor closely."
+          },
+          {
+            "if": "value < 2.0",
+            "text": "${value} — good. Solid efficiency. For every dollar lost, the strategy made between $1.50 and $2.00."
+          },
+          {
+            "if": "",
+            "text": "${value} — suspect overfitting. Profit Factors above 2.0 are rare in real trading. On fewer than 100 trades this is usually a sign the strategy memorized past noise."
+          }
+        ]
+      }
+    },
+    "expectancy": {
+      "label": "Expectancy",
+      "category": "technical",
+      "oneLiner": "The average profit or loss you can expect from one trade — the most important backtest number.",
+      "what": "Expectancy is calculated as: (win rate x average win) minus (loss rate x average loss). It tells you the expected value of a single trade before you take it. Positive expectancy means the strategy will make money over time.",
+      "whyMatters": "Expectancy combines win rate, average win, and average loss into one number. It is the only metric that definitively answers whether this strategy will make money if you follow it 100 times.",
+      "scoringImpact": "Expectancy is the primary quality filter in our engine. Positive expectancy is required. Higher expectancy means higher quality score.",
+      "commonMistakes": [
+        "Using win rate alone to judge a strategy — an 80% win rate with tiny wins and huge losses has negative expectancy.",
+        "Expecting every trade to match the expectancy — individual trades vary wildly. Expectancy only holds over many trades (100+)."
+      ],
+      "example": "A strategy with 45% win rate, average win = $200, average loss = $130. Expectancy = (0.45 x $200) - (0.55 x $130) = +$18.50 per trade. After 200 trades, you expect to earn about $3,700 — even though you lose 55% of the time.",
+      "valueInterpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [
+          {
+            "if": "value <= 0",
+            "text": "${value} — no edge. On average, each trade is expected to lose money. This strategy will bleed capital over time."
+          },
+          {
+            "if": "value < 1",
+            "text": "${value} — marginal edge. The strategy is profitable, but barely. A small change in market conditions could erase it."
+          },
+          {
+            "if": "value < 2",
+            "text": "${value} — decent edge. The strategy earns enough per trade to justify execution costs and slippage."
+          },
+          {
+            "if": "",
+            "text": "${value} — strong edge. Each trade has a meaningful positive expectation. This is what professional systematic traders seek."
+          }
+        ]
+      }
+    },
+    "sqn": {
+      "label": "SQN (System Quality Number)",
+      "category": "technical",
+      "oneLiner": "Expectancy adjusted for how consistent the results are — Van Tharp's compact strategy grade.",
+      "what": "SQN combines three things: expectancy per trade, the variability of trade results, and the number of trades. Higher SQN means a larger edge relative to the noise.",
+      "whyMatters": "A strategy with high expectancy but wildly bouncing results is harder to follow than one with moderate expectancy and steady results. SQN rewards both edge and consistency.",
+      "scoringImpact": "SQN above 1.5 is adequate. SQN above 2.0 is good. SQN above 3.0 is excellent. Below 1.0 suggests the edge is small relative to variability.",
+      "commonMistakes": [
+        "Using SQN on fewer than 30 trades — the number needs a reasonable sample to stabilize.",
+        "Confusing SQN with Sharpe — SQN focuses on per-trade expectancy; Sharpe focuses on return per unit of volatility."
+      ],
+      "example": "Two strategies both have $25 expectancy per trade. Strategy A has SQN = 4.2 (consistent results). Strategy B has SQN = 1.3 (results bounce around wildly). Strategy A is much easier to trade psychologically."
+    },
+    "ulcer_index": {
+      "label": "Ulcer Index",
+      "category": "risk",
+      "oneLiner": "Measures the depth and duration of drawdowns — how sick the equity curve made you feel.",
+      "what": "The Ulcer Index was created by Peter Martin in 1989. Unlike Max Drawdown, which only measures the deepest single drop, the Ulcer Index captures both how deep declines were and how long they lasted. It is the root-mean-square of all drawdowns from peak to trough.",
+      "whyMatters": "Max drawdown might say your worst loss was 25%. But if that loss took 4 months to recover, the psychological damage was worse than the number suggests. The Ulcer Index captures that cumulative pain.",
+      "scoringImpact": "Used alongside Max Drawdown to flag strategies that look acceptable on depth alone but cause lengthy underwater periods.",
+      "commonMistakes": [
+        "Comparing Ulcer Index across different timeframes — longer backtests naturally accumulate more drawdown time.",
+        "Ignoring recovery speed — a strategy with Ulcer Index of 8 that recovers in 2 weeks feels very different from one with Ulcer Index of 8 that grinds for 5 months."
+      ],
+      "example": "Strategy A had a single -25% drawdown over 2 months. Strategy B had repeated -10% to -18% drawdowns that took 3-6 months to recover each time. Max drawdown favored A, but the Ulcer Index favored A much more strongly because the pain was concentrated and shorter."
+    }
+  },
+  "tradePlan": {
+    "entry_zone": {
+      "label": "Entry Zone",
+      "oneLiner": "A price range where you want to buy, not a single exact number.",
+      "what": "An entry zone is a band of prices where the stock looks attractive. Markets move fast, so chasing a precise entry rarely works. A zone gives you patience and flexibility.",
+      "example": "A stock at $50 might have an entry zone of $48 to $49.50. You place a limit order somewhere in that range. If it never reaches your zone, you wait instead of chasing.",
+      "related": [
+        "scale_in",
+        "risk_limits"
+      ]
+    },
+    "scale_in": {
+      "label": "Scale In",
+      "oneLiner": "Buying in pieces instead of all at once to reduce timing risk.",
+      "what": "Scaling in means splitting your intended position into multiple buys at different prices. If the stock drops, you pay a lower average price. If it jumps, you still have a partial position rather than missing the entire move.",
+      "example": "You want a $10,000 position. Buy 6% ($600) at the first signal, 3.6% ($360) if it dips 2% further, and 2.4% ($240) if it drops another 3%. Total: $12,000 invested with a better average price if the dip materialized.",
+      "related": [
+        "entry_zone",
+        "r_multiple",
+        "scale_out"
+      ]
+    },
+    "r_multiple": {
+      "label": "R-Multiple",
+      "oneLiner": "The core unit of trade math — every gain or loss measured against your initial risk.",
+      "what": "R stands for the initial risk per share. If you buy at $50 and set a stop at $48, your R is $2 per share. A 2R target means you aim to make $4 per share — twice your risk. Every trade outcome is reported as an R-multiple: plus 2R, minus 1R, plus 0.5R.",
+      "whyMatters": "R-multiple makes every trade comparable regardless of dollar size. A $500 profit on one trade and a $200 profit on another are meaningless without context. If the first risked $1,000 and the second risked $50, the second was actually the better trade.",
+      "example": "Trade 1: Risked $2 per share, made $6. Result: plus 3R. Trade 2: Risked $5 per share, made $3. Result: plus 0.6R. Trade 1 was superior even though the dollar profit was smaller.",
+      "related": [
+        "scale_out",
+        "trailing_stop",
+        "breakeven_move",
+        "expectancy"
+      ]
+    },
+    "scale_out": {
+      "label": "Scale Out",
+      "oneLiner": "Taking partial profits at multiple targets instead of exiting the entire position at once.",
+      "what": "Scaling out means you sell portions of your position at different profit levels. You lock in some wins while letting the remainder run. It balances greed and fear.",
+      "example": "Buy 100 shares. Sell 40 shares at 1R profit, sell another 30 at 1.5R, sell the final 30 at 2R. At 1R, you move your stop on the remaining shares to breakeven so the rest of the trade is risk-free.",
+      "related": [
+        "r_multiple",
+        "trailing_stop",
+        "breakeven_move"
+      ]
+    },
+    "trailing_stop": {
+      "label": "Trailing Stop",
+      "oneLiner": "A stop loss that follows the price up — but never moves down.",
+      "what": "A trailing stop starts at your original exit level. As the stock price rises, the stop rises with it, usually by a fixed percentage or by recent swing lows. The critical rule: the stop never moves back down once raised.",
+      "example": "You buy at $50 with a 10% trailing stop ($45). The stock climbs to $60. Your stop is now $54. It drops to $55 — you are still in. If it drops to $53, the stop triggers and you exit with a $3-per-share win.",
+      "related": [
+        "stop_loss",
+        "breakeven_move",
+        "time_stop"
+      ]
+    },
+    "breakeven_move": {
+      "label": "Breakeven Move",
+      "oneLiner": "Raising your stop to your entry price after the trade moves in your favor.",
+      "what": "Once the stock has moved far enough in your favor, you move your stop loss to your original buy price. From that point, the worst outcome is neither a win nor a loss — you break even. It turns a risky trade into a risk-free one.",
+      "example": "You buy at $50 with a stop at $48. The stock rises to $52, a 2R gain. You move your stop to $50. Now if the stock drops back to $50, you exit with zero profit and zero loss. You cannot lose money on this trade anymore.",
+      "related": [
+        "trailing_stop",
+        "stop_loss",
+        "scale_out"
+      ]
+    },
+    "time_stop": {
+      "label": "Time Stop",
+      "oneLiner": "Exiting a trade after N days if it has not moved — dead money has a cost.",
+      "what": "A time stop says: if this trade has not acted within X days, sell regardless of whether you are up or down. Capital sitting in a flat stock is capital that is not working for you elsewhere.",
+      "example": "You set a 10-day time stop. The stock sits at $51 for 10 days after you bought at $50. You sell at $51 for a tiny win, freeing capital to deploy into a stock that is actually moving.",
+      "related": [
+        "trailing_stop",
+        "entry_zone",
+        "risk_limits"
+      ]
+    },
+    "risk_limits": {
+      "label": "Risk Limits",
+      "oneLiner": "Hard rules that cap exposure — your personal circuit breakers.",
+      "what": "Risk limits are non-negotiable boundaries. Maximum position size as a percent of your account. Maximum percentage of your portfolio in one sector. Maximum allowed loss in a single day. They keep you alive during drawdowns.",
+      "example": "Rules: never hold more than 5% of capital in one stock, never risk more than 1% of capital on a single trade, stop trading for the day after a 2% portfolio loss. These rules prevent one bad day from becoming a blown account.",
+      "related": [
+        "position_sizing",
+        "max_risk_per_trade_pct",
+        "diversification",
+        "kelly_criterion"
+      ]
+    }
+  },
+  "modules": {
+    "technical": {
+      "title": "Technical Analysis",
+      "whatItIs": "Technical analysis studies the stock's PRICE and VOLUME data to gauge direction and momentum. It does not care about the company's products or profits — it only looks at what the market is DOING.",
+      "whyItMatters": "A stock's price eventually follows its earnings: technical analysis does not care about the company's products or profits — it only looks at what the market is DOING.",
+      "howScoreWorks": "We look at 7 factors: MA alignment (trend direction), RSI (momentum), ADX (trend strength), ATR (volatility), Volume Ratio (interest), Bollinger Band position, and MACD (momentum signal). Each factor is scored, then combined into a -1.0 to +1.0 score. The trend alignment and RSI get the most weight."
+    },
+    "fundamental": {
+      "title": "Fundamental Analysis",
+      "whatItIs": "Fundamental analysis looks at the COMPANY's financial health: how much money it makes, how fast it's growing, how much debt it has. It answers: is this a good business?",
+      "whyItMatters": "A stock's price eventually follows its earnings. Good fundamentals do not guarantee the stock will go up tomorrow, but they strongly predict where it'll be in 1-3 years. Technical plus fundamental together give you the complete picture.",
+      "howScoreWorks": "We score 11 factors: market cap (size), P/E (valuation), EPS (profitability), profit margin (efficiency), debt/equity (financial risk), revenue growth (expansion), free cash flow yield (cash generation), dividend yield (shareholder returns), return on equity (capital efficiency), price-to-book (asset valuation), and operating margin (core business efficiency). Positive values mean good. Negative values mean concerning. The final score combines these into -1.0 to +1.0."
+    },
+    "earnings": {
+      "title": "Earnings Analysis",
+      "whatItIs": "Companies report their financial results every 3 months (quarterly earnings). This analysis looks at their track record of beating or missing expectations, and when the next report is due.",
+      "whyItMatters": "Earnings reports cause the biggest single-day moves in stock prices (5-20% is common). Knowing the earnings track record helps you assess whether the company consistently delivers or frequently disappoints.",
+      "howScoreWorks": "We look at the latest surprise percentage, the beat rate (how many of the last 4 reports beat expectations), and the average stock reaction to earnings. Consistent beaters get positive scores. Consistent missers get negative scores."
+    },
+    "sentiment": {
+      "title": "Market Sentiment",
+      "whatItIs": "Sentiment measures what OTHER market participants think about the stock: professional analysts, company insiders, and short sellers. It is like getting a consensus opinion from everyone watching the stock.",
+      "whyItMatters": "When everyone is bullish, the stock usually goes up — until it does not. When insiders are buying heavily, it is one of the most reliable signals. When short interest is extreme, be careful.",
+      "howScoreWorks": "We combine: analyst consensus (weighted heavily), insider buying/selling activity, institutional ownership percentage, short interest and days to cover, price target upside potential, and beta (how much the stock moves relative to the market). The overall range is -1.0 to +1.0."
+    },
+    "risk": {
+      "title": "Risk Assessment",
+      "whatItIs": "Risk analysis tells you how DANGEROUS this trade is and how to manage that danger. It is not about predicting direction — it is about protecting your money.",
+      "whyItMatters": "Even the best analysis can be wrong. Risk management separates professionals from amateurs. Professionals focus on how MUCH they can lose. Amateurs only think about how MUCH they can make.",
+      "howScoreWorks": "We assess volatility (ATR percentage), calculate an appropriate stop loss level, determine the right position size based on volatility, and suggest how much of your portfolio to risk. The score ranges from -1.0 (extreme risk) to +1.0 (very safe)."
+    }
+  },
+  "concepts": {
+    "sector_rotation": {
+      "label": "Sector Rotation",
+      "oneLiner": "Which industries lead or lag changes over time as money flows between sectors.",
+      "what": "Sector rotation shows which industries are leading and lagging. Leading sectors tend to continue outperforming for a period. Think of it like fashion trends — what is in style changes over time as investors move money between sectors.",
+      "example": "When tech is leading and utilities are lagging, investors are in a risk-on mood. When utilities lead and tech lags, they are in a risk-off mood.",
+      "related": [
+        "regime_states",
+        "risk_on"
+      ]
+    },
+    "risk_on": {
+      "label": "Risk-On vs Risk-Off",
+      "oneLiner": "Investor mood swings between optimistic buying and scared selling.",
+      "what": "Risk-on means investors are optimistic and buying growth stocks, tech, and smaller companies. Risk-off means they are scared and buying safer assets like utilities, bonds, and gold.",
+      "example": "Risk-on: Bitcoin rallies, tech stocks surge. Risk-off: Gold rises, utilities outperform.",
+      "related": [
+        "regime_states",
+        "sector_rotation"
+      ]
+    },
+    "conviction_score": {
+      "label": "Conviction Score",
+      "oneLiner": "How confident the system is in a trade idea, from 1 to 10.",
+      "what": "The conviction score measures how strongly multiple independent signals agree. Seven or higher means several unrelated checks aligned. Four to six means mixed evidence. One to three means weak or conflicting signals.",
+      "example": "A stock at conviction 8 out of 10 means technical, fundamental, and sentiment all agree on the direction — rare and more reliable than a stock at conviction 3.",
+      "related": [
+        "verdict"
+      ]
+    },
+    "regime": {
+      "label": "Market Regime",
+      "oneLiner": "The current personality of the broad market — trending, choppy, or volatile.",
+      "what": "Market regime describes whether the market is in a strong uptrend, a choppy sideways range, or a high-volatility environment. Different strategies work best in different regimes.",
+      "example": "In a strong-trend regime, momentum strategies shine. In a choppy ranging regime, mean-reversion strategies work better.",
+      "related": [
+        "regime_states"
+      ]
+    },
+    "regime_states": {
+      "label": "Regime States",
+      "oneLiner": "The market’s current “weather” and its sub-conditions — the context that shifts how every score is weighted.",
+      "what": "Exuberance: euphoric buying, valuations stretched. Risk-On: steady gains with healthy participation; trend strategies shine. Neutral: no clear directional bias; stock-specific setups matter more than market calls. Cautious: sellers gaining ground; tighten stops and shrink positions. Risk-Off: broad selling; capital preservation first. Crisis: panic conditions; cash is a position. Sub-conditions refine these: defensive_flight (investors rushing to safety), risk_on (high confidence), choppy (no clear direction with frequent reversals), strong_trend, ranging, high_vol, low_vol. The regime re-weights scoring: trend counts most in strong trends; volume and quality lead in choppy markets.",
+      "whyItMatters": "The same setup behaves differently in different weather. A breakout in Risk-On is routine; the same breakout in Risk-Off usually fails.",
+      "example": "Score 53 (Neutral) means mixed signals — keep position sizes normal but demand extra confirmation before adding risk. Score 25 (Risk-Off) means the same stock gets a smaller position or a pass.",
+      "related": [
+        "market_regime",
+        "sector_rotation",
+        "vix"
+      ]
+    },
+    "stop_loss": {
+      "label": "Stop Loss",
+      "oneLiner": "An automatic exit order that limits your loss if the trade goes wrong.",
+      "what": "A stop loss is your emergency exit. If the stock drops to a preset price, you sell automatically. It prevents a small loss from becoming a large one.",
+      "example": "You buy at $100 and set a stop at $90. If the stock drops to $90, you sell and limit the loss to 10%. Without a stop, a -10% loss can turn into -50% if you hold and hope.",
+      "related": [
+        "trailing_stop",
+        "breakeven_move",
+        "risk_limits"
+      ]
+    },
+    "position_sizing": {
+      "label": "Position Sizing",
+      "oneLiner": "How much of your money goes into each trade — the most important risk control.",
+      "what": "Position sizing decides the percentage of your portfolio to allocate to a single trade. The goal is that no single loss should hurt your account significantly. One to two percent risk per trade is standard for professionals.",
+      "example": "With a $100,000 account risking 1.5% per trade, the maximum loss on any single position is $1,500.",
+      "related": [
+        "risk_limits",
+        "kelly_criterion"
+      ]
+    },
+    "diversification": {
+      "label": "Diversification",
+      "oneLiner": "Spreading your money across different investments to reduce risk.",
+      "what": "Do not put all your eggs in one basket. Diversification spreads your capital across sectors, asset classes, or strategies so that one bad position does not sink your account.",
+      "example": "Instead of buying 5 tech stocks, buy 1 tech plus 1 healthcare plus 1 energy plus 1 finance plus 1 consumer. If tech crashes, the others may hold steady.",
+      "related": [
+        "correlation_matrix",
+        "risk_limits"
+      ]
+    },
+    "pre_market": {
+      "label": "Pre-Market Trading",
+      "oneLiner": "Trading that happens before the regular market session opens.",
+      "what": "Pre-market prices show where a stock trades before the market opens, typically 4:00 AM to 9:30 AM Eastern. Big pre-market moves often set the tone for the day.",
+      "example": "If a stock gapped up 3% pre-market after strong earnings, expect a higher opening price. A -3% pre-market drop suggests something disappointed.",
+      "related": [
+        "volume_ratio"
+      ]
+    },
+    "verdict": {
+      "label": "Verdict",
+      "oneLiner": "The system's overall opinion: Strong Buy, Buy, Watch, Hold, Avoid, or Sell.",
+      "what": "The verdict is the final summary of all the analysis. It combines module scores, conviction, and dealbreakers into one action.",
+      "example": "Strong Buy means exceptional setup with high conviction and aligned signals. Avoid means significant problems were found across multiple checks.",
+      "related": [
+        "conviction_score",
+        "regime_states"
+      ]
+    },
+    "graduation": {
+      "label": "Graduation Path",
+      "oneLiner": "Professional Mode unlocks features gradually over 90 days to avoid overwhelm.",
+      "what": "Instead of dumping every tool on new users at once, the platform progressively unlocks deeper analysis. Start with basics like the Morning Brief and Verdict, then gain access to advanced screens, deep analysis, and trade-plan tools.",
+      "example": "Day 1: Morning Brief plus Verdict. Day 14: All 21 screener columns. Day 30: Deep analysis tabs and trade-plan tools.",
+      "related": []
+    },
+    "var": {
+      "label": "Value at Risk (VaR)",
+      "oneLiner": "The maximum loss you can expect over a given time period, with a set confidence level.",
+      "what": "VaR answers: how bad could things get? A 1-day 95% VaR of $500 means there is a 5% chance you lose more than $500 in one day. It is a worst-case snapshot, not a guarantee.",
+      "example": "A $50,000 portfolio with a 1-day 95% VaR of $1,200 means on 19 out of 20 normal days, losses stay under $1,200. The 1-in-20 day could be worse.",
+      "related": [
+        "cvar",
+        "max_drawdown_pct",
+        "kelly_criterion"
+      ]
+    },
+    "cvar": {
+      "label": "CVaR (Conditional Value at Risk)",
+      "oneLiner": "The average loss in the worst-case tail beyond VaR — how bad things get when they go wrong.",
+      "what": "CVaR, also called Expected Shortfall, goes beyond VaR. If VaR says you might lose $1,200, CVaR asks: if you are in the losing 5%, what is the AVERAGE loss? CVaR is usually larger than VaR and considered a more complete risk measure.",
+      "example": "Portfolio VaR (95%) = $1,200. CVaR (95%) = $2,100. When the bad day happens, the average loss is $2,100, not just $1,200.",
+      "related": [
+        "var",
+        "max_drawdown_pct",
+        "ulcer_index"
+      ]
+    },
+    "kelly_criterion": {
+      "label": "Kelly Criterion",
+      "oneLiner": "A formula for sizing bets so your wealth grows fastest over time without ruin.",
+      "what": "The Kelly Criterion calculates the mathematically optimal position size based on your win rate and the typical win versus loss. It tells you the percentage of capital to risk on each bet to maximize long-term growth.",
+      "example": "If your strategy wins 55% of the time and your average win is $1.10 per $1 risked, Kelly suggests risking about 10% of capital per trade. Most traders use half Kelly (5%) to reduce volatility.",
+      "related": [
+        "position_sizing",
+        "expectancy",
+        "profit_factor"
+      ]
+    },
+    "correlation_matrix": {
+      "label": "Correlation Matrix",
+      "oneLiner": "A grid showing how strongly different holdings move together — from lockstep to opposite.",
+      "what": "A correlation matrix compares every pair of assets in a portfolio. A correlation of +1 means they move together perfectly. A correlation of -1 means they move in opposite directions. Zero means no relationship.",
+      "example": "A portfolio of 5 tech stocks might show correlations of +0.7 to +0.9. That is barely diversified. Add utilities (correlation near 0) or bonds (negative correlation during some periods) and the portfolio becomes safer.",
+      "related": [
+        "diversification",
+        "beta",
+        "risk_limits"
+      ]
+    },
+    "liquidity": {
+      "label": "Liquidity",
+      "oneLiner": "How easily you can buy or sell without moving the price.",
+      "what": "Liquidity is the width of the market for a stock — how many willing buyers and sellers exist right now. Think of a farmers' market vs a rare collectibles auction: at the market you can trade anytime at fair prices; at the auction, one sale can swing the price wildly. Volume and spread are its vital signs.",
+      "related": [
+        "avg_volume_20d",
+        "volume_ratio",
+        "spread"
+      ]
+    }
+  },
+  "glossary": [
+    {
+      "term": "Bullish",
+      "definition": "Expecting the price to go up. Named after a bull lifting upward with its horns."
+    },
+    {
+      "term": "Bearish",
+      "definition": "Expecting the price to go down. Named after a bear swiping downward with its paws."
+    },
+    {
+      "term": "Volatility",
+      "definition": "How much and how quickly a stock's price moves up and down. High volatility means big swings. Low volatility means steady prices."
+    },
+    {
+      "term": "Momentum",
+      "definition": "The speed and strength of a price move. A stock with strong momentum keeps moving in the same direction."
+    },
+    {
+      "term": "Trend",
+      "definition": "The general direction a stock moves over time. An uptrend makes higher highs. A downtrend makes lower lows. Sideways means no clear direction."
+    },
+    {
+      "term": "Breakout",
+      "definition": "When a stock's price moves above a resistance level or below a support level. Often signals the start of a new trend."
+    },
+    {
+      "term": "Pullback",
+      "definition": "A temporary dip in an uptrend. The price drops a bit but the overall upward direction remains. Often a good buying opportunity."
+    },
+    {
+      "term": "Short Selling",
+      "definition": "Betting that a stock will go down. You borrow shares, sell them, and hope to buy them back cheaper later."
+    },
+    {
+      "term": "Short Squeeze",
+      "definition": "When a heavily shorted stock rises instead of falling, forcing short sellers to buy back shares quickly, which pushes the price even higher."
+    },
+    {
+      "term": "Moving Average",
+      "definition": "The average price over a set number of days. It smooths out daily noise to show the underlying trend direction."
+    },
+    {
+      "term": "Liquidity",
+      "definition": "How easy it is to buy or sell a stock without moving the price. High liquidity means many buyers and sellers."
+    },
+    {
+      "term": "Drawdown",
+      "definition": "How much an investment falls from its peak. A 20% drawdown means the account is down 20% from its highest value."
+    },
+    {
+      "term": "Risk/Reward Ratio",
+      "definition": "How much you could gain compared to how much you could lose on a trade. A 3:1 ratio means you could make $3 for every $1 you risk."
+    },
+    {
+      "term": "Position Sizing",
+      "definition": "Deciding how much money to put into a single trade. The goal is to limit any single loss to a small percent of your total portfolio."
+    },
+    {
+      "term": "Diversification",
+      "definition": "Spreading your money across different stocks to reduce risk. If one stock crashes, others may be fine."
+    },
+    {
+      "term": "R-Multiple",
+      "definition": "Every trade result measured against your initial risk per share. A 2R win means you made twice your risk. A -1R means you lost exactly your risk."
+    },
+    {
+      "term": "Scale In",
+      "definition": "Buying a position in multiple pieces instead of all at once. Reduces the average cost if the price dips after your first buy."
+    },
+    {
+      "term": "Scale Out",
+      "definition": "Selling portions of a position at different profit targets instead of exiting everything at once."
+    },
+    {
+      "term": "Trailing Stop",
+      "definition": "A stop loss that rises with the stock price but never falls. It locks in profits as the stock climbs."
+    },
+    {
+      "term": "Structure Stop",
+      "definition": "A stop loss placed at a technical level such as a recent swing low or support zone, not at an arbitrary percentage."
+    },
+    {
+      "term": "Breakeven Move",
+      "definition": "Raising a stop loss to the entry price after the trade moves in your favor. From that point, the worst outcome is neither profit nor loss."
+    },
+    {
+      "term": "Time Stop",
+      "definition": "An exit rule based on time, not price. If a trade has not moved after N days, you sell to free up capital."
+    },
+    {
+      "term": "Entry Zone",
+      "definition": "A price range where a stock looks attractive to buy, giving you flexibility instead of requiring an exact price."
+    },
+    {
+      "term": "Stop Loss",
+      "definition": "An automatic sell order placed below your entry to limit losses. The single most important risk management tool."
+    },
+    {
+      "term": "Take Profit",
+      "definition": "An automatic sell order placed at your target price to lock in gains. Usually set at a multiple of your risk."
+    },
+    {
+      "term": "Confluence",
+      "definition": "When multiple unrelated signals point in the same direction. Confluence increases confidence because independent checks rarely all mislead at once."
+    },
+    {
+      "term": "Conviction",
+      "definition": "A 1-10 score measuring how strongly independent signals agree. High conviction means many checks aligned; low conviction means mixed or conflicting evidence."
+    },
+    {
+      "term": "Dealbreaker",
+      "definition": "A critical issue that overrides otherwise positive signals. Examples: extreme short interest, low volume, or negative fundamental drift."
+    },
+    {
+      "term": "Red Flag",
+      "definition": "A warning sign that something is wrong with a setup. Multiple red flags usually mean the trade is not worth taking."
+    },
+    {
+      "term": "Regime",
+      "definition": "The market's current personality: strong uptrend, choppy range, or high volatility. Strategies perform differently in each regime."
+    },
+    {
+      "term": "Relative Strength",
+      "definition": "How a stock performs compared to the broader market or its sector. A stock with high relative strength is outperforming its peers."
+    },
+    {
+      "term": "VWAP",
+      "definition": "Volume-Weighted Average Price. The average price weighted by trading volume. Institutions often compare executions to VWAP."
+    },
+    {
+      "term": "EMA",
+      "definition": "Exponential Moving Average. A moving average that gives more weight to recent prices, reacting faster than a simple moving average."
+    },
+    {
+      "term": "SMA",
+      "definition": "Simple Moving Average. The average price over a set number of days. Slower to change than an EMA but smoother and less jumpy."
+    },
+    {
+      "term": "Golden Cross",
+      "definition": "When a short-term moving average crosses above a long-term moving average. Historically bullish, often preceding major advances."
+    },
+    {
+      "term": "Death Cross",
+      "definition": "When a short-term moving average crosses below a long-term moving average. Historically bearish, often preceding major declines."
+    },
+    {
+      "term": "Float",
+      "definition": "The number of shares actually available for trading. Companies with low float can move sharply on modest buying or selling pressure."
+    },
+    {
+      "term": "Short Interest",
+      "definition": "The percentage of shares that have been sold short. High short interest means many investors are betting the stock will fall."
+    },
+    {
+      "term": "Days to Cover",
+      "definition": "How many days of average trading volume it would take for all short sellers to buy back their shares. Higher numbers mean more squeeze potential."
+    },
+    {
+      "term": "ATR",
+      "definition": "Average True Range. A measure of how much a stock typically moves each day. Used to set stop losses and position sizes."
+    },
+    {
+      "term": "ADX",
+      "definition": "Average Directional Index. Measures trend strength from 0 to 100. Below 20 means weak or no trend. Above 25 suggests a developing trend. Above 50 means a strong trend."
+    },
+    {
+      "term": "MACD Line",
+      "definition": "The difference between a fast and a slow exponential moving average. It shows whether short-term momentum is strengthening or weakening."
+    },
+    {
+      "term": "Signal Line",
+      "definition": "A smoothed version of the MACD line, usually an EMA of the MACD itself. Crossovers between MACD and Signal generate buy or sell signals."
+    },
+    {
+      "term": "Histogram",
+      "definition": "The visual gap between the MACD line and the Signal line. It shrinks before crossovers and grows after, giving an early sense of momentum shifts."
+    },
+    {
+      "term": "Bollinger Squeeze",
+      "definition": "When Bollinger Bands narrow tightly. Low volatility often precedes high volatility — a squeeze can signal an impending breakout."
+    },
+    {
+      "term": "Expectancy",
+      "definition": "The average profit or loss expected from one trade. Formula: (win rate times average win) minus (loss rate times average loss). Positive expectancy means an edge."
+    },
+    {
+      "term": "Profit Factor",
+      "definition": "Gross profits divided by gross losses. Above 1.0 means the strategy made more than it lost. Higher is better, but extreme values need large sample sizes."
+    },
+    {
+      "term": "Sharpe Ratio",
+      "definition": "Return earned per unit of total volatility. It compares strategies by measuring reward for every unit of risk taken."
+    },
+    {
+      "term": "Sortino Ratio",
+      "definition": "Like Sharpe, but it only counts downside volatility. Upside volatility is treated as good and ignored, making Sortino more forgiving for strategies with big wins."
+    },
+    {
+      "term": "Calmar Ratio",
+      "definition": "Annualized return divided by maximum drawdown. It asks whether the return was worth the worst peak-to-trough loss experienced."
+    },
+    {
+      "term": "SQN",
+      "definition": "System Quality Number. A Van Tharp metric combining expectancy, variability, and trade count into a single strategy grade."
+    },
+    {
+      "term": "Ulcer Index",
+      "definition": "Measures the depth and duration of drawdowns. Lower is better. It captures cumulative pain better than max drawdown alone."
+    },
+    {
+      "term": "Win Rate",
+      "definition": "The percentage of trades that finish profitable. Win rate alone is misleading without the reward-to-risk ratio."
+    },
+    {
+      "term": "VaR",
+      "definition": "Value at Risk. An estimate of the maximum loss possible over a set time with a given confidence level. A 95% one-day VaR of $500 means a 5% chance of losing more than $500."
+    },
+    {
+      "term": "CVaR",
+      "definition": "Conditional Value at Risk. The average loss in the worst tail beyond VaR. Also called Expected Shortfall. It answers what happens when the bad scenario actually occurs."
+    },
+    {
+      "term": "Kelly Criterion",
+      "definition": "A formula for the mathematically optimal bet size based on win rate and average win versus average loss. Most traders use half Kelly for safety."
+    },
+    {
+      "term": "Correlation",
+      "definition": "A measure of how two assets move together. Plus 1 means lockstep. Minus 1 means opposite directions. Zero means no relationship."
+    },
+    {
+      "term": "Beta",
+      "definition": "How much a stock moves compared to the overall market. Beta of 1 means in line. Above 1 means amplified moves. Below 1 means muted moves."
+    },
+    {
+      "term": "Large-Cap",
+      "definition": "Companies with market capitalization typically above $10 billion. Established, generally more stable, and slower growing than smaller companies."
+    },
+    {
+      "term": "Mid-Cap",
+      "definition": "Companies with market capitalization roughly between $2 billion and $10 billion. More growth potential than large-cap but with more risk."
+    },
+    {
+      "term": "Small-Cap",
+      "definition": "Companies with market capitalization under $2 billion. Higher growth potential but also higher risk, lower liquidity, and more volatility."
+    },
+    {
+      "term": "P/E Ratio",
+      "definition": "Price-to-Earnings ratio. How much investors pay per dollar of company profit. High P/E can signal growth expectations or overvaluation."
+    },
+    {
+      "term": "EPS",
+      "definition": "Earnings Per Share. The company's profit divided by its number of shares. Growing EPS over time is a sign of a healthy, growing business."
+    },
+    {
+      "term": "Free Cash Flow",
+      "definition": "Cash a company generates after paying for all operations and capital expenses. Free cash flow shows how much real cash the business produces."
+    },
+    {
+      "term": "ROE",
+      "definition": "Return on Equity. How efficiently the company uses shareholder money to generate profit. Higher ROE suggests a strong competitive advantage."
+    },
+    {
+      "term": "P/B Ratio",
+      "definition": "Price-to-Book ratio. Compares the stock price to the company's accounting book value. Useful for valuing asset-heavy businesses like banks."
+    },
+    {
+      "term": "PEG Ratio",
+      "definition": "P/E divided by earnings growth rate. It adjusts valuation by growth. A PEG near 1 suggests fair value; below 1 may signal undervaluation."
+    },
+    {
+      "term": "Debt-to-Equity",
+      "definition": "Total debt divided by shareholder equity. High ratios mean more financial risk. Low or negative ratios mean conservative balance sheets."
+    },
+    {
+      "term": "Current Ratio",
+      "definition": "Short-term assets divided by short-term liabilities. It measures whether the company can pay its near-term bills. Below 1.0 is a warning sign."
+    },
+    {
+      "term": "Operating Margin",
+      "definition": "Revenue left after core business costs, before interest and taxes. It shows how profitable the fundamental business is, separate from financing decisions."
+    },
+    {
+      "term": "Support",
+      "definition": "A price level where buying interest has historically been strong enough to stop a decline. Think of it as a price floor."
+    },
+    {
+      "term": "Resistance",
+      "definition": "A price level where selling pressure has historically prevented further gains. Think of it as a price ceiling."
+    },
+    {
+      "term": "Spread",
+      "definition": "The difference between the bid price and the ask price. Tight spreads mean lower trading costs. Wide spreads can signal low liquidity."
+    },
+    {
+      "term": "Slippage",
+      "definition": "The difference between your expected fill price and the actual execution price. More common in volatile or low-liquidity markets."
+    },
+    {
+      "term": "Interest Coverage",
+      "definition": "How many times over a company could pay its interest expenses from operating profit (EBIT ÷ interest). Below 2x means profit barely covers debt costs — risky if earnings dip.",
+      "related": [
+        "debt_to_equity",
+        "current_ratio"
+      ]
+    },
+    {
+      "term": "Payout Ratio",
+      "definition": "The share of earnings paid to shareholders as dividends (dividends ÷ net income). A 50% payout leaves half the profit to reinvest; above ~80% is hard to sustain.",
+      "related": [
+        "dividend_yield"
+      ]
+    },
+    {
+      "term": "Quick Ratio",
+      "definition": "Like the current ratio but excludes inventory — can the company pay its next 12 months of bills with truly liquid assets? Above 1.0 is healthy; below 0.7 warrants caution.",
+      "related": [
+        "current_ratio"
+      ]
+    },
+    {
+      "term": "Bid-Ask Spread",
+      "definition": "The gap between the highest price buyers offer and the lowest price sellers accept. Wide spreads are an invisible tax on every trade — common in low-volume stocks. Also just called \"the spread\".",
+      "related": [
+        "avg_volume_20d",
+        "liquidity"
+      ]
+    },
+    {
+      "term": "Market Regime",
+      "definition": "The overall personality of the market right now — trending up, chopping sideways, or swinging wildly. The best setups differ in each regime, so the first question an elite trader asks is: what kind of market am I in?",
+      "related": [
+        "regime"
+      ]
+    },
+    {
+      "term": "Risk-On",
+      "definition": "A market mood where capital flows freely into stocks and other risky assets. Prices tend to rise and momentum setups work well. The opposite of Risk-Off.",
+      "related": [
+        "risk_off",
+        "market_regime"
+      ]
+    },
+    {
+      "term": "Risk-Off",
+      "definition": "A defensive market mood where investors flee risky assets and hoard cash or bonds. Prices fall, rallies fade, and you want smaller size and wider stops. The opposite of Risk-On.",
+      "related": [
+        "risk_on",
+        "market_regime"
+      ]
+    },
+    {
+      "term": "Exuberance",
+      "definition": "A frothy, greed-driven phase where buyers chase strength and pullbacks barely happen. Legitimate but dangerous — late entries catch the reversal, so the plan (stop + target) matters even more.",
+      "related": [
+        "risk_on",
+        "market_regime"
+      ]
+    },
+    {
+      "term": "Crisis",
+      "definition": "A fear-driven phase of heavy selling and wild volatility. Most systems tighten or stand aside; if you trade, size is tiny and stops are non-negotiable.",
+      "related": [
+        "risk_off",
+        "market_regime"
+      ]
+    },
+    {
+      "term": "NEUTRAL",
+      "definition": "A range-bound market with no strong trend. In a neutral regime, fade-the-extremes and breakout-from-range setups often beat chasing momentum; respect the two boundaries instead of betting on a breakout.",
+      "related": [
+        "market_regime",
+        "risk_off"
+      ]
+    }
+  ]
+}

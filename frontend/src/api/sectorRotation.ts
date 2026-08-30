@@ -16,3 +16,7 @@ export async function fetchRotationHistory(): Promise<RotationHistoryPoint[]> {
 export async function fetchMarketRegime(): Promise<MarketRegimeResponse> {
   return apiGet<MarketRegimeResponse>('/api/v1/market/regime');
 }
+
+export async function fetchSectorFocus() {
+  return apiGet<import('@/types/sector').SectorFocusSnapshot>('/api/v1/sectors/focus');
+}

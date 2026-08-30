@@ -49,6 +49,71 @@ class TechnicalAnalysis(BaseModel):
     pullback_quality: str | None = None  # A+ / A / B / C / D / F
     pullback_score: float | None = None  # 0-100
     findings: list[str]
+    # Advanced chart reading (optional, populated when OHLCV data available)
+    chart_reading: ChartReadingAnalysis | None = None
+
+
+# ── Chart Reading Analysis Sub-Model ──
+
+from typing import Literal
+from dataclasses import dataclass, field
+
+
+@dataclass
+class TimeframeChartReading:
+    """Chart reading signals for a single timeframe."""
+    timeframe: str  # "daily", "weekly", "4h", "1h"
+    
+    # Market Structure (structure.py)
+    bos_events: list[dict] = field(default_factory=list)
+    choch_events: list[dict] = field(default_factory=list)
+    structure_label: str | None = None
+    
+    # Professional Volume Profile TPO (volume_profile.py) - only for daily
+    tpo_profiles: list[dict] = field(default_factory=list)
+    composite_tpo_profile: dict | None = None
+    
+    # Smart Money Concepts (smc.py)
+    order_blocks: list[dict] = field(default_factory=list)
+    fair_value_gaps: list[dict] = field(default_factory=list)
+    breaker_blocks: list[dict] = field(default_factory=list)
+    liquidity_levels: list[dict] = field(default_factory=list)
+    
+    # Validated Breakouts (breakout.py)
+    breakout_events: list[dict] = field(default_factory=list)
+    
+    # Metadata
+    data_quality_warnings: list[str] = field(default_factory=list)
+    timeframes_analyzed: list[str] = field(default_factory=list)
+
+
+@dataclass
+class ChartReadingAnalysis:
+    """All advanced chart reading signals across timeframes — separated from core TechnicalAnalysis.
+    
+    This sub-model groups all institutional-grade chart reading signals:
+    - BOS/CHoCH (structure.py)
+    - Volume Profile TPO (volume_profile.py)
+    - Smart Money Concepts: OB, FVG, Breakers, Liquidity (smc.py)
+    - Validated Breakouts (breakout.py)
+    - Multi-timeframe Confluence (mtf_confluence.py)
+    
+    Keeping these separate from TechnicalAnalysis prevents model bloat
+    and allows optional computation (only when OHLCV data is available).
+    """
+    # Per-timeframe chart reading
+    daily: TimeframeChartReading | None = None
+    weekly: TimeframeChartReading | None = None
+    h4: TimeframeChartReading | None = None
+    h1: TimeframeChartReading | None = None
+    
+    # Multi-Timeframe Confluence (mtf_confluence.py) - combines all timeframes
+    mtf_confluence: dict | None = None
+    
+    # Metadata
+    computation_time_ms: float = 0.0
+    data_quality_warnings: list[str] = field(default_factory=list)
+    timeframes_analyzed: list[str] = field(default_factory=list)
 
 
 class FundamentalAnalysis(BaseModel):
@@ -84,6 +149,9 @@ class EarningsAnalysis(BaseModel):
     beat_rate: str | None = None  # e.g., "3/4"
     avg_reaction_pct: float | None = None
     next_earnings_date: str | None = None
+    # P1.5 earnings-proximity chip: calendar days until the next report
+    # (negative when the last print is in the past).
+    days_until_earnings: int | None = None
     findings: list[str]
 
 
@@ -148,6 +216,22 @@ class TradePlan(BaseModel):
     notes: list[str] = []
 
 
+class MentorNarration(BaseModel):
+    """Deterministic veteran-style reasoning chain (P2.1).
+
+    Template-built from module outputs and plan geometry — fast/free with
+    no external calls. ``what_kills_it`` always names a concrete level +
+    condition when a plan exists; a refusal without invalidation is not a
+    mentor answer.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    why_this: list[str] = []       # module confluences backing the setup
+    why_now: list[str] = []        # catalyst / liquidity event timing
+    what_kills_it: list[str] = []  # invalidation level + condition
+    thesis_one_liner: str = ""     # trader-style compression of the above
+
+
 class AnalysisVerdict(BaseModel):
     """Final actionable verdict synthesised from all modules."""
     model_config = ConfigDict(extra="forbid")
@@ -160,12 +244,30 @@ class AnalysisVerdict(BaseModel):
     targets: list[float] = []
     risk_reward: float | None = None
     position_size_pct: float = 0
+    # Critical issues that override/downgrade the action (distinct from
+    # advisory red flags so the UI can render them as blocking conditions).
+    dealbreakers: list[str] = []
     key_red_flags: list[str] = []
     buy_triggers: list[str] = []
     sell_triggers: list[str] = []
     thesis: str = ""
     # Dynamic trade management (new)
     trade_plan: TradePlan | None = None
+    # P2.1 mentor reasoning chain (additive)
+    narration: MentorNarration | None = None
+
+
+class MultiTimeframeTechnical(BaseModel):
+    """Multi-timeframe technical payload.
+
+    Emitted when the technical module ran with include_weekly=True: the daily
+    object stays the canonical score source, weekly rides alongside so the
+    frontend can render true multi-timeframe columns.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    daily: TechnicalAnalysis
+    weekly: TechnicalAnalysis | None = None
 
 
 class TickerAnalysisResponse(BaseModel):
@@ -176,7 +278,8 @@ class TickerAnalysisResponse(BaseModel):
     price: float | None = None
     change_pct: float | None = None
     sector: str | None = None
-    technical: TechnicalAnalysis | None = None
+    # Flat daily-only (legacy / short-circuit paths) or multi-timeframe payload
+    technical: TechnicalAnalysis | MultiTimeframeTechnical | None = None
     fundamental: FundamentalAnalysis | None = None
     earnings: EarningsAnalysis | None = None
     sentiment: SentimentAnalysis | None = None

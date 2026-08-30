@@ -5,6 +5,7 @@ import { SectorHeatMap } from './SectorHeatMap';
 import { SectorDetailCard } from './SectorDetailCard';
 import { RotationFlows } from './RotationFlows';
 import { EducationPanel } from './EducationPanel';
+import { SectorFocusCard } from './SectorFocusCard';
 import { cn } from '@/lib/cn';
 import { RefreshCw, RotateCcw, Activity, TrendingUp, BookOpen, AlertTriangle, Layers } from 'lucide-react';
 
@@ -119,6 +120,9 @@ export function SectorRotationPage() {
           <button onClick={loadData} className="ml-auto text-sm font-semibold text-accent hover:underline">Retry</button>
         </div>
       )}
+
+      {/* Prescriptive verdict — which sector to hunt this week */}
+      <SectorFocusCard />
 
       {/* Metrics row */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

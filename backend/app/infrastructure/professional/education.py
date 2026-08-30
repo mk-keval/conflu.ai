@@ -1,26 +1,166 @@
-"""Education Service — plain-English explanations of financial metrics.
+﻿"""Education Service â€” plain-English explanations of financial metrics.
 
-Provides static template-based explanations for 20+ financial metrics,
-with conditional logic built into every template. Supports metric name
-normalization and optional LLM-enhanced versions when symbol context is
-available.
+Single source of truth is ``frontend/src/content/education.json`` (loaded at
+startup; Docker mounts it read-only at /app/education/education.json).
+This service renders value-aware explanations via the shared bands DSL
+(``education_bands.py`` â€” parity-tested with the frontend evaluator).
+
+Legacy behavior preserved: metric-name normalization, EducationResponse
+schema, and LLM-enhancement hook point are unchanged.
 """
 
 from __future__ import annotations
 
-import re
+import json
+import os
+from datetime import date
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from backend.app.core.logging import get_logger
+from backend.app.infrastructure.professional.education_bands import evaluate_bands
 from backend.app.infrastructure.professional.models import EducationResponse
 
 logger = get_logger(__name__)
 
-# ──────────────────────────────────────────────
-# Metric name normalization map
-# ──────────────────────────────────────────────
-# Maps user-supplied variations (including common display names and
-# abbreviated forms) to the canonical metric keys used in _TEMPLATES.
+# In-process daily call budget for LLM education enhancement (Phase 5).
+_LLM_CALL_STATE: dict[str, Any] = {"day": None, "count": 0}
+
+
+def _get_professional_settings():
+    """Fetch ProfessionalSettings lazily; None if config unavailable."""
+    try:
+        from backend.app.core.config import settings as app_settings
+
+        return app_settings.professional
+    except Exception as exc:  # noqa: BLE001
+        logger.info("ProfessionalSettings unavailable for LLM education", error=str(exc)[:120])
+        return None
+
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Content loading â€” education.json single source of truth
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+_CANDIDATE_PATHS = [
+    os.environ.get("EDUCATION_CONTENT_PATH", ""),
+    "/app/education/education.json",  # docker mount
+    str(Path(__file__).resolve().parents[4] / "frontend" / "src" / "content" / "education.json"),
+]
+
+
+@lru_cache(maxsize=1)
+def _load_content() -> dict[str, Any]:
+    """Load and cache education.json. Raises RuntimeError if not found."""
+    for candidate in _CANDIDATE_PATHS:
+        if not candidate:
+            continue
+        path = Path(candidate)
+        if path.is_file():
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+            logger.info(
+                "education content loaded",
+                path=str(path),
+                metrics=len(data.get("metrics", {})),
+                version=data.get("meta", {}).get("version"),
+            )
+            return data
+    raise RuntimeError(
+        "education.json not found in any candidate path; set EDUCATION_CONTENT_PATH"
+    )
+
+
+def _lesson_for(canonical: str) -> dict[str, Any] | None:
+    """Resolve a canonical metric key to its lesson across all sections."""
+    data = _load_content()
+    sections = ("metrics", "backtestMetrics")
+    for section in sections:
+        lesson = data.get(section, {}).get(canonical)
+        if lesson:
+            return lesson
+    # tradePlan/concepts are also explainable
+    for section in ("tradePlan", "concepts"):
+        lesson = data.get(section, {}).get(canonical)
+        if lesson:
+            return {**lesson, "category": section}
+    return None
+
+
+# Legacy alias map retained for API compatibility (callers may pass display
+# names like "P/E Ratio"); content keys live in education.json.
+_METRIC_ALIASES: dict[str, str] = {
+    "pe_ratio": "pe_ratio", "pe": "pe_ratio", "p/e": "pe_ratio",
+    "p/e ratio": "pe_ratio", "price to earnings": "pe_ratio",
+    "price-to-earnings": "pe_ratio", "price to earnings ratio": "pe_ratio",
+    "price-to-earnings ratio": "pe_ratio",
+    "rsi": "rsi", "relative strength index": "rsi",
+    "atr_pct": "atr_pct", "atr": "atr_pct", "average true range": "atr_pct",
+    "average true range %": "atr_pct", "atr%": "atr_pct",
+    "beta": "beta", "Î²": "beta",
+    "adx": "adx", "average directional index": "adx",
+    "macd": "macd_status", "macd_status": "macd_status",
+    "moving average convergence divergence": "macd_status",
+    "volume_ratio": "volume_ratio", "volume": "volume_ratio",
+    "volume ratio": "volume_ratio", "relative volume": "volume_ratio",
+    "rel volume": "volume_ratio",
+    "ma_alignment": "ma_alignment", "ma": "ma_alignment",
+    "moving average alignment": "ma_alignment", "moving average": "ma_alignment",
+    "bb_position": "bb_position", "bollinger bands": "bb_position",
+    "bb": "bb_position", "bollinger": "bb_position",
+    "bollinger band position": "bb_position",
+    "market_cap": "market_cap", "market cap": "market_cap",
+    "market capitalization": "market_cap",
+    "eps": "eps", "earnings per share": "eps",
+    "profit_margin": "profit_margin", "profit margin": "profit_margin",
+    "net margin": "profit_margin", "net profit margin": "profit_margin",
+    "debt_to_equity": "debt_to_equity", "debt to equity": "debt_to_equity",
+    "d/e": "debt_to_equity", "debt/equity": "debt_to_equity",
+    "debt equity ratio": "debt_to_equity",
+    "revenue_growth": "revenue_growth_yoy", "revenue growth": "revenue_growth_yoy",
+    "revenue": "revenue_growth_yoy", "revenue growth yoy": "revenue_growth_yoy",
+    "fcf_yield": "fcf_yield", "fcf": "fcf_yield",
+    "free cash flow yield": "fcf_yield", "free cash flow": "fcf_yield",
+    "analyst_consensus": "analyst_consensus", "analyst consensus": "analyst_consensus",
+    "consensus": "analyst_consensus", "analyst rating": "analyst_consensus",
+    "insider_activity": "insider_status", "insider_activity": "insider_status",
+    "insider activity": "insider_status", "insider trading": "insider_status",
+    "insider": "insider_status", "insider_status": "insider_status",
+    "short_interest": "short_interest_pct", "short interest": "short_interest_pct",
+    "short": "short_interest_pct", "short float": "short_interest_pct",
+    "% short": "short_interest_pct", "short_interest_pct": "short_interest_pct",
+    "institutional_ownership": "institutional_ownership",
+    "institutional ownership": "institutional_ownership",
+    "inst own": "institutional_ownership", "inst ownership": "institutional_ownership",
+    "dividend_yield": "dividend_yield", "dividend yield": "dividend_yield",
+    "dividend": "dividend_yield",
+    "short_ratio": "short_ratio", "short ratio": "short_ratio",
+    "days to cover": "short_ratio", "days_to_cover": "short_ratio",
+    "days-to-cover": "short_ratio",
+    "earnings_growth_yoy": "earnings_growth_yoy",
+    "earnings growth": "earnings_growth_yoy", "earnings growth yoy": "earnings_growth_yoy",
+    "peg_ratio": "peg_ratio", "peg": "peg_ratio", "peg ratio": "peg_ratio",
+    "price earnings growth": "peg_ratio",
+    "price_to_sales": "price_to_sales", "price to sales": "price_to_sales",
+    "p/s": "price_to_sales", "p/s ratio": "price_to_sales",
+    "price sales ratio": "price_to_sales",
+    "current_ratio": "current_ratio", "current ratio": "current_ratio",
+    "avg_volume_20d": "avg_volume_20d", "average volume 20d": "avg_volume_20d",
+    "avg volume 20 day": "avg_volume_20d", "avg volume": "avg_volume_20d",
+    "sma_50_200": "sma_50_200", "sma 50 200": "sma_50_200",
+    "50 200 sma": "sma_50_200", "golden cross": "sma_50_200",
+    "death cross": "sma_50_200",
+    "consecutive_gains": "consecutive_gains", "consecutive gains": "consecutive_gains",
+    "up days": "consecutive_gains", "consecutive up days": "consecutive_gains",
+    "institutional_flow": "institutional_flow", "institutional flow": "institutional_flow",
+    "inst flow": "institutional_flow", "institutional buying": "institutional_flow",
+    "vix": "vix", "market_regime": "market_regime", "regime": "market_regime",
+    "sector_rotation": "sector_rotation",
+    "advance_decline_ratio": "advance_decline_ratio", "a/d": "advance_decline_ratio",
+    "dollar_index": "dollar_index", "dxy": "dollar_index",
+    "sp500_futures": "sp500_futures", "s&p 500": "sp500_futures",
+    "nasdaq_futures": "nasdaq_futures", "change_1w": "change_1w",
+}
 
 _METRIC_ALIASES: dict[str, str] = {
     # P/E ratio
@@ -43,7 +183,7 @@ _METRIC_ALIASES: dict[str, str] = {
     "atr%": "atr_pct",
     # Beta
     "beta": "beta",
-    "β": "beta",
+    "Î²": "beta",
     # ADX
     "adx": "adx",
     "average directional index": "adx",
@@ -171,509 +311,26 @@ _METRIC_ALIASES: dict[str, str] = {
 }
 
 
-# ──────────────────────────────────────────────
-# Template rendering helpers
-# ──────────────────────────────────────────────
-
-
-def _compare_numbers(left: float, operator: str, right: float) -> bool:
-    """Compare two float values using the supplied operator.
-
-    Args:
-        left: Left-hand operand.
-        operator: One of ``>``, ``<``, ``>=``, ``<=``, ``==``, ``!=``.
-        right: Right-hand operand.
-
-    Returns:
-        Result of the comparison.
-    """
-    if operator == ">":
-        return left > right
-    elif operator == "<":
-        return left < right
-    elif operator == ">=":
-        return left >= right
-    elif operator == "<=":
-        return left <= right
-    elif operator == "==":
-        return abs(left - right) < 1e-9
-    elif operator == "!=":
-        return abs(left - right) >= 1e-9
-    return False
-
-
-def _compare_strings(left: str, operator: str, right: str) -> bool:
-    """Compare two strings case-insensitively.
-
-    Args:
-        left: Left-hand operand (the user-supplied value).
-        operator: ``==`` or ``!=``.
-        right: Right-hand operand (from the template condition).
-
-    Returns:
-        Result of the comparison.
-    """
-    if operator == "==":
-        return left.strip().lower() == right.strip().lower()
-    elif operator == "!=":
-        return left.strip().lower() != right.strip().lower()
-    return False
-
-
-def _evaluate_condition(condition: str, value: str) -> bool:
-    """Evaluate a single comparison condition against the given value.
-
-    Supports patterns such as::
-
-        value > 30
-        value < 15
-        value == 'bullish'
-        value >= 50
-        value != 'selling'
-
-    Args:
-        condition: Raw condition string (e.g. ``"value > 30"``).
-        value: The actual metric value to substitute.
-
-    Returns:
-        ``True`` if the condition is satisfied, ``False`` otherwise.
-    """
-    condition = condition.strip()
-
-    # Match: value <op> <rhs>  where <rhs> is a quoted string or a number
-    match = re.match(
-        r"value\s*(>=|<=|!=|==|>|<)\s*(?:'([^']*)'|(-?\d+\.?\d*))\s*$",
-        condition,
-    )
-    if not match:
-        logger.warning("Could not parse condition expression: %s", condition)
-        return False
-
-    operator = match.group(1)
-    string_rhs = match.group(2)
-    numeric_rhs_str = match.group(3)
-
-    if string_rhs is not None:
-        return _compare_strings(value, operator, string_rhs)
-
-    # Numeric comparison
-    try:
-        numeric_value = float(value)
-    except (ValueError, TypeError):
-        logger.warning(
-            "Cannot convert value %r to float for condition: %s", value, condition
-        )
-        return False
-
-    return _compare_numbers(numeric_value, operator, float(numeric_rhs_str))
-
-
-def _evaluate_ternary_chain(expression: str, value: str) -> str:
-    """Evaluate a chain of ternary expressions.
-
-    The expected grammar is::
-
-        condition ? 'true_branch' : condition ? 'true_branch' : 'fallback'
-
-    Conditions are simple comparisons (see :func:_evaluate_condition).
-    Text branches MUST be single-quoted. The final branch is an implicit
-    else (no leading condition).
-
-    Args:
-        expression: The ternary chain (everything inside ``{...}``).
-        value: The metric value to test conditions against.
-
-    Returns:
-        The text of the first matching branch, or the fallback text.
-    """
-    expr = expression.strip()
-
-    # Split into condition and the rest (everything after the first ``?``)
-    parts = expr.split("?", 1)
-    if len(parts) < 2:
-        # No ternary operator found — return as-is
-        return expr
-
-    condition_str = parts[0].strip()
-    rest = parts[1]
-
-    # Extract the true-branch (first single-quoted string)
-    true_match = re.match(r"\s*'([^']*)'\s*:\s*(.*)", rest)
-    if not true_match:
-        # Malformed — return remainder verbatim
-        return rest.strip()
-
-    true_text = true_match.group(1)
-    remainder = true_match.group(2).strip()
-
-    # Evaluate the first condition
-    if _evaluate_condition(condition_str, value):
-        return true_text
-
-    # Remainder is either a fallback string or another ternary chain
-    if remainder.startswith("'"):
-        fallback_match = re.match(r"'([^']*)'", remainder)
-        return fallback_match.group(1) if fallback_match else remainder
-    else:
-        # Recursively evaluate the next ternary
-        return _evaluate_ternary_chain(remainder, value)
-
-
-def _render_template(template: str, value: str) -> str:
-    """Render a template string with value interpolation and conditionals.
-
-    Performs two passes:
-
-    1. Replaces ``${value}`` with the actual value string.
-    2. Evaluates ``{condition ? 'a' : condition ? 'b' : 'c'}`` blocks.
-
-    Args:
-        template: The raw template string from ``_TEMPLATES``.
-        value: The metric value to substitute.
-
-    Returns:
-        Fully rendered plain-English text.
-    """
-    # Pass 1: simple variable interpolation
-    result = template.replace("${value}", value)
-
-    # Pass 2: evaluate conditional blocks ``{...}``
-    def _replace_conditional(match: re.Match) -> str:
-        block = match.group(1)
-        return _evaluate_ternary_chain(block, value)
-
-    result = re.sub(r"\{([^}]+)\}", _replace_conditional, result)
-
-    return result
-
 
 # ──────────────────────────────────────────────
-# EducationService
+# EducationService — json-driven (single source of truth)
 # ──────────────────────────────────────────────
 
 
 class EducationService:
-    """Provides plain-English explanations for financial metrics.
+    """Plain-English explanations rendered from education.json.
 
-    Uses a library of hand-crafted templates with built-in conditional
-    logic to generate context-aware explanations without any external
-    API calls. Each template includes a companion LLM prompt for future
-    LLM-enhanced versions.
-
-    The service also normalises metric name variations so that callers
-    can pass ``"P/E Ratio"``, ``"pe"``, or ``"price to earnings"`` and
-    still get the correct explanation.
+    Content lives in ``frontend/src/content/education.json`` and is
+    evaluated through the shared bands DSL (parity-tested with the
+    frontend evaluator in ``education_bands``). Metric-name aliases are
+    preserved for API compatibility.
 
     Typical usage::
 
         svc = EducationService()
-        resp = svc.explain("pe_ratio", "35", symbol="AAPL", sector="Technology")
+        resp = svc.explain("pe_ratio", "35", symbol="AAPL")
         print(resp.plain_english)
-        # "You're paying $35 for $1 of earnings. ..."
     """
-
-    # ── Metric templates ──────────────────────────────────────────
-
-    _TEMPLATES: dict[str, dict[str, str]] = {
-        "pe_ratio": {
-            "template": (
-                "You're paying ${value} for $1 of earnings. "
-                "Market average is ~20x. "
-                "{value > 30 ? 'This suggests the stock is priced for perfection "
-                "— expensive.' : value < 15 ? 'This suggests the stock may be "
-                "undervalued — but check why.' : 'This is in a reasonable range.'}"
-            ),
-            "llm_prompt": (
-                "Explain P/E ratio of {value} for {symbol} in the {sector} sector. "
-                "Keep it to 2 sentences for a beginner investor."
-            ),
-        },
-        "rsi": {
-            "template": (
-                "Momentum is at ${value}. "
-                "{value > 70 ? 'This is overbought — a pullback may be coming.' "
-                ": value < 30 ? 'This is oversold — a bounce could be imminent.' "
-                ": 'This is in neutral territory.'}"
-            ),
-            "llm_prompt": "Explain RSI of {value} for {symbol} in simple terms.",
-        },
-        "atr_pct": {
-            "template": (
-                "The stock moves ${value}% per day on average. "
-                "{value > 5 ? 'High volatility — use wider stop losses.' "
-                ": value < 2 ? 'Low volatility — tighter stops work fine.' "
-                ": 'Normal volatility range.'}"
-            ),
-            "llm_prompt": "Explain ATR% of {value} for {symbol}.",
-        },
-        "beta": {
-            "template": (
-                "This stock moves ${value}x the S&P 500. "
-                "{value > 1.5 ? 'Aggressive — it amplifies market moves.' "
-                ": value < 0.5 ? 'Defensive — it barely moves with the market.' "
-                ": 'It moves roughly in line with the market.'}"
-            ),
-            "llm_prompt": "Explain beta of {value} for {symbol}.",
-        },
-        "adx": {
-            "template": (
-                "Trend strength is at ${value}. "
-                "{value >= 50 ? 'Very strong trend in play.' "
-                ": value >= 25 ? 'Trending market with decent strength.' "
-                ": 'Weak or choppy price action — trend-following may be less effective.'}"
-            ),
-            "llm_prompt": "Explain ADX of {value} and what it means for trading.",
-        },
-        "macd": {
-            "template": (
-                "MACD status: ${value}. "
-                "{value == 'bullish' ? 'Momentum is building to the upside.' "
-                ": value == 'bearish' ? 'Momentum is shifting to the downside.' "
-                ": 'Momentum is neutral — waiting for a signal.'}"
-            ),
-            "llm_prompt": "Explain MACD {value} signal for {symbol}.",
-        },
-        "volume_ratio": {
-            "template": (
-                "Volume is ${value}x the average. "
-                "{value > 2 ? 'Unusually high volume — significant institutional activity.' "
-                ": value > 1.5 ? 'Above-average volume — increased interest.' "
-                ": 'Normal trading activity.'}"
-            ),
-            "llm_prompt": "Explain volume ratio of {value} for {symbol}.",
-        },
-        "ma_alignment": {
-            "template": (
-                "Moving averages are in a {value} alignment. "
-                "{value == 'bullish' ? 'Short-term > mid-term > long-term — textbook uptrend.' "
-                ": value == 'bearish' ? 'Short-term below long-term — downward pressure.' "
-                ": 'Mixed — the trend is not clearly established.'}"
-            ),
-            "llm_prompt": "Explain {value} MA alignment for {symbol}.",
-        },
-        "bb_position": {
-            "template": (
-                "Price is ${value} the Bollinger Bands. "
-                "{value == 'above_upper' ? 'Extended above the upper band — possibly overbought.' "
-                ": value == 'below_lower' ? 'Below the lower band — possibly oversold.' "
-                ": 'Within the bands — normal trading range.'}"
-            ),
-            "llm_prompt": "Explain Bollinger Band {value} position for {symbol}.",
-        },
-        "market_cap": {
-            "template": (
-                "Market cap is ${value}B. "
-                "{value > 200 ? 'Mega-cap — among the largest companies globally.' "
-                ": value > 10 ? 'Large-cap — established, liquid, institutionally owned.' "
-                ": value > 2 ? 'Mid-cap — growing with more upside potential, more risk.' "
-                ": 'Small-cap — higher growth potential but much more volatile.'}"
-            ),
-            "llm_prompt": "Explain what a ${value}B market cap means for {symbol}.",
-        },
-        "eps": {
-            "template": (
-                "Earnings per share (EPS) is ${value}. "
-                "{value > 0 ? 'The company is generating positive earnings — profitable.' "
-                ": 'The company is losing money per share — not profitable.'}"
-            ),
-            "llm_prompt": "Explain EPS of {value} for {symbol}.",
-        },
-        "profit_margin": {
-            "template": (
-                "Profit margin is {value}%. "
-                "{value > 20 ? 'Highly profitable — strong pricing power and cost control.' "
-                ": value > 10 ? 'Healthy margins — decent business efficiency.' "
-                ": value > 0 ? 'Thin margins — cost-sensitive business.' "
-                ": 'Negative margins — company is operating at a loss.'}"
-            ),
-            "llm_prompt": "Explain profit margin of {value}% for {symbol}.",
-        },
-        "debt_to_equity": {
-            "template": (
-                "Debt-to-equity is ${value}. "
-                "{value > 2 ? 'High leverage — the company carries significant debt "
-                "relative to equity.' : value > 1 ? 'Moderate leverage — manageable "
-                "but worth watching.' : 'Low leverage — conservative capital structure "
-                "with little debt.'}"
-            ),
-            "llm_prompt": "Explain debt-to-equity of {value} for {symbol}.",
-        },
-        "revenue_growth": {
-            "template": (
-                "Revenue growth is {value}% year-over-year. "
-                "{value > 20 ? 'Strong growth — rapidly expanding business.' "
-                ": value > 10 ? 'Healthy growth — above average expansion.' "
-                ": value > 0 ? 'Modest growth — growing but slowly.' "
-                ": 'Declining revenue — business is shrinking.'}"
-            ),
-            "llm_prompt": "Explain {value}% revenue growth for {symbol}.",
-        },
-        "fcf_yield": {
-            "template": (
-                "Free cash flow yield is {value}%. "
-                "{value > 5 ? 'Strong cash generation relative to price — "
-                "potentially undervalued.' : value > 2 ? 'Decent cash flow yield.' "
-                ": 'Low cash flow yield — the price is high relative to cash generated.'}"
-            ),
-            "llm_prompt": "Explain FCF yield of {value}% for {symbol}.",
-        },
-        "analyst_consensus": {
-            "template": (
-                "Analyst consensus is: {value}. "
-                "This reflects the average opinion of Wall Street analysts "
-                "covering the stock."
-            ),
-            "llm_prompt": (
-                "Explain 'analyst consensus' of {value} for {symbol}."
-            ),
-        },
-        "insider_activity": {
-            "template": (
-                "Insider activity is: {value}. "
-                "{value == 'buying' ? 'Insiders are buying shares — often a bullish signal.' "
-                ": value == 'selling' ? 'Insiders are selling shares — could be routine, "
-                "but worth monitoring.' : 'No significant insider activity detected.'}"
-            ),
-            "llm_prompt": "Explain insider activity of {value} for {symbol}.",
-        },
-        "short_interest": {
-            "template": (
-                "Short interest is {value}% of float. "
-                "{value > 20 ? 'Very high — extreme bearish sentiment or potential "
-                "squeeze setup.' : value > 10 ? 'Elevated — significant bearish "
-                "positioning.' : value > 5 ? 'Moderate short interest.' : 'Low short "
-                "interest — minimal bearish bets.'}"
-            ),
-            "llm_prompt": "Explain {value}% short interest for {symbol}.",
-        },
-        "institutional_ownership": {
-            "template": (
-                "Institutional ownership is {value}%. "
-                "{value > 70 ? 'Very high — widely held by institutions, "
-                "lots of smart money.' : value > 40 ? 'Healthy institutional interest.' "
-                ": value > 10 ? 'Moderate institutional ownership.' "
-                ": 'Low — mostly retail-owned.'}"
-            ),
-            "llm_prompt": "Explain {value}% institutional ownership for {symbol}.",
-        },
-        "dividend_yield": {
-            "template": (
-                "Dividend yield is {value}%. "
-                "{value > 4 ? 'High yield — could indicate a mature/distressed "
-                "company or income play.' : value > 2 ? 'Moderate yield — decent "
-                "income with growth potential.' : value > 0 ? 'Low yield — company "
-                "reinvests most earnings into growth.' : 'No dividend — all earnings "
-                "reinvested in growth.'}"
-            ),
-            "llm_prompt": "Explain {value}% dividend yield for {symbol}.",
-        },
-        "short_ratio": {
-            "template": (
-                "Short ratio (days to cover) is ${value} days. "
-                "${value > 10 ? 'EXTREMELY HIGH — would take over 10 days for all shorts to cover. Explosive squeeze potential.' "
-                ": value > 5 ? 'HIGH — significant squeeze risk. Short sellers are crowded and vulnerable.' "
-                ": value > 2 ? 'MODERATE — some squeeze potential. Shorts could cover in a few days.' "
-                ": 'LOW — short positions can be closed quickly. Less squeeze risk.'}"
-            ),
-            "llm_prompt": "Explain short ratio of ${value} days for {symbol}. What does this mean for squeeze potential?",
-        },
-        "earnings_growth_yoy": {
-            "template": (
-                "Earnings growth (year-over-year) is ${value}%. "
-                "${value > 50 ? 'EXPLOSIVE growth — earnings growing much faster than revenue. Becoming more efficient.' "
-                ": value > 20 ? 'STRONG growth — rapidly improving profitability. Quality business signal.' "
-                ": value > 0 ? 'POSITIVE growth — earnings heading in the right direction.' "
-                ": value > -20 ? 'SLIGHT decline — earnings down a bit. Monitor but not a crisis.' "
-                ": 'SIGNIFICANT decline — profits shrinking. Red flag unless one-time event.'}"
-            ),
-            "llm_prompt": "Explain ${value}% YoY earnings growth for {symbol}. Is this sustainable?",
-        },
-        "peg_ratio": {
-            "template": (
-                "PEG ratio is ${value}. "
-                "${value < 0 ? 'NEGATIVE — earnings are shrinking. The low PEG is NOT a bargain, it is a warning.' "
-                ": value < 1 ? 'UNDERVALUED relative to growth. Price is low for the growth rate. Often a good sign.' "
-                ": value < 2 ? 'FAIRLY VALUED. Price is reasonable for the growth rate.' "
-                ": 'OVERVALUED relative to growth. Price is high for the growth rate. Either growth must accelerate or the stock is expensive.'}"
-            ),
-            "llm_prompt": "Explain PEG ratio of ${value} for {symbol}. What does this tell us about value vs growth?",
-        },
-        "price_to_sales": {
-            "template": (
-                "Price-to-sales (P/S) ratio is ${value}. "
-                "${value > 20 ? 'VERY HIGH — common for hyper-growth tech. Paying huge premium for future revenue. Risky if growth slows.' "
-                ": value > 5 ? 'ABOVE AVERAGE — market is optimistic about future growth. Reasonable for growth companies.' "
-                ": value > 1 ? 'TYPICAL range. Normal valuation for most businesses.' "
-                ": value > 0 ? 'LOW — sales valued conservatively. Could be bargain or value trap.' "
-                ": 'NEGATIVE (unusual) — likely a data issue.'}"
-            ),
-            "llm_prompt": "Explain P/S ratio of ${value} for {symbol}. When is this metric most useful?",
-        },
-        "current_ratio": {
-            "template": (
-                "Current ratio is ${value}. "
-                "${value > 3 ? 'VERY HEALTHY — far more short-term assets than liabilities. Strong safety cushion.' "
-                ": value > 1.5 ? 'HEALTHY — can comfortably cover short-term obligations. Standard for most businesses.' "
-                ": value > 1 ? 'ADEQUATE — barely covers short-term debts. Watch for any deterioration.' "
-                ": 'CONCERNING — short-term liabilities exceed liquid assets. Cash flow problems possible.'}"
-            ),
-            "llm_prompt": "Explain current ratio of ${value} for {symbol}. What does this say about financial health?",
-        },
-"avg_volume_20d": {
-            "template": (
-                "20-day average volume is ${value} shares/day. "
-                "${value > 10000000 ? 'VERY LIQUID — over 10M shares/day. Huge volume, easy to trade large positions.' "
-                ": value > 1000000 ? 'LIQUID — over 1M shares/day. Normal for mid-to-large caps.' "
-                ": value > 100000 ? 'MODERATE — over 100K shares/day. Tradeable but larger orders may move price.' "
-                ": 'LOW — under 100K shares/day. Be careful with position size, spreads may be wide.'}"
-            ),
-            "llm_prompt": "Explain what ${value} avg daily volume means for {symbol} liquidity.",
-        },
-        "relative_volume": {
-            "template": (
-                "Relative volume is ${value}x average. "
-                "${value > 3 ? 'EXCEPTIONALLY HIGH — major institutional activity right now.' "
-                ": value > 2 ? 'VERY HIGH — significant unusual interest.' "
-                ": value > 1.5 ? 'ELEVATED — more trading than normal.' "
-                ": value >= 1 ? 'NORMAL — typical trading activity.' "
-                ": 'BELOW AVERAGE — light trading, moves may lack conviction.'}"
-            ),
-            "llm_prompt": "Explain relative volume of ${value}x for {symbol}. What does this indicate about current interest?",
-        },
-        "sma_50_200": {
-            "template": (
-                "SMA 50/200 status: ${value}. "
-                "${value == 'golden_cross' ? 'GOLDEN CROSS — 50-day crossed ABOVE 200-day! Classic bullish signal. Short-term trend now stronger than long-term.' "
-                ": value == 'death_cross' ? 'DEATH CROSS — 50-day crossed BELOW 200-day. Serious bearish signal. Short-term trend breaking down.' "
-                ": 'NO CROSS — 50 and 200-day averages maintaining current order. No extreme trend change signal.'}"
-            ),
-            "llm_prompt": "Explain ${value} SMA 50/200 cross for {symbol}. Historical reliability?",
-        },
-        "consecutive_gains": {
-            "template": (
-                "${value} consecutive up days. "
-                "${value >= 7 ? 'EXCEPTIONAL streak — over a week of gains. Intense buying pressure but may be due for a breather.' "
-                ": value >= 5 ? 'STRONG streak — full week of gains. Bullish momentum.' "
-                ": value >= 3 ? 'MODERATE streak — 3+ up days. Positive short-term momentum.' "
-                ": value == 1 ? 'JUST STARTED — one up day. Does not make a trend yet.' "
-                ": 'DECLINING — stock has been going down recently. Check other indicators.'}"
-            ),
-            "llm_prompt": "Explain ${value} consecutive up days for {symbol}. What typically happens next?",
-        },
-        "institutional_flow": {
-            "template": (
-                "Institutional flow is ${value} (net buying/selling last month). "
-                "${value > 5 ? 'STRONG BUYING — major investors accumulating. One of the most bullish signals.' "
-                ": value > 1 ? 'MODERATE BUYING — institutions adding to positions. Mildly bullish.' "
-                ": value > -1 ? 'NEUTRAL — no significant institutional activity.' "
-                ": value > -5 ? 'MODERATE SELLING — institutions reducing positions. Mildly bearish.' "
-                ": 'STRONG SELLING — smart money exiting. Significant warning sign.'}"
-            ),
-            "llm_prompt": "Explain institutional flow of ${value} for {symbol}. What does smart money movement tell us?",
-        },
-    }
-
-    # ── Public API ────────────────────────────────────────────────
 
     def explain(
         self,
@@ -685,46 +342,26 @@ class EducationService:
     ) -> EducationResponse:
         """Generate a plain-English explanation for a metric value.
 
-        Looks up the metric (with name normalisation), renders the static
-        template with the supplied value, and optionally enriches the
-        response with an LLM-generated explanation when a symbol is
-        provided and the LLM feature flag is enabled.
-
         Args:
-            metric: Metric name — accepts any variation listed in
-                ``_METRIC_ALIASES`` (e.g. ``"pe_ratio"``, ``"P/E Ratio"``,
-                ``"pe"``, ``"price to earnings"``).
+            metric: Metric name — any alias in ``_METRIC_ALIASES`` or a
+                canonical key from education.json.
             value: The metric value as a string (e.g. ``"25.5"``,
-                ``"bullish"``, ``"3.2"``).
-            symbol: Optional ticker symbol for context. When provided,
-                the service checks whether LLM enhancement should be
-                applied.
-            sector: Optional sector name (e.g. ``"Technology"``) used
-                as context for LLM prompts.
-            price: Optional current price, reserved for future use in
-                contextual explanations.
+                ``"bullish"``).
+            symbol: Optional ticker symbol for context (LLM hook).
+            sector: Optional sector context (LLM hook).
+            price: Optional current price (reserved).
 
         Returns:
-            An :class:`EducationResponse` containing the explanation.
-
-        Raises:
-            No exceptions are raised. Unknown metrics return a fallback
-            response with ``source="template"``.
-
-        Examples:
-            >>> svc = EducationService()
-            >>> resp = svc.explain("pe_ratio", "35", symbol="AAPL")
-            >>> resp.plain_english
-            "You're paying $35 for $1 of earnings. ..."
-            >>> resp.metric
-            'pe_ratio'
-            >>> resp.source
-            'template'
+            An :class:`EducationResponse`. Unknown metrics return a
+            graceful fallback with ``source="template"``.
         """
         canonical = self._normalize_metric(metric)
 
-        if canonical is None or canonical not in self._TEMPLATES:
-            logger.info("Unknown metric requested: %r (normalised to %r)", metric, canonical)
+        lesson = _lesson_for(canonical) if canonical else None
+        if canonical is None or lesson is None:
+            logger.info(
+                "Unknown metric requested: %r (normalised to %r)", metric, canonical
+            )
             return EducationResponse(
                 metric=metric,
                 symbol=symbol,
@@ -737,25 +374,44 @@ class EducationService:
                 cached=False,
             )
 
-        template_entry = self._TEMPLATES[canonical]
-        template = template_entry["template"]
-        llm_prompt = template_entry.get("llm_prompt", "")
+        # Render the value-aware band text (dynamic wording per value).
+        parts: list[str] = []
+        one_liner = lesson.get("oneLiner")
+        if one_liner:
+            parts.append(one_liner)
 
-        # Render the static template
-        plain_english = _render_template(template, value)
+        interp = lesson.get("valueInterpretation")
+        read_line = evaluate_bands(interp, value) if interp else ""
+        if not read_line:
+            # Fall back to the unconditional band so unknown/odd values
+            # still get sensible guidance.
+            fallback_band = next(
+                (
+                    b
+                    for b in reversed((interp or {}).get("bands", []))
+                    if not b.get("if", "").strip()
+                ),
+                None,
+            )
+            if fallback_band:
+                read_line = fallback_band["text"].replace("${value}", value)
+        if read_line:
+            parts.append(read_line)
 
-        # Build the base response
+        why = lesson.get("whyMatters")
+        if why:
+            parts.append(why)
+
         resp = EducationResponse(
             metric=canonical,
             symbol=symbol,
-            plain_english=plain_english,
+            plain_english=" ".join(parts),
             value_context=None,
             actionable=None,
             source="template",
             cached=False,
         )
 
-        # Optionally enhance with LLM when a symbol is present
         if symbol:
             self._maybe_enhance_with_llm(
                 resp=resp,
@@ -763,11 +419,27 @@ class EducationService:
                 value=value,
                 symbol=symbol,
                 sector=sector,
-                llm_prompt=llm_prompt,
+                llm_prompt=self._build_llm_prompt(canonical, value, symbol, sector),
                 price=price,
             )
 
         return resp
+
+    def deep_dive(self, metric: str) -> dict[str, Any] | None:
+        """Return the full lesson dict (deep-dive view) for a metric key."""
+        canonical = self._normalize_metric(metric) or metric
+        return _lesson_for(canonical)
+
+    @staticmethod
+    def _build_llm_prompt(
+        canonical: str, value: str, symbol: str, sector: str | None
+    ) -> str:
+        sector_ctx = sector or "its sector"
+        return (
+            f"Explain {canonical} of {value} for {symbol} in the context of "
+            f"{sector_ctx}. Two sentences maximum, beginner-friendly, no "
+            f"financial advice."
+        )
 
     # ── Internal helpers ──────────────────────────────────────────
 
@@ -775,18 +447,19 @@ class EducationService:
     def _normalize_metric(metric: str) -> str | None:
         """Normalise a user-supplied metric name to its canonical key.
 
-        Strips whitespace, lowercases, and looks up the result in
-        ``_METRIC_ALIASES``.
-
-        Args:
-            metric: Raw metric input from the caller.
-
-        Returns:
-            Canonical metric key (e.g. ``"pe_ratio"``), or ``None`` if
-            no match is found.
+        Strips whitespace, lowercases, then checks the alias map and —
+        as a second chance — direct key membership in education.json.
         """
         key = metric.strip().lower()
-        return _METRIC_ALIASES.get(key)
+        aliased = _METRIC_ALIASES.get(key)
+        if aliased:
+            return aliased
+        # Direct canonical keys work even without an alias entry.
+        data = _load_content()
+        for section in ("metrics", "backtestMetrics", "tradePlan", "concepts"):
+            if key in data.get(section, {}):
+                return key
+        return None
 
     @staticmethod
     def _maybe_enhance_with_llm(
@@ -798,19 +471,93 @@ class EducationService:
         llm_prompt: str,
         price: float | None = None,
     ) -> None:
-        """Check the LLM enhancement flag and enrich the response.
+        """Optionally enrich the response with a Gemini-generated note.
 
-        **This is a placeholder for future LLM integration.** When the
-        LLM enhancement feature flag is enabled, this method will:
+        Phase 5, flag-gated (``CONFLU_PROFESSIONAL_LLM_EDUCATION_ENABLED`` +
+        ``llm_api_key``). Design guarantees:
 
-        1. Format the ``llm_prompt`` with ``{value}``, ``{symbol}``,
-           ``{sector}``, and ``{price}``.
-        2. Call the LLM service to generate a richer explanation.
-        3. Populate ``resp.value_context`` and ``resp.actionable``.
-        4. Set ``resp.source`` to ``"llm"`` or ``"combined"``.
-
-        Currently this is a no-op awaiting the feature flag
-        implementation.
+        - Curated content is ALWAYS present; the LLM only fills
+          ``value_context`` / ``actionable`` as clearly-secondary context.
+        - Any failure (no key, flag off, timeout, HTTP error, rate limit,
+          bad payload) leaves the curated response untouched.
+        - Output is constrained: system prompt forbids advice language and
+          caps length; result is truncated defensively.
+        - Daily call budget respected via in-process counter.
         """
-        # TODO: Implement LLM enhancement when feature flag is available
-        pass
+        settings = _get_professional_settings()
+        if not settings or not settings.llm_education_enabled:
+            return
+        api_key = settings.llm_api_key
+        if not api_key:
+            return
+
+        # Daily budget (in-process; resets on restart — acceptable for a garnish)
+        today = date.today().isoformat()
+        if _LLM_CALL_STATE["day"] != today:
+            _LLM_CALL_STATE["day"] = today
+            _LLM_CALL_STATE["count"] = 0
+        if _LLM_CALL_STATE["count"] >= settings.max_daily_education_calls:
+            logger.info("LLM education daily budget exhausted; skipping enhancement")
+            return
+
+        try:
+            import httpx
+
+            prompt = (
+                f"Context: metric '{canonical}' has value {value} for {symbol}"
+                + (f" in the {sector} sector." if sector else ".")
+                + " Give ONE short observation (max 25 words) that is specific to"
+                + " this symbol/value combination. No financial advice, no"
+                + " recommendations, no disclaimers."
+            )
+
+            with httpx.Client(timeout=6.0) as client:
+                r = client.post(
+                    "https://generativelanguage.googleapis.com/v1beta/models/"
+                    "gemini-2.0-flash:generateContent",
+                    params={"key": api_key},
+                    json={
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "systemInstruction": {
+                            "parts": [
+                                {
+                                    "text": (
+                                        "You are an educational footnote writer inside a"
+                                        " stock-analytics app. State neutral, factual,"
+                                        " symbol-specific observations. NEVER give advice"
+                                        " (no buy/sell/should/consider/target words). Max"
+                                        " 2 sentences. If unsure, say nothing useful and"
+                                        " keep it generic."
+                                    )
+                                }
+                            ]
+                        },
+                        "generationConfig": {
+                            "temperature": 0.4,
+                            "maxOutputTokens": 120,
+                        },
+                    },
+                )
+                r.raise_for_status()
+                data = r.json()
+                text = (
+                    data.get("candidates", [{}])[0]
+                    .get("content", {})
+                    .get("parts", [{}])[0]
+                    .get("text", "")
+                    .strip()
+                )
+
+            if not text:
+                logger.info("LLM education returned empty text; keeping template response")
+                return
+
+            resp.value_context = text[:280]  # defensive truncation
+            resp.actionable = None  # never surface advice-shaped fields from the model
+            resp.source = "llm"
+            _LLM_CALL_STATE["count"] += 1
+            logger.info(
+                "LLM education enhanced", metric=canonical, symbol=symbol, chars=len(text)
+            )
+        except Exception as exc:  # noqa: BLE001 — garnish must never break the meal
+            logger.info("LLM education enhancement skipped", error=str(exc)[:200])

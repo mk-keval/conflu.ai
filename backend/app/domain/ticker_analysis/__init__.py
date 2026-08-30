@@ -7,6 +7,7 @@ from backend.app.domain.ticker_analysis import (
     synthesis,
     technical,
     macro_overlay,
+    breakout,
 )
 from backend.app.domain.ticker_analysis.orchestrator import TickerAnalysisService
 from backend.app.domain.ticker_analysis.models import (
@@ -28,6 +29,7 @@ __all__ = [
     "synthesis",
     "technical",
     "macro_overlay",
+    "breakout",
     "TickerAnalysisService",
     "EarningsAnalysis",
     "FundamentalAnalysis",

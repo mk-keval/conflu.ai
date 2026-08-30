@@ -1,9 +1,11 @@
-import { useRef, useState, useMemo, useCallback, type ReactNode } from 'react';
+import { useRef, useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Info } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { formatPrice, formatLargeNumber, changePct } from '@/lib/format';
 import type { TVScoredTicker, TVDataFields } from '@/types/screener';
+import { ConfluenceDecoder } from './ConfluenceDecoder';
 
 // ── Column metadata — defines ALL available columns and their defaults ───────
 
@@ -14,35 +16,48 @@ export interface ColumnMeta {
   weight: number;
   /** Columns the user cannot hide. */
   alwaysOn: boolean;
+  /** Plain-language explanation shown in a header tooltip / popover. */
+  help?: string;
+  /** Advanced institutional metric — hidden by default for beginners, but
+   *  still available to experienced traders via the column customizer. */
+  advanced?: boolean;
 }
 
 export const ALL_COLUMNS_META: ColumnMeta[] = [
   { key: 'symbol',      label: 'Symbol',      weight: 8,  alwaysOn: true  },
   { key: 'price',       label: 'Price',       weight: 10, alwaysOn: true  },
-  { key: 'score',       label: 'Scr',         weight: 6,  alwaysOn: true  },
+  { key: 'score',       label: 'Scr',         weight: 6,  alwaysOn: true,  help: 'Confluence Score: 0–100 points across five pillars — Trend, Momentum, Volume, Quality, Fundamental.' },
   { key: 'change',      label: 'Change',      weight: 13, alwaysOn: true  },
+  { key: 'verdict',     label: 'Verdict',     weight: 22, alwaysOn: false, help: 'Plain-English second opinion: is this a clean swing setup right now, or should you wait / avoid?' },
   { key: 'entry',       label: 'Entry/SL',    weight: 12, alwaysOn: false },
-  { key: 'confluence',  label: 'Confluence',  weight: 14, alwaysOn: true  },
+  { key: 'confluence',  label: 'Confluence',  weight: 14, alwaysOn: false, advanced: true, help: 'Advanced: how each confluence pillar scores — T(rend) · M(omentum) · V(olume) · Q(uality) · F(undamental).' },
   { key: 'volume',      label: 'Volume',      weight: 10, alwaysOn: true  },
-  { key: 'rs_rating',   label: 'RS Rtg',      weight: 6,  alwaysOn: false },
-  { key: 'inst_qual',   label: 'Inst Q',      weight: 6,  alwaysOn: false },
-  { key: 'conviction',  label: 'Conv',        weight: 6,  alwaysOn: false },
+  { key: 'rs_rating',   label: 'RS Rtg',      weight: 6,  alwaysOn: false, advanced: true, help: 'Advanced: Relative Strength rating: 0–100 vs the whole market (IBD-style).' },
+  { key: 'inst_qual',   label: 'Inst Q',      weight: 6,  alwaysOn: false, advanced: true, help: 'Advanced: Institutional ownership quality grade.' },
+  { key: 'conviction',  label: 'Conv',        weight: 6,  alwaysOn: false, advanced: true, help: 'Advanced: Conviction — confidence in the setup from elite signal processing.' },
   { key: 'market_cap',  label: 'Mkt Cap',     weight: 8,  alwaysOn: false },
   { key: 'pe_ratio',    label: 'P/E',         weight: 6,  alwaysOn: false },
   { key: 'eps',         label: 'EPS',         weight: 6,  alwaysOn: false },
   { key: 'div_yield',   label: 'Div %',       weight: 6,  alwaysOn: false },
   { key: 'rel_vol',     label: 'Rel Vol',     weight: 6,  alwaysOn: false },
   { key: 'rsi',         label: 'RSI',         weight: 5,  alwaysOn: false },
-  { key: 'adx',         label: 'ADX',         weight: 5,  alwaysOn: false },
+  { key: 'adx',         label: 'ADX',         weight: 5,  alwaysOn: false, advanced: true, help: 'Advanced: Average Directional Index — trend strength (below 20 = choppy).' },
   { key: 'vol_change',  label: 'Vol %',       weight: 6,  alwaysOn: false },
-  { key: 'atr_pct',     label: 'ATR%',        weight: 6,  alwaysOn: false },
+  { key: 'atr_pct',     label: 'ATR%',        weight: 6,  alwaysOn: false, advanced: true, help: 'Advanced: Average True Range as % of price — how volatile / how wide your stop may need to be.' },
   { key: 'sector',      label: 'Sector',      weight: 7,  alwaysOn: false },
-  { key: 'rating',      label: 'Rtg',         weight: 8,  alwaysOn: true  },
+  { key: 'rating',      label: 'Rtg',         weight: 8,  alwaysOn: true,  help: 'Letter grade from score: A+ (≥80), A (≥70), B+ (≥60), B (≥50), C (≥40), else D.' },
 ];
 
-/** Default set of visible column keys — everything except Div %, Rel Vol, and Vol %. */
+/**
+ * Default set of visible column keys — a beginner-friendly view:
+ *  - Div %, Rel Vol, Vol % stay hidden (redundant with Volume).
+ *  - Advanced institutional proxy columns (Confluence, RS Rtg, Inst Q, Conv,
+ *    ADX, ATR%) are hidden by default so novices aren't faced with cryptic
+ *    metrics — but they remain fully available to experienced traders via the
+ *    show/hide columns customizer.
+ */
 export const DEFAULT_VISIBLE_COLUMNS: string[] = ALL_COLUMNS_META
-  .filter((m) => m.key !== 'div_yield' && m.key !== 'rel_vol' && m.key !== 'vol_change')
+  .filter((m) => m.key !== 'div_yield' && m.key !== 'rel_vol' && m.key !== 'vol_change' && !m.advanced)
   .map((m) => m.key);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -112,18 +127,9 @@ function CellEntry({ ticker }: { ticker: TVScoredTicker }) {
 }
 
 function CellConfluence({ breakdown }: { breakdown: Record<string, number> }) {
+  const code = `T${breakdown.trend ?? 0} · M${breakdown.momentum ?? 0} · V${breakdown.volume ?? 0} · Q${breakdown.quality ?? 0} · F${breakdown.fundamental ?? 0}`;
   return (
-    <span className="text-xs tabular-nums leading-none">
-      <span className="text-info">T{breakdown.trend ?? 0}</span>
-      <span className="text-text-muted mx-1">·</span>
-      <span className="text-accent">M{breakdown.momentum ?? 0}</span>
-      <span className="text-text-muted mx-1">·</span>
-      <span className="text-warning">V{breakdown.volume ?? 0}</span>
-      <span className="text-text-muted mx-1">·</span>
-      <span className="text-purple-400">Q{breakdown.quality ?? 0}</span>
-      <span className="text-text-muted mx-1">·</span>
-      <span className="text-cyan-400">F{breakdown.fundamental ?? 0}</span>
-    </span>
+    <ConfluenceDecoder value={code} className="text-xs tabular-nums leading-none" />
   );
 }
 
@@ -310,12 +316,47 @@ function CellATRPct({ data }: { data: TVDataFields }) {
   );
 }
 
+function CellVerdict({ ticker }: { ticker: TVScoredTicker }) {
+  const verdict = ticker.verdict;
+  // Fall back to a neutrally-colored watch chip if the backend didn't supply one.
+  const action = verdict?.action ?? 'WATCH';
+  const tone = verdict?.tone ?? 'caution';
+  const summary = verdict?.summary;
+
+  const chipColor =
+    tone === 'positive' ? 'bg-accent/15 text-accent' :
+    tone === 'negative' ? 'bg-loss/15 text-loss' :
+    'bg-warning/15 text-warning';
+
+  const chipLabel =
+    action === 'STRONG_BUY' ? 'Strong Buy' :
+    action === 'BUY' ? 'Buy' :
+    action === 'ACCUMULATE' ? 'Accumulate' :
+    action === 'AVOID' ? 'Avoid' :
+    'Watch';
+
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 w-full min-w-0"
+      title={summary ?? 'Plain-English second opinion'}
+    >
+      <span className={cn('inline-flex items-center justify-center shrink-0 h-[18px] px-2 rounded-[3px] text-[10px] font-bold uppercase leading-none tracking-wide', chipColor)}>
+        {chipLabel}
+      </span>
+      {summary && (
+        <span className="text-xs text-text-secondary truncate min-w-0">{summary}</span>
+      )}
+    </span>
+  );
+}
+
 // ── Column definition ────────────────────────────────────────────────────────
 
 interface ColumnDef {
   key: string;
   label: string;
   align: 'left' | 'right' | 'center';
+  help?: string;
   render: (ticker: TVScoredTicker, data: TVDataFields, onClick?: () => void) => ReactNode;
   noSort?: boolean;
 }
@@ -327,6 +368,7 @@ const COL_RENDERERS: Record<string, (t: TVScoredTicker, d: TVDataFields, onClick
   score:      (t, _d) => <CellScore score={t.score} />,
   change:     (_t, d) => <CellChange change={d.change} price={d.close} />,
   entry:      (t, _d) => <CellEntry ticker={t} />,
+  verdict:    (t, _d) => <CellVerdict ticker={t} />,
   confluence: (t, _d) => <CellConfluence breakdown={t.breakdown} />,
   volume:     (_t, d) => <CellVolume data={d} />,
   rs_rating:  (t, _d) => <CellRSRating rating={t.elite?.rs_rating} />,
@@ -366,13 +408,14 @@ function buildColumns(
       : base;
 
     const align: 'left' | 'right' | 'center' =
-      meta.key === 'symbol' || meta.key === 'sector' ? 'left' :
+      meta.key === 'symbol' || meta.key === 'sector' || meta.key === 'verdict' ? 'left' :
       meta.key === 'score' || meta.key === 'confluence' || meta.key === 'rating' ? 'center' :
       'right';
 
     return {
       key: meta.key,
       label: meta.label,
+      help: meta.help,
       align,
       render,
       noSort: meta.key === 'sector' || meta.key === 'rating',
@@ -389,6 +432,73 @@ function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
   return dir === 'asc'
     ? <ChevronUp className="w-3 h-3 text-accent" />
     : <ChevronDown className="w-3 h-3 text-accent" />;
+}
+
+/** Minimal inline popover for column header help text.
+ *  Reuses EducationTooltip only when a metricKey maps to education.json; here
+ *  the help strings are column-specific, so a lightweight local popover keeps
+ *  the table layout intact (inline-flex, whitespace-nowrap — icon won't shift). */
+function HeaderHelp({ help }: { help: string }) {
+  const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState<{ left: number; top: number } | null>(null);
+  const ref = useRef<HTMLButtonElement>(null);
+
+  const onToggle = () => {
+    if (!open && ref.current) {
+      const r = ref.current.getBoundingClientRect();
+      setCoords({ left: r.left + r.width / 2, top: r.bottom + 6 });
+    }
+    setOpen((o) => !o);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        // allow clicks inside the popover
+        const popover = document.getElementById('header-help-popover');
+        if (popover && popover.contains(e.target as Node)) return;
+        setOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    const onScroll = () => setOpen(false);
+    document.addEventListener('mousedown', onDoc, true);
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', onScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', onDoc, true);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', onScroll, true);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        ref={ref}
+        type="button"
+        onClick={onToggle}
+        aria-label="Column info"
+        className="inline-flex items-center justify-center shrink-0 ml-0.5 rounded-full text-text-muted hover:text-accent transition-colors"
+      >
+        <Info className="h-3 w-3" />
+      </button>
+      {open && coords && createPortal(
+        <div
+          id="header-help-popover"
+          role="tooltip"
+          className="fixed z-[9999] max-w-xs w-56 rounded-lg border border-border bg-surface shadow-xl text-xs text-text-secondary backdrop-blur-sm"
+          style={{ left: coords.left, top: coords.top, transform: 'translateX(-50%)' }}
+        >
+          <div className="p-2.5">
+            {help}
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
 }
 
 function ColumnHeader({ column, colPct, sortKey, sortDir, onSort }: {
@@ -411,7 +521,10 @@ function ColumnHeader({ column, colPct, sortKey, sortDir, onSort }: {
       style={{ flex: `0 0 ${colPct[column.key]}%` }}
       onClick={() => !column.noSort && onSort(column.key)}
     >
-      {column.label && <span className="truncate">{column.label}</span>}
+      <span className="inline-flex items-center whitespace-nowrap">
+        <span className="truncate">{column.label}</span>
+        {column.help && <HeaderHelp help={column.help} />}
+      </span>
       {!column.noSort && <SortIcon active={isActive} dir={isActive && sortDir ? sortDir : 'asc'} />}
     </div>
   );
@@ -547,6 +660,17 @@ export function ScreenerTable({
       const db = b.tv_data;
       let aVal: number | string = 0;
       let bVal: number | string = 0;
+      const verdictRank = (v?: { action?: string }): number => {
+        switch (v?.action) {
+          case 'STRONG_BUY': return 6;
+          case 'BUY': return 5;
+          case 'ACCUMULATE': return 4;
+          case 'WATCH': return 3;
+          case 'HOLD': return 2;
+          case 'AVOID': return 1;
+          default: return 0;
+        }
+      };
       switch (sortKey) {
         case 'symbol':   aVal = a.symbol; bVal = b.symbol; break;
         case 'price':    aVal = da.close ?? 0; bVal = db.close ?? 0; break;
@@ -555,6 +679,7 @@ export function ScreenerTable({
         case 'entry':    aVal = a.entry; bVal = b.entry; break;
         case 'confluence': aVal = a.score; bVal = b.score; break;
         case 'volume':   aVal = da.volume ?? 0; bVal = db.volume ?? 0; break;
+        case 'verdict':  aVal = verdictRank(a.verdict); bVal = verdictRank(b.verdict); break;
         case 'market_cap': aVal = da.market_cap_basic ?? 0; bVal = db.market_cap_basic ?? 0; break;
         case 'pe_ratio': aVal = da.price_earnings_ttm ?? 0; bVal = db.price_earnings_ttm ?? 0; break;
         case 'eps': aVal = da.earnings_per_share_diluted_ttm ?? 0; bVal = db.earnings_per_share_diluted_ttm ?? 0; break;

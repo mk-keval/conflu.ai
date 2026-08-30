@@ -70,6 +70,21 @@ class EliteEnrichment(BaseModel):
     factor_conflicts: list[str] = Field(default_factory=list)
 
 
+class VerdictResponse(BaseModel):
+    """Plain-English second opinion for one screened ticker.
+
+    Helps a beginner understand *why* a candidate is (or isn't) a clean swing
+    entry without reading the cryptic proxy columns. `action` uses the same
+    vocabulary as the ticker page / Morning Brief so it never contradicts them.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    action: str   # STRONG_BUY / BUY / ACCUMULATE / WATCH / AVOID
+    tone: str     # positive / caution / negative (drives UI color)
+    summary: str  # one plain-English sentence
+    reasons: list[str] = Field(default_factory=list)  # 1-3 plain-English bullets
+
+
 class ScoredTickerResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -86,6 +101,7 @@ class ScoredTickerResponse(BaseModel):
     elite: EliteEnrichment | None = None
     probable_fund: bool = False  # Heuristic flag: TV data suggests this is an ETF/CEF/fund
     probable_fund_reason: str | None = None  # Why we think it's a fund
+    verdict: VerdictResponse | None = None  # Plain-English second opinion
 
 
 class TVScreenResponse(BaseModel):
