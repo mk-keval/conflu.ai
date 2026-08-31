@@ -23,24 +23,32 @@ from backend.app.domain.ticker_analysis import structure, volume_profile, smc, b
 def _detect_swings(ohlcv: pd.DataFrame, lookback: int = 5) -> dict[str, list[dict]]:
     """
     Detect swing highs and lows using fractal pattern.
-    
+
     Returns dict with 'highs' and 'lows' lists of dicts: {price, index, timestamp}
     """
-    highs = ohlcv["High"].values
-    lows = ohlcv["Low"].values
-    timestamps = ohlcv.index
-    
-    swing_highs = []
-    swing_lows = []
-    
-    for i in range(lookback, len(ohlcv) - lookback):
+    # Drop any rows with NaN highs/lows so the < / > comparisons don't short-circuit.
+    # yfinance OHLCV is normally clean, but defensively handle gaps at the edges.
+    clean = ohlcv[["High", "Low"]].dropna()
+    if clean.empty:
+        return {"highs": [], "lows": []}
+    # Cast to explicit float64 ndarray so the LSP sees concrete types below
+    # (without this, the type checker infers the union Any | object | NAType
+    # for the values of clean["High"] and rejects < / <= comparisons).
+    highs: np.ndarray = np.asarray(clean["High"].to_numpy(), dtype=np.float64)
+    lows: np.ndarray = np.asarray(clean["Low"].to_numpy(), dtype=np.float64)
+    timestamps = clean.index
+
+    swing_highs: list[dict] = []
+    swing_lows: list[dict] = []
+
+    for i in range(lookback, len(clean) - lookback):
         # Swing high: current high > all highs in lookback window before and after
         is_swing_high = True
         for j in range(1, lookback + 1):
             if highs[i] <= highs[i - j] or highs[i] <= highs[i + j]:
                 is_swing_high = False
                 break
-        
+
         # Swing low: current low < all lows in lookback window before and after
         is_swing_low = True
         for j in range(1, lookback + 1):
@@ -296,15 +304,18 @@ def _compute_indicators_from_ohlcv(ohlcv: pd.DataFrame) -> dict[str, Any]:
     result: dict[str, Any] = {}
     
     try:
-        # RSI(14)
-        rsi_series = ta.rsi(ohlcv["Close"], length=14)
+        # RSI(14). Note: pandas_ta is a runtime function dispatcher; the LSP
+        # stubs for the package don't expose these entry points, so we ignore
+        # the type checker. Runtime behavior is verified by an integration
+        # test in backend/tests/.
+        rsi_series = ta.rsi(ohlcv["Close"], length=14)  # type: ignore[attr-defined]
         if rsi_series is not None and len(rsi_series) > 0:
             last = rsi_series.iloc[-1]
             if not pd.isna(last):
                 result["RSI"] = round(float(last), 1)
 
         # ADX(14)
-        adx_df = ta.adx(ohlcv["High"], ohlcv["Low"], ohlcv["Close"], length=14)
+        adx_df = ta.adx(ohlcv["High"], ohlcv["Low"], ohlcv["Close"], length=14)  # type: ignore[attr-defined]
         if adx_df is not None and len(adx_df) > 0:
             last = adx_df.iloc[-1]
             adx_val = last.get("ADX_14")
@@ -312,7 +323,7 @@ def _compute_indicators_from_ohlcv(ohlcv: pd.DataFrame) -> dict[str, Any]:
                 result["ADX"] = round(float(adx_val), 1)
 
         # MACD(12,26,9)
-        macd_df = ta.macd(ohlcv["Close"], fast=12, slow=26, signal=9)
+        macd_df = ta.macd(ohlcv["Close"], fast=12, slow=26, signal=9)  # type: ignore[attr-defined]
         if macd_df is not None and len(macd_df) > 0:
             last = macd_df.iloc[-1]
             macd_line = last.get("MACD_12_26_9")
@@ -330,14 +341,14 @@ def _compute_indicators_from_ohlcv(ohlcv: pd.DataFrame) -> dict[str, Any]:
                     result[key] = round(float(sma), 2)
 
         # ATR(14)
-        atr_series = ta.atr(ohlcv["High"], ohlcv["Low"], ohlcv["Close"], length=14)
+        atr_series = ta.atr(ohlcv["High"], ohlcv["Low"], ohlcv["Close"], length=14)  # type: ignore[attr-defined]
         if atr_series is not None and len(atr_series) > 0:
             last = atr_series.iloc[-1]
             if not pd.isna(last):
                 result["ATR"] = round(float(last), 2)
 
         # Bollinger Bands (20, 2)
-        bb_df = ta.bbands(ohlcv["Close"], length=20, std=2)
+        bb_df = ta.bbands(ohlcv["Close"], length=20, std=2)  # type: ignore[attr-defined]
         if bb_df is not None and len(bb_df) > 0:
             last = bb_df.iloc[-1]
             bb_upper = last.get("BBU_20_2.0")
@@ -632,17 +643,33 @@ def _build_timeframe_chart_reading(
         ]
         tf_reading.structure_label = structure_label
         
-        # 2. Volume Profile TPO (only for daily timeframe)
+        # 2. Volume Profile TPO (only for daily timeframe).
+        # Note: compute_professional_tpo may return either a single
+        # DailyTPOProfile OR a tuple (list[DailyTPOProfile], CompositeTPOProfile)
+        # depending on whether daily history is available. Normalize to the
+        # tuple form so the unpacking below is always safe.
         if include_tpo and ohlcv is not None:
-            tpo_daily, tpo_composite = volume_profile.compute_professional_tpo(ohlcv)
+            tpo_result = volume_profile.compute_professional_tpo(ohlcv)
+            # Explicit type annotation helps the type checker narrow the union.
+            # tpo_daily_list is a list of DailyTPOProfile; tpo_composite is
+            # either a CompositeTPOProfile (when daily history is sufficient)
+            # or None (when only the single daily profile was returned).
+            tpo_daily_list: list[Any]
+            tpo_composite: Any
+            if isinstance(tpo_result, tuple):
+                tpo_daily_list, tpo_composite = tpo_result  # type: ignore[assignment]
+            else:
+                # Single DailyTPOProfile returned; wrap in a list and no composite.
+                tpo_daily_list = [tpo_result]
+                tpo_composite = None
             tf_reading.tpo_profiles = [
                 {"date": str(p.date), "poc": p.poc, "vah": p.vah, "val": p.val,
                  "ib_high": p.ib_high, "ib_low": p.ib_low, "ib_mid": p.ib_mid,
                  "range_extension_up": p.range_extension_up, "range_extension_down": p.range_extension_down,
                  "single_prints": p.single_prints, "tail_excess": p.tail_excess}
-                for p in tpo_daily
+                for p in tpo_daily_list
             ]
-            if tpo_composite:
+            if tpo_composite is not None:
                 tf_reading.composite_tpo_profile = {
                     "composite_poc": tpo_composite.composite_poc,
                     "composite_vah": tpo_composite.composite_vah,
@@ -861,14 +888,24 @@ def _analyze_timeframe(data_fields: dict[str, Any], timeframe: str, symbol: str 
         sma200 = data_fields.get("SMA200") or data_fields.get("EMA200")
 
     ma_alignment = "N/A"
-    if all(v is not None and not (isinstance(v, float) and math.isnan(v)) for v in [sma20, sma50, sma200]):
-        if sma20 > sma50 > sma200 and close > sma20:
+    # Local non-None re-bindings so the type checker sees concrete floats below.
+    # The `all(...) is not None and not isnan` check above does narrow at
+    # runtime but the LSP doesn't propagate that through a generator
+    # expression; rebinding to a concrete type makes both happy.
+    s20: float = sma20 if sma20 is not None and not (isinstance(sma20, float) and math.isnan(sma20)) else 0.0
+    s50: float = sma50 if sma50 is not None and not (isinstance(sma50, float) and math.isnan(sma50)) else 0.0
+    s200: float = sma200 if sma200 is not None and not (isinstance(sma200, float) and math.isnan(sma200)) else 0.0
+    if all(
+        v is not None and not (isinstance(v, float) and math.isnan(v))
+        for v in [sma20, sma50, sma200]
+    ):
+        if s20 > s50 > s200 and close > s20:
             ma_alignment = "bullish"
-            findings.append(f"✅ {timeframe.capitalize()} Bullish MA stack: SMA20 ({sma20:.2f}) > SMA50 ({sma50:.2f}) > SMA200 ({sma200:.2f})")
+            findings.append(f"✅ {timeframe.capitalize()} Bullish MA stack: SMA20 ({s20:.2f}) > SMA50 ({s50:.2f}) > SMA200 ({s200:.2f})")
             score += 1.0
-        elif sma20 < sma50 < sma200 and close < sma20:
+        elif s20 < s50 < s200 and close < s20:
             ma_alignment = "bearish"
-            findings.append(f"⚠️ {timeframe.capitalize()} Bearish MA stack: SMA20 ({sma20:.2f}) < SMA50 ({sma50:.2f}) < SMA200 ({sma200:.2f})")
+            findings.append(f"⚠️ {timeframe.capitalize()} Bearish MA stack: SMA20 ({s20:.2f}) < SMA50 ({s50:.2f}) < SMA200 ({s200:.2f})")
             score -= 0.8
         else:
             ma_alignment = "mixed"

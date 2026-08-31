@@ -1105,7 +1105,7 @@ function SectorContextBadge({ sector }: { sector: string }) {
           {isPositive ? '+' : ''}{sectorPerf.change_1d?.toFixed(2)}%
         </span>
         <span className={`flex items-center gap-1 ${flowColor}`}>
-          <span className="text-[10px]">{sectorPerf.flow_signal === 'inflow' ? 'â–²' : sectorPerf.flow_signal === 'outflow' ? 'â–¼' : 'â—†'}</span>
+          <span className="text-[10px]">{sectorPerf.flow_signal === 'inflow' ? '▲' : sectorPerf.flow_signal === 'outflow' ? '▼' : '◆'}</span>
           {sectorPerf.flow_signal === 'inflow' ? 'Inflow' : sectorPerf.flow_signal === 'outflow' ? 'Outflow' : 'Neutral'}
         </span>
         <span className={trendColor}>

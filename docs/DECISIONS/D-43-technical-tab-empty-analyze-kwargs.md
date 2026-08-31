@@ -87,12 +87,21 @@ is reverted.
   D-43 docstring on the regression test references both D-36 and D-43
   for traceability.
 
-## Out of Scope (separate issues)
+## Follow-up (resolved in subsequent session)
 
-- A pre-existing `â–²` / `â–¼` / `â—†` mojibake on
-  `TickerAnalysisPage.tsx:1108` (sector flow arrows) — different
-  corruption pattern that ftfy did not repair in D-42. Tracked
-  separately.
-- Pre-existing pandas_ta / type-stub LSP warnings on
-  `backend/app/domain/ticker_analysis/technical.py` — not introduced by
-  this fix.
+Both items originally flagged as "out of scope" in this D-43 record were
+addressed in the same feature branch on 2026-08-30:
+
+- `â–²` / `â–¼` / `â—†` mojibake on `TickerAnalysisPage.tsx:1108`
+  (sector flow arrows) — the corruption was a CP1252 round-trip with a
+  single-byte bit-flip on the DOWN-arrow's middle byte (0x96 → 0x93)
+  that ftfy could not reverse. Hand-decoded to original intent:
+  `▲` (U+25B2) / `▼` (U+25BC) / `◆` (U+25C6).
+- Pre-existing pandas_ta / NAType LSP warnings on
+  `backend/app/domain/ticker_analysis/technical.py` — added
+  `# type: ignore[attr-defined]` for the pandas_ta dispatcher entry
+  points (runtime-verified, type stubs are stale), added explicit
+  `np.ndarray`/`float` annotations to narrow NAType warnings in
+  `_detect_swings` and the MA-stack comparison, and made the
+  `volume_profile.compute_professional_tpo` consumer handle both
+  return shapes (single object vs. tuple) safely.
