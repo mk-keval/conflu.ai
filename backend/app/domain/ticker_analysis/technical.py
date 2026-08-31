@@ -513,56 +513,73 @@ def _compute_volume_profile_tpo(ohlcv: pd.DataFrame, lookback: int = 20) -> dict
     }
 
 
-def analyze(data_fields: dict[str, Any], symbol: str | None = None, include_weekly: bool = False, include_intraday: bool = False) -> TechnicalAnalysis | dict[str, TechnicalAnalysis]:
+def analyze(
+    data_fields: dict[str, Any],
+    symbol: str | None = None,
+    include_weekly: bool = False,
+    include_intraday: bool = False,
+    # Pre-fetched OHLCV kwargs (orchestrator pre-fetches to enable parallel fan-out;
+    # we accept them to keep the orchestrator's call site working and to avoid a
+    # TypeError on `unexpected keyword argument 'daily_ohlcv'`. We honour caller-
+    # supplied data when present and only fall back to yfinance when missing — so
+    # the orchestrator's pre-fetched data is used and the duplicate-fetch penalty
+    # from D-36 is removed in the same change).
+    daily_ohlcv: pd.DataFrame | None = None,
+    weekly_ohlcv: pd.DataFrame | None = None,
+    intraday_4h_ohlcv: pd.DataFrame | None = None,
+    intraday_1h_ohlcv: pd.DataFrame | None = None,
+) -> TechnicalAnalysis | dict[str, TechnicalAnalysis]:
     """Analyse technical indicators from TV screener data.
-    
+
     Args:
         data_fields: TV screener data (daily timeframe)
         symbol: Optional symbol to fetch weekly/intraday data from yfinance
         include_weekly: If True, also fetch and analyze weekly timeframe
         include_intraday: If True, also fetch and analyze 4h/1h timeframes
-        
+        daily_ohlcv, weekly_ohlcv, intraday_4h_ohlcv, intraday_1h_ohlcv:
+            Optional pre-fetched OHLCV frames. If provided, used as-is; if
+            ``None``, fetched internally from yfinance when ``symbol`` is given.
+
     Returns:
         TechnicalAnalysis for daily, or dict with timeframe keys if include_weekly/intraday=True
     """
     start_time = time.time()
-    
-    # Fetch OHLCV data needed for advanced chart reading (only for daily with symbol)
-    daily_ohlcv = None
-    weekly_ohlcv = None
-    intraday_4h_ohlcv = None
-    intraday_1h_ohlcv = None
-    
+
+    # Backfill any missing OHLCV frames from yfinance (only when symbol given).
+    # Honours caller-supplied pre-fetched data so the orchestrator's parallel
+    # pre-fetch is not duplicated.
     if symbol:
-        daily_ohlcv = _fetch_daily_ohlcv(symbol)
-        if include_weekly:
+        if daily_ohlcv is None:
+            daily_ohlcv = _fetch_daily_ohlcv(symbol)
+        if include_weekly and weekly_ohlcv is None:
             weekly_ohlcv = _fetch_weekly_ohlcv(symbol)
         if include_intraday:
-            intraday_4h_ohlcv = _fetch_intraday_ohlcv(symbol, "4h", "3mo")
-            intraday_1h_ohlcv = _fetch_intraday_ohlcv(symbol, "1h", "1mo")
+            if intraday_4h_ohlcv is None:
+                intraday_4h_ohlcv = _fetch_intraday_ohlcv(symbol, "4h", "3mo")
+            if intraday_1h_ohlcv is None:
+                intraday_1h_ohlcv = _fetch_intraday_ohlcv(symbol, "1h", "1mo")
     
     # Analyze daily timeframe from TV data (with OHLCV for advanced chart reading)
     daily_result = _analyze_timeframe(data_fields, "daily", symbol, daily_ohlcv, weekly_ohlcv, intraday_4h_ohlcv, intraday_1h_ohlcv)
-    
+
     results = {"daily": daily_result}
-    
-    # Also run analysis for other timeframes if requested
-    if include_weekly:
-        weekly_ohlcv = _fetch_weekly_ohlcv(symbol) if symbol else None
-        if weekly_ohlcv is not None:
-            weekly_fields = _compute_indicators_from_ohlcv(weekly_ohlcv)
-            results["weekly"] = _analyze_timeframe(weekly_fields, "weekly", None, weekly_ohlcv)
-    
+
+    # Also run analysis for other timeframes if requested. Each block falls back
+    # to an internal yfinance fetch only when the caller (or our backfill above)
+    # did not already supply the data — this preserves the pre-fetch optimization
+    # in orchestrator.py while keeping `analyze` callable without pre-fetched data.
+    if include_weekly and weekly_ohlcv is not None:
+        weekly_fields = _compute_indicators_from_ohlcv(weekly_ohlcv)
+        results["weekly"] = _analyze_timeframe(weekly_fields, "weekly", None, weekly_ohlcv)
+
     if include_intraday:
-        ohlcv_4h = _fetch_intraday_ohlcv(symbol, "4h", "3mo") if symbol else None
-        if ohlcv_4h is not None:
-            fields_4h = _compute_indicators_from_ohlcv(ohlcv_4h)
-            results["4h"] = _analyze_timeframe(fields_4h, "4h", None, ohlcv_4h)
-        
-        ohlcv_1h = _fetch_intraday_ohlcv(symbol, "1h", "1mo") if symbol else None
-        if ohlcv_1h is not None:
-            fields_1h = _compute_indicators_from_ohlcv(ohlcv_1h)
-            results["1h"] = _analyze_timeframe(fields_1h, "1h", None, ohlcv_1h)
+        if intraday_4h_ohlcv is not None:
+            fields_4h = _compute_indicators_from_ohlcv(intraday_4h_ohlcv)
+            results["4h"] = _analyze_timeframe(fields_4h, "4h", None, intraday_4h_ohlcv)
+
+        if intraday_1h_ohlcv is not None:
+            fields_1h = _compute_indicators_from_ohlcv(intraday_1h_ohlcv)
+            results["1h"] = _analyze_timeframe(fields_1h, "1h", None, intraday_1h_ohlcv)
     
     # Build ChartReadingAnalysis for daily (only when we have OHLCV data)
     if isinstance(daily_result, TechnicalAnalysis) and daily_ohlcv is not None:
