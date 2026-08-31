@@ -8,6 +8,8 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timezone
 from typing import Any
 
+import pandas as pd
+
 import yfinance as yf
 
 from backend.app.core.logging import get_logger
@@ -334,8 +336,55 @@ def _analyze_catalyst_bias(info: dict[str, Any], tv_data: dict[str, Any]) -> dic
         catalysts["bias"] = "bullish"
     elif bearish_signals > bullish_signals:
         catalysts["bias"] = "bearish"
-    
+
     return catalysts
+
+
+# ── D-44: Stale-warning + data-quality helpers ──
+def _compute_stale_warning(
+    data_quality_warnings: list[str],
+    data_age_hours: float | None,
+    now: datetime | None = None,
+) -> str | None:
+    """Compute the human-readable staleness message.
+
+    Thresholds: 24h on weekends (Sat/Sun), 36h on weekdays. If the data
+    is fresh, returns None. Appends the first data_quality_warning (if
+    any) so the user sees context for the staleness (e.g. "Only 125 daily
+    bars" when a chart-reading computation is degraded).
+    """
+    if data_age_hours is None:
+        return None
+    if now is None:
+        now = datetime.now(UTC)
+    is_weekend = now.weekday() >= 5  # Sat=5, Sun=6
+    threshold = 24 if is_weekend else 36
+    if data_age_hours <= threshold:
+        return None
+    msg = (
+        f"Data is {data_age_hours:.0f}h old (threshold: {threshold}h). "
+        f"Consider POST /api/v1/admin/refresh-data."
+    )
+    if data_quality_warnings:
+        msg += f" Note: {data_quality_warnings[0]}"
+    return msg
+
+
+def _collect_data_quality_warnings(
+    daily_ohlcv: "pd.DataFrame | None",
+    weekly_ohlcv: "pd.DataFrame | None",
+) -> list[str]:
+    """Return human-readable warnings when OHLCV is insufficient for SMA200."""
+    warnings: list[str] = []
+    if daily_ohlcv is not None and len(daily_ohlcv) < 200:
+        warnings.append(
+            f"Daily OHLCV has {len(daily_ohlcv)} bars (need 200+ for SMA200)"
+        )
+    if weekly_ohlcv is not None and len(weekly_ohlcv) < 200:
+        warnings.append(
+            f"Weekly OHLCV has {len(weekly_ohlcv)} bars (need 200+ for SMA200)"
+        )
+    return warnings
 
 
 class TickerAnalysisService:
@@ -677,6 +726,10 @@ class TickerAnalysisService:
             except (ValueError, OSError):
                 pass
 
+        # D-44: compute data_quality_warnings + stale_warning for this response
+        data_quality_warnings = _collect_data_quality_warnings(daily_ohlcv, weekly_ohlcv)
+        stale_warning = _compute_stale_warning(data_quality_warnings, data_age_hours)
+
         return TickerAnalysisResponse(
             symbol=symbol,
             price=price,
@@ -692,10 +745,13 @@ class TickerAnalysisService:
             data_age_hours=data_age_hours,
             technical=technical_payload,
             data_sources={
-                "technical_daily": "TV Screener + yfinance (6mo daily)",
-                "technical_weekly": "yfinance (2y weekly)",
+                # D-44: periods bumped to 2y daily / 5y weekly
+                "technical_daily": "TV Screener + yfinance (2y daily)",
+                "technical_weekly": "yfinance (5y weekly)",
                 "fundamental": "yfinance info",
                 "sentiment": "yfinance info",
                 "earnings": "yfinance info",
             },
+            stale_warning=stale_warning,
+            data_quality_warnings=data_quality_warnings,
         )

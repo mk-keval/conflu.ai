@@ -1013,7 +1013,9 @@ def synthesise(
         conviction = min(10, 6 + int((weighted_score - 0.55) * 15))
     elif weighted_score >= 0.40 and not has_major_dealbreaker:
         base_action = "ACCUMULATE"
-        conviction = 4 + int((weighted_score - 0.40) * 10)
+        # D-44: slope bumped from * 10 to * 12 so a strong ACCUMULATE
+        # (weighted_score=0.7) can reach conviction=7-8, not be capped at 4-5.
+        conviction = 4 + int((weighted_score - 0.40) * 12)
     elif weighted_score >= 0.20 and not has_major_dealbreaker:
         base_action = "ACCUMULATE"
         conviction = 2 + int((weighted_score - 0.20) * 12)
@@ -1209,12 +1211,20 @@ def synthesise(
     if action in ("AVOID", "REDUCE"):
         conviction = min(conviction, 8)
 
-    # BUY/ACCUMULATE: cap at 8 for speculative/pre-profit small caps
+    # BUY/ACCUMULATE: cap at 9 for BUY (allow high-conviction), 8 for
+    # ACCUMULATE on speculative/pre-profit small caps. D-44: split the cap
+    # so a top-quality BUY can reach conviction=9 while a speculative
+    # ACCUMULATE is still capped at 8.
+    _is_speculative_smallcap = False
     if action in ("BUY", "ACCUMULATE") and fundamental:
         mcap = fundamental.market_cap or 0
         is_pre_profit = fundamental.pe_ratio is None or fundamental.pe_ratio < 0
-        if mcap < 1_000_000_000 and is_pre_profit:
+        _is_speculative_smallcap = mcap < 1_000_000_000 and is_pre_profit
+        if _is_speculative_smallcap:
             conviction = min(conviction, 8)
+    if action == "BUY" and not _is_speculative_smallcap:
+        # Allow up to 9 for non-speculative BUY setups
+        conviction = min(conviction, 9)
 
     # ── 9. Generate thesis (early, for treasury caveat) ──
     thesis = _generate_thesis(action, weighted_score, modules, dealbreakers, regime)
@@ -1277,6 +1287,25 @@ def synthesise(
         chart_reading=technical.chart_reading if technical else None,
     )
 
+    # ── D-44: binary risk detection (G14) ─────────────────────────────
+    # If the ticker reports earnings within the next 5 trading days, cap
+    # conviction at 5 and emit a dealbreaker. Uses the existing earnings
+    # analysis from the orchestrator (days_until_earnings is already
+    # populated by earnings.py line 107).
+    binary_risk = False
+    earnings_date_str = None
+    if earnings and earnings.days_until_earnings is not None:
+        if 0 <= earnings.days_until_earnings <= 5:
+            binary_risk = True
+            earnings_date_str = earnings.next_earnings_date
+            conviction = min(conviction, 5)
+            dealbreakers = list(dealbreakers) + [
+                f"Earnings in {earnings.days_until_earnings}d ({earnings.next_earnings_date or 'soon'}) — binary event risk"
+            ]
+            all_findings = list(all_findings) + [
+                f"⚠️ Binary risk: earnings in {earnings.days_until_earnings}d — size down through the print"
+            ]
+
     return AnalysisVerdict(
         action=action,
         conviction=conviction,
@@ -1292,6 +1321,8 @@ def synthesise(
         buy_triggers=buy_triggers[:3],
         sell_triggers=sell_triggers[:3],
         thesis=thesis,
+        binary_risk=binary_risk,
+        earnings_date=earnings_date_str,
     )
 
 
