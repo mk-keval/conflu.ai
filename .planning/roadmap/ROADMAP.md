@@ -21,6 +21,8 @@
 |-------|--------|-------------|
 | **Phase 6: Paper Trading + Portfolio + Alerts** | ⏳ Planned | Virtual order execution, portfolio tracker, alert system, paper trading UI |
 | **Phase 7: Learning Path + Behavioral Coach + Community** | ⏳ Planned | Learning curriculum, behavioral coach, community Q&A, tax center |
+| **Phase 8: Professional Mode (8A-8E)** | ✅ Complete | Score Legend, Daily Routine, Validation Gate, Execution Engine, Paper Trade Logger |
+| **Phase 9: Data Quality Gaps Fix** | 📋 Spec complete | Fix 3 silent data-quality bugs (weekly SMA200 missing, narration crashed, 56h+ data staleness) + 3 gap items (earnings binary filter, conviction calibration, server-driven stale pill). See `.planning/phases/09-data-quality-gaps-fix/SPEC.md`. |
 
 ## Archive: v0.1 Foundation (Legacy)
 
