@@ -44,6 +44,7 @@ This section contains Architecture Decision Records (ADRs) for significant proje
 - [D-41: Housekeeping — Retire Zombie `indicator_values` Cache + GitNexus Re-index + Frontend Build Fix](D-41-retire-indicator-values-cache.md)
 - [D-42: Web Mojibake Cleanup — Reverse CP1252→UTF-8 Double-Encoding in 5 Source Files](D-42-web-mojibake-cleanup.md)
 - [D-43: Ticker Analysis Technical Tab Empty — `technical.analyze()` Missing OHLCV Kwargs](D-43-technical-tab-empty-analyze-kwargs.md)
+- [D-44: Data Quality Gaps Fix — Weekly SMA200 + Narration D-36 Regression + Staleness + Binary-Risk + Conviction Calibration](D-44-data-quality-gaps-fix.md)
 
 ## Other Decision Records
 - [Phase 9: Advanced Backtest](2026-06-19-phase9-advanced-backtest.md) — ATR-based sizing, vectorized signals, parameter optimization, monte carlo, multi-symbol backtest 
