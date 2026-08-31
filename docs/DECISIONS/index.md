@@ -42,6 +42,7 @@ This section contains Architecture Decision Records (ADRs) for significant proje
 - [D-39: Phase-1 Guided Workflow — Persistence (DuckDB) + Approved 7-Sprint Plan (persona gap #4)](D-39-phase1-persistence-and-workflow-plan.md) — item 1 **SUPERSEDED by D-40**
 - [D-40: Phase-1 Workflow Persistence — SUPERSEDE DuckDB → localStorage (frontend-only)](D-40-phase1-workflow-persistence-localstorage-supersede.md)
 - [D-41: Housekeeping — Retire Zombie `indicator_values` Cache + GitNexus Re-index + Frontend Build Fix](D-41-retire-indicator-values-cache.md)
+- [D-42: Web Mojibake Cleanup — Reverse CP1252→UTF-8 Double-Encoding in 5 Source Files](D-42-web-mojibake-cleanup.md)
 
 ## Other Decision Records
 - [Phase 9: Advanced Backtest](2026-06-19-phase9-advanced-backtest.md) — ATR-based sizing, vectorized signals, parameter optimization, monte carlo, multi-symbol backtest 

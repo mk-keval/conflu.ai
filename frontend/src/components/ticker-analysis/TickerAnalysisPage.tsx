@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { 
@@ -45,7 +45,7 @@ function PlanHelp({ metricKey }: { metricKey: string }) {
   );
 }
 
-// â”€â”€ Helpers â”€â”€
+// ── Helpers ──
 
 type ScoreLabel = 'poor' | 'weak' | 'neutral' | 'good' | 'strong';
 function scoreLabel(s: number): ScoreLabel {
@@ -110,7 +110,7 @@ function FindingList({ items, max = 5 }: { items: string[]; max?: number }) {
   );
 }
 
-// â”€â”€ Verdict Banner â”€â”€
+// ── Verdict Banner ──
 
 interface VerdictConfig {
   label: string;
@@ -172,8 +172,8 @@ const VERDICT_MAP: Record<string, VerdictConfig> = {
 };
 
 function verdictConfig(action: string): VerdictConfig {
-  // Handle "WATCH â€” positive bias" etc.
-  const base = action.split('â€”')[0].trim();
+  // Handle "WATCH — positive bias" etc.
+  const base = action.split('—')[0].trim();
   return VERDICT_MAP[base] ?? VERDICT_MAP.WATCH;
 }
 
@@ -195,14 +195,14 @@ function ConvictionRing({ conviction, weightedScore }: { conviction: number; wei
     } else if (conviction >= 4) {
       return {
         title: "Moderate Conviction (4-6)",
-        meaning: "Mixed signals â€” some modules bullish, others neutral or slightly bearish. Not a clear-cut setup but has merit.",
+        meaning: "Mixed signals — some modules bullish, others neutral or slightly bearish. Not a clear-cut setup but has merit.",
         action: "Size position conservatively. Wait for confirming price action or additional catalysts before committing full size.",
       };
     } else {
       return {
         title: "Low Conviction (1-3)",
         meaning: "Conflicting signals or weak overall score. Analysis modules disagree significantly, or most factors are neutral/negative.",
-        action: "Avoid or position very small (â‰¤1-2%). Treat as watchlist candidate only â€” wait for clearer setup.",
+        action: "Avoid or position very small (≤1-2%). Treat as watchlist candidate only — wait for clearer setup.",
       };
     }
   };
@@ -264,7 +264,7 @@ data: TickerAnalysisResponse; weightedScore?: number; onValidate?: () => void; o
             <div className="flex items-center gap-3">
               <h1 className="font-display text-2xl font-semibold tracking-tight text-text-primary">{data.symbol}</h1>
               <span className={cn('text-xl font-semibold', isPositive ? 'text-gain' : 'text-loss')}>
-                {data.price != null ? formatPrice(data.price) : 'â€”'}
+                {data.price != null ? formatPrice(data.price) : '—'}
               </span>
               {changeStr && (
                 <span className={cn('text-sm font-medium', isPositive ? 'text-gain' : 'text-loss')}>
@@ -328,7 +328,7 @@ data: TickerAnalysisResponse; weightedScore?: number; onValidate?: () => void; o
             data.data_age_hours > 24 ? 'text-loss' : 'text-text-muted'
           )}>
             Data: {data.data_age_hours < 1 ? '<1h' : `${data.data_age_hours.toFixed(0)}h`} ago
-            {data.data_age_hours > 24 && ' âš ï¸ Stale'}
+            {data.data_age_hours > 24 && ' ⚠️ Stale'}
           </span>
         )}
       </div>
@@ -344,14 +344,14 @@ data: TickerAnalysisResponse; weightedScore?: number; onValidate?: () => void; o
       <div className="mt-4 grid grid-cols-4 gap-4">
         <KeyLevel label="Entry Zone" value={
           v.entry_zone_low != null && v.entry_zone_high != null
-            ? `${formatPrice(v.entry_zone_low)} â€“ ${formatPrice(v.entry_zone_high)}`
+            ? `${formatPrice(v.entry_zone_low)} – ${formatPrice(v.entry_zone_high)}`
             : 'N/A'
-        } note={v.entry_zone_low == null && v.entry_zone_high == null ? 'Binary outcome stock â€” no technical entry zones. Position on catalyst confirmation.' : undefined} />
-        <KeyLevel label="Stop Loss" value={v.stop_loss != null ? formatPrice(v.stop_loss) : 'N/A'} note={v.stop_loss == null ? 'Binary outcome stock â€” stop set at portfolio risk limit.' : undefined} />
+        } note={v.entry_zone_low == null && v.entry_zone_high == null ? 'Binary outcome stock — no technical entry zones. Position on catalyst confirmation.' : undefined} />
+        <KeyLevel label="Stop Loss" value={v.stop_loss != null ? formatPrice(v.stop_loss) : 'N/A'} note={v.stop_loss == null ? 'Binary outcome stock — stop set at portfolio risk limit.' : undefined} />
         <KeyLevel label="Targets" value={
           v.targets.length > 0 ? v.targets.map((t) => formatPrice(t)).join(', ') : 'N/A'
-        } note={v.targets.length === 0 ? 'Binary outcome stock â€” targets depend on milestone outcomes.' : undefined} />
-        <KeyLevel label="Risk/Reward" value={v.risk_reward != null ? `${v.risk_reward.toFixed(1)}:1` : 'N/A'} note={v.risk_reward == null ? 'Binary outcome stock â€” R:R varies by scenario.' : undefined} />
+        } note={v.targets.length === 0 ? 'Binary outcome stock — targets depend on milestone outcomes.' : undefined} />
+        <KeyLevel label="Risk/Reward" value={v.risk_reward != null ? `${v.risk_reward.toFixed(1)}:1` : 'N/A'} note={v.risk_reward == null ? 'Binary outcome stock — R:R varies by scenario.' : undefined} />
       </div>
 
       {/* Data Source Attribution */}
@@ -382,7 +382,7 @@ function DataSourceAttribution({ data }: { data: TickerAnalysisResponse }) {
   
   const ageHours = data.data_age_hours;
   const freshnessLabel = ageHours != null 
-    ? (ageHours < 1 ? '<1h' : ageHours > 24 ? `${ageHours.toFixed(0)}h âš ï¸ Stale` : `${ageHours.toFixed(0)}h`)
+    ? (ageHours < 1 ? '<1h' : ageHours > 24 ? `${ageHours.toFixed(0)}h ⚠️ Stale` : `${ageHours.toFixed(0)}h`)
     : 'Unknown';
   
   const sourceItems = [
@@ -414,7 +414,7 @@ function DataSourceAttribution({ data }: { data: TickerAnalysisResponse }) {
   );
 }
 
-// â”€â”€ Tab Panel â”€â”€
+// ── Tab Panel ──
 
 function TabButton({
   active, label, icon, onClick,
@@ -435,7 +435,7 @@ function TabButton({
   );
 }
 
-// â”€â”€ Module Cards â”€â”€
+// ── Module Cards ──
 
 function VerdictTab({ data, explain }: { data: TickerAnalysisResponse; explain: boolean }) {
   const v = data.verdict;
@@ -461,7 +461,7 @@ function VerdictTab({ data, explain }: { data: TickerAnalysisResponse; explain: 
 
   return (
     <div className="space-y-5">
-      {/* Sector Context Badge â€” shows how this ticker's sector is performing */}
+      {/* Sector Context Badge — shows how this ticker's sector is performing */}
       {data.sector && <SectorContextBadge sector={data.sector} />}
 
       {/* Module Scores Overview */}
@@ -489,10 +489,10 @@ function VerdictTab({ data, explain }: { data: TickerAnalysisResponse; explain: 
         </div>
         {explain && (
           <p className="text-xs text-text-muted mt-2">
-            {positiveCount >= 4 ? 'Most modules are positive â€” strong overall alignment.' :
+            {positiveCount >= 4 ? 'Most modules are positive — strong overall alignment.' :
              positiveCount >= 3 ? 'More bullish signals than bearish, but mixed.' :
-             negativeCount >= 3 ? 'More bearish signals â€” caution warranted.' :
-             'Mixed signals across modules â€” look for confirming evidence.'}
+             negativeCount >= 3 ? 'More bearish signals — caution warranted.' :
+             'Mixed signals across modules — look for confirming evidence.'}
           </p>
         )}
       </div>
@@ -514,7 +514,7 @@ function VerdictTab({ data, explain }: { data: TickerAnalysisResponse; explain: 
           <FindingList items={v.sell_triggers} />
         </div>
       )}
-      {/* Deal Breakers â€” critical blocking issues (distinct from advisory red flags) */}
+      {/* Deal Breakers — critical blocking issues (distinct from advisory red flags) */}
       {(() => {
         const dealbreakers = v.dealbreakers ?? [];
         if (dealbreakers.length === 0) return null;
@@ -550,7 +550,7 @@ function VerdictTab({ data, explain }: { data: TickerAnalysisResponse; explain: 
           </>
         );
       })()}
-      {/* Red Flags â€” fallback when payload predates the separate dealbreakers field */}
+      {/* Red Flags — fallback when payload predates the separate dealbreakers field */}
       {!(v.dealbreakers && v.dealbreakers.length > 0) && v.key_red_flags.length > 0 && (
         <div className="bg-surface/50 border border-warning/20 rounded-lg p-4">
           <h3 className="text-sm font-semibold text-warning mb-2 flex items-center gap-2">
@@ -597,7 +597,7 @@ function VerdictTab({ data, explain }: { data: TickerAnalysisResponse; explain: 
                     <div key={i} className="text-sm text-text-secondary flex items-center gap-2">
                       <span className="font-mono text-text-primary">{formatPrice(step.price)}</span>
                       <span className="text-text-muted">({step.size_pct}% of portfolio)</span>
-                      <span className="text-text-muted">â€” {step.reason}</span>
+                      <span className="text-text-muted">— {step.reason}</span>
                     </div>
                   ))}
                 </div>
@@ -616,7 +616,7 @@ function VerdictTab({ data, explain }: { data: TickerAnalysisResponse; explain: 
                     <div key={i} className="text-sm text-text-secondary flex items-center gap-2">
                       <span className="font-mono text-text-primary">{step.r_multiple}R</span>
                       <span className="text-text-muted">({step.size_pct}% of position)</span>
-                      <span className="text-text-muted">â€” {step.reason}</span>
+                      <span className="text-text-muted">— {step.reason}</span>
                     </div>
                   ))}
                 </div>
@@ -634,13 +634,13 @@ function VerdictTab({ data, explain }: { data: TickerAnalysisResponse; explain: 
                   <div className="text-text-secondary">
                     Type: <span className="font-mono text-text-primary capitalize">{v.trade_plan.trail_type}</span>
                     {v.trade_plan.trail_type === 'atr' && (
-                      <span className="text-text-muted"> â€” {v.trade_plan.trail_value}x ATR</span>
+                      <span className="text-text-muted"> — {v.trade_plan.trail_value}x ATR</span>
                     )}
                     {v.trade_plan.trail_type === 'structure' && (
-                      <span className="text-text-muted"> â€” trail below structure</span>
+                      <span className="text-text-muted"> — trail below structure</span>
                     )}
                     {v.trade_plan.trail_type === 'percent' && (
-                      <span className="text-text-muted"> â€” {v.trade_plan.trail_value}%</span>
+                      <span className="text-text-muted"> — {v.trade_plan.trail_value}%</span>
                     )}
                   </div>
                   <div className="text-text-secondary">
@@ -709,11 +709,11 @@ function VerdictTab({ data, explain }: { data: TickerAnalysisResponse; explain: 
           {walkthroughOpen && (
             <div className="space-y-3 animate-in slide-in-from-top-1 duration-150">
               {steps.map((step, i) => {
-                // Explanations are multi-line: prose + "â€¢ " bullets separated by \n.
+                // Explanations are multi-line: prose + "• " bullets separated by \n.
                 // Render each line properly instead of collapsing into one blob.
                 const lines = step.explanation.split('\n');
-                const bulletLines = lines.filter((l) => l.trim().startsWith('â€¢'));
-                const proseLines = lines.filter((l) => l.trim() && !l.trim().startsWith('â€¢'));
+                const bulletLines = lines.filter((l) => l.trim().startsWith('•'));
+                const proseLines = lines.filter((l) => l.trim() && !l.trim().startsWith('•'));
                 return (
                   <div key={i} className="bg-background/60 border border-border/30 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-2 pb-2 border-b border-border/30">
@@ -734,7 +734,7 @@ function VerdictTab({ data, explain }: { data: TickerAnalysisResponse; explain: 
                         {bulletLines.map((line, j) => (
                           <li key={`b${j}`} className="text-sm text-text-primary flex items-start gap-2">
                             <Check className="w-3.5 h-3.5 mt-0.5 shrink-0 text-accent" />
-                            <span>{line.replace(/^\s*â€¢\s*/, '')}</span>
+                            <span>{line.replace(/^\s*•\s*/, '')}</span>
                           </li>
                         ))}
                       </ul>
@@ -860,16 +860,16 @@ function TechnicalDetail({ data, explain }: { data: NonNullable<TickerAnalysisRe
     <div className="space-y-4 border-l-2 border-accent/20 pl-4">
       <h4 className="text-sm font-semibold text-text-primary flex items-center gap-2">
         <span className="px-2 py-0.5 bg-accent/10 rounded text-xs font-mono">{label}</span>
-        <span className="text-xs text-text-muted">({tf.score >= 0.3 ? 'Bullish' : tf.score <= -0.3 ? 'Bearish' : 'Neutral'} â€¢ {tf.score >= 0 ? '+' : ''}{tf.score.toFixed(2)})</span>
+        <span className="text-xs text-text-muted">({tf.score >= 0.3 ? 'Bullish' : tf.score <= -0.3 ? 'Bearish' : 'Neutral'} • {tf.score >= 0 ? '+' : ''}{tf.score.toFixed(2)})</span>
       </h4>
       
       {/* Trend Section */}
       <SectionCard title="Trend" icon={<TrendingUp className="w-3.5 h-3.5" />} explain={explain}
-        description="Moving Average alignment tells you the direction of the trend. ADX measures how strong that trend is â€” higher values = stronger trend."
+        description="Moving Average alignment tells you the direction of the trend. ADX measures how strong that trend is — higher values = stronger trend."
       >
         <div className="grid grid-cols-2 gap-3">
           <MetricBox label="MA Alignment" value={tf.ma_alignment} explainer={explain ? { lesson: TECHNICAL_LESSONS.ma_alignment, rawValue: tf.ma_alignment } : undefined} />
-          <MetricBox label="ADX" value={tf.adx != null ? `${tf.adx.toFixed(1)} (${tf.adx_verdict})` : 'â€”'} explainer={explain ? { lesson: TECHNICAL_LESSONS.adx, rawValue: `${tf.adx?.toFixed(1) ?? ''} (${tf.adx_verdict})` } : undefined} />
+          <MetricBox label="ADX" value={tf.adx != null ? `${tf.adx.toFixed(1)} (${tf.adx_verdict})` : '—'} explainer={explain ? { lesson: TECHNICAL_LESSONS.adx, rawValue: `${tf.adx?.toFixed(1) ?? ''} (${tf.adx_verdict})` } : undefined} />
         </div>
       </SectionCard>
 
@@ -878,17 +878,17 @@ function TechnicalDetail({ data, explain }: { data: NonNullable<TickerAnalysisRe
         description="Momentum measures the speed of price changes. RSI shows if the stock is overbought or oversold. MACD tracks whether buying or selling pressure is building."
       >
         <div className="grid grid-cols-2 gap-3">
-          <MetricBox label="RSI" value={tf.rsi != null ? `${tf.rsi.toFixed(1)} (${tf.rsi_regime})` : 'â€”'} explainer={explain ? { lesson: TECHNICAL_LESSONS.rsi, rawValue: `${tf.rsi?.toFixed(1) ?? ''} (${tf.rsi_regime})` } : undefined} />
-          <MetricBox label="MACD" value={tf.macd_status ?? 'â€”'} explainer={explain ? { lesson: TECHNICAL_LESSONS.macd_status, rawValue: tf.macd_status ?? '' } : undefined} />
+          <MetricBox label="RSI" value={tf.rsi != null ? `${tf.rsi.toFixed(1)} (${tf.rsi_regime})` : '—'} explainer={explain ? { lesson: TECHNICAL_LESSONS.rsi, rawValue: `${tf.rsi?.toFixed(1) ?? ''} (${tf.rsi_regime})` } : undefined} />
+          <MetricBox label="MACD" value={tf.macd_status ?? '—'} explainer={explain ? { lesson: TECHNICAL_LESSONS.macd_status, rawValue: tf.macd_status ?? '' } : undefined} />
         </div>
       </SectionCard>
 
       {/* Volume Section */}
       <SectionCard title="Volume" icon={<Activity className="w-3.5 h-3.5" />} explain={explain}
-        description="Volume tells you how much interest there is in the stock. High volume confirms price moves are real. Low volume moves are unreliable â€” they can reverse quickly."
+        description="Volume tells you how much interest there is in the stock. High volume confirms price moves are real. Low volume moves are unreliable — they can reverse quickly."
       >
         <div className="grid grid-cols-1 gap-3">
-          <MetricBox label="Volume Ratio" value={tf.volume_ratio != null ? `${tf.volume_ratio.toFixed(2)}x` : 'â€”'} explainer={explain ? { lesson: TECHNICAL_LESSONS.volume_ratio, rawValue: tf.volume_ratio?.toFixed(2) ?? '' } : undefined} />
+          <MetricBox label="Volume Ratio" value={tf.volume_ratio != null ? `${tf.volume_ratio.toFixed(2)}x` : '—'} explainer={explain ? { lesson: TECHNICAL_LESSONS.volume_ratio, rawValue: tf.volume_ratio?.toFixed(2) ?? '' } : undefined} />
         </div>
       </SectionCard>
 
@@ -897,8 +897,8 @@ function TechnicalDetail({ data, explain }: { data: NonNullable<TickerAnalysisRe
         description="Volatility measures how much the stock price swings. ATR tells you the average daily range. Bollinger Bands show if the price is at an extreme relative to recent movement."
       >
         <div className="grid grid-cols-2 gap-3">
-          <MetricBox label="ATR" value={tf.atr_pct != null ? `${tf.atr_pct.toFixed(1)}% (${tf.volatility_regime})` : 'â€”'} explainer={explain ? { lesson: TECHNICAL_LESSONS.atr_pct, rawValue: `${tf.atr_pct?.toFixed(1) ?? ''}% (${tf.volatility_regime})` } : undefined} />
-          <MetricBox label="BB Position" value={tf.bb_position ?? 'â€”'} explainer={explain ? { lesson: TECHNICAL_LESSONS.bb_position, rawValue: tf.bb_position ?? '' } : undefined} />
+          <MetricBox label="ATR" value={tf.atr_pct != null ? `${tf.atr_pct.toFixed(1)}% (${tf.volatility_regime})` : '—'} explainer={explain ? { lesson: TECHNICAL_LESSONS.atr_pct, rawValue: `${tf.atr_pct?.toFixed(1) ?? ''}% (${tf.volatility_regime})` } : undefined} />
+          <MetricBox label="BB Position" value={tf.bb_position ?? '—'} explainer={explain ? { lesson: TECHNICAL_LESSONS.bb_position, rawValue: tf.bb_position ?? '' } : undefined} />
         </div>
       </SectionCard>
       
@@ -914,7 +914,7 @@ function TechnicalDetail({ data, explain }: { data: NonNullable<TickerAnalysisRe
       {explain && (
         <div className="bg-accent/5 border border-accent/10 rounded-lg p-3 text-sm text-text-secondary leading-relaxed">
           <strong className="text-text-primary">Multi-Timeframe Analysis:</strong> Professional traders analyze multiple timeframes. 
-          <strong>Weekly</strong> shows the primary trend and major support/resistance â€” the "big picture." 
+          <strong>Weekly</strong> shows the primary trend and major support/resistance — the "big picture." 
           <strong>Daily</strong> shows entry timing, pullback structure, and volume confirmation. 
           Both should align for highest conviction setups. Weekly bullish + Daily pullback = ideal entry.
         </div>
@@ -941,17 +941,17 @@ function FundamentalDetail({ data, explain }: { data: NonNullable<TickerAnalysis
       )}
       <ScoreCard title="Fundamentals" icon={<DollarSign className="w-4 h-4" />} score={data.score} findings={data.findings} lesson={explain ? MODULE_LESSONS.fundamental : undefined} />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <MetricBox label="Market Cap" value={data.market_cap != null ? formatLargeNumber(data.market_cap) : 'â€”'} explainer={explain ? { lesson: FUNDAMENTAL_LESSONS.market_cap, rawValue: formatLargeNumber(data.market_cap ?? 0) } : undefined} />
-        <MetricBox label="P/E Ratio" value={data.pe_ratio != null ? data.pe_ratio.toFixed(2) : 'â€”'} explainer={explain ? { lesson: FUNDAMENTAL_LESSONS.pe_ratio, rawValue: data.pe_ratio?.toFixed(2) ?? 'â€”' } : undefined} />
-        <MetricBox label="EPS" value={data.eps != null ? `$${data.eps.toFixed(2)}` : 'â€”'} explainer={explain ? { lesson: FUNDAMENTAL_LESSONS.eps, rawValue: data.eps?.toFixed(2) ?? 'â€”' } : undefined} />
-        <MetricBox label="Profit Margin" value={data.profit_margin != null ? `${data.profit_margin.toFixed(1)}%` : 'â€”'} explainer={explain ? { lesson: FUNDAMENTAL_LESSONS.profit_margin, rawValue: data.profit_margin?.toFixed(1) ?? '' } : undefined} />
-        <MetricBox label="D/E Ratio" value={data.debt_to_equity != null ? data.debt_to_equity.toFixed(2) : 'â€”'} explainer={explain ? { lesson: FUNDAMENTAL_LESSONS.debt_to_equity, rawValue: data.debt_to_equity?.toFixed(2) ?? '' } : undefined} />
-        <MetricBox label="Revenue Growth" value={data.revenue_growth_yoy != null ? `${data.revenue_growth_yoy.toFixed(1)}%` : 'â€”'} explainer={explain ? { lesson: FUNDAMENTAL_LESSONS.revenue_growth_yoy, rawValue: data.revenue_growth_yoy != null ? `${data.revenue_growth_yoy.toFixed(1)}%` : '' } : undefined} />
-        <MetricBox label="FCF Yield" value={data.fcf_yield != null ? `${data.fcf_yield.toFixed(1)}%` : 'â€”'} explainer={explain ? { lesson: FUNDAMENTAL_LESSONS.fcf_yield, rawValue: data.fcf_yield != null ? `${data.fcf_yield.toFixed(1)}%` : '' } : undefined} />
-        <MetricBox label="Div Yield" value={data.dividend_yield != null ? `${data.dividend_yield.toFixed(2)}%` : 'â€”'} explainer={explain ? { lesson: FUNDAMENTAL_LESSONS.dividend_yield, rawValue: data.dividend_yield != null ? `${data.dividend_yield.toFixed(2)}%` : '' } : undefined} />
-        <MetricBox label="ROE" value={data.return_on_equity != null ? `${data.return_on_equity.toFixed(1)}%` : 'â€”'} explainer={explain ? { lesson: FUNDAMENTAL_LESSONS.return_on_equity, rawValue: data.return_on_equity?.toFixed(1) ?? '' } : undefined} />
-        <MetricBox label="P/B Ratio" value={data.price_to_book != null ? data.price_to_book.toFixed(2) : 'â€”'} explainer={explain ? { lesson: FUNDAMENTAL_LESSONS.price_to_book, rawValue: data.price_to_book?.toFixed(2) ?? '' } : undefined} />
-        <MetricBox label="Op. Margin" value={data.operating_margin != null ? `${data.operating_margin.toFixed(1)}%` : 'â€”'} explainer={explain ? { lesson: FUNDAMENTAL_LESSONS.operating_margin, rawValue: data.operating_margin?.toFixed(1) ?? '' } : undefined} />
+        <MetricBox label="Market Cap" value={data.market_cap != null ? formatLargeNumber(data.market_cap) : '—'} explainer={explain ? { lesson: FUNDAMENTAL_LESSONS.market_cap, rawValue: formatLargeNumber(data.market_cap ?? 0) } : undefined} />
+        <MetricBox label="P/E Ratio" value={data.pe_ratio != null ? data.pe_ratio.toFixed(2) : '—'} explainer={explain ? { lesson: FUNDAMENTAL_LESSONS.pe_ratio, rawValue: data.pe_ratio?.toFixed(2) ?? '—' } : undefined} />
+        <MetricBox label="EPS" value={data.eps != null ? `$${data.eps.toFixed(2)}` : '—'} explainer={explain ? { lesson: FUNDAMENTAL_LESSONS.eps, rawValue: data.eps?.toFixed(2) ?? '—' } : undefined} />
+        <MetricBox label="Profit Margin" value={data.profit_margin != null ? `${data.profit_margin.toFixed(1)}%` : '—'} explainer={explain ? { lesson: FUNDAMENTAL_LESSONS.profit_margin, rawValue: data.profit_margin?.toFixed(1) ?? '' } : undefined} />
+        <MetricBox label="D/E Ratio" value={data.debt_to_equity != null ? data.debt_to_equity.toFixed(2) : '—'} explainer={explain ? { lesson: FUNDAMENTAL_LESSONS.debt_to_equity, rawValue: data.debt_to_equity?.toFixed(2) ?? '' } : undefined} />
+        <MetricBox label="Revenue Growth" value={data.revenue_growth_yoy != null ? `${data.revenue_growth_yoy.toFixed(1)}%` : '—'} explainer={explain ? { lesson: FUNDAMENTAL_LESSONS.revenue_growth_yoy, rawValue: data.revenue_growth_yoy != null ? `${data.revenue_growth_yoy.toFixed(1)}%` : '' } : undefined} />
+        <MetricBox label="FCF Yield" value={data.fcf_yield != null ? `${data.fcf_yield.toFixed(1)}%` : '—'} explainer={explain ? { lesson: FUNDAMENTAL_LESSONS.fcf_yield, rawValue: data.fcf_yield != null ? `${data.fcf_yield.toFixed(1)}%` : '' } : undefined} />
+        <MetricBox label="Div Yield" value={data.dividend_yield != null ? `${data.dividend_yield.toFixed(2)}%` : '—'} explainer={explain ? { lesson: FUNDAMENTAL_LESSONS.dividend_yield, rawValue: data.dividend_yield != null ? `${data.dividend_yield.toFixed(2)}%` : '' } : undefined} />
+        <MetricBox label="ROE" value={data.return_on_equity != null ? `${data.return_on_equity.toFixed(1)}%` : '—'} explainer={explain ? { lesson: FUNDAMENTAL_LESSONS.return_on_equity, rawValue: data.return_on_equity?.toFixed(1) ?? '' } : undefined} />
+        <MetricBox label="P/B Ratio" value={data.price_to_book != null ? data.price_to_book.toFixed(2) : '—'} explainer={explain ? { lesson: FUNDAMENTAL_LESSONS.price_to_book, rawValue: data.price_to_book?.toFixed(2) ?? '' } : undefined} />
+        <MetricBox label="Op. Margin" value={data.operating_margin != null ? `${data.operating_margin.toFixed(1)}%` : '—'} explainer={explain ? { lesson: FUNDAMENTAL_LESSONS.operating_margin, rawValue: data.operating_margin?.toFixed(1) ?? '' } : undefined} />
       </div>
     </div>
   );
@@ -962,14 +962,14 @@ function EarningsDetail({ data, explain }: { data: NonNullable<TickerAnalysisRes
     <div className="space-y-4">
       {explain && (
         <div className="bg-accent/5 border border-accent/10 rounded-lg p-3 text-sm text-text-secondary leading-relaxed">
-          <strong className="text-text-primary">What to look for:</strong> Consistent earnings beats (high beat rate) and double-digit surprise percentages signal a company that's outperforming expectations. Watch out for upcoming earnings dates within 2 weeks â€” stocks tend to drift before reports.
+          <strong className="text-text-primary">What to look for:</strong> Consistent earnings beats (high beat rate) and double-digit surprise percentages signal a company that's outperforming expectations. Watch out for upcoming earnings dates within 2 weeks — stocks tend to drift before reports.
         </div>
       )}
       <ScoreCard title="Earnings" icon={<Activity className="w-4 h-4" />} score={data.score} findings={data.findings} lesson={explain ? MODULE_LESSONS.earnings : undefined} />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <MetricBox label="Last Surprise" value={data.last_surprise_pct != null ? `${data.last_surprise_pct.toFixed(1)}%` : 'â€”'} explainer={explain ? { lesson: EARNINGS_LESSONS.last_surprise_pct, rawValue: data.last_surprise_pct?.toFixed(1) ?? '' } : undefined} />
-        <MetricBox label="Beat Rate" value={data.beat_rate ?? 'â€”'} explainer={explain ? { lesson: EARNINGS_LESSONS.beat_rate, rawValue: data.beat_rate ?? '' } : undefined} />
-        <MetricBox label="Next Earnings" value={data.next_earnings_date ?? 'â€”'} explainer={explain ? { lesson: EARNINGS_LESSONS.next_earnings_date, rawValue: data.next_earnings_date ?? '' } : undefined} />
+        <MetricBox label="Last Surprise" value={data.last_surprise_pct != null ? `${data.last_surprise_pct.toFixed(1)}%` : '—'} explainer={explain ? { lesson: EARNINGS_LESSONS.last_surprise_pct, rawValue: data.last_surprise_pct?.toFixed(1) ?? '' } : undefined} />
+        <MetricBox label="Beat Rate" value={data.beat_rate ?? '—'} explainer={explain ? { lesson: EARNINGS_LESSONS.beat_rate, rawValue: data.beat_rate ?? '' } : undefined} />
+        <MetricBox label="Next Earnings" value={data.next_earnings_date ?? '—'} explainer={explain ? { lesson: EARNINGS_LESSONS.next_earnings_date, rawValue: data.next_earnings_date ?? '' } : undefined} />
       </div>
     </div>
   );
@@ -987,11 +987,11 @@ function SentimentDetail({ data, explain }: { data: NonNullable<TickerAnalysisRe
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <MetricBox label="Analyst Consensus" value={data.analyst_consensus} explainer={explain ? { lesson: SENTIMENT_LESSONS.analyst_consensus, rawValue: data.analyst_consensus } : undefined} />
         <MetricBox label="Insider Activity" value={data.insider_status} explainer={explain ? { lesson: SENTIMENT_LESSONS.insider_status, rawValue: data.insider_status } : undefined} />
-        <MetricBox label="Short Interest" value={data.short_interest_pct != null ? `${data.short_interest_pct.toFixed(1)}%` : 'â€”'} explainer={explain ? { lesson: SENTIMENT_LESSONS.short_interest_pct, rawValue: data.short_interest_pct?.toFixed(1) ?? '' } : undefined} />
-        <MetricBox label="Days to Cover" value={data.days_to_cover != null ? `${data.days_to_cover.toFixed(1)}d` : 'â€”'} explainer={explain ? { lesson: SENTIMENT_LESSONS.days_to_cover, rawValue: data.days_to_cover?.toFixed(1) ?? '' } : undefined} />
-        <MetricBox label="Inst. Ownership" value={data.institutional_ownership != null ? `${data.institutional_ownership.toFixed(1)}%` : 'â€”'} explainer={explain ? { lesson: SENTIMENT_LESSONS.institutional_ownership, rawValue: data.institutional_ownership?.toFixed(1) ?? '' } : undefined} />
-        <MetricBox label="Beta" value={data.beta != null ? data.beta.toFixed(2) : 'â€”'} explainer={explain ? { lesson: SENTIMENT_LESSONS.beta, rawValue: data.beta?.toFixed(2) ?? '' } : undefined} />
-        <MetricBox label="Target Upside" value={data.target_upside_pct != null ? `${data.target_upside_pct.toFixed(1)}%` : data.target_price != null ? `$${data.target_price.toFixed(2)}` : 'â€”'} explainer={explain ? { lesson: SENTIMENT_LESSONS.target_upside_pct, rawValue: data.target_upside_pct?.toFixed(1) ?? '' } : undefined} />
+        <MetricBox label="Short Interest" value={data.short_interest_pct != null ? `${data.short_interest_pct.toFixed(1)}%` : '—'} explainer={explain ? { lesson: SENTIMENT_LESSONS.short_interest_pct, rawValue: data.short_interest_pct?.toFixed(1) ?? '' } : undefined} />
+        <MetricBox label="Days to Cover" value={data.days_to_cover != null ? `${data.days_to_cover.toFixed(1)}d` : '—'} explainer={explain ? { lesson: SENTIMENT_LESSONS.days_to_cover, rawValue: data.days_to_cover?.toFixed(1) ?? '' } : undefined} />
+        <MetricBox label="Inst. Ownership" value={data.institutional_ownership != null ? `${data.institutional_ownership.toFixed(1)}%` : '—'} explainer={explain ? { lesson: SENTIMENT_LESSONS.institutional_ownership, rawValue: data.institutional_ownership?.toFixed(1) ?? '' } : undefined} />
+        <MetricBox label="Beta" value={data.beta != null ? data.beta.toFixed(2) : '—'} explainer={explain ? { lesson: SENTIMENT_LESSONS.beta, rawValue: data.beta?.toFixed(2) ?? '' } : undefined} />
+        <MetricBox label="Target Upside" value={data.target_upside_pct != null ? `${data.target_upside_pct.toFixed(1)}%` : data.target_price != null ? `$${data.target_price.toFixed(2)}` : '—'} explainer={explain ? { lesson: SENTIMENT_LESSONS.target_upside_pct, rawValue: data.target_upside_pct?.toFixed(1) ?? '' } : undefined} />
       </div>
     </div>
   );
@@ -1002,7 +1002,7 @@ function RiskDetail({ data, explain }: { data: NonNullable<TickerAnalysisRespons
     <div className="space-y-4">
       {explain && (
         <div className="bg-accent/5 border border-accent/10 rounded-lg p-3 text-sm text-text-secondary leading-relaxed">
-          <strong className="text-text-primary">What to look for:</strong> Normal volatility (1-3% ATR) is ideal for most traders. The suggested stop loss protects you from unexpected drops â€” use it. Position sizing ensures no single trade can wipe you out. High liquidity means easy entry/exit. Avoid stocks with extreme volatility or microscopic market caps.
+          <strong className="text-text-primary">What to look for:</strong> Normal volatility (1-3% ATR) is ideal for most traders. The suggested stop loss protects you from unexpected drops — use it. Position sizing ensures no single trade can wipe you out. High liquidity means easy entry/exit. Avoid stocks with extreme volatility or microscopic market caps.
         </div>
       )}
       <ScoreCard title="Risk" icon={<Shield className="w-4 h-4" />} score={data.score} findings={data.findings} lesson={explain ? MODULE_LESSONS.risk : undefined} />
@@ -1061,7 +1061,7 @@ function MetricBox({ label, value, explainer }: {
 }
 
 /**
- * Sector Context Badge â€” shows how the ticker's sector is performing
+ * Sector Context Badge — shows how the ticker's sector is performing
  * in the current market rotation. Fetches sector data on mount and
  * displays a compact badge with 1d change, flow signal, and trend.
  */
@@ -1081,7 +1081,7 @@ function SectorContextBadge({ sector }: { sector: string }) {
   const sectorPerf = rotationData?.sectors.find((s) => s.symbol === etfSymbol);
 
   if (!etfSymbol || !sectorPerf) {
-    // No ETF mapping or no data â€” show just the sector name
+    // No ETF mapping or no data — show just the sector name
     return (
       <div className="flex items-center gap-2 text-xs text-text-muted mb-3">
         <Activity className="h-3.5 w-3.5" />
@@ -1112,7 +1112,7 @@ function SectorContextBadge({ sector }: { sector: string }) {
           {sectorPerf.trend === 'bullish' ? 'Uptrend' : sectorPerf.trend === 'bearish' ? 'Downtrend' : 'Mixed'}
         </span>
         {rotationData?.rotation_phase && (
-          <span className="text-text-muted/60">Â· {rotationData.rotation_phase}</span>
+          <span className="text-text-muted/60">· {rotationData.rotation_phase}</span>
         )}
       </div>
     </div>
@@ -1176,8 +1176,8 @@ function OptionsDetail({ data }: { data: OptionsChainResponse; explain: boolean 
                 .map((c) => (
                   <tr key={c.strike} className="border-b border-border/20">
                     <td className="py-1 pr-3 font-mono">{formatPrice(c.strike)}</td>
-                    <td className="py-1 pr-3 font-mono">{c.bid > 0 ? formatPrice(c.bid) : 'â€”'}</td>
-                    <td className="py-1 pr-3 font-mono">{c.ask > 0 ? formatPrice(c.ask) : 'â€”'}</td>
+                    <td className="py-1 pr-3 font-mono">{c.bid > 0 ? formatPrice(c.bid) : '—'}</td>
+                    <td className="py-1 pr-3 font-mono">{c.ask > 0 ? formatPrice(c.ask) : '—'}</td>
                     <td className="py-1 pr-3 font-mono">{(c.impliedVolatility * 100).toFixed(1)}%</td>
                     <td className="py-1 pr-3 font-mono">{formatLargeNumber(c.volume)}</td>
                     <td className="py-1 pr-3 font-mono">{formatLargeNumber(c.openInterest)}</td>
@@ -1209,8 +1209,8 @@ function OptionsDetail({ data }: { data: OptionsChainResponse; explain: boolean 
                 .map((p) => (
                   <tr key={p.strike} className="border-b border-border/20">
                     <td className="py-1 pr-3 font-mono">{formatPrice(p.strike)}</td>
-                    <td className="py-1 pr-3 font-mono">{p.bid > 0 ? formatPrice(p.bid) : 'â€”'}</td>
-                    <td className="py-1 pr-3 font-mono">{p.ask > 0 ? formatPrice(p.ask) : 'â€”'}</td>
+                    <td className="py-1 pr-3 font-mono">{p.bid > 0 ? formatPrice(p.bid) : '—'}</td>
+                    <td className="py-1 pr-3 font-mono">{p.ask > 0 ? formatPrice(p.ask) : '—'}</td>
                     <td className="py-1 pr-3 font-mono">{(p.impliedVolatility * 100).toFixed(1)}%</td>
                     <td className="py-1 pr-3 font-mono">{formatLargeNumber(p.volume)}</td>
                     <td className="py-1 pr-3 font-mono">{formatLargeNumber(p.openInterest)}</td>
@@ -1291,7 +1291,7 @@ function NewsDetail({ data }: { data: NewsResponse; explain: boolean }) {
                   )}
                   <div className="flex items-center gap-2 mt-1 text-xs text-text-muted">
                     <span>{item.publisher}</span>
-                    <span>â€¢</span>
+                    <span>•</span>
                     <span>{item.date ? new Date(item.date).toLocaleDateString() : 'Unknown date'}</span>
                     {item.link && <ExternalLink className="w-3 h-3 opacity-50" />}
                   </div>
@@ -1305,7 +1305,7 @@ function NewsDetail({ data }: { data: NewsResponse; explain: boolean }) {
   );
 }
 
-// â”€â”€ Main Page â”€â”€
+// ── Main Page ──
 
 type TabKey = 'verdict' | 'technical' | 'fundamental' | 'earnings' | 'sentiment' | 'risk' | 'options' | 'news';
 
@@ -1376,7 +1376,7 @@ export function TickerAnalysisPage() {
           <h1 className="font-display text-xl font-semibold tracking-tight text-text-primary mb-2">Ticker Analysis</h1>
           <p className="text-text-muted mb-6 max-w-md">
             Enter a stock symbol to get an elite-trader-grade analysis with technical, fundamental, earnings,
-            sentiment, and risk assessment â€” plus an actionable verdict.
+            sentiment, and risk assessment — plus an actionable verdict.
           </p>
           <div className="flex gap-2 w-full max-w-sm">
             <input

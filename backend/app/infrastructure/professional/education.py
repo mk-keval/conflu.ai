@@ -1,9 +1,9 @@
-﻿"""Education Service â€” plain-English explanations of financial metrics.
+"""Education Service — plain-English explanations of financial metrics.
 
 Single source of truth is ``frontend/src/content/education.json`` (loaded at
 startup; Docker mounts it read-only at /app/education/education.json).
 This service renders value-aware explanations via the shared bands DSL
-(``education_bands.py`` â€” parity-tested with the frontend evaluator).
+(``education_bands.py`` — parity-tested with the frontend evaluator).
 
 Legacy behavior preserved: metric-name normalization, EducationResponse
 schema, and LLM-enhancement hook point are unchanged.
@@ -38,9 +38,9 @@ def _get_professional_settings():
         logger.info("ProfessionalSettings unavailable for LLM education", error=str(exc)[:120])
         return None
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# Content loading â€” education.json single source of truth
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ──────────────────────────────────────────────
+# Content loading — education.json single source of truth
+# ──────────────────────────────────────────────
 
 _CANDIDATE_PATHS = [
     os.environ.get("EDUCATION_CONTENT_PATH", ""),
@@ -97,7 +97,7 @@ _METRIC_ALIASES: dict[str, str] = {
     "rsi": "rsi", "relative strength index": "rsi",
     "atr_pct": "atr_pct", "atr": "atr_pct", "average true range": "atr_pct",
     "average true range %": "atr_pct", "atr%": "atr_pct",
-    "beta": "beta", "Î²": "beta",
+    "beta": "beta", "β": "beta",
     "adx": "adx", "average directional index": "adx",
     "macd": "macd_status", "macd_status": "macd_status",
     "moving average convergence divergence": "macd_status",
@@ -183,7 +183,7 @@ _METRIC_ALIASES: dict[str, str] = {
     "atr%": "atr_pct",
     # Beta
     "beta": "beta",
-    "Î²": "beta",
+    "β": "beta",
     # ADX
     "adx": "adx",
     "average directional index": "adx",
