@@ -20,6 +20,52 @@ from backend.app.domain.ticker_analysis import structure, volume_profile, smc, b
 # For lows: low[i] < low[i-1..i-2] and low[i] < low[i+1..i+2]
 
 
+# ── D-44: In-memory OHLCV cache ──
+# Pre-warmed via POST /api/v1/admin/refresh-data (Task 8). Process-local;
+# lost on restart. Key: (symbol, period, interval) so a daily fetch and
+# weekly fetch for the same symbol don't collide.
+_OHLCV_CACHE: dict[tuple[str, str, str], tuple[float, pd.DataFrame | None]] = {}
+_OHLCV_CACHE_TTL = 21600.0  # 6 hours (yfinance only updates on market hours)
+
+
+def _cached_yfinance_fetch(symbol: str, period: str, interval: str, fetcher) -> pd.DataFrame | None:
+    """Cache wrapper for yfinance fetches. Thread-unsafe (per-process)."""
+    key = (symbol, period, interval)
+    now = time.monotonic()
+    cached = _OHLCV_CACHE.get(key)
+    if cached is not None:
+        cached_at, data = cached
+        if now - cached_at < _OHLCV_CACHE_TTL:
+            return data
+    data = fetcher()
+    _OHLCV_CACHE[key] = (now, data)
+    return data
+
+
+def _raw_fetch_weekly(symbol: str) -> pd.DataFrame | None:
+    """Uncached yfinance weekly fetch. Wrapped by _cached_yfinance_fetch."""
+    try:
+        ticker = yf.Ticker(symbol)
+        hist = ticker.history(period="5y", interval="1wk")
+        if hist is None or len(hist) < 20:
+            return None
+        return hist
+    except Exception:
+        return None
+
+
+def _raw_fetch_daily(symbol: str) -> pd.DataFrame | None:
+    """Uncached yfinance daily fetch. Wrapped by _cached_yfinance_fetch."""
+    try:
+        ticker = yf.Ticker(symbol)
+        hist = ticker.history(period="2y", interval="1d")
+        if hist is None or len(hist) < 50:
+            return None
+        return hist
+    except Exception:
+        return None
+
+
 def _detect_swings(ohlcv: pd.DataFrame, lookback: int = 5) -> dict[str, list[dict]]:
     """
     Detect swing highs and lows using fractal pattern.
@@ -378,27 +424,24 @@ def _compute_indicators_from_ohlcv(ohlcv: pd.DataFrame) -> dict[str, Any]:
 
 
 def _fetch_weekly_ohlcv(symbol: str) -> pd.DataFrame | None:
-    """Fetch weekly OHLCV from yfinance (2 years of weekly data)."""
-    try:
-        ticker = yf.Ticker(symbol)
-        hist = ticker.history(period="2y", interval="1wk")
-        if hist is None or len(hist) < 20:
-            return None
-        return hist
-    except Exception:
-        return None
+    """Fetch weekly OHLCV from yfinance (5 years of weekly data, cached).
+
+    D-44: bumped from 2y to 5y so SMA200 (200-period) can be computed for
+    mature tickers. ~5y gives ~260 weekly bars, which is > 200. Cached
+    in _OHLCV_CACHE with TTL 6h so the admin refresh endpoint can pre-warm
+    the cache before market opens.
+    """
+    return _cached_yfinance_fetch(symbol, "5y", "1wk", lambda: _raw_fetch_weekly(symbol))
 
 
 def _fetch_daily_ohlcv(symbol: str) -> pd.DataFrame | None:
-    """Fetch daily OHLCV from yfinance (6 months of daily data for swing detection)."""
-    try:
-        ticker = yf.Ticker(symbol)
-        hist = ticker.history(period="6mo", interval="1d")
-        if hist is None or len(hist) < 50:
-            return None
-        return hist
-    except Exception:
-        return None
+    """Fetch daily OHLCV from yfinance (2 years of daily data, cached).
+
+    D-44: bumped from 6mo to 2y so SMA200 (200-period) can be computed
+    on the daily timeframe. ~2y gives ~500 daily bars, > 200. Cached in
+    _OHLCV_CACHE with TTL 6h.
+    """
+    return _cached_yfinance_fetch(symbol, "2y", "1d", lambda: _raw_fetch_daily(symbol))
 
 
 def _fetch_intraday_ohlcv(symbol: str, interval: str, period: str = "3mo") -> pd.DataFrame | None:
@@ -848,27 +891,51 @@ def _analyze_timeframe(data_fields: dict[str, Any], timeframe: str, symbol: str 
     pullback_quality = "unknown"
     pullback_score = 0.0
     
-    # Fetch OHLCV for swing detection (daily timeframe with symbol)
-    if timeframe == "daily" and symbol:
-        daily_ohlcv = _fetch_daily_ohlcv(symbol)
-        if daily_ohlcv is not None:
-            swings = _detect_swings(daily_ohlcv)
-            structure, structure_details = _classify_market_structure(swings, close)
-            key_resistance, key_support = _find_key_levels(swings, daily_ohlcv, 
-                                                            data_fields.get("ATR") / close * 100 if data_fields.get("ATR") and close else None,
-                                                            close)
-            
-            # Pullback quality
-            atr = data_fields.get("ATR")
-            atr_pct = (atr / close * 100) if atr and close else None
-            rel_vol = data_fields.get("relative_volume_10d_calc")
-            pullback_quality, pullback_score, pb_findings = _score_pullback_quality(
-                daily_ohlcv, swings, structure, close, atr_pct, rel_vol
-            )
-            findings.extend(pb_findings)
+    # Pick the right OHLCV frame based on the timeframe. The orchestrator
+    # passes the appropriate pre-fetched OHLCV (daily_ohlcv, weekly_ohlcv,
+    # intraday_4h_ohlcv, intraday_1h_ohlcv) so we don't re-fetch here.
+    # Falls back to a yfinance fetch only if the orchestrator didn't pass
+    # one (back-compat with direct callers).
+    ohlcv_for_swing: pd.DataFrame | None = None
+    if timeframe == "daily" and daily_ohlcv is not None:
+        ohlcv_for_swing = daily_ohlcv
+    elif timeframe == "weekly" and weekly_ohlcv is not None:
+        ohlcv_for_swing = weekly_ohlcv
+    elif timeframe == "4h" and intraday_4h_ohlcv is not None:
+        ohlcv_for_swing = intraday_4h_ohlcv
+    elif timeframe == "1h" and intraday_1h_ohlcv is not None:
+        ohlcv_for_swing = intraday_1h_ohlcv
+    elif symbol:
+        # Back-compat: fetch if not pre-loaded
+        if timeframe == "weekly":
+            ohlcv_for_swing = _fetch_weekly_ohlcv(symbol)
+        elif timeframe == "4h":
+            ohlcv_for_swing = _fetch_intraday_ohlcv(symbol, "4h", "3mo")
+        elif timeframe == "1h":
+            ohlcv_for_swing = _fetch_intraday_ohlcv(symbol, "1h", "1mo")
         else:
-            structure = "unknown"
-            structure_details = {"reason": "No OHLCV data available"}
+            ohlcv_for_swing = _fetch_daily_ohlcv(symbol)
+
+    if ohlcv_for_swing is not None and len(ohlcv_for_swing) >= 11:
+        swings = _detect_swings(ohlcv_for_swing)
+        structure, structure_details = _classify_market_structure(swings, close)
+        key_resistance, key_support = _find_key_levels(
+            swings, ohlcv_for_swing,
+            data_fields.get("ATR") / close * 100 if data_fields.get("ATR") and close else None,
+            close,
+        )
+
+        # Pullback quality
+        atr = data_fields.get("ATR")
+        atr_pct = (atr / close * 100) if atr and close else None
+        rel_vol = data_fields.get("relative_volume_10d_calc")
+        pullback_quality, pullback_score, pb_findings = _score_pullback_quality(
+            ohlcv_for_swing, swings, structure, close, atr_pct, rel_vol
+        )
+        findings.extend(pb_findings)
+    else:
+        structure = "unknown"
+        structure_details = {"reason": "No OHLCV data available for swing detection"}
     
     # If we couldn't get OHLCV, use MA alignment as proxy
     if structure == "unknown":
