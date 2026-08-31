@@ -88,6 +88,14 @@ def _resolve_config(config: dict[str, Any] | str) -> Any:
 
 def _build_scored_response(scored: list[dict]) -> list[ScoredTickerResponse]:
     """Build typed response from scored tickers (includes elite enrichment)."""
+    # D-44 (G14): Look up earnings proximity from the hand-curated
+    # calendar for each ticker in the batch. The lookup is in-process
+    # (reads backend/app/data/earnings_calendar.json), so a single
+    # cache load is sufficient.
+    from backend.app.domain.ticker_analysis.earnings_filter import (
+        get_binary_risk,
+    )
+
     out: list[ScoredTickerResponse] = []
     for r in scored:
         conf = r["confluence"]
@@ -100,6 +108,8 @@ def _build_scored_response(scored: list[dict]) -> list[ScoredTickerResponse]:
             elite=elite_raw,
             tv_data=r.get("tv_data") or {},
         )
+        # D-44: G14 (Gap 1) — attach binary_risk + earnings_date.
+        binary_risk, earnings_date = get_binary_risk(r["symbol"], window_days=5)
         out.append(
             ScoredTickerResponse(
                 symbol=r["symbol"],
@@ -116,6 +126,8 @@ def _build_scored_response(scored: list[dict]) -> list[ScoredTickerResponse]:
                 probable_fund=r.get("probable_fund", False),
                 probable_fund_reason=r.get("probable_fund_reason"),
                 verdict=VerdictResponse(**verdict.to_dict()),
+                binary_risk=binary_risk,
+                earnings_date=earnings_date,
             )
         )
     return out
