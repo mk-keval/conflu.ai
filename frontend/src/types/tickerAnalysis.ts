@@ -111,6 +111,9 @@ export interface AnalysisVerdict {
   trade_plan?: TradePlan;
   // Catalyst bias
   catalyst_bias?: CatalystBias;
+  // D-44: G14 — earnings binary risk
+  binary_risk: boolean;
+  earnings_date: string | null;
 }
 
 export interface TradePlan {
@@ -166,6 +169,10 @@ export interface TickerAnalysisResponse {
     sentiment: string;        // "yfinance info"
     earnings: string;         // "yfinance info"
   };
+  // D-44: B3 — human-readable staleness message
+  stale_warning: string | null;
+  // D-44: B3 — list of data quality warnings (e.g. "Only 125 daily bars")
+  data_quality_warnings: string[];
 }
 
 export interface TickerAnalysisRequest {

@@ -46,6 +46,7 @@ export const ALL_COLUMNS_META: ColumnMeta[] = [
   { key: 'atr_pct',     label: 'ATR%',        weight: 6,  alwaysOn: false, advanced: true, help: 'Advanced: Average True Range as % of price — how volatile / how wide your stop may need to be.' },
   { key: 'sector',      label: 'Sector',      weight: 7,  alwaysOn: false },
   { key: 'rating',      label: 'Rtg',         weight: 8,  alwaysOn: true,  help: 'Letter grade from score: A+ (≥80), A (≥70), B+ (≥60), B (≥50), C (≥40), else D.' },
+  { key: 'earnings',    label: 'Earnings',    weight: 8,  alwaysOn: false, help: 'D-44: shows a badge if the ticker reports earnings within 5 trading days. Binary-risk event — size down through the print.' },
 ];
 
 /**
@@ -171,6 +172,23 @@ function CellRating({ rating }: { rating: string }) {
   return (
     <span className={cn('inline-flex items-center justify-center w-6 h-[18px] rounded-[3px] text-[11px] font-bold leading-none', color)}>
       {display}
+    </span>
+  );
+}
+
+function CellEarnings({ ticker }: { ticker: TVScoredTicker }) {
+  // D-44: G14 — earnings binary-risk badge. Shown when the ticker
+  // reports earnings within the next 5 trading days. Tells the trader
+  // to size down through the print.
+  if (!ticker.binary_risk || !ticker.earnings_date) {
+    return <span className="text-xs text-text-muted">—</span>;
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 border border-amber-500/30"
+      title={`Earnings on ${ticker.earnings_date} — size down through the print`}
+    >
+      ⚠ {ticker.earnings_date}
     </span>
   );
 }
@@ -370,6 +388,7 @@ const COL_RENDERERS: Record<string, (t: TVScoredTicker, d: TVDataFields, onClick
   entry:      (t, _d) => <CellEntry ticker={t} />,
   verdict:    (t, _d) => <CellVerdict ticker={t} />,
   confluence: (t, _d) => <CellConfluence breakdown={t.breakdown} />,
+  earnings:   (t, _d) => <CellEarnings ticker={t} />,
   volume:     (_t, d) => <CellVolume data={d} />,
   rs_rating:  (t, _d) => <CellRSRating rating={t.elite?.rs_rating} />,
   inst_qual:  (t, _d) => <CellInstQuality quality={t.elite?.inst_quality} />,
@@ -689,6 +708,7 @@ export function ScreenerTable({
         case 'adx':      aVal = da.ADX ?? 0; bVal = db.ADX ?? 0; break;
         case 'vol_change': aVal = da.volume_change ?? 0; bVal = db.volume_change ?? 0; break;
         case 'atr_pct':  aVal = da.ATR != null && da.close != null ? (da.ATR / da.close) * 100 : 0; bVal = db.ATR != null && db.close != null ? (db.ATR / db.close) * 100 : 0; break;
+        case 'earnings': aVal = a.binary_risk ? 1 : 0; bVal = b.binary_risk ? 1 : 0; break;
         case 'rating':   aVal = a.rating; bVal = b.rating; break;
         case 'rs_rating': aVal = a.elite?.rs_rating ?? 0; bVal = b.elite?.rs_rating ?? 0; break;
         case 'inst_qual': aVal = a.elite?.inst_quality ?? 0; bVal = b.elite?.inst_quality ?? 0; break;

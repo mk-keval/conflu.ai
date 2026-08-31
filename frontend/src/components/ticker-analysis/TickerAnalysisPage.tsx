@@ -285,6 +285,18 @@ data: TickerAnalysisResponse; weightedScore?: number; onValidate?: () => void; o
                 {inPortfolio ? <Check className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
                 {inPortfolio ? 'In Portfolio' : 'Add to Portfolio'}
               </button>
+              {/* D-44: G14 — earnings binary-risk badge. Shown when the
+                  ticker reports earnings in the next 5 trading days. We cap
+                  conviction at 5 server-side and surface a dealbreaker. */}
+              {data.verdict.binary_risk && (
+                <span
+                  className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border bg-amber-500/10 border-amber-500/30 text-amber-600"
+                  title={`Earnings in ${data.verdict.earnings_date ?? 'soon'} — size down through the print`}
+                >
+                  <AlertTriangle className="h-3 w-3" />
+                  Earnings {data.verdict.earnings_date}
+                </span>
+              )}
               {/* Validate Setup — launches the 5-step guided Validation Gate (Phase 1, Sprint 3) */}
               {onValidate && (
                 <button
@@ -322,15 +334,20 @@ data: TickerAnalysisResponse; weightedScore?: number; onValidate?: () => void; o
           </div>
         </div>
         <span className="text-xs text-text-muted">{data.execution_ms}ms</span>
-        {data.data_age_hours != null && (
-          <span className={cn(
-            'text-xs ml-3',
-            data.data_age_hours > 24 ? 'text-loss' : 'text-text-muted'
-          )}>
-            Data: {data.data_age_hours < 1 ? '<1h' : `${data.data_age_hours.toFixed(0)}h`} ago
-            {data.data_age_hours > 24 && ' ⚠️ Stale'}
-          </span>
-        )}
+{data.data_age_hours != null && (
+  <span
+    className={cn(
+      'text-xs ml-3 px-2 py-0.5 rounded-full',
+      data.stale_warning
+        ? 'bg-warning/15 text-warning border border-warning/30'
+        : 'text-text-muted'
+    )}
+    title={data.stale_warning ?? undefined}
+  >
+    Data: {data.data_age_hours < 1 ? '<1h' : `${data.data_age_hours.toFixed(0)}h`} ago
+    {data.stale_warning && ' ⚠️ Stale'}
+  </span>
+)}
       </div>
 
       {/* Thesis */}
