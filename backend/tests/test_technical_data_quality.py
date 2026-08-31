@@ -457,7 +457,10 @@ def test_accumulate_conviction_high_score():
     )
     # With D-44 calibration, weighted_score=0.7 ACCUMULATE should be >= 7
     # (formula: 4 + int((0.7 - 0.40) * 12) = 4 + 3 = 7)
-    assert verdict.action in ("BUY", "ACCUMULATE"), f"got {verdict.action}"
+    # D-45: D-45 momentum boost may further promote to BUY/STRONG BUY if
+    # the fixture also passes momentum-breakout criteria — that's the
+    # intended behavior, not a regression.
+    assert verdict.action in ("BUY", "STRONG BUY", "ACCUMULATE"), f"got {verdict.action}"
     assert verdict.conviction >= 6, f"got {verdict.conviction}"
 
 

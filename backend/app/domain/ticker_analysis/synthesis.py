@@ -395,8 +395,226 @@ def _recalibrate_conviction_for_breakout(
     if breakout_confirmed and rvol_breakout >= 1.5:
         if conviction < 6:
             return 6
-    
+
     return conviction
+
+
+# ── Momentum Regime Boost (D-45) ─────────────────────────────────────────
+# Surgically detect momentum continuation / post-earnings drift setups that
+# the base regime-weighting would otherwise cap at ACCUMULATE c:4 due to
+# "elevated P/E" or "extreme volatility" flags. The base verdict engine is
+# regime-blind; this is the first cut at a regime-aware overlay (full
+# regime-native refactor is Phase 2).
+
+
+def detect_momentum_regime(
+    technical: TechnicalAnalysis | None,
+    technical_weekly: TechnicalAnalysis | None,
+    earnings: EarningsAnalysis | None,
+    risk: RiskAssessment | None,
+) -> tuple[str, float, list[str]]:
+    """Detect if the ticker is in a confirmed momentum breakout phase.
+
+    Returns: (regime_name, boost_score, findings)
+      - regime_name: "momentum_breakout" if detected, "momentum_emerging"
+        if 4/5 criteria pass, else "none".
+      - boost_score: 0.0 to 0.25 to add to weighted_score.
+      - findings: list of human-readable findings.
+
+    Detection criteria (all 5 must be true for full breakout):
+      1. technical.score >= 0.7 (strong daily technicals)
+      2. technical.ma_alignment == "bullish"
+      3. technical.rsi is not None and 50 <= technical.rsi <= 75
+         (bullish but NOT overbought)
+      4. trend strength proxy: technical.adx_verdict != "weak"
+         (used as price/SMA50 strength proxy since raw close is unavailable
+         here)
+      5. weekly not bearish: technical_weekly is None OR
+         technical_weekly.ma_alignment in ("bullish", "mixed")
+
+    If 5/5 pass -> regime = "momentum_breakout", boost = +0.20
+    If 4/5 pass -> regime = "momentum_emerging", boost = +0.10
+    Else        -> regime = "none", boost = 0.0
+    """
+    if not technical:
+        return "none", 0.0, []
+
+    checks: dict[str, bool] = {
+        "score_strong": technical.score >= 0.7,
+        "ma_bullish": technical.ma_alignment == "bullish",
+        "rsi_constructive": (
+            technical.rsi is not None and 50.0 <= technical.rsi <= 75.0
+        ),
+        "trend_strength": technical.adx_verdict != "weak",
+        "weekly_not_bearish": (
+            technical_weekly is None
+            or technical_weekly.ma_alignment in ("bullish", "mixed")
+        ),
+    }
+
+    passed = sum(1 for v in checks.values() if v)
+
+    if passed == 5:
+        regime = "momentum_breakout"
+        boost = 0.20
+        findings = [
+            "📈 Momentum breakout regime confirmed: strong technicals "
+            f"({technical.score:.2f}), bullish MA stack, RSI {technical.rsi:.0f} "
+            "(constructive), trend strength intact — multi-factor alignment "
+            "supports momentum continuation"
+        ]
+    elif passed == 4:
+        regime = "momentum_emerging"
+        boost = 0.10
+        # Identify which check failed for transparency
+        failed = [k.replace("_", " ") for k, v in checks.items() if not v]
+        findings = [
+            "📈 Momentum emerging: 4/5 momentum criteria pass — "
+            f"only {failed[0] if failed else 'one'} missing — early-stage "
+            "continuation setup"
+        ]
+    else:
+        regime = "none"
+        boost = 0.0
+        findings = []
+
+    return regime, boost, findings
+
+
+def detect_post_earnings_drift(
+    earnings: EarningsAnalysis | None,
+    risk: RiskAssessment | None,
+) -> tuple[bool, float, list[str]]:
+    """Detect if we're in a post-earnings drift window.
+
+    Returns: (is_drift, boost_score, findings)
+      - is_drift: True if a positive-surprise post-earnings drift is
+        detected in the actionable window.
+      - boost_score: 0.0 to 0.20 to add to weighted_score.
+      - findings: list of human-readable findings.
+
+    Detection criteria (must hold true):
+      1. earnings is not None
+      2. earnings.days_until_earnings is not None and
+         -20 <= earnings.days_until_earnings <= 5
+         (negative value = days since last earnings; 0–20 days
+         post-print is the drift window)
+      3. EITHER (preferred):
+           earnings.last_surprise_pct is not None and
+           earnings.last_surprise_pct > 0 (positive surprise / beat)
+         OR (fallback when yfinance doesn't carry surprise_pct — common for
+         very recent prints):
+           earnings.score >= 0.25 AND earnings.findings contain a
+           positive earnings marker ("beat", "BEAT", "growth", "expansion")
+      4. earnings.score >= 0.2 (positive earnings module — looser than
+         the original 0.3 to handle fresh-print fallback)
+
+    Scoring:
+      - All criteria pass + fresh window (days_since in 1..7) AND surprise > 5%
+        -> boost = +0.20 (fresh post-print drift window)
+      - All criteria pass + surprise known -> boost = +0.15
+      - Fallback path (no surprise, but in window + positive score) -> boost = +0.10
+
+    If days_until_earnings is None (no data), treat as no drift.
+    """
+    if earnings is None:
+        return False, 0.0, []
+    if earnings.days_until_earnings is None:
+        return False, 0.0, []
+    if not (-20 <= earnings.days_until_earnings <= 5):
+        return False, 0.0, []
+
+    surprise = earnings.last_surprise_pct
+    has_surprise = surprise is not None and surprise > 0
+    # Fallback: look for a positive earnings marker in the findings
+    has_positive_marker = False
+    if not has_surprise and earnings.findings:
+        markers = ("beat", "growth", "expansion", "raised", "guide", "outperform")
+        for f in earnings.findings:
+            lower = f.lower()
+            if any(m in lower for m in markers):
+                has_positive_marker = True
+                break
+
+    if not (has_surprise or has_positive_marker):
+        return False, 0.0, []
+
+    # Score floor: stricter (0.3) when we have a real surprise, looser (0.2)
+    # when relying on the marker fallback. This prevents false positives
+    # from marker text on a fundamentally negative earnings module.
+    min_score = 0.2 if has_positive_marker else 0.3
+    if earnings.score < min_score:
+        return False, 0.0, []
+
+    # All criteria passed — we're in a post-earnings drift window.
+    days_since_print = -earnings.days_until_earnings  # positive when in past
+
+    # Fresh post-print window: 1–7 days since earnings, big surprise (>5%)
+    is_fresh = 1 <= days_since_print <= 7 and (surprise or 0) > 5.0
+    if is_fresh:
+        boost = 0.20
+        window_label = "fresh post-print window (1–7 days)"
+    elif has_surprise:
+        boost = 0.15
+        window_label = f"{days_since_print}d post-print continuation window"
+    else:
+        # Fallback: no surprise_pct but positive markers + in window
+        boost = 0.10
+        window_label = f"{days_since_print}d post-print (no surprise data — using marker fallback)"
+
+    finding = (
+        f"📈 Post-earnings drift: "
+        f"{f'{surprise:+.1f}% beat, ' if has_surprise else ''}"
+        f"{days_since_print}d post-print — {window_label} — "
+        "momentum continuation zone"
+    )
+    return True, boost, [finding]
+
+
+def sector_rs_boost(
+    technical: TechnicalAnalysis | None,
+) -> tuple[float, list[str]]:
+    """Compute sector relative-strength boost from technical findings.
+
+    Returns: (boost_score, findings)
+      - boost_score: 0.0 to 0.10 to add to weighted_score.
+      - findings: list of human-readable findings.
+
+    Strategy:
+      - If any technical finding contains "sector", "relative",
+        or "leading" -> boost = +0.05.
+      - If technical.findings contains explicit "Sector leading",
+        "fresh highs", or "52w high" -> boost = +0.10.
+
+    This is intentionally simple — sector RS data isn't passed into
+    synthesise() yet. It is a placeholder for the Phase 2 regime-native
+    rebuild where sector strength will be a first-class input.
+    """
+    if not technical or not technical.findings:
+        return 0.0, []
+
+    lower_findings = [f.lower() for f in technical.findings]
+    keywords = ("sector", "relative", "leading")
+    fresh_high_markers = ("fresh highs", "52w high", "52-week high", "sector leading")
+
+    has_sector_signal = any(
+        any(kw in f for kw in keywords) for f in lower_findings
+    )
+    has_fresh_high = any(
+        any(marker in f for marker in fresh_high_markers) for f in lower_findings
+    )
+
+    if has_fresh_high:
+        return 0.10, [
+            "📈 Sector RS: ticker making fresh highs with sector leadership — "
+            "relative-strength confirmation"
+        ]
+    if has_sector_signal:
+        return 0.05, [
+            "📊 Sector RS: sector-level strength visible in technicals — "
+            "supportive backdrop"
+        ]
+    return 0.0, []
 
 
 def synthesise(
@@ -649,14 +867,77 @@ def synthesise(
             weighted_score -= 0.2
 
     # Extreme P/E — valuation dislocation regardless of other factors
+    # D-45: soften penalty in confirmed momentum / post-earnings drift regimes.
+    # In a momentum breakout, the trade is the trend — valuation is a watchlist
+    # concern, not a deal-breaker. Still flag it as a red flag so the trader
+    # knows multiple compression is a risk, but don't penalize as heavily.
     if fundamental and fundamental.pe_ratio is not None and fundamental.pe_ratio > 100:
-        dealbreakers.append(f"P/E {fundamental.pe_ratio:.0f} — extreme valuation dislocation, multiple compression risk")
-        weighted_score -= 0.4
+        # Inline momentum check (D-45 function detection runs later — we need
+        # the verdict here to soften the P/E penalty consistently).
+        # Loosened to also accept the post-print fallback path (no surprise
+        # data but in drift window + positive earnings module).
+        in_post_print_window = False
+        if earnings is not None and earnings.days_until_earnings is not None:
+            in_window = -20 <= earnings.days_until_earnings <= 5
+            has_surprise = (
+                earnings.last_surprise_pct is not None
+                and earnings.last_surprise_pct > 0
+            )
+            has_marker = (
+                earnings.score >= 0.25 and any(
+                    kw in f.lower()
+                    for f in (earnings.findings or [])
+                    for kw in ("beat", "growth", "expansion", "raised", "guide")
+                )
+            )
+            in_post_print_window = in_window and (has_surprise or has_marker)
+        momentum_strong = (
+            technical is not None
+            and technical.score >= 0.7
+            and technical.ma_alignment == "bullish"
+            and technical.rsi is not None
+            and 50.0 <= technical.rsi <= 75.0
+            and technical.adx_verdict != "weak"
+        )
+        momentum_exempt = (momentum_strong and in_post_print_window)
+        if momentum_exempt:
+            all_findings.append(
+                f"⚠️ P/E {fundamental.pe_ratio:.0f} flagged but in confirmed momentum regime — "
+                "watching for multiple compression, not a deal-breaker"
+            )
+            weighted_score -= 0.15  # Reduced from -0.4
+        else:
+            dealbreakers.append(f"P/E {fundamental.pe_ratio:.0f} — extreme valuation dislocation, multiple compression risk")
+            weighted_score -= 0.4
 
-    # Extreme volatility
+    # Extreme volatility (with post-print exemption)
     if risk and risk.volatility_regime == "extreme":
-        dealbreakers.append("Extreme volatility regime — widen stops significantly or skip")
-        weighted_score -= 0.2
+        # Post-earnings vol expansion is NORMAL and HEALTHY — don't penalize
+        # in the 0–20 day drift window. This catches the OKTA/CRWD post-print
+        # case where extreme vol coexists with a confirmed beat + drift.
+        in_post_print = False
+        if earnings is not None and earnings.days_until_earnings is not None:
+            in_window = -20 <= earnings.days_until_earnings <= 5
+            has_surprise = (
+                earnings.last_surprise_pct is not None
+                and earnings.last_surprise_pct > 0
+            )
+            has_marker = (
+                earnings.score >= 0.25 and any(
+                    kw in f.lower()
+                    for f in (earnings.findings or [])
+                    for kw in ("beat", "growth", "expansion", "raised", "guide")
+                )
+            )
+            in_post_print = in_window and (has_surprise or has_marker)
+        if in_post_print:
+            all_findings.append(
+                "✅ Volatility exemption: post-earnings expansion (within 20d of beat) "
+                "is healthy — momentum drift regime"
+            )
+        else:
+            dealbreakers.append("Extreme volatility regime — widen stops significantly or skip")
+            weighted_score -= 0.2
 
     # ── Catalyst Bias Adjustment ──
     # Integrate catalyst bias from orchestrator (earnings proximity, analyst revisions, etc.)
@@ -680,6 +961,38 @@ def synthesise(
             # Add catalyst notes to all_findings for transparency
             for note in notes:
                 all_findings.append(f"📰 Catalyst: {note}")
+
+    # ── 3-pre. Momentum Regime Boost (D-45) ──
+    # Surgically detect momentum continuation / post-earnings drift setups
+    # that the base regime-weighting would otherwise cap at ACCUMULATE c:4
+    # due to "elevated P/E" or "extreme volatility" flags. The base verdict
+    # engine is regime-blind; this is the first cut at a regime-aware overlay
+    # (full regime-native refactor is Phase 2).
+    momentum_regime, momentum_boost, momentum_findings = detect_momentum_regime(
+        technical, technical_weekly, earnings, risk
+    )
+    is_drift, drift_boost, drift_findings = detect_post_earnings_drift(earnings, risk)
+    sector_boost, sector_findings = sector_rs_boost(technical)
+    total_momentum_boost = momentum_boost + drift_boost + sector_boost
+    if total_momentum_boost > 0:
+        weighted_score = min(weighted_score + total_momentum_boost, 1.0)  # cap at 1.0
+        for f in momentum_findings + drift_findings + sector_findings:
+            all_findings.append(f)
+        # Surface a momentum confirmation in buy_triggers so the user sees WHY
+        # the verdict is upgraded (and so downstream tests can assert it).
+        if momentum_regime == "momentum_breakout":
+            buy_triggers.append(
+                "Momentum breakout confirmed — multi-factor alignment supports "
+                "continuation entry on pullbacks"
+            )
+        elif momentum_regime == "momentum_emerging":
+            buy_triggers.append(
+                "Momentum emerging (4/5 criteria) — early-stage continuation setup"
+            )
+        if is_drift:
+            buy_triggers.append(
+                "Post-earnings drift detected — favorable window for momentum entry"
+            )
 
     # ── 3a. Development-Stage Company Override ──
     # Companies with no revenue, negative earnings, or pre-profit clinical
