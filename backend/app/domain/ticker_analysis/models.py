@@ -255,6 +255,11 @@ class AnalysisVerdict(BaseModel):
     trade_plan: TradePlan | None = None
     # P2.1 mentor reasoning chain (additive)
     narration: MentorNarration | None = None
+    # D-44: earnings binary risk (G14). True if ticker reports earnings in the
+    # next 5 trading days. Conviction is capped at 5 by synthesis when this is set.
+    binary_risk: bool = False
+    # D-44: ISO date of the imminent earnings event (when binary_risk=True).
+    earnings_date: str | None = None
 
 
 class MultiTimeframeTechnical(BaseModel):
@@ -290,3 +295,9 @@ class TickerAnalysisResponse(BaseModel):
     data_age_hours: float | None = None
     # Data source attribution
     data_sources: dict[str, str] | None = None
+    # D-44: human-readable staleness message. Set when data_age_hours exceeds
+    # the threshold (36h weekday / 24h weekend). NULL when data is fresh.
+    stale_warning: str | None = None
+    # D-44: list of data quality issues (e.g. "Only 125 daily bars, need 200+ for SMA200").
+    # Empty list when the data is sufficient for all computations.
+    data_quality_warnings: list[str] = []

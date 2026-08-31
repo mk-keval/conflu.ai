@@ -102,6 +102,13 @@ class ScoredTickerResponse(BaseModel):
     probable_fund: bool = False  # Heuristic flag: TV data suggests this is an ETF/CEF/fund
     probable_fund_reason: str | None = None  # Why we think it's a fund
     verdict: VerdictResponse | None = None  # Plain-English second opinion
+    # D-44: G14 (Gap 1) — earnings binary risk flag (screener path only).
+    # True if this ticker reports earnings within the next 5 trading days,
+    # based on the hand-curated earnings_calendar.json. Populated by
+    # _build_scored_response in tv_screener.py via the earnings_filter helper.
+    binary_risk: bool = False
+    # D-44: ISO date of the imminent earnings event (when binary_risk=True).
+    earnings_date: str | None = None
 
 
 class TVScreenResponse(BaseModel):
