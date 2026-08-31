@@ -11,6 +11,7 @@ from backend.app.api.routers.sector_rotation import router as sector_rotation_ro
 from backend.app.api.routers.ticker_analysis import router as ticker_analysis_router
 from backend.app.api.routers.professional import router as professional_router
 from backend.app.api.routers.tv_screener import router as tv_screener_router
+from backend.app.api.routers.admin import router as admin_router
 
 __all__ = [
     "backtest_router",
@@ -24,4 +25,5 @@ __all__ = [
     "sector_rotation_router",
     "ticker_analysis_router",
     "tv_screener_router",
+    "admin_router",
 ]
