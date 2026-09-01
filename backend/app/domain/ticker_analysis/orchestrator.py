@@ -33,6 +33,7 @@ from backend.app.domain.ticker_analysis.models import (
     TickerAnalysisResponse,
     AnalysisVerdict,
 )
+from backend.app.infrastructure.professional.macro_context import get_macro_context, MacroContext
 
 # Import OHLCV fetchers from technical module
 from backend.app.domain.ticker_analysis.technical import (
@@ -444,6 +445,13 @@ class TickerAnalysisService:
             or info.get("sector")
         )
         if not has_core_data:
+            # D-46: still try to attach macro context (VIX/risk regime) so the
+            # no-data response explains the market context, not just the symbol.
+            macro_context_dict_no_data: dict[str, Any] | None = None
+            try:
+                macro_context_dict_no_data = get_macro_context().to_dict()
+            except Exception:
+                pass
             return TickerAnalysisResponse(
                 symbol=symbol,
                 price=0,
@@ -460,6 +468,7 @@ class TickerAnalysisService:
                     thesis=f"No data returned from yfinance for {symbol}. The symbol may be delisted, invalid, or temporarily unavailable.",
                 ),
                 execution_ms=0,
+                macro_context=macro_context_dict_no_data,
             )
 
         # Merge TV data fields into info context
@@ -650,7 +659,38 @@ class TickerAnalysisService:
             technical_weekly=tech_weekly,
         )
 
-        # ── 3b. Apply macro regime overlay ──
+        # ── 3b. Apply macro regime overlay + D-46 surface context ──
+        # The existing macro overlay adjusts the verdict based on VIX/risk-appetite.
+        # D-46 ALSO surfaces the macro context to the user so they can see WHY
+        # the verdict was adjusted. Without this, the elite trader's #1 question
+        # ("what's the market doing right now?") goes unanswered in the API.
+        macro_context_dict: dict[str, Any] | None = None
+        try:
+            macro_ctx = get_macro_context()
+            macro_context_dict = macro_ctx.to_dict()
+
+            # D-46: emit a buy_trigger (or sell_trigger in fear regime) so the
+            # user sees the macro context in the verdict text. The macro_overlay
+            # already adjusts the score; this makes the WHY visible.
+            if macro_ctx.risk_regime == "calm" and macro_ctx.vix is not None:
+                verdict.buy_triggers = list(verdict.buy_triggers or []) + [
+                    f"🌤️ Macro: VIX {macro_ctx.vix:.1f} (calm) — supportive of momentum entries, "
+                    f"leading sector {macro_ctx.leading_sector or 'N/A'} "
+                    f"({macro_ctx.leading_sector_1d_pct:+.1f}% today) confirms risk-on"
+                ]
+            elif macro_ctx.risk_regime == "fear" and macro_ctx.vix is not None:
+                verdict.sell_triggers = list(verdict.sell_triggers or []) + [
+                    f"⛈️ Macro: VIX {macro_ctx.vix:.1f} (fear) — defensive sizing, "
+                    f"widen stops and reduce position count until VIX < 25"
+                ]
+            elif macro_ctx.risk_regime == "elevated" and macro_ctx.vix is not None:
+                verdict.buy_triggers = list(verdict.buy_triggers or []) + [
+                    f"⚠️ Macro: VIX {macro_ctx.vix:.1f} (elevated) — caution on new entries, "
+                    f"stick to highest-conviction setups only"
+                ]
+        except Exception:
+            self.log.exception("macro_context_fetch_failed", symbol=symbol)
+
         try:
             from backend.app.infrastructure.market.regime import get_market_regime_sync
             regime = get_market_regime_sync()
@@ -658,7 +698,7 @@ class TickerAnalysisService:
                 from backend.app.domain.ticker_analysis.macro_overlay import get_macro_adjustment, apply_macro_adjustment
                 # Calculate weighted score from verdict action/conviction for macro overlay
                 action_to_score = {
-                    "BUY": 0.8, "ACCUMULATE": 0.4, "WATCH": 0.1, 
+                    "BUY": 0.8, "ACCUMULATE": 0.4, "WATCH": 0.1,
                     "HOLD": -0.1, "REDUCE": -0.4, "AVOID": -0.8
                 }
                 weighted_score = action_to_score.get(verdict.action, 0.0)
@@ -754,4 +794,8 @@ class TickerAnalysisService:
             },
             stale_warning=stale_warning,
             data_quality_warnings=data_quality_warnings,
+            # D-46: macro context (VIX, SPY/QQQ close, leading/lagging sectors,
+            # risk regime classification) — what the elite trader holds in
+            # their head when sizing any trade.
+            macro_context=macro_context_dict,
         )

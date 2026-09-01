@@ -301,3 +301,7 @@ class TickerAnalysisResponse(BaseModel):
     # D-44: list of data quality issues (e.g. "Only 125 daily bars, need 200+ for SMA200").
     # Empty list when the data is sufficient for all computations.
     data_quality_warnings: list[str] = []
+    # D-46: macro context (VIX, SPY/QQQ close, leading/lagging sectors, risk regime).
+    # What the elite trader holds in their head when sizing any trade.
+    # None if the lightweight fetch failed (the verdict still works without it).
+    macro_context: dict[str, Any] | None = None
