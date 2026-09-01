@@ -35,6 +35,7 @@ from backend.app.domain.ticker_analysis.models import (
 )
 from backend.app.infrastructure.professional import macro_context as macro_context_module
 from backend.app.infrastructure.professional.macro_context import get_macro_context, MacroContext
+from backend.app.infrastructure import analyst_revisions as analyst_revisions_module
 
 # Import OHLCV fetchers from technical module
 from backend.app.domain.ticker_analysis.technical import (
@@ -670,6 +671,21 @@ class TickerAnalysisService:
         tv_data["catalyst_findings"] = catalyst_bias.get("key_findings", [])
         tv_data["catalyst_bias_direction"] = catalyst_bias.get("bias", "neutral")
 
+        # ── 2d. D-46 PR 3: analyst revision tracker ──
+        # Look up the 5d revision BEFORE synthesise so the finding can be
+        # included in the sentiment module's findings. Then record today's
+        # target AFTER synthesise (so the next request sees it).
+        analyst_revision_5d: analyst_revisions_module.AnalystRevision | None = None
+        try:
+            analyst_revision_5d = analyst_revisions_module.get_revision(symbol, window_days=5)
+            if analyst_revision_5d and analyst_revision_5d.findings:
+                # Inject into the sentiment module's findings so the user sees it
+                # in the verdict. Sentiment is the natural home for analyst data.
+                if sent is not None:
+                    sent.findings = list(sent.findings or []) + analyst_revision_5d.findings
+        except Exception:
+            self.log.exception("analyst_revision_lookup_failed", symbol=symbol)
+
         # ── 3. Synthesise verdict (daily technical + weekly for MTF alignment) ──
         verdict: AnalysisVerdict = synthesis.synthesise(
             technical=tech_daily,
@@ -789,6 +805,28 @@ class TickerAnalysisService:
                     data_age_hours = round((now_utc - market_dt).total_seconds() / 3600, 1)
             except (ValueError, OSError):
                 pass
+
+        # D-46 PR 3: record today's analyst target so future requests can
+        # detect revisions. Failures here are non-fatal (the verdict still
+        # works without historical snapshots).
+        try:
+            target_mean = info.get("targetMeanPrice")
+            target_low = info.get("targetLowPrice")
+            target_high = info.get("targetHighPrice")
+            num_analysts = info.get("numberOfAnalystOpinions") or info.get("averageAnalystRating")  # fallback
+            # yfinance uses 'numberOfAnalystOpinions' but sometimes a rating string
+            if not isinstance(num_analysts, int):
+                num_analysts = None
+            analyst_revisions_module.record_today_target(
+                symbol=symbol,
+                target_mean_price=target_mean,
+                target_low_price=target_low,
+                target_high_price=target_high,
+                num_analysts=num_analysts,
+                consensus_rating=info.get("recommendationKey"),
+            )
+        except Exception:
+            self.log.exception("record_today_target_outer_failed", symbol=symbol)
 
         # D-44: compute data_quality_warnings + stale_warning for this response
         data_quality_warnings = _collect_data_quality_warnings(daily_ohlcv, weekly_ohlcv)

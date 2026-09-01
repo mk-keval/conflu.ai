@@ -529,6 +529,27 @@ CREATE INDEX IF NOT EXISTS idx_replay_screen ON screen_replay_results (screen_co
 """
 
 
+# D-46 PR 3: analyst target snapshot table — lets us track REVISIONS
+# (target raised/lowered) over time, not just the current snapshot.
+# yfinance returns the current target; to detect upgrades/downgrades we
+# need historical snapshots. Each successful ticker analysis writes one
+# row per (symbol, date) with target_mean_price + number of analysts.
+ANALYST_TARGETS_DDL = """
+CREATE TABLE IF NOT EXISTS analyst_targets (
+    symbol VARCHAR NOT NULL,
+    snapshot_date DATE NOT NULL,
+    target_mean_price DOUBLE,
+    target_low_price DOUBLE,
+    target_high_price DOUBLE,
+    num_analysts INTEGER,
+    consensus_rating VARCHAR,
+    recorded_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (symbol, snapshot_date)
+);
+CREATE INDEX IF NOT EXISTS idx_analyst_targets_symbol ON analyst_targets (symbol, snapshot_date DESC);
+"""
+
+
 def initialize_database() -> None:
     """Initialize the DuckDB database: create tables and indexes."""
     with get_db() as con:
@@ -554,3 +575,7 @@ def initialize_database() -> None:
         con.execute(ALERTS_DDL)
         con.execute(ALERT_HISTORY_DDL)
         con.execute(SCREEN_REPLAY_RESULTS_DDL)
+        # D-46 PR 3: analyst target snapshot table for revision tracking
+        con.execute(ANALYST_TARGETS_DDL)
+
+
