@@ -27,6 +27,13 @@ import json
 import sys
 from pathlib import Path
 
+# Ensure the script can find the `backend` package whether it's run as
+# `python backend/scripts/daily_morning_ritual.py` (cwd = repo root) or
+# `cd backend && python -m scripts.daily_morning_ritual` (cwd = backend/).
+_BACKEND_ROOT = Path(__file__).resolve().parents[2]
+if str(_BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_ROOT))
+
 import requests
 
 
