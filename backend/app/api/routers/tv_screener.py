@@ -86,8 +86,18 @@ def _resolve_config(config: dict[str, Any] | str) -> Any:
     return dict_to_screen_config(config)
 
 
-def _build_scored_response(scored: list[dict]) -> list[ScoredTickerResponse]:
-    """Build typed response from scored tickers (includes elite enrichment)."""
+def _build_scored_response(
+    scored: list[dict],
+    enrich_with_catalysts: bool = False,
+    min_confluence: int = 0,
+) -> list[ScoredTickerResponse]:
+    """Build typed response from scored tickers (includes elite enrichment).
+
+    D-47 PR 1: when enrich_with_catalysts=True, run the 5 D-46 catalyst
+    detectors on each result in parallel and attach a catalyst_signals
+    dict. min_confluence filters out symbols with fewer than N firing
+    signals.
+    """
     # D-44 (G14): Look up earnings proximity from the hand-curated
     # calendar for each ticker in the batch. The lookup is in-process
     # (reads backend/app/data/earnings_calendar.json), so a single
@@ -95,6 +105,26 @@ def _build_scored_response(scored: list[dict]) -> list[ScoredTickerResponse]:
     from backend.app.domain.ticker_analysis.earnings_filter import (
         get_binary_risk,
     )
+
+    # D-47 PR 1: optionally run catalyst signals in parallel
+    catalyst_results: dict[str, Any] = {}
+    if enrich_with_catalysts and scored:
+        from concurrent.futures import ThreadPoolExecutor
+        from backend.app.infrastructure.screener.catalyst_filter import (
+            detect_catalyst_signals,
+        )
+
+        def _run_catalysts(symbol: str) -> tuple[str, Any]:
+            try:
+                signals = detect_catalyst_signals(symbol)
+                return symbol, signals
+            except Exception as exc:
+                log.exception("catalyst_signal_failed", symbol=symbol)
+                return symbol, None
+
+        with ThreadPoolExecutor(max_workers=8, thread_name_prefix="catalyst") as pool:
+            for sym, sig in pool.map(_run_catalysts, [r["symbol"] for r in scored]):
+                catalyst_results[sym] = sig
 
     out: list[ScoredTickerResponse] = []
     for r in scored:
@@ -110,6 +140,26 @@ def _build_scored_response(scored: list[dict]) -> list[ScoredTickerResponse]:
         )
         # D-44: G14 (Gap 1) — attach binary_risk + earnings_date.
         binary_risk, earnings_date = get_binary_risk(r["symbol"], window_days=5)
+
+        # D-47 PR 1: attach catalyst signals if enriched
+        cat_dict = None
+        cat_count = 0
+        cat_summary = None
+        cat_boost = 0
+        if enrich_with_catalysts and r["symbol"] in catalyst_results:
+            sig = catalyst_results[r["symbol"]]
+            if sig is not None:
+                cat_dict = sig.to_dict()
+                cat_count = sig.confluence_count
+                cat_summary = sig.summary
+                cat_boost = min(cat_count, 5)
+                # Apply confluence boost to the score
+                conf.total = (conf.total or 0) + cat_boost
+
+        # Apply min_confluence filter
+        if enrich_with_catalysts and cat_count < min_confluence:
+            continue
+
         out.append(
             ScoredTickerResponse(
                 symbol=r["symbol"],
@@ -128,6 +178,9 @@ def _build_scored_response(scored: list[dict]) -> list[ScoredTickerResponse]:
                 verdict=VerdictResponse(**verdict.to_dict()),
                 binary_risk=binary_risk,
                 earnings_date=earnings_date,
+                catalyst_signals=cat_dict,
+                catalyst_confluence_count=cat_count,
+                catalyst_summary=cat_summary,
             )
         )
     return out
@@ -163,7 +216,11 @@ async def screen_tv(
         execution_ms=round((time.monotonic() - start) * 1000),
         timeframe=result.get("timeframe", config.timeframes[0] if config.timeframes else "1D"),
         fetched_at=datetime.now(timezone.utc).isoformat(),
-        results=_build_scored_response(result["results"]),
+        results=_build_scored_response(
+            result["results"],
+            enrich_with_catalysts=request.enrich_with_catalysts,
+            min_confluence=request.min_confluence,
+        ),
     )
 
 
