@@ -33,6 +33,7 @@ from backend.app.domain.ticker_analysis.models import (
     TickerAnalysisResponse,
     AnalysisVerdict,
 )
+from backend.app.infrastructure.professional import macro_context as macro_context_module
 from backend.app.infrastructure.professional.macro_context import get_macro_context, MacroContext
 
 # Import OHLCV fetchers from technical module
@@ -599,9 +600,26 @@ class TickerAnalysisService:
             weekly_ohlcv = _fetch_weekly_ohlcv(symbol) if symbol else None
             intraday_4h_ohlcv = _fetch_intraday_ohlcv(symbol, "4h", "3mo") if symbol else None
             intraday_1h_ohlcv = _fetch_intraday_ohlcv(symbol, "1h", "1mo") if symbol else None
-            
+
+            # D-46 PR 2: compute sector-relative RS BEFORE the modules run so
+            # the technical module can incorporate the finding. The sector ETF
+            # fetch is cheap (5min cache) and runs in parallel with the others.
+            sector_rs: macro_context_module.SectorRelativeRS | None = None
+            try:
+                sector_rs = macro_context_module.compute_sector_relative_rs(
+                    symbol=symbol,
+                    sector=sector,
+                    stock_history=daily_ohlcv,
+                )
+                # Inject as a finding into tv_data so the technical module can pick it up
+                # via the standard findings pipeline. Synthesis also sees it via the
+                # passed-in technical object (we re-apply after technical returns below).
+                tv_data["sector_relative_rs"] = sector_rs.to_dict()
+            except Exception:
+                self.log.exception("sector_rs_compute_failed", symbol=symbol)
+
             f_tech = module_pool.submit(
-                _run_module, "technical", technical.analyze, 
+                _run_module, "technical", technical.analyze,
                 tv_data, symbol=symbol, include_weekly=True,
                 daily_ohlcv=daily_ohlcv, weekly_ohlcv=weekly_ohlcv,
                 intraday_4h_ohlcv=intraday_4h_ohlcv, intraday_1h_ohlcv=intraday_1h_ohlcv
@@ -627,6 +645,12 @@ class TickerAnalysisService:
         # Extract daily + weekly technical for synthesis
         tech_daily = tech["daily"] if isinstance(tech, dict) else tech
         tech_weekly = tech.get("weekly") if isinstance(tech, dict) else None
+
+        # D-46 PR 2: inject the sector-relative RS findings into the technical
+        # module's findings so synthesis sees them and the user sees them in
+        # the verdict. Append to daily.findings (the primary display field).
+        if sector_rs and sector_rs.findings and tech_daily is not None:
+            tech_daily.findings = list(tech_daily.findings or []) + sector_rs.findings
 
         # ── 2b. M&A Detection ──
         # Heuristic: if price is pinned near analyst target with ultra-low volatility

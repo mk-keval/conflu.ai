@@ -32,6 +32,66 @@ _SECTOR_ETFS = [
     "XLU", "XBI", "XHB", "XRT",
 ]
 
+# yfinance returns sector names like "Technology", "Financial Services",
+# "Consumer Cyclical", "Consumer Defensive" (note: NOT "Consumer Staples").
+# We map them to the SPDR sector ETF that tracks each GICS sector.
+# Real estate and biotech/financial subsectors get sub-sector ETFs
+# (XLRE / XBI / KRE) where the SPDR is too broad.
+_SECTOR_TO_ETF: dict[str, str] = {
+    "Energy": "XLE",
+    "Energy Minerals": "XLE",
+    "Oil & Gas": "XLE",
+    "Financial Services": "XLF",
+    "Banks": "KRE",        # regional banks — sub-ETF since XLF is too broad
+    "Insurance": "XLF",
+    "Capital Markets": "XLF",
+    "Health Care": "XLV",
+    "Healthcare": "XLV",
+    "Biotechnology": "XBI",  # sub-ETF since XLV mixes pharma + biotech
+    "Pharmaceutical": "XLV",
+    "Medical": "XLV",
+    "Medical Devices": "XLV",
+    "Technology": "XLK",
+    "Information Technology": "XLK",
+    "Software": "XLK",
+    "Semiconductors": "XLK",
+    "Communication Services": "XLC",
+    "Telecommunications": "XLC",
+    "Media": "XLC",
+    "Consumer Cyclical": "XLY",
+    "Consumer Discretionary": "XLY",
+    "Automobiles": "XLY",
+    "Retail": "XLY",
+    "Hotels & Entertainment": "XLY",
+    "Consumer Defensive": "XLP",
+    "Consumer Staples": "XLP",
+    "Beverages": "XLP",
+    "Food": "XLP",
+    "Household Products": "XLP",
+    "Industrials": "XLI",
+    "Aerospace & Defense": "ITA",  # sub-ETF (defense is a huge theme)
+    "Transportation": "IYT",       # sub-ETF (railways + airlines)
+    "Construction": "XHB",         # sub-ETF (homebuilders)
+    "Machinery": "XLI",
+    "Materials": "XLB",
+    "Basic Materials": "XLB",
+    "Metals & Mining": "XME",      # sub-ETF
+    "Chemicals": "XLB",
+    "Utilities": "XLU",
+    "Real Estate": "XLRE",
+    "REITs": "XLRE",
+}
+
+
+def sector_to_etf(sector: str | None) -> str | None:
+    """Map a yfinance sector string to the right SPDR/select-sector ETF.
+
+    Returns None if the sector is unknown or not a US-equity sector.
+    """
+    if not sector:
+        return None
+    return _SECTOR_TO_ETF.get(sector)
+
 
 @dataclass
 class MacroContext:
@@ -152,3 +212,158 @@ def clear_cache() -> None:
     global _cached, _cached_at
     _cached = None
     _cached_at = 0.0
+
+
+# ── Sector-relative RS (D-46 PR 2) ──────────────────────────────────────
+# An elite trader asks: "is this stock confirming the sector, or fighting it?"
+# A name can look good on its own (RS vs SPY positive) but actually be
+# LAGGING its sector — meaning the sector is carrying it. That's a weak
+# signal. The opposite — outperforming the sector — is the elite trader's
+# strongest confirmation that institutional money is targeting this name.
+
+# Short-window cache for sector ETF prices (separate from macro context)
+_sector_cache: dict[str, tuple[float, pd.DataFrame | None]] = {}
+_SECTOR_CACHE_TTL = 300.0  # 5 minutes — sector data moves slower than VIX
+
+
+def _fetch_sector_etf_history(etf: str) -> pd.DataFrame | None:
+    """Cached yfinance history for a sector ETF (6mo daily for 1M and 3M windows)."""
+    cached = _sector_cache.get(etf)
+    now = time.monotonic()
+    if cached is not None:
+        cached_at, data = cached
+        if (now - cached_at) < _SECTOR_CACHE_TTL:
+            return data
+    try:
+        data = yf.Ticker(etf).history(period="6mo", interval="1d")
+        if data is None or data.empty:
+            return None
+    except Exception:
+        return None
+    _sector_cache[etf] = (now, data)
+    return data
+
+
+def clear_sector_cache() -> None:
+    """For tests: clear the sector ETF cache."""
+    _sector_cache.clear()
+
+
+@dataclass
+class SectorRelativeRS:
+    """Stock's relative strength vs its sector ETF.
+
+    positive rs_vs_sector_1m = stock is OUTPERFORMING its sector over 1M
+    negative rs_vs_sector_1m = stock is LAGGING its sector (looks strong in
+                                isolation but the sector is doing the work)
+    """
+    sector_etf: str | None
+    stock_return_1m_pct: float | None
+    sector_return_1m_pct: float | None
+    rs_vs_sector_1m_pct: float | None
+    stock_return_3m_pct: float | None
+    sector_return_3m_pct: float | None
+    rs_vs_sector_3m_pct: float | None
+    findings: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def _window_return(history: pd.DataFrame, days: int) -> float | None:
+    """% return over the last `days` trading days. None if insufficient data."""
+    if history is None or len(history) < days + 1:
+        return None
+    try:
+        prev = float(history["Close"].iloc[-(days + 1)])
+        last = float(history["Close"].iloc[-1])
+        if prev == 0:
+            return None
+        return (last / prev - 1) * 100
+    except Exception:
+        return None
+
+
+def compute_sector_relative_rs(
+    symbol: str,
+    sector: str | None,
+    stock_history: pd.DataFrame | None,
+) -> SectorRelativeRS:
+    """Compute the stock's RS vs its sector ETF over 1M and 3M windows.
+
+    Args:
+        symbol: ticker (only used for findings text)
+        sector: yfinance sector name (e.g. "Technology")
+        stock_history: pre-fetched OHLCV for the stock (1y daily, or None)
+
+    Returns: SectorRelativeRS with both windows + human-readable findings.
+    """
+    etf = sector_to_etf(sector)
+    result = SectorRelativeRS(
+        sector_etf=etf,
+        stock_return_1m_pct=None, sector_return_1m_pct=None, rs_vs_sector_1m_pct=None,
+        stock_return_3m_pct=None, sector_return_3m_pct=None, rs_vs_sector_3m_pct=None,
+        findings=[],
+    )
+
+    if not etf:
+        result.findings.append(
+            f"⚠️ Unknown sector '{sector}' — cannot compute sector-relative RS"
+        )
+        return result
+
+    sector_hist = _fetch_sector_etf_history(etf)
+    if sector_hist is None:
+        result.findings.append(f"⚠️ Sector ETF {etf} data unavailable")
+        return result
+
+    # Stock returns (1M = ~21 trading days, 3M = ~63)
+    if stock_history is not None and len(stock_history) >= 64:
+        result.stock_return_1m_pct = _window_return(stock_history, 21)
+        result.stock_return_3m_pct = _window_return(stock_history, 63)
+    # Sector returns
+    if len(sector_hist) >= 64:
+        result.sector_return_1m_pct = _window_return(sector_hist, 21)
+        result.sector_return_3m_pct = _window_return(sector_hist, 63)
+
+    # Compute relative RS
+    if result.stock_return_1m_pct is not None and result.sector_return_1m_pct is not None:
+        result.rs_vs_sector_1m_pct = round(
+            result.stock_return_1m_pct - result.sector_return_1m_pct, 2
+        )
+    if result.stock_return_3m_pct is not None and result.sector_return_3m_pct is not None:
+        result.rs_vs_sector_3m_pct = round(
+            result.stock_return_3m_pct - result.sector_return_3m_pct, 2
+        )
+
+    # Generate findings — the elite trader's interpretation
+    if result.rs_vs_sector_1m_pct is not None:
+        if result.rs_vs_sector_1m_pct >= 5.0:
+            result.findings.append(
+                f"📈 Sector-relative RS: {symbol} outperforming {etf} by "
+                f"+{result.rs_vs_sector_1m_pct:.1f}% over 1M — "
+                f"institutional bid, elite trader's strongest confirmation"
+            )
+        elif result.rs_vs_sector_1m_pct <= -5.0:
+            result.findings.append(
+                f"⚠️ Sector-relative RS: {symbol} lagging {etf} by "
+                f"{result.rs_vs_sector_1m_pct:.1f}% over 1M — "
+                f"sector is carrying the stock, weak confirmation"
+            )
+        else:
+            result.findings.append(
+                f"📊 Sector-relative RS: {symbol} tracking {etf} (RS "
+                f"{result.rs_vs_sector_1m_pct:+.1f}% over 1M)"
+            )
+
+    if result.rs_vs_sector_3m_pct is not None and abs(result.rs_vs_sector_3m_pct) >= 8.0:
+        if result.rs_vs_sector_3m_pct > 0:
+            result.findings.append(
+                f"📈 3M outperformance: {symbol} +{result.rs_vs_sector_3m_pct:.1f}% vs {etf}"
+            )
+        else:
+            result.findings.append(
+                f"⚠️ 3M underperformance: {symbol} {result.rs_vs_sector_3m_pct:.1f}% vs {etf}"
+            )
+
+    return result
