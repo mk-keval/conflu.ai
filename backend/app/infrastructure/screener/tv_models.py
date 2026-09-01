@@ -49,14 +49,22 @@ class ConfluenceScore:
 
 class TVScreenRequest(BaseModel):
     """Request for TV Screener discovery.
-    
+
     `config` can be a dict (inline ScreenConfig) or a string (template name).
+    `enrich_with_catalysts` (D-47 PR 1) runs the 5 D-46 catalyst signals
+    (sector RS, post-earnings drift, analyst revision, insider cluster,
+    options flow) on each result. Off by default because it adds 5-10s
+    per result; turn on for the morning-ritual screen.
     """
     model_config = ConfigDict(extra="forbid")
 
     config: dict[str, Any] | str
     limit: int = Field(default=500, ge=1, le=2000)
     multi_timeframe: bool = False
+    enrich_with_catalysts: bool = False
+    # When enrich_with_catalysts=True, also filter to symbols that have
+    # at least this many catalyst signals firing (1-5). Default 0 = no filter.
+    min_confluence: int = Field(default=0, ge=0, le=5)
 
 
 class EliteEnrichment(BaseModel):
@@ -109,6 +117,13 @@ class ScoredTickerResponse(BaseModel):
     binary_risk: bool = False
     # D-44: ISO date of the imminent earnings event (when binary_risk=True).
     earnings_date: str | None = None
+    # D-47 PR 1: catalyst signal enrichment — the 5 D-46 signals
+    # (sector RS, post-earnings drift, analyst revision, insider cluster,
+    # options flow) computed per-ticker. confluence_count tells the
+    # user how many signals are firing — 3+ is "high confluence."
+    catalyst_signals: dict[str, Any] | None = None
+    catalyst_confluence_count: int = 0
+    catalyst_summary: str | None = None
 
 
 class TVScreenResponse(BaseModel):
