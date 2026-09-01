@@ -357,15 +357,13 @@ def test_earnings_filter_missing_file_safe_default():
     original = ef._CALENDAR_PATH
     try:
         ef._CALENDAR_PATH = Path("/nonexistent/path/calendar.json")
-        ef._calendar_cache = None
-        ef._calendar_cache_mtime = 0.0
+        ef.clear_cache()
         binary_risk, earnings_date = ef.get_binary_risk("AAPL")
         assert binary_risk is False
         assert earnings_date is None
     finally:
         ef._CALENDAR_PATH = original
-        ef._calendar_cache = None
-        ef._calendar_cache_mtime = 0.0
+        ef.clear_cache()
 
 
 def test_earnings_filter_with_match():
@@ -384,15 +382,13 @@ def test_earnings_filter_with_match():
     original = ef._CALENDAR_PATH
     try:
         ef._CALENDAR_PATH = path
-        ef._calendar_cache = None
-        ef._calendar_cache_mtime = 0.0
+        ef.clear_cache()
         binary_risk, earnings_date = ef.get_binary_risk("AAPL")
         assert binary_risk is True
         assert earnings_date == report_date
     finally:
         ef._CALENDAR_PATH = original
-        ef._calendar_cache = None
-        ef._calendar_cache_mtime = 0.0
+        ef.clear_cache()
         path.unlink()
 
 
