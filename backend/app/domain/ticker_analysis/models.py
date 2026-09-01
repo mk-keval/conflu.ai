@@ -305,3 +305,7 @@ class TickerAnalysisResponse(BaseModel):
     # What the elite trader holds in their head when sizing any trade.
     # None if the lightweight fetch failed (the verdict still works without it).
     macro_context: dict[str, Any] | None = None
+    # D-46 PR 5: unusual options activity (call/put volume ratio, vol/OI ratio).
+    # Smart money leaving a footprint in the options market — the elite trader
+    # watches for this to confirm a thesis.
+    options_flow: dict[str, Any] | None = None

@@ -37,6 +37,7 @@ from backend.app.infrastructure.professional import macro_context as macro_conte
 from backend.app.infrastructure.professional.macro_context import get_macro_context, MacroContext
 from backend.app.infrastructure import analyst_revisions as analyst_revisions_module
 from backend.app.infrastructure import insider_cluster as insider_cluster_module
+from backend.app.infrastructure import options_flow as options_flow_module
 
 # Import OHLCV fetchers from technical module
 from backend.app.domain.ticker_analysis.technical import (
@@ -701,6 +702,19 @@ class TickerAnalysisService:
         except Exception:
             self.log.exception("insider_cluster_check_failed", symbol=symbol)
 
+        # ── 2f. D-46 PR 5: unusual options activity ──
+        # Call/put volume ratio > 2x with elevated call volume vs OI
+        # = bullish unusual activity. Same logic in reverse for bearish.
+        # Smart money leaves a footprint in the options market.
+        options_flow: options_flow_module.OptionsFlow | None = None
+        try:
+            options_flow = options_flow_module.detect_unusual_options_activity(symbol)
+            if options_flow and options_flow.findings:
+                if sent is not None:
+                    sent.findings = list(sent.findings or []) + options_flow.findings
+        except Exception:
+            self.log.exception("options_flow_check_failed", symbol=symbol)
+
         # ── 3. Synthesise verdict (daily technical + weekly for MTF alignment) ──
         verdict: AnalysisVerdict = synthesis.synthesise(
             technical=tech_daily,
@@ -875,4 +889,7 @@ class TickerAnalysisService:
             # risk regime classification) — what the elite trader holds in
             # their head when sizing any trade.
             macro_context=macro_context_dict,
+            # D-46 PR 5: unusual options activity (call/put volume ratio, vol/OI).
+            # Smart money footprint confirmation.
+            options_flow=options_flow.to_dict() if options_flow else None,
         )
