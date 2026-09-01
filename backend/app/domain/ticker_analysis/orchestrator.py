@@ -36,6 +36,7 @@ from backend.app.domain.ticker_analysis.models import (
 from backend.app.infrastructure.professional import macro_context as macro_context_module
 from backend.app.infrastructure.professional.macro_context import get_macro_context, MacroContext
 from backend.app.infrastructure import analyst_revisions as analyst_revisions_module
+from backend.app.infrastructure import insider_cluster as insider_cluster_module
 
 # Import OHLCV fetchers from technical module
 from backend.app.domain.ticker_analysis.technical import (
@@ -685,6 +686,20 @@ class TickerAnalysisService:
                     sent.findings = list(sent.findings or []) + analyst_revision_5d.findings
         except Exception:
             self.log.exception("analyst_revision_lookup_failed", symbol=symbol)
+
+        # ── 2e. D-46 PR 4: insider cluster detector ──
+        # Pull last 30 days of Form 4 transactions. If 3+ insiders bought
+        # in the same week, surface a cluster finding. CEO buying 4x in a
+        # month (like KURA's CEO Troy Wilson) is the elite trader's #1
+        # insider signal. Failures here are non-fatal — sentiment still
+        # works without cluster data.
+        try:
+            cluster = insider_cluster_module.detect_insider_cluster(symbol)
+            if cluster and cluster.findings:
+                if sent is not None:
+                    sent.findings = list(sent.findings or []) + cluster.findings
+        except Exception:
+            self.log.exception("insider_cluster_check_failed", symbol=symbol)
 
         # ── 3. Synthesise verdict (daily technical + weekly for MTF alignment) ──
         verdict: AnalysisVerdict = synthesis.synthesise(
