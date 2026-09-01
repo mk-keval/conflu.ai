@@ -47,6 +47,7 @@ This section contains Architecture Decision Records (ADRs) for significant proje
 - [D-44: Data Quality Gaps Fix — Weekly SMA200 + Narration D-36 Regression + Staleness + Binary-Risk + Conviction Calibration](D-44-data-quality-gaps-fix.md)
 - [D-45: Momentum Regime Boost — Catch Post-Earnings Drift (Phase 1 of Regime-Native Overhaul)](D-45-momentum-regime-boost.md)
 - [D-46: Five Missing Elite Trader Features (Catalyst Data Layer — Macro Context, Sector RS, Analyst Revisions, Insider Cluster, Options Flow)](D-46-elite-trader-catalyst-data.md)
+- [D-47: Catalyst-Enriched Screener + Paper Trading Workflow (Phase 3 PR 1 — confluence filter, daily ritual, trade log)](D-47-catalyst-screener-paper-trading.md)
 
 ## Other Decision Records
 - [Phase 9: Advanced Backtest](2026-06-19-phase9-advanced-backtest.md) — ATR-based sizing, vectorized signals, parameter optimization, monte carlo, multi-symbol backtest 
