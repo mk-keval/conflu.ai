@@ -95,7 +95,7 @@ def record_today_target(
                     ],
                 )
         except Exception:
-            log.exception("record_today_target_failed", symbol=symbol)
+            log.exception("record_today_target_failed", extra={"symbol": symbol})
 
 
 def get_latest_snapshot(symbol: str) -> tuple[_dt.date | None, float | None]:
@@ -116,7 +116,7 @@ def get_latest_snapshot(symbol: str) -> tuple[_dt.date | None, float | None]:
                 return None, None
             return row[0], float(row[1])
     except Exception:
-        log.exception("get_latest_snapshot_failed", symbol=symbol)
+        log.exception("get_latest_snapshot_failed", extra={"symbol": symbol})
         return None, None
 
 
@@ -134,6 +134,23 @@ def get_revision(
     """
     try:
         with get_db() as con:
+            # D-47: ensure the table exists before querying (in case
+            # get_revision is called from a context that didn't run
+            # initialize_database — e.g. the catalyst filter on a
+            # fresh worktree or test DB).
+            con.execute("""
+                CREATE TABLE IF NOT EXISTS analyst_targets (
+                    symbol VARCHAR NOT NULL,
+                    snapshot_date DATE NOT NULL,
+                    target_mean_price DOUBLE,
+                    target_low_price DOUBLE,
+                    target_high_price DOUBLE,
+                    num_analysts INTEGER,
+                    consensus_rating VARCHAR,
+                    recorded_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (symbol, snapshot_date)
+                )
+            """)
             # Get the latest snapshot
             latest = con.execute(
                 """
@@ -203,7 +220,7 @@ def get_revision(
                     )
             return rev
     except Exception:
-        log.exception("get_revision_failed", symbol=symbol, window_days=window_days)
+        log.exception("get_revision_failed", extra={"symbol": symbol, "window_days": window_days})
         return None
 
 
@@ -217,4 +234,4 @@ def clear_today_snapshot(symbol: str) -> None:
                 [symbol, today],
             )
     except Exception:
-        log.exception("clear_today_snapshot_failed", symbol=symbol)
+        log.exception("clear_today_snapshot_failed", extra={"symbol": symbol})
