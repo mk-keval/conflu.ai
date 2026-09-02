@@ -125,7 +125,7 @@ def _fetch_sector_breadth() -> dict[str, Any]:
     for sym in SECTOR_SYMBOLS:
         try:
             ticker = yf.Ticker(sym)
-            df = ticker.history(period="1w", interval="1d")
+            df = ticker.history(period="5d", interval="1d")
             if len(df) >= 2:
                 rtn = (float(df["Close"].iloc[-1]) - float(df["Close"].iloc[0])) / float(df["Close"].iloc[0]) * 100
                 if rtn > 0:

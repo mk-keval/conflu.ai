@@ -35,9 +35,15 @@ from backend.app.infrastructure.professional.models import (
     WatchlistAnalyzeRequest,
     WatchlistAnalyzeResponse,
     WatchlistItemResponse,
+    WatchlistRefreshResponse,
+    WatchlistTickersUpdate,
 )
 from backend.app.infrastructure.professional.morning_brief import MorningBriefService
 from backend.app.infrastructure.professional.position_sizer import PositionSizer
+from backend.app.infrastructure.professional.watchlist_service import (
+    WatchlistService,
+    get_watchlist_service,
+)
 
 log = get_logger("conflu.api.professional")
 
@@ -242,6 +248,152 @@ async def analyze_watchlist(
     except Exception as e:
         log.exception("watchlist_analyze_failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Watchlist analysis failed: {str(e)}")
+
+
+# ── D-49: Persistent watchlist + click-to-update ─────────────────────
+
+
+@router.get("/watchlist/persistent", response_model=ApiResponse[dict])
+async def get_persistent_watchlist() -> ApiResponse[dict]:
+    """Get the current persistent watchlist + last-known verdicts.
+
+    Returns:
+        {symbols: [...], last_verdicts: {symbol: {action, conviction, recorded_at}}, last_refresh: iso}
+    """
+    svc = get_watchlist_service()
+    return ApiResponse(
+        data={
+            "symbols": svc.get_watchlist(),
+            "last_verdicts": svc.get_all_last_verdicts(),
+            "last_refresh": svc.get_last_refresh_time(),
+        },
+        meta=MetaInfo(
+            request_id="",
+            duration_ms=0,
+            timestamp=datetime.now(UTC).isoformat(),
+        ),
+    )
+
+
+@router.post("/watchlist/persistent", response_model=ApiResponse[dict])
+async def add_to_persistent_watchlist(
+    request: WatchlistTickersUpdate,
+) -> ApiResponse[dict]:
+    """Add tickers to the persistent watchlist.
+
+    Body: {symbols: ["AAPL", "NVDA", ...]}
+    Returns: {symbols: [...]}  — full watchlist after.
+    """
+    svc = get_watchlist_service()
+    symbols = svc.add_tickers(request.symbols)
+    return ApiResponse(
+        data={"symbols": symbols},
+        meta=MetaInfo(
+            request_id="",
+            duration_ms=0,
+            timestamp=datetime.now(UTC).isoformat(),
+        ),
+    )
+
+
+@router.delete("/watchlist/persistent/{symbol}", response_model=ApiResponse[dict])
+async def remove_from_persistent_watchlist(symbol: str) -> ApiResponse[dict]:
+    """Remove a ticker from the persistent watchlist."""
+    svc = get_watchlist_service()
+    symbols = svc.remove_ticker(symbol)
+    return ApiResponse(
+        data={"symbols": symbols},
+        meta=MetaInfo(
+            request_id="",
+            duration_ms=0,
+            timestamp=datetime.now(UTC).isoformat(),
+        ),
+    )
+
+
+@router.post("/watchlist/persistent/refresh", response_model=ApiResponse[WatchlistRefreshResponse])
+async def refresh_persistent_watchlist() -> ApiResponse[WatchlistRefreshResponse]:
+    """Click-to-update: re-analyze all watchlist tickers, log verdict changes.
+
+    Side effects:
+      - records the new verdict as the last-known for each symbol
+      - returns a list of verdict_changes (action or conviction moved by >=2)
+      - the user sees the changes in the response, so they know to investigate
+    """
+    from concurrent.futures import ThreadPoolExecutor
+    from backend.app.domain.ticker_analysis.models import TickerAnalysisRequest
+    from backend.app.domain.ticker_analysis.orchestrator import TickerAnalysisService
+
+    start = time.monotonic()
+    svc = get_watchlist_service()
+    symbols = svc.get_watchlist()
+    if not symbols:
+        raise HTTPException(status_code=400, detail="Watchlist is empty — add tickers first")
+
+    engine = TickerAnalysisService()
+
+    def _analyze_sync(symbol: str) -> tuple[str, Any | None, str | None]:
+        """Run a single ticker analysis synchronously (in a worker thread)."""
+        try:
+            result = engine.analyze(TickerAnalysisRequest(symbol=symbol))
+            return symbol, result, None
+        except Exception as exc:
+            return symbol, None, str(exc)
+
+    # Parallelize via ThreadPoolExecutor. Each analyze() is network-bound
+    # (yfinance), so 4 workers is enough. 6 tickers: ~10s serial → ~3s parallel.
+    new_verdicts: dict[str, dict[str, Any]] = {}
+    items: list[WatchlistItemResponse] = []
+    with ThreadPoolExecutor(max_workers=4, thread_name_prefix="wl-refresh") as pool:
+        futures = [pool.submit(_analyze_sync, s) for s in symbols]
+        for fut in futures:
+            sym, result, err = fut.result()
+            if err or result is None:
+                log.warning("watchlist_refresh_item_failed", symbol=sym, error=err)
+                items.append(WatchlistItemResponse(
+                    symbol=sym, verdict="ERROR", conviction=0, position_size=None,
+                ))
+                continue
+            if result.verdict:
+                new_verdicts[sym] = {
+                    "action": result.verdict.action,
+                    "conviction": result.verdict.conviction,
+                }
+                pos_size_dict = None
+                if result.risk and result.price:
+                    pos_size_dict = {
+                        "suggested_pct": result.risk.suggested_position_size_pct,
+                        "stop_pct": result.risk.suggested_stop_pct,
+                    }
+                items.append(WatchlistItemResponse(
+                    symbol=sym,
+                    verdict=result.verdict.action,
+                    conviction=result.verdict.conviction,
+                    position_size=pos_size_dict,
+                    days_to_earnings=(
+                        result.earnings.days_until_earnings
+                        if result.earnings is not None
+                        else None
+                    ),
+                ))
+
+    # Detect verdict changes
+    verdict_changes = svc.record_verdicts(new_verdicts)
+    svc.set_last_refresh(verdict_changes)
+
+    log.info("watchlist_refreshed", tickers=len(symbols), changes=len(verdict_changes))
+    return ApiResponse(
+        data=WatchlistRefreshResponse(
+            refresh_time=svc.get_last_refresh_time() or datetime.now(UTC).isoformat(),
+            tickers=items,
+            verdict_changes=verdict_changes,
+        ),
+        meta=MetaInfo(
+            request_id="",
+            duration_ms=round((time.monotonic() - start) * 1000, 1),
+            timestamp=datetime.now(UTC).isoformat(),
+        ),
+    )
 
 
 @router.get("/education/{metric}", response_model=ApiResponse[EducationResponse])

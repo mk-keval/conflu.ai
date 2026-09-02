@@ -152,6 +152,24 @@ class WatchlistItemResponse(BaseModel):
 class WatchlistAnalyzeResponse(BaseModel):
     """Batch watchlist analysis result."""
     model_config = ConfigDict(extra="forbid")
+    items: list[WatchlistItemResponse]
+
+
+# ── D-49: Persistent watchlist + click-to-update ─────────────────────
+
+
+class WatchlistTickersUpdate(BaseModel):
+    """Request body for adding tickers to the watchlist."""
+    model_config = ConfigDict(extra="forbid")
+    symbols: list[str]
+
+
+class WatchlistRefreshResponse(BaseModel):
+    """Result of a watchlist refresh — new verdicts + any verdict changes."""
+    model_config = ConfigDict(extra="forbid")
+    refresh_time: str
+    tickers: list[WatchlistItemResponse]
+    verdict_changes: list[dict]  # [{symbol, from_action, to_action, from_conviction, to_conviction, timestamp}]
 
     items: list[WatchlistItemResponse]
 
