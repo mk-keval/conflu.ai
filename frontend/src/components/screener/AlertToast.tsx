@@ -7,7 +7,11 @@ interface AlertToastProps {
   autoHideMs?: number;
 }
 
-export function AlertToast({ alert, onDismiss, autoHideMs = 8000 }: AlertToastProps) {
+export function AlertToast({
+  alert,
+  onDismiss,
+  autoHideMs = 8000,
+}: AlertToastProps) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {

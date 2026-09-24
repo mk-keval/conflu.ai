@@ -45,7 +45,11 @@ describe('buildAdherenceCsv', () => {
   });
 
   it('leaves closedAt blank for open trades', () => {
-    const trade = makeTrade({ outcome: 'open', status: 'open', closedAt: null });
+    const trade = makeTrade({
+      outcome: 'open',
+      status: 'open',
+      closedAt: null,
+    });
     const csv = buildAdherenceCsv([trade]);
     const cols = csv.split('\n')[1].split(',');
     // symbol,opened,closed,... — closed is the 3rd column

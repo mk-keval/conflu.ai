@@ -24,7 +24,10 @@ const INDICATOR_LESSON_KEYS: Record<string, string> = {
   bb: 'bb_position',
 };
 
-function getIndicatorZone(name: string, value: number): 'bullish' | 'bearish' | 'neutral' {
+function getIndicatorZone(
+  name: string,
+  value: number
+): 'bullish' | 'bearish' | 'neutral' {
   if (name === 'rsi') {
     if (value > 70) return 'bearish';
     if (value < 30) return 'bullish';
@@ -41,10 +44,15 @@ const zoneColors = {
   neutral: 'text-yellow-400',
 };
 
-export function IndicatorPanel({ symbol, indicatorValues }: IndicatorPanelProps) {
+export function IndicatorPanel({
+  symbol,
+  indicatorValues,
+}: IndicatorPanelProps) {
   const { activeIndicators } = useChartStore();
 
-  const hasValues = activeIndicators.some((ind) => indicatorValues[ind] != null);
+  const hasValues = activeIndicators.some(
+    (ind) => indicatorValues[ind] != null
+  );
 
   if (!hasValues) {
     return null;
@@ -81,7 +89,11 @@ export function IndicatorPanel({ symbol, indicatorValues }: IndicatorPanelProps)
                   'font-mono text-sm font-medium',
                   zoneColors[zone]
                 )}
-                style={{ color: INDICATOR_COLORS[name as keyof typeof INDICATOR_COLORS] || undefined }}
+                style={{
+                  color:
+                    INDICATOR_COLORS[name as keyof typeof INDICATOR_COLORS] ||
+                    undefined,
+                }}
               >
                 {formatNumber(value, 2)}
               </div>

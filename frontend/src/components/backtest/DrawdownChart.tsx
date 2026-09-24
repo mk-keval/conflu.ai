@@ -15,7 +15,9 @@ interface DrawdownChartProps {
   initialCash: number;
 }
 
-function calcDrawdown(equityData: EquityPoint[]): Array<{ timestamp: string; drawdown: number }> {
+function calcDrawdown(
+  equityData: EquityPoint[]
+): Array<{ timestamp: string; drawdown: number }> {
   if (!equityData.length) return [];
   let peak = equityData[0].equity;
   return equityData.map((p) => {
@@ -32,11 +34,17 @@ interface TooltipPayloadEntry {
   payload: { timestamp: string; drawdown: number };
 }
 
-function CustomTooltip({ active, payload }: { active?: boolean; payload?: TooltipPayloadEntry[] }) {
+function CustomTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: TooltipPayloadEntry[];
+}) {
   if (!active || !payload?.length) return null;
   const p = payload[0].payload;
   return (
-    <div className="rounded border border-dark-500 bg-dark-800 px-3 py-2 text-xs shadow-lg">
+    <div className="border-dark-500 bg-dark-800 rounded border px-3 py-2 text-xs shadow-lg">
       <p className="text-dark-300">{formatDate(p.timestamp)}</p>
       <p className="font-mono text-loss">{formatPct(p.drawdown)}</p>
     </div>
@@ -48,7 +56,7 @@ export function DrawdownChart({ data }: DrawdownChartProps) {
 
   if (!ddData.length) {
     return (
-      <div className="flex h-48 items-center justify-center rounded border border-dark-600 bg-dark-800 text-sm text-dark-400">
+      <div className="border-dark-600 bg-dark-800 text-dark-400 flex h-48 items-center justify-center rounded border text-sm">
         No drawdown data available
       </div>
     );
@@ -57,8 +65,8 @@ export function DrawdownChart({ data }: DrawdownChartProps) {
   const minDD = Math.min(...ddData.map((d) => d.drawdown)) * 1.05;
 
   return (
-    <div className="rounded border border-dark-600 bg-dark-800 p-3">
-      <h4 className="mb-2 text-xs font-semibold text-dark-200">Drawdown</h4>
+    <div className="border-dark-600 bg-dark-800 rounded border p-3">
+      <h4 className="text-dark-200 mb-2 text-xs font-semibold">Drawdown</h4>
       <ResponsiveContainer width="100%" height={180}>
         <AreaChart data={ddData}>
           <defs>

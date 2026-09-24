@@ -11,7 +11,8 @@ export function useKeyboard(keymap: KeyMap): void {
         const isEditable =
           event.target instanceof HTMLInputElement ||
           event.target instanceof HTMLTextAreaElement ||
-          (event.target instanceof HTMLElement && event.target.isContentEditable);
+          (event.target instanceof HTMLElement &&
+            event.target.isContentEditable);
 
         // Allow Escape globally, allow other keys only when not editing
         if (key === 'Escape' || !isEditable) {

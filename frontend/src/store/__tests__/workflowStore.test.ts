@@ -15,28 +15,28 @@ beforeEach(() => {
 describe('workflowStore — Daily Routine', () => {
   it('creates a routine on first access and returns it on subsequent access', () => {
     const first = getState().getOrCreateRoutine('2026-08-28');
-    expect(first.steps).toHaveLength(4);
+    expect(first.steps).toHaveLength(2); // 2 touchpoints (Slice 3)
     const again = getState().getOrCreateRoutine('2026-08-28');
     expect(again).toBe(first); // same reference → idempotent
   });
 
-  it('completes steps in order', () => {
+  it('completes touchpoints in order', () => {
     getState().getOrCreateRoutine('2026-08-28');
     getState().completeRoutineStep('2026-08-28', 1);
     let r = getState().dailyRoutines['2026-08-28'];
     expect(r.steps[0].status).toBe('completed');
     expect(r.currentStep).toBe(1);
 
-    // Out-of-order (step 3 before step 2) is ignored.
-    getState().completeRoutineStep('2026-08-28', 3);
+    // Complete touchpoint 2 (now the next step) - should succeed
+    getState().completeRoutineStep('2026-08-28', 2);
     r = getState().dailyRoutines['2026-08-28'];
-    expect(r.steps[2].status).toBe('pending');
-    expect(r.currentStep).toBe(1);
+    expect(r.steps[1].status).toBe('completed');
+    expect(r.status).toBe('completed');
   });
 });
 
 describe('workflowStore — Validation Gate', () => {
-  it('records a gate with generated id + timestamp', () => {
+  it('records a gate with generated id + timestamp + dataGaps + evaluatedAt', () => {
     const created = getState().recordGate({
       symbol: 'AAPL',
       stepResults: [
@@ -45,9 +45,13 @@ describe('workflowStore — Validation Gate', () => {
       ],
       overall: 'CONDITIONAL',
       convictionScore: 6,
+      dataGaps: ['Structure'],
+      evaluatedAt: '2026-09-22T12:00:00Z',
     });
     expect(created.id).toBeTruthy();
     expect(created.createdAt).toBeTruthy();
+    expect(created.dataGaps).toEqual(['Structure']);
+    expect(created.evaluatedAt).toBe('2026-09-22T12:00:00Z');
     expect(getState().validationGates).toHaveLength(1);
     expect(getState().validationGates[0].overall).toBe('CONDITIONAL');
   });
@@ -74,8 +78,20 @@ describe('workflowStore — Paper Trades + adherence', () => {
   });
 
   it('rolls up adherence across multiple closed trades', () => {
-    const t1 = getState().openPaperTrade({ symbol: 'A', plan: {}, fills: {}, stepsFollowed: 0, stepsTotal: 13 });
-    const t2 = getState().openPaperTrade({ symbol: 'B', plan: {}, fills: {}, stepsFollowed: 0, stepsTotal: 13 });
+    const t1 = getState().openPaperTrade({
+      symbol: 'A',
+      plan: {},
+      fills: {},
+      stepsFollowed: 0,
+      stepsTotal: 13,
+    });
+    const t2 = getState().openPaperTrade({
+      symbol: 'B',
+      plan: {},
+      fills: {},
+      stepsFollowed: 0,
+      stepsTotal: 13,
+    });
     getState().closePaperTrade(t1.id, 'target_hit', 13, 13);
     getState().closePaperTrade(t2.id, 'target_hit', 7, 13);
     const trades = getState().paperTrades;
@@ -88,7 +104,14 @@ describe('workflowStore — Paper Trades + adherence', () => {
 describe('workflowStore — reset', () => {
   it('clears all workflow state', () => {
     getState().getOrCreateRoutine('2026-08-28');
-    getState().recordGate({ symbol: 'A', stepResults: [], overall: 'PASS', convictionScore: 8 });
+    getState().recordGate({
+      symbol: 'A',
+      stepResults: [],
+      overall: 'PASS',
+      convictionScore: 8,
+      dataGaps: [],
+      evaluatedAt: '2026-09-22T12:00:00Z',
+    });
     expect(getState().dailyRoutines['2026-08-28']).toBeTruthy();
     getState().resetWorkflow();
     expect(getState().dailyRoutines).toEqual({});

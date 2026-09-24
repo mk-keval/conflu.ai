@@ -11,7 +11,10 @@ export interface CorrelationResult {
   symbols: string[];
   correlation_matrix: number[][];
   sector_matrix?: { rows: string[]; matrix: number[][] } | null;
-  high_correlation_pairs: Array<{ symbols: [string, string]; correlation: number }>;
+  high_correlation_pairs: Array<{
+    symbols: [string, string];
+    correlation: number;
+  }>;
   diversification_score: number;
 }
 

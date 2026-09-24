@@ -22,13 +22,18 @@ function InternalsItem({
 
   // VIX: <15=low fear, >30=high fear
   const isVIX = label === 'VIX';
-  const vixStatus = isVIX && value !== null
-    ? value > 30 ? 'high' : value > 20 ? 'medium' : 'low'
-    : null;
+  const vixStatus =
+    isVIX && value !== null
+      ? value > 30
+        ? 'high'
+        : value > 20
+          ? 'medium'
+          : 'low'
+      : null;
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-surface-tertiary/50">
-      <span className="text-xs text-text-muted whitespace-nowrap">{label}</span>
+    <div className="flex items-center gap-2 rounded-md bg-surface-tertiary/50 px-3 py-1.5">
+      <span className="whitespace-nowrap text-xs text-text-muted">{label}</span>
       <span
         className={cn(
           'font-mono text-sm font-semibold',

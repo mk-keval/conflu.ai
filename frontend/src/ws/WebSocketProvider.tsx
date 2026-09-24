@@ -5,7 +5,9 @@ import type { ConnectionState, WSMessage } from '@/types/ws';
 // Use Vite dev server proxy in development, direct backend in production
 // In dev (Vite): ws://localhost:5173/ws/stream -> proxied to backend
 // In prod (nginx): /ws/stream -> proxied to backend
-const WS_URL = import.meta.env.VITE_WS_URL || (import.meta.env.DEV ? 'ws://localhost:5173/ws/stream' : '/ws/stream');
+const WS_URL =
+  import.meta.env.VITE_WS_URL ||
+  (import.meta.env.DEV ? 'ws://localhost:5173/ws/stream' : '/ws/stream');
 
 interface WebSocketContextType {
   connectionState: ConnectionState;
@@ -21,9 +23,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const ws = useWebSocket(WS_URL);
 
   return (
-    <WebSocketContext.Provider value={ws}>
-      {children}
-    </WebSocketContext.Provider>
+    <WebSocketContext.Provider value={ws}>{children}</WebSocketContext.Provider>
   );
 }
 

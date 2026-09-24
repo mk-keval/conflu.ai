@@ -106,6 +106,24 @@ class TestPctChange:
         mock_ticker.return_value.history.return_value = _mock_history([0, 100])
         assert macro_context._pct_change("SPY") is None
 
+    @patch("backend.app.infrastructure.professional.macro_context.yf.Ticker")
+    def test_nan_prev_returns_none(self, mock_ticker):
+        # NaN can appear when yfinance returns a partial trading day or
+        # a delisted/halved ticker. Previously this propagated as the
+        # literal string `+nan%` in macro notes — see D-49.
+        mock_ticker.return_value.history.return_value = _mock_history([float("nan"), 100])
+        assert macro_context._pct_change("SPY") is None
+
+    @patch("backend.app.infrastructure.professional.macro_context.yf.Ticker")
+    def test_nan_last_returns_none(self, mock_ticker):
+        mock_ticker.return_value.history.return_value = _mock_history([100, float("nan")])
+        assert macro_context._pct_change("SPY") is None
+
+    @patch("backend.app.infrastructure.professional.macro_context.yf.Ticker")
+    def test_inf_prev_returns_none(self, mock_ticker):
+        mock_ticker.return_value.history.return_value = _mock_history([float("inf"), 100])
+        assert macro_context._pct_change("SPY") is None
+
 
 # ── get_macro_context (the public API) ───────────────────────────────────
 

@@ -124,7 +124,13 @@ export interface AlertPreferences {
 
 export interface InAppAlert {
   id: string;
-  type: 'stop_hit' | 'target_hit' | 'earnings' | 'regime_change' | 'morning_brief' | 'weekly_review';
+  type:
+    | 'stop_hit'
+    | 'target_hit'
+    | 'earnings'
+    | 'regime_change'
+    | 'morning_brief'
+    | 'weekly_review';
   symbol: string | null;
   title: string;
   message: string;

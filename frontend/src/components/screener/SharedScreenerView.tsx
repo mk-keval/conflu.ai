@@ -42,7 +42,9 @@ export function SharedScreenerView() {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="rounded-lg border border-red-800 bg-red-900/20 p-6 text-center">
-          <h2 className="mb-2 text-lg font-semibold text-red-400">Access Denied</h2>
+          <h2 className="mb-2 text-lg font-semibold text-red-400">
+            Access Denied
+          </h2>
           <p className="text-gray-400">{error}</p>
         </div>
       </div>
@@ -60,7 +62,9 @@ export function SharedScreenerView() {
   return (
     <div className="flex h-full flex-col p-6">
       <div className="mb-6">
-        <h1 className="font-display text-2xl font-semibold tracking-tight text-white">{screen.name}</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-white">
+          {screen.name}
+        </h1>
         {screen.description && (
           <p className="mt-1 text-sm text-gray-400">{screen.description}</p>
         )}
@@ -70,9 +74,11 @@ export function SharedScreenerView() {
         </div>
       </div>
 
-      <div className="flex-1 rounded-lg border border-dark-600 bg-dark-800 p-4">
-        <h3 className="mb-3 text-sm font-medium text-gray-400">Configuration</h3>
-        <pre className="overflow-auto rounded bg-dark-900 p-3 text-xs text-gray-300">
+      <div className="border-dark-600 bg-dark-800 flex-1 rounded-lg border p-4">
+        <h3 className="mb-3 text-sm font-medium text-gray-400">
+          Configuration
+        </h3>
+        <pre className="bg-dark-900 overflow-auto rounded p-3 text-xs text-gray-300">
           {screen.filter_json}
         </pre>
       </div>

@@ -1,4 +1,5 @@
 // ── Ticker Analysis Types ──
+import type { ValidationGate } from './workflow';
 
 export interface TechnicalAnalysis {
   score: number;
@@ -13,13 +14,13 @@ export interface TechnicalAnalysis {
   bb_position: string | null;
   macd_status: string | null;
   // Market structure (new)
-  structure: string | null;  // bullish / bearish / ranging / transition
+  structure: string | null; // bullish / bearish / ranging / transition
   swing_highs: number[] | null;
   swing_lows: number[] | null;
   key_resistance: number[] | null;
   key_support: number[] | null;
-  pullback_quality: string | null;  // A+ / A / B / C / D / F
-  pullback_score: number | null;    // 0-100
+  pullback_quality: string | null; // A+ / A / B / C / D / F
+  pullback_score: number | null; // 0-100
   // Volume profile (TPO)
   volume_profile?: {
     poc: number;
@@ -114,12 +115,14 @@ export interface AnalysisVerdict {
   // D-44: G14 — earnings binary risk
   binary_risk: boolean;
   earnings_date: string | null;
+  // Gate result (7-step validation gate from backend)
+  gate?: ValidationGate;
 }
 
 export interface TradePlan {
   scale_in: ScaleInStep[];
   scale_out: ScaleOutStep[];
-  trail_type: string;  // "atr" / "structure" / "percent"
+  trail_type: string; // "atr" / "structure" / "percent"
   trail_value: number;
   trail_activation_r: number;
   move_to_breakeven_at_r: number;
@@ -142,8 +145,8 @@ export interface ScaleOutStep {
 }
 
 export interface CatalystBias {
-  bias: string;  // bullish / bearish / neutral / slightly_positive / slightly_negative / cautious
-  score: number;  // -10 to +10
+  bias: string; // bullish / bearish / neutral / slightly_positive / slightly_negative / cautious
+  score: number; // -10 to +10
   notes: string[];
 }
 
@@ -163,11 +166,11 @@ export interface TickerAnalysisResponse {
   data_age_hours: number | null;
   // Data source attribution
   data_sources?: {
-    technical_daily: string;  // "TV Screener + yfinance"
+    technical_daily: string; // "TV Screener + yfinance"
     technical_weekly: string; // "yfinance 2y weekly"
-    fundamental: string;      // "yfinance info"
-    sentiment: string;        // "yfinance info"
-    earnings: string;         // "yfinance info"
+    fundamental: string; // "yfinance info"
+    sentiment: string; // "yfinance info"
+    earnings: string; // "yfinance info"
   };
   // D-44: B3 — human-readable staleness message
   stale_warning: string | null;

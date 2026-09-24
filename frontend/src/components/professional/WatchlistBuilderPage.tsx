@@ -2,8 +2,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import {
-  Search, Plus, Trash2, BarChart3, ExternalLink,
-  Loader2, CheckCircle2,
+  Search,
+  Plus,
+  Trash2,
+  BarChart3,
+  ExternalLink,
+  Loader2,
+  CheckCircle2,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { analyzeWatchlist } from '@/api/professional';
@@ -67,22 +72,33 @@ export function WatchlistBuilderPage() {
   };
 
   // Quick-add suggestions from popular tickers
-  const quickAddTickers = ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA', 'JPM'];
+  const quickAddTickers = [
+    'AAPL',
+    'MSFT',
+    'NVDA',
+    'GOOGL',
+    'AMZN',
+    'META',
+    'TSLA',
+    'JPM',
+  ];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+    <div className="mx-auto max-w-7xl p-6">
+      <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="font-display text-xl font-semibold tracking-tight text-text-primary">Watchlist Builder</h1>
+          <h1 className="font-display text-xl font-semibold tracking-tight text-text-primary">
+            Watchlist Builder
+          </h1>
           <p className="text-xs text-text-muted">
             Build and analyze your watchlist in minutes
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Left panel: Add tickers */}
-        <div className="lg:col-span-1 space-y-4">
+        <div className="space-y-4 lg:col-span-1">
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
@@ -93,13 +109,15 @@ export function WatchlistBuilderPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="w-full pl-10 pr-4 rounded-lg border border-border/60 bg-background px-3 py-2 text-sm text-text-primary placeholder-text-muted outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all"
+              className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 pl-10 pr-4 text-sm text-text-primary placeholder-text-muted outline-none transition-all focus:border-accent focus:ring-2 focus:ring-accent/20"
             />
           </div>
 
           {/* Quick add from popular tickers */}
           <div>
-            <span className="text-xs text-text-muted block mb-2">Quick add</span>
+            <span className="mb-2 block text-xs text-text-muted">
+              Quick add
+            </span>
             <div className="flex flex-wrap gap-1.5">
               {quickAddTickers.map((ticker) => (
                 <button
@@ -107,10 +125,10 @@ export function WatchlistBuilderPage() {
                   onClick={() => handleAddSymbol(ticker)}
                   disabled={hasSymbol(ticker)}
                   className={cn(
-                    'px-2.5 py-1 rounded-md text-xs font-medium border transition-colors',
+                    'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
                     hasSymbol(ticker)
-                      ? 'bg-green-500/10 border-green-500/20 text-green-400 cursor-default'
-                      : 'bg-surface-secondary border-border/60 text-text-muted hover:text-accent hover:border-accent/30'
+                      ? 'cursor-default border-green-500/20 bg-green-500/10 text-green-400'
+                      : 'bg-surface-secondary border-border/60 text-text-muted hover:border-accent/30 hover:text-accent'
                   )}
                 >
                   {hasSymbol(ticker) ? (
@@ -132,21 +150,25 @@ export function WatchlistBuilderPage() {
           {/* Search results */}
           {searchResults.length > 0 && (
             <div>
-              <span className="text-xs text-text-muted block mb-2">Search results</span>
+              <span className="mb-2 block text-xs text-text-muted">
+                Search results
+              </span>
               <div className="space-y-1">
                 {searchResults.map((symbol) => (
                   <div
                     key={symbol}
-                    className="flex items-center justify-between px-3 py-2 rounded-md bg-surface-secondary/50 border border-border/50"
+                    className="bg-surface-secondary/50 flex items-center justify-between rounded-md border border-border/50 px-3 py-2"
                   >
-                    <span className="text-sm font-medium text-text-primary">{symbol}</span>
+                    <span className="text-sm font-medium text-text-primary">
+                      {symbol}
+                    </span>
                     <button
                       onClick={() => handleAddSymbol(symbol)}
                       disabled={hasSymbol(symbol)}
                       className={cn(
-                        'px-2 py-1 text-xs rounded transition-colors',
+                        'rounded px-2 py-1 text-xs transition-colors',
                         hasSymbol(symbol)
-                          ? 'text-green-400 cursor-default'
+                          ? 'cursor-default text-green-400'
                           : 'text-accent hover:bg-accent/10'
                       )}
                     >
@@ -161,19 +183,21 @@ export function WatchlistBuilderPage() {
 
         {/* Right panel: Watchlist */}
         <div className="lg:col-span-2">
-          <div className="rounded-lg border border-border overflow-hidden">
+          <div className="overflow-hidden rounded-lg border border-border">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 bg-surface-secondary/50 border-b border-border">
+            <div className="bg-surface-secondary/50 flex items-center justify-between border-b border-border px-4 py-3">
               <span className="text-sm font-semibold text-text-primary">
                 Watchlist ({portfolioItems.length})
               </span>
               <button
                 onClick={() => analyzeMutation.mutate()}
-                disabled={portfolioItems.length === 0 || analyzeMutation.isPending}
+                disabled={
+                  portfolioItems.length === 0 || analyzeMutation.isPending
+                }
                 className={cn(
-                  'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+                  'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
                   'bg-accent/10 text-accent hover:bg-accent/20',
-                  'disabled:opacity-50 disabled:cursor-not-allowed'
+                  'disabled:cursor-not-allowed disabled:opacity-50'
                 )}
               >
                 {analyzeMutation.isPending ? (
@@ -188,15 +212,16 @@ export function WatchlistBuilderPage() {
             {/* Body */}
             {portfolioItems.length === 0 ? (
               <div className="p-8 text-center">
-                <BarChart3 className="h-10 w-10 text-text-muted mx-auto mb-3 opacity-50" />
+                <BarChart3 className="mx-auto mb-3 h-10 w-10 text-text-muted opacity-50" />
                 <p className="text-sm text-text-muted">
-                  Your watchlist is empty. Start by adding tickers from the Morning Brief or search above.
+                  Your watchlist is empty. Start by adding tickers from the
+                  Morning Brief or search above.
                 </p>
               </div>
             ) : (
               <div className="divide-y divide-border/50">
                 {/* Column headers */}
-                <div className="grid grid-cols-5 gap-2 px-4 py-2 text-2xs text-text-muted font-medium uppercase tracking-wider bg-surface-tertiary/30">
+                <div className="text-2xs grid grid-cols-5 gap-2 bg-surface-tertiary/30 px-4 py-2 font-medium uppercase tracking-wider text-text-muted">
                   <span>Symbol</span>
                   <span>Verdict</span>
                   <span>Conviction</span>
@@ -209,7 +234,7 @@ export function WatchlistBuilderPage() {
                   <div
                     key={item.symbol}
                     data-testid="watchlist-row"
-                    className="grid grid-cols-5 gap-2 px-4 py-3 items-center hover:bg-surface-tertiary/30 transition-colors"
+                    className="grid grid-cols-5 items-center gap-2 px-4 py-3 transition-colors hover:bg-surface-tertiary/30"
                   >
                     <span className="text-sm font-semibold text-text-primary">
                       {item.symbol}
@@ -225,7 +250,7 @@ export function WatchlistBuilderPage() {
                       )?.conviction || '--'}
                       /10
                     </span>
-                    <span className="text-xs font-mono text-text-muted">
+                    <span className="font-mono text-xs text-text-muted">
                       {accountSize
                         ? `~$${Math.floor(accountSize * 0.05).toLocaleString()}`
                         : 'Set in Settings'}
@@ -233,21 +258,21 @@ export function WatchlistBuilderPage() {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => navigate(`/pro/ticker/${item.symbol}`)}
-                        className="p-1 rounded text-text-muted hover:text-accent hover:bg-accent/10 transition-colors"
+                        className="rounded p-1 text-text-muted transition-colors hover:bg-accent/10 hover:text-accent"
                         title="Analyze"
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
                       </button>
                       <button
                         onClick={() => handlePaperTrade()}
-                        className="p-1 rounded text-text-muted hover:text-green-400 hover:bg-green-500/10 transition-colors"
+                        className="rounded p-1 text-text-muted transition-colors hover:bg-green-500/10 hover:text-green-400"
                         title="Paper Trade"
                       >
                         <BarChart3 className="h-3.5 w-3.5" />
                       </button>
                       <button
                         onClick={() => handleRemoveSymbol(item.symbol)}
-                        className="p-1 rounded text-text-muted hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        className="rounded p-1 text-text-muted transition-colors hover:bg-red-500/10 hover:text-red-400"
                         title="Remove"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -262,8 +287,9 @@ export function WatchlistBuilderPage() {
           {/* Analyze results */}
           {analyzeMutation.data && (
             <div className="mt-4 rounded-lg border border-green-500/20 bg-green-500/5 p-3">
-              <p className="text-xs text-green-400 font-medium">
-                Analysis complete — {analyzeMutation.data.items.length} symbols analyzed
+              <p className="text-xs font-medium text-green-400">
+                Analysis complete — {analyzeMutation.data.items.length} symbols
+                analyzed
               </p>
             </div>
           )}

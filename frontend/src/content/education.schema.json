@@ -4,7 +4,15 @@
   "title": "conflu.ai Education Content",
   "description": "Single source of truth for all user-facing teaching content. Validated by scripts/validate-education.ts (ajv) and backend startup pydantic checks.",
   "type": "object",
-  "required": ["meta", "metrics", "modules", "concepts", "glossary", "backtestMetrics", "tradePlan"],
+  "required": [
+    "meta",
+    "metrics",
+    "modules",
+    "concepts",
+    "glossary",
+    "backtestMetrics",
+    "tradePlan"
+  ],
   "properties": {
     "meta": {
       "type": "object",
@@ -113,14 +121,35 @@
     },
     "lesson": {
       "type": "object",
-      "required": ["label", "category", "oneLiner", "what", "whyMatters", "scoringImpact", "commonMistakes", "example"],
+      "required": [
+        "label",
+        "category",
+        "oneLiner",
+        "what",
+        "whyMatters",
+        "scoringImpact",
+        "commonMistakes",
+        "example"
+      ],
       "properties": {
         "label": { "type": "string", "minLength": 1 },
         "category": {
-          "enum": ["technical", "fundamental", "earnings", "sentiment", "growth", "risk", "market"]
+          "enum": [
+            "technical",
+            "fundamental",
+            "earnings",
+            "sentiment",
+            "growth",
+            "risk",
+            "market"
+          ]
         },
         "oneLiner": { "type": "string", "minLength": 1 },
-        "what": { "type": "string", "minLength": 40, "description": "must include an analogy — length floor nudges editorial standard" },
+        "what": {
+          "type": "string",
+          "minLength": 40,
+          "description": "must include an analogy — length floor nudges editorial standard"
+        },
         "howCalculated": { "type": "string" },
         "valueInterpretation": { "$ref": "#/$defs/bandsInterpretation" },
         "whyMatters": { "type": "string", "minLength": 1 },

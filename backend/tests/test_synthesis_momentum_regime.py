@@ -25,6 +25,17 @@ from backend.app.domain.ticker_analysis.models import (
 from backend.app.domain.ticker_analysis import synthesis
 
 
+@pytest.mark.parametrize("dollar_volume, expected_count", [(0.0, 1), (99_999.0, 1), (100_000.0, 0), (None, 0)])
+def test_mentor_liquidity_uses_calc_once(dollar_volume, expected_count):
+    technical = _make_technical(avg_daily_volume_usd=1.0)
+    verdict = synthesis.synthesise(
+        technical, _make_fundamental(), None, None, _make_risk(), 100.0,
+        tv_data={"avg_daily_volume_usd_calc": dollar_volume},
+    )
+    mentor_flags = [flag for flag in verdict.dealbreakers if "Mentor" in flag]
+    assert len(mentor_flags) == expected_count
+
+
 # ── Helpers ──
 
 

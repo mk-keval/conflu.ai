@@ -1,5 +1,13 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Bell, BellDot, CheckCheck, TrendingUp, TrendingDown, AlertTriangle, Calendar } from 'lucide-react';
+import {
+  Bell,
+  BellDot,
+  CheckCheck,
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+  Calendar,
+} from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useProModeStore } from '@/store/professional';
 
@@ -13,7 +21,9 @@ const ALERT_ICONS: Record<string, React.ReactNode> = {
 };
 
 function timeAgo(timestamp: string): string {
-  const seconds = Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000);
+  const seconds = Math.floor(
+    (Date.now() - new Date(timestamp).getTime()) / 1000
+  );
   if (seconds < 60) return 'just now';
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
@@ -25,7 +35,9 @@ export function NotificationBell() {
   const ref = useRef<HTMLDivElement>(null);
   const notifications = useProModeStore((s) => s.notifications);
   const dismissNotification = useProModeStore((s) => s.dismissNotification);
-  const markAllNotificationsRead = useProModeStore((s) => s.markAllNotificationsRead);
+  const markAllNotificationsRead = useProModeStore(
+    (s) => s.markAllNotificationsRead
+  );
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -47,13 +59,13 @@ export function NotificationBell() {
     <div ref={ref} className="relative">
       <button
         onClick={toggle}
-        className="relative p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-tertiary transition-colors"
+        className="relative rounded-lg p-1.5 text-text-muted transition-colors hover:bg-surface-tertiary hover:text-text-primary"
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
       >
         {unreadCount > 0 ? (
           <>
             <BellDot className="h-5 w-5" />
-            <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-2xs font-bold text-white flex items-center justify-center">
+            <span className="text-2xs absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 font-bold text-white">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           </>
@@ -63,14 +75,16 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 rounded-lg border border-border bg-surface shadow-xl z-50">
+        <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-lg border border-border bg-surface shadow-xl">
           {/* Header */}
-          <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-            <span className="text-sm font-semibold text-text-primary">Notifications</span>
+          <div className="flex items-center justify-between border-b border-border px-3 py-2">
+            <span className="text-sm font-semibold text-text-primary">
+              Notifications
+            </span>
             {unreadCount > 0 && (
               <button
                 onClick={markAllNotificationsRead}
-                className="text-xs text-accent hover:text-accent-light transition-colors"
+                className="text-xs text-accent transition-colors hover:text-accent-light"
               >
                 Mark all read
               </button>
@@ -80,7 +94,7 @@ export function NotificationBell() {
           {/* List */}
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="text-center py-6 text-sm text-text-muted">
+              <div className="py-6 text-center text-sm text-text-muted">
                 No notifications
               </div>
             ) : (
@@ -88,28 +102,30 @@ export function NotificationBell() {
                 <div
                   key={n.id}
                   className={cn(
-                    'flex items-start gap-3 px-3 py-2.5 border-b border-border/50 last:border-0',
-                    'hover:bg-surface-tertiary/50 transition-colors cursor-pointer',
+                    'flex items-start gap-3 border-b border-border/50 px-3 py-2.5 last:border-0',
+                    'cursor-pointer transition-colors hover:bg-surface-tertiary/50',
                     !n.read && 'bg-accent/5'
                   )}
                   onClick={() => dismissNotification(n.id)}
                 >
                   <div className="mt-0.5 flex-shrink-0">
-                    {ALERT_ICONS[n.type] || <Bell className="h-4 w-4 text-text-muted" />}
+                    {ALERT_ICONS[n.type] || (
+                      <Bell className="h-4 w-4 text-text-muted" />
+                    )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-text-primary truncate">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium text-text-primary">
                       {n.title}
                     </p>
-                    <p className="text-2xs text-text-muted line-clamp-2 mt-0.5">
+                    <p className="text-2xs mt-0.5 line-clamp-2 text-text-muted">
                       {n.message}
                     </p>
-                    <span className="text-2xs text-text-muted mt-0.5 block">
+                    <span className="text-2xs mt-0.5 block text-text-muted">
                       {timeAgo(n.timestamp)}
                     </span>
                   </div>
                   {!n.read && (
-                    <span className="h-2 w-2 rounded-full bg-accent flex-shrink-0 mt-1.5" />
+                    <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-accent" />
                   )}
                 </div>
               ))

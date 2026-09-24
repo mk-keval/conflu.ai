@@ -11,7 +11,7 @@ import type {
 
 export async function fetchTickerAnalysis(
   symbol: string,
-  request?: Partial<TickerAnalysisRequest>,
+  request?: Partial<TickerAnalysisRequest>
 ): Promise<TickerAnalysisResponse> {
   const body: TickerAnalysisRequest = {
     symbol,
@@ -20,22 +20,27 @@ export async function fetchTickerAnalysis(
     regime: request?.regime ?? null,
   };
 
-  return apiPost<TickerAnalysisResponse>(`/api/v1/ticker/${symbol}/analyze`, body);
+  return apiPost<TickerAnalysisResponse>(
+    `/api/v1/ticker/${symbol}/analyze`,
+    body
+  );
 }
 
 // ── New Yahoo Finance supplemental endpoints ──
 
 export async function fetchOptionsChain(
   symbol: string,
-  expiry?: string,
+  expiry?: string
 ): Promise<OptionsChainResponse> {
   const params = expiry ? `?expiry=${expiry}` : '';
-  return apiGet<OptionsChainResponse>(`/api/v1/ticker/${symbol}/options${params}`);
+  return apiGet<OptionsChainResponse>(
+    `/api/v1/ticker/${symbol}/options${params}`
+  );
 }
 
 export async function fetchNews(
   symbol: string,
-  limit = 20,
+  limit = 20
 ): Promise<NewsResponse> {
   return apiGet<NewsResponse>(`/api/v1/ticker/${symbol}/news?limit=${limit}`);
 }
@@ -43,9 +48,9 @@ export async function fetchNews(
 export async function fetchChartData(
   symbol: string,
   interval = '5m',
-  range = '1d',
+  range = '1d'
 ): Promise<ChartDataResponse> {
   return apiGet<ChartDataResponse>(
-    `/api/v1/ticker/${symbol}/chart?interval=${interval}&range=${range}`,
+    `/api/v1/ticker/${symbol}/chart?interval=${interval}&range=${range}`
   );
 }

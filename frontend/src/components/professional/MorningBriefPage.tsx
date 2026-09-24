@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { RefreshCw, ChevronDown, ChevronUp, AlertCircle, Sun } from 'lucide-react';
+import {
+  RefreshCw,
+  ChevronDown,
+  ChevronUp,
+  AlertCircle,
+  Sun,
+} from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { fetchMorningBrief } from '@/api/professional';
 import { useProModeStore } from '@/store/professional';
@@ -39,29 +45,36 @@ function ScreenSectionView({
   onAddToWatchlist: (symbol: string) => void;
   onToggleExpand: () => void;
 }) {
-  const visibleTickers = expanded ? section.tickers : section.tickers.slice(0, 3);
+  const visibleTickers = expanded
+    ? section.tickers
+    : section.tickers.slice(0, 3);
 
   return (
-    <div className="rounded-lg border border-border bg-surface-secondary/50 overflow-hidden">
+    <div className="bg-surface-secondary/50 overflow-hidden rounded-lg border border-border">
       {/* Section header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-surface-tertiary/30">
+      <div className="flex items-center justify-between bg-surface-tertiary/30 px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-sm text-text-primary">
+          <span className="text-sm font-semibold text-text-primary">
             <TermLink text={section.screenLabel || section.screenName} />
           </span>
-          <span className="text-2xs px-1.5 py-0.5 rounded-full bg-accent/10 text-accent font-mono">
+          <span className="text-2xs rounded-full bg-accent/10 px-1.5 py-0.5 font-mono text-accent">
             {(section.regimeMatchScore * 100).toFixed(0)}% match
           </span>
         </div>
         {section.tickers.length > 3 && (
           <button
             onClick={onToggleExpand}
-            className="flex items-center gap-1 text-xs text-text-muted hover:text-accent transition-colors"
+            className="flex items-center gap-1 text-xs text-text-muted transition-colors hover:text-accent"
           >
             {expanded ? (
-              <>Show less <ChevronUp className="h-3 w-3" /></>
+              <>
+                Show less <ChevronUp className="h-3 w-3" />
+              </>
             ) : (
-              <>See more ({section.tickers.length - 3} more) <ChevronDown className="h-3 w-3" /></>
+              <>
+                See more ({section.tickers.length - 3} more){' '}
+                <ChevronDown className="h-3 w-3" />
+              </>
             )}
           </button>
         )}
@@ -69,7 +82,7 @@ function ScreenSectionView({
 
       {/* Tickers grid */}
       <div className="p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {visibleTickers.map((ticker) => (
             <TickerCard
               key={ticker.symbol}
@@ -84,10 +97,18 @@ function ScreenSectionView({
 }
 
 export function MorningBriefPage() {
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const [expandedSections, setExpandedSections] = useState<
+    Record<string, boolean>
+  >({});
   const addNotification = useProModeStore((s) => s.addNotification);
 
-  const { data: brief, isLoading, isError, refetch, isFetching } = useQuery({
+  const {
+    data: brief,
+    isLoading,
+    isError,
+    refetch,
+    isFetching,
+  } = useQuery({
     queryKey: ['morning-brief'],
     queryFn: fetchMorningBrief,
     staleTime: 5 * 60 * 1000, // 5 min
@@ -114,13 +135,13 @@ export function MorningBriefPage() {
   // Loading state
   if (isLoading) {
     return (
-      <div className="p-6 max-w-7xl mx-auto space-y-6 animate-pulse">
-        <div className="h-8 w-48 bg-surface-tertiary rounded" />
-        <div className="h-12 w-full bg-surface-tertiary rounded" />
-        <div className="h-32 w-full bg-surface-tertiary rounded" />
+      <div className="mx-auto max-w-7xl animate-pulse space-y-6 p-6">
+        <div className="h-8 w-48 rounded bg-surface-tertiary" />
+        <div className="h-12 w-full rounded bg-surface-tertiary" />
+        <div className="h-32 w-full rounded bg-surface-tertiary" />
         <div className="grid grid-cols-3 gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-64 bg-surface-tertiary rounded" />
+            <div key={i} className="h-64 rounded bg-surface-tertiary" />
           ))}
         </div>
       </div>
@@ -130,21 +151,24 @@ export function MorningBriefPage() {
   // Error state
   if (isError) {
     return (
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="mx-auto max-w-7xl p-6">
         <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-6 text-center">
-          <AlertCircle className="h-8 w-8 text-red-400 mx-auto mb-2" />
-          <h3 className="text-lg font-semibold text-text-primary mb-1">
+          <AlertCircle className="mx-auto mb-2 h-8 w-8 text-red-400" />
+          <h3 className="mb-1 text-lg font-semibold text-text-primary">
             Morning Brief Unavailable
           </h3>
-          <p className="text-sm text-text-muted mb-4">
-            The brief generates at 6 AM ET on market days. Data may be refreshing.
+          <p className="mb-4 text-sm text-text-muted">
+            The brief generates at 6 AM ET on market days. Data may be
+            refreshing.
           </p>
           <button
             onClick={() => refetch()}
             disabled={isFetching}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent/10 text-accent text-sm font-medium hover:bg-accent/20 transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg bg-accent/10 px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-50"
           >
-            <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} />
+            <RefreshCw
+              className={cn('h-4 w-4', isFetching && 'animate-spin')}
+            />
             Retry
           </button>
         </div>
@@ -155,15 +179,15 @@ export function MorningBriefPage() {
   // Empty state
   if (!brief || !brief.screenSections?.length) {
     return (
-      <div className="p-6 max-w-7xl mx-auto">
-        <div className="rounded-lg border border-border bg-surface-secondary/50 p-8 text-center">
-          <Sun className="h-12 w-12 text-accent mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-text-primary mb-1">
+      <div className="mx-auto max-w-7xl p-6">
+        <div className="bg-surface-secondary/50 rounded-lg border border-border p-8 text-center">
+          <Sun className="mx-auto mb-3 h-12 w-12 text-accent" />
+          <h3 className="mb-1 text-lg font-semibold text-text-primary">
             No Morning Brief Yet
           </h3>
           <p className="text-sm text-text-muted">
-            Your first morning brief will generate at 6 AM ET tomorrow.
-            Check back then for your daily market snapshot.
+            Your first morning brief will generate at 6 AM ET tomorrow. Check
+            back then for your daily market snapshot.
           </p>
         </div>
       </div>
@@ -171,27 +195,31 @@ export function MorningBriefPage() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-xl font-semibold tracking-tight text-text-primary">Morning Brief</h1>
+          <h1 className="font-display text-xl font-semibold tracking-tight text-text-primary">
+            Morning Brief
+          </h1>
           <p className="text-xs text-text-muted">
             {new Date(brief.generatedAt).toLocaleDateString('en-US', {
               weekday: 'long',
               year: 'numeric',
               month: 'long',
               day: 'numeric',
-            })}
-            {' '}· Data as of 4 PM close · Prices live pre-market
+            })}{' '}
+            · Data as of 4 PM close · Prices live pre-market
           </p>
         </div>
         <button
           onClick={() => refetch()}
           disabled={isFetching}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-text-muted hover:text-accent hover:bg-surface-tertiary transition-colors disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-text-muted transition-colors hover:bg-surface-tertiary hover:text-accent disabled:opacity-50"
         >
-          <RefreshCw className={cn('h-3.5 w-3.5', isFetching && 'animate-spin')} />
+          <RefreshCw
+            className={cn('h-3.5 w-3.5', isFetching && 'animate-spin')}
+          />
           Refresh
         </button>
       </div>
@@ -201,14 +229,20 @@ export function MorningBriefPage() {
         <div
           data-testid="regime-badge"
           className={cn(
-            'inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-semibold',
+            'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold',
             REGIME_COLORS[brief.regime] || REGIME_COLORS.neutral
           )}
         >
           <TermLink text={brief.regime.replace(/_/g, '-').toUpperCase()} />
         </div>
-        <span className="text-sm text-text-muted">{brief.regimeDescription}</span>
-        <EducationTooltip metricKey="market_regime" metricLabel="Market Regime" compact />
+        <span className="text-sm text-text-muted">
+          {brief.regimeDescription}
+        </span>
+        <EducationTooltip
+          metricKey="market_regime"
+          metricLabel="Market Regime"
+          compact
+        />
       </div>
 
       {/* Market Internals */}
@@ -217,8 +251,14 @@ export function MorningBriefPage() {
       {/* Sector Rotation */}
       <div className="space-y-2">
         <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold text-text-primary">Sector Rotation</h2>
-          <EducationTooltip metricKey="sector_rotation" metricLabel="Sector Rotation" compact />
+          <h2 className="text-sm font-semibold text-text-primary">
+            Sector Rotation
+          </h2>
+          <EducationTooltip
+            metricKey="sector_rotation"
+            metricLabel="Sector Rotation"
+            compact
+          />
         </div>
         <SectorFocusCard compact />
         <SectorHeatmapMini sectors={brief.sectors} />
@@ -227,7 +267,9 @@ export function MorningBriefPage() {
       {/* Screen sections */}
       <div className="space-y-4">
         <h2 className="text-sm font-semibold text-text-primary">
-          Top Picks — {brief.screenSections.reduce((sum, s) => sum + s.tickers.length, 0)} tickers
+          Top Picks —{' '}
+          {brief.screenSections.reduce((sum, s) => sum + s.tickers.length, 0)}{' '}
+          tickers
         </h2>
         {brief.screenSections.map((section) => (
           <ScreenSectionView

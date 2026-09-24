@@ -38,7 +38,7 @@
           "health"
         ],
         "summary": "Readiness Check",
-        "description": "Readiness check \u2014 verifies DuckDB connectivity and indicator cache.\n\nReturns:\n    - 200 with {\"status\": \"healthy\", \"checks\": {...}} if all pass\n    - 503 with {\"status\": \"degraded\", \"checks\": {...}} if any fail",
+        "description": "Readiness check \u2014 verifies DuckDB connectivity.\n\nPer ADR-001/D-32, DuckDB is an optional, non-load-bearing store: it is only\nread on-demand by backtest/risk. The readiness probe therefore reports the\ndatabase as the sole dependency; it must NOT gate on the (retired)\nindicator-cache tables, which would mark a healthy API as degraded once the\nlegacy indicator_values rows are dropped.\n\nReturns:\n    - 200 with {\"status\": \"healthy\", \"checks\": {...}} if the DB is reachable\n    - 503 with {\"status\": \"degraded\", \"checks\": {...}} if it is not",
         "operationId": "readiness_check_health_ready_get",
         "responses": {
           "200": {
@@ -801,6 +801,49 @@
         }
       }
     },
+    "/api/v1/data/price/{symbol}": {
+      "get": {
+        "tags": [
+          "data"
+        ],
+        "summary": "Get latest price",
+        "description": "Fetch the most recent close price for a symbol (last daily bar).",
+        "operationId": "get_latest_price_api_v1_data_price__symbol__get",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Symbol"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Get Latest Price Api V1 Data Price  Symbol  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/portfolio/analyze": {
       "post": {
         "tags": [
@@ -973,6 +1016,133 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/professional/watchlist/persistent": {
+      "get": {
+        "tags": [
+          "professional-mode"
+        ],
+        "summary": "Get Persistent Watchlist",
+        "description": "Get the current persistent watchlist + last-known verdicts.\n\nReturns:\n    {symbols: [...], last_verdicts: {symbol: {action, conviction, recorded_at}}, last_refresh: iso}",
+        "operationId": "get_persistent_watchlist_api_v1_professional_watchlist_persistent_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_dict_"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "professional-mode"
+        ],
+        "summary": "Add To Persistent Watchlist",
+        "description": "Add tickers to the persistent watchlist.\n\nBody: {symbols: [\"AAPL\", \"NVDA\", ...]}\nReturns: {symbols: [...]}  \u2014 full watchlist after.",
+        "operationId": "add_to_persistent_watchlist_api_v1_professional_watchlist_persistent_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WatchlistTickersUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_dict_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/professional/watchlist/persistent/{symbol}": {
+      "delete": {
+        "tags": [
+          "professional-mode"
+        ],
+        "summary": "Remove From Persistent Watchlist",
+        "description": "Remove a ticker from the persistent watchlist.",
+        "operationId": "remove_from_persistent_watchlist_api_v1_professional_watchlist_persistent__symbol__delete",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Symbol"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_dict_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/professional/watchlist/persistent/refresh": {
+      "post": {
+        "tags": [
+          "professional-mode"
+        ],
+        "summary": "Refresh Persistent Watchlist",
+        "description": "Click-to-update: re-analyze all watchlist tickers, log verdict changes.\n\nSide effects:\n  - records the new verdict as the last-known for each symbol\n  - returns a list of verdict_changes (action or conviction moved by >=2)\n  - the user sees the changes in the response, so they know to investigate",
+        "operationId": "refresh_persistent_watchlist_api_v1_professional_watchlist_persistent_refresh_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_WatchlistRefreshResponse_"
                 }
               }
             }
@@ -1874,6 +2044,28 @@
         }
       }
     },
+    "/api/v1/sectors/focus": {
+      "get": {
+        "tags": [
+          "sector-focus"
+        ],
+        "summary": "Get Sector Focus",
+        "description": "Weekly sector hunt verdicts: max N FOCUS sectors by regime, WATCH tier,\nexplicit AVOID list. Shares the rotation endpoint's cached data so numbers\nmatch across surfaces.",
+        "operationId": "get_sector_focus_api_v1_sectors_focus_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_dict_"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sector-rotation": {
       "get": {
         "tags": [
@@ -1996,7 +2188,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "$ref": "#/components/schemas/ApiResponse_TickerAnalysisResponse_"
                 }
               }
             }
@@ -2465,6 +2657,312 @@
           }
         }
       }
+    },
+    "/api/v1/admin/refresh-data": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Refresh Data",
+        "description": "Pre-warm the yfinance OHLCV cache for the given (or default) symbols.\n\nThe function calls the same fetchers used by the orchestrator, so\nsubsequent `POST /api/v1/ticker/{symbol}/analyze` calls will hit the\ncache (TTL 6h) instead of re-fetching from yfinance.",
+        "operationId": "refresh_data_api_v1_admin_refresh_data_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RefreshRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Req"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefreshResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow/journal": {
+      "get": {
+        "tags": [
+          "workflow"
+        ],
+        "summary": "Read all journal rows",
+        "description": "Returns all rows from the paper-trade journal CSV files (both open and closed).",
+        "operationId": "get_journal_api_v1_workflow_journal_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 10000,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow/journal/open": {
+      "get": {
+        "tags": [
+          "workflow"
+        ],
+        "summary": "Read open positions",
+        "description": "Returns rows with no date_closed (the current open book).",
+        "operationId": "get_open_positions_api_v1_workflow_journal_open_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow/journal/closed": {
+      "get": {
+        "tags": [
+          "workflow"
+        ],
+        "summary": "Read closed trades",
+        "description": "Returns rows with a date_closed (the measurable sample for expectancy).",
+        "operationId": "get_closed_trades_api_v1_workflow_journal_closed_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow/journal/capital": {
+      "get": {
+        "tags": [
+          "workflow"
+        ],
+        "summary": "Available capital for new positions",
+        "description": "Returns the account value minus open notional, with sector exposure.",
+        "operationId": "get_available_capital_api_v1_workflow_journal_capital_get",
+        "parameters": [
+          {
+            "name": "account_value",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Account Value"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow/journal/trades-dir": {
+      "get": {
+        "tags": [
+          "workflow"
+        ],
+        "summary": "Get the journal directory path",
+        "description": "Returns the path to the paper-trades directory for debugging.",
+        "operationId": "get_trades_dir_api_v1_workflow_journal_trades_dir_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow/paper-trades/enforce": {
+      "post": {
+        "tags": [
+          "workflow"
+        ],
+        "summary": "Touchpoint A \u2014 Run gate enforcement and write paper trades",
+        "description": "Fetches morning brief, evaluates candidates through the 7-step gate, and writes accepted trades to today's CSV (like --apply).",
+        "operationId": "enforce_paper_trades_api_v1_workflow_paper_trades_enforce_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnforceRequest",
+                "default": {
+                  "min_conviction": 5
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_EnforceResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow/paper-trades/sync-exits": {
+      "post": {
+        "tags": [
+          "workflow"
+        ],
+        "summary": "Touchpoint B \u2014 Sync exits from OHLCV (infer + apply)",
+        "description": "Fetches daily OHLCV for open journal rows, infers exit (stop/target/time), and when apply=true writes exit data + plan_adherence to the CSV.",
+        "operationId": "sync_exits_api_v1_workflow_paper_trades_sync_exits_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncExitsRequest",
+                "default": {
+                  "apply": false
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SyncExitsResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2511,6 +3009,196 @@
         "type": "object",
         "title": "AlertPreferences",
         "description": "User alert notification preferences."
+      },
+      "AnalysisVerdict": {
+        "properties": {
+          "gate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GateResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "conviction": {
+            "type": "integer",
+            "title": "Conviction"
+          },
+          "entry_zone_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Zone Low"
+          },
+          "entry_zone_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Zone High"
+          },
+          "stop_loss": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Loss"
+          },
+          "targets": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Targets",
+            "default": []
+          },
+          "risk_reward": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Reward"
+          },
+          "position_size_pct": {
+            "type": "number",
+            "title": "Position Size Pct",
+            "default": 0
+          },
+          "dealbreakers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Dealbreakers",
+            "default": []
+          },
+          "key_red_flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Key Red Flags",
+            "default": []
+          },
+          "buy_triggers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Buy Triggers",
+            "default": []
+          },
+          "sell_triggers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sell Triggers",
+            "default": []
+          },
+          "thesis": {
+            "type": "string",
+            "title": "Thesis",
+            "default": ""
+          },
+          "trade_plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TradePlan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "narration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MentorNarration"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "binary_risk": {
+            "type": "boolean",
+            "title": "Binary Risk",
+            "default": false
+          },
+          "earnings_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Earnings Date"
+          },
+          "entry_basis": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Basis"
+          },
+          "structural_stop_level": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Structural Stop Level"
+          },
+          "structural_target_levels": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Structural Target Levels",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "action",
+          "conviction"
+        ],
+        "title": "AnalysisVerdict",
+        "description": "Final actionable verdict synthesised from all modules."
       },
       "ApiResponse": {
         "properties": {
@@ -2560,6 +3248,22 @@
           "meta"
         ],
         "title": "ApiResponse[EducationResponse]"
+      },
+      "ApiResponse_EnforceResponse_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EnforceResponse"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ApiResponse[EnforceResponse]"
       },
       "ApiResponse_MarketRegimeResponse_": {
         "properties": {
@@ -2641,6 +3345,38 @@
         ],
         "title": "ApiResponse[SimplifiedVerdictResponse]"
       },
+      "ApiResponse_SyncExitsResponse_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SyncExitsResponse"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ApiResponse[SyncExitsResponse]"
+      },
+      "ApiResponse_TickerAnalysisResponse_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TickerAnalysisResponse"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ApiResponse[TickerAnalysisResponse]"
+      },
       "ApiResponse_Union_SectorDetail__NoneType__": {
         "properties": {
           "data": {
@@ -2679,6 +3415,40 @@
           "meta"
         ],
         "title": "ApiResponse[WatchlistAnalyzeResponse]"
+      },
+      "ApiResponse_WatchlistRefreshResponse_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/WatchlistRefreshResponse"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ApiResponse[WatchlistRefreshResponse]"
+      },
+      "ApiResponse_dict_": {
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Data"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ApiResponse[dict]"
       },
       "ApiResponse_list_RotationHistoryPoint__": {
         "properties": {
@@ -2786,6 +3556,84 @@
         "title": "BacktestRequest",
         "description": "POST /api/v1/backtest request body."
       },
+      "ChartReadingAnalysis": {
+        "properties": {
+          "daily": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TimeframeChartReading"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "weekly": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TimeframeChartReading"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "h4": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TimeframeChartReading"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "h1": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TimeframeChartReading"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mtf_confluence": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mtf Confluence"
+          },
+          "computation_time_ms": {
+            "type": "number",
+            "title": "Computation Time Ms",
+            "default": 0.0
+          },
+          "data_quality_warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Data Quality Warnings"
+          },
+          "timeframes_analyzed": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Timeframes Analyzed"
+          }
+        },
+        "type": "object",
+        "title": "ChartReadingAnalysis",
+        "description": "All advanced chart reading signals across timeframes \u2014 separated from core TechnicalAnalysis.\n\nThis sub-model groups all institutional-grade chart reading signals:\n- BOS/CHoCH (structure.py)\n- Volume Profile TPO (volume_profile.py)\n- Smart Money Concepts: OB, FVG, Breakers, Liquidity (smc.py)\n- Validated Breakouts (breakout.py)\n- Multi-timeframe Confluence (mtf_confluence.py)\n\nKeeping these separate from TechnicalAnalysis prevents model bloat\nand allows optional computation (only when OHLCV data is available)."
+      },
       "CompareRequest": {
         "properties": {
           "run_ids": {
@@ -2873,6 +3721,84 @@
           "symbol"
         ],
         "title": "DeepAnalysisRequest"
+      },
+      "EarningsAnalysis": {
+        "properties": {
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "last_surprise_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Surprise Pct"
+          },
+          "beat_rate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beat Rate"
+          },
+          "avg_reaction_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Reaction Pct"
+          },
+          "next_earnings_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Earnings Date"
+          },
+          "days_until_earnings": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Until Earnings"
+          },
+          "findings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Findings"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "score",
+          "findings"
+        ],
+        "title": "EarningsAnalysis",
+        "description": "Earnings quality and surprise history."
       },
       "EducationResponse": {
         "properties": {
@@ -2977,6 +3903,417 @@
         "type": "object",
         "title": "EliteEnrichment",
         "description": "Elite signal enrichment data from post-TV processing."
+      },
+      "EnforceRequest": {
+        "properties": {
+          "min_conviction": {
+            "type": "integer",
+            "title": "Min Conviction",
+            "default": 5
+          },
+          "only": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Only"
+          }
+        },
+        "type": "object",
+        "title": "EnforceRequest"
+      },
+      "EnforceResponse": {
+        "properties": {
+          "accepted": {
+            "items": {
+              "$ref": "#/components/schemas/EnforceResponseItem"
+            },
+            "type": "array",
+            "title": "Accepted"
+          },
+          "rejected": {
+            "items": {
+              "$ref": "#/components/schemas/EnforceResponseItem"
+            },
+            "type": "array",
+            "title": "Rejected"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "accepted",
+          "rejected",
+          "message"
+        ],
+        "title": "EnforceResponse"
+      },
+      "EnforceResponseItem": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "gate_verdict": {
+            "type": "string",
+            "title": "Gate Verdict"
+          },
+          "entry_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Price"
+          },
+          "stop_loss": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Loss"
+          },
+          "position_size_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position Size Pct"
+          },
+          "target_1": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target 1"
+          },
+          "target_2": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target 2"
+          },
+          "rejected": {
+            "type": "boolean",
+            "title": "Rejected",
+            "default": false
+          },
+          "failed_step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed Step"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol",
+          "gate_verdict"
+        ],
+        "title": "EnforceResponseItem"
+      },
+      "FundamentalAnalysis": {
+        "properties": {
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "instrument_type": {
+            "type": "string",
+            "title": "Instrument Type",
+            "default": "equity"
+          },
+          "listing_exchange": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Listing Exchange"
+          },
+          "exchange_category": {
+            "type": "string",
+            "title": "Exchange Category",
+            "default": "unknown"
+          },
+          "asset_category": {
+            "type": "string",
+            "title": "Asset Category",
+            "default": "operating"
+          },
+          "lifecycle_stage": {
+            "type": "string",
+            "title": "Lifecycle Stage",
+            "default": "operating"
+          },
+          "market_cap": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Market Cap"
+          },
+          "pe_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pe Ratio"
+          },
+          "eps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eps"
+          },
+          "profit_margin": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profit Margin"
+          },
+          "debt_to_equity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Debt To Equity"
+          },
+          "revenue_growth_yoy": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revenue Growth Yoy"
+          },
+          "fcf_yield": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fcf Yield"
+          },
+          "dividend_yield": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dividend Yield"
+          },
+          "return_on_equity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return On Equity"
+          },
+          "price_to_book": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price To Book"
+          },
+          "operating_margin": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operating Margin"
+          },
+          "findings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Findings"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "score",
+          "findings"
+        ],
+        "title": "FundamentalAnalysis",
+        "description": "Fundamental metrics and quality assessment."
+      },
+      "GateResult": {
+        "properties": {
+          "overall": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "CONDITIONAL"
+            ],
+            "title": "Overall"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/GateStepResult"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "conviction_score": {
+            "type": "integer",
+            "title": "Conviction Score"
+          },
+          "data_gaps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Data Gaps"
+          },
+          "evaluated_at": {
+            "type": "string",
+            "title": "Evaluated At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "overall",
+          "steps",
+          "conviction_score",
+          "data_gaps",
+          "evaluated_at"
+        ],
+        "title": "GateResult",
+        "description": "Advisory workflow assessment, distinct from strategy validation."
+      },
+      "GateStepResult": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "Liquidity",
+              "Structure",
+              "Positioning",
+              "Catalyst",
+              "Risk/Reward",
+              "Portfolio Fit",
+              "Conviction"
+            ],
+            "title": "Name"
+          },
+          "passed": {
+            "type": "boolean",
+            "title": "Passed"
+          },
+          "conditional": {
+            "type": "boolean",
+            "title": "Conditional",
+            "default": false
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "passed",
+          "note"
+        ],
+        "title": "GateStepResult",
+        "description": "One workflow check; conditional never means approved."
       },
       "HTTPValidationError": {
         "properties": {
@@ -3108,6 +4445,43 @@
         "title": "MarketRegimeResponse",
         "description": "Full market regime snapshot."
       },
+      "MentorNarration": {
+        "properties": {
+          "why_this": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Why This",
+            "default": []
+          },
+          "why_now": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Why Now",
+            "default": []
+          },
+          "what_kills_it": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "What Kills It",
+            "default": []
+          },
+          "thesis_one_liner": {
+            "type": "string",
+            "title": "Thesis One Liner",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "MentorNarration",
+        "description": "Deterministic veteran-style reasoning chain (P2.1).\n\nTemplate-built from module outputs and plan geometry \u2014 fast/free with\nno external calls. ``what_kills_it`` always names a concrete level +\ncondition when a plan exists; a refusal without invalidation is not a\nmentor answer."
+      },
       "MetaInfo": {
         "properties": {
           "timestamp": {
@@ -3189,6 +4563,30 @@
         ],
         "title": "MorningBriefResponse",
         "description": "Complete morning brief with regime, sectors, market internals, and screen results."
+      },
+      "MultiTimeframeTechnical": {
+        "properties": {
+          "daily": {
+            "$ref": "#/components/schemas/TechnicalAnalysis"
+          },
+          "weekly": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TechnicalAnalysis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "daily"
+        ],
+        "title": "MultiTimeframeTechnical",
+        "description": "Multi-timeframe technical payload.\n\nEmitted when the technical module ran with include_weekly=True: the daily\nobject stays the canonical score source, weekly rides alongside so the\nfrontend can render true multi-timeframe columns."
       },
       "OptimizeRequest": {
         "properties": {
@@ -3375,6 +4773,63 @@
         "title": "PositionSizeResponse",
         "description": "Position size calculation result."
       },
+      "RefreshRequest": {
+        "properties": {
+          "symbols": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbols",
+            "description": "Tickers to pre-warm. If null, uses the default watchlist."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RefreshRequest",
+        "description": "Optional body for POST /admin/refresh-data. If symbols is omitted,\nthe DEFAULT_WATCHLIST is used."
+      },
+      "RefreshResponse": {
+        "properties": {
+          "refreshed": {
+            "type": "integer",
+            "title": "Refreshed"
+          },
+          "failed": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Failed"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "title": "Duration Ms"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "refreshed",
+          "failed",
+          "duration_ms",
+          "timestamp"
+        ],
+        "title": "RefreshResponse"
+      },
       "RegimeIndicator": {
         "properties": {
           "name": {
@@ -3511,6 +4966,49 @@
         "type": "object",
         "title": "ReportRequest",
         "description": "POST /api/v1/backtest/{run_id}/report request body."
+      },
+      "RiskAssessment": {
+        "properties": {
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "volatility_regime": {
+            "type": "string",
+            "title": "Volatility Regime"
+          },
+          "suggested_stop_pct": {
+            "type": "number",
+            "title": "Suggested Stop Pct"
+          },
+          "suggested_position_size_pct": {
+            "type": "number",
+            "title": "Suggested Position Size Pct"
+          },
+          "max_risk_per_trade_pct": {
+            "type": "number",
+            "title": "Max Risk Per Trade Pct",
+            "default": 1.0
+          },
+          "findings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Findings"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "score",
+          "volatility_regime",
+          "suggested_stop_pct",
+          "suggested_position_size_pct",
+          "findings"
+        ],
+        "title": "RiskAssessment",
+        "description": "Risk and position sizing analysis."
       },
       "RiskKellyRequest": {
         "properties": {
@@ -3676,6 +5174,60 @@
               }
             ],
             "title": "Probable Fund Reason"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerdictResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "binary_risk": {
+            "type": "boolean",
+            "title": "Binary Risk",
+            "default": false
+          },
+          "earnings_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Earnings Date"
+          },
+          "catalyst_signals": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalyst Signals"
+          },
+          "catalyst_confluence_count": {
+            "type": "integer",
+            "title": "Catalyst Confluence Count",
+            "default": 0
+          },
+          "catalyst_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalyst Summary"
           }
         },
         "additionalProperties": false,
@@ -4006,6 +5558,110 @@
         "title": "SectorRotationSummary",
         "description": "Sector rotation context for the morning brief."
       },
+      "SentimentAnalysis": {
+        "properties": {
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "analyst_consensus": {
+            "type": "string",
+            "title": "Analyst Consensus",
+            "default": "N/A"
+          },
+          "insider_status": {
+            "type": "string",
+            "title": "Insider Status",
+            "default": "neutral"
+          },
+          "short_interest_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Short Interest Pct"
+          },
+          "days_to_cover": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days To Cover"
+          },
+          "institutional_ownership": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institutional Ownership"
+          },
+          "beta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beta"
+          },
+          "target_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Price"
+          },
+          "target_upside_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Upside Pct"
+          },
+          "undervalued": {
+            "type": "boolean",
+            "title": "Undervalued",
+            "default": false
+          },
+          "findings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Findings"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "score",
+          "findings"
+        ],
+        "title": "SentimentAnalysis",
+        "description": "Market sentiment and insider activity signals."
+      },
       "SimplifiedVerdictResponse": {
         "properties": {
           "symbol": {
@@ -4094,6 +5750,170 @@
         "title": "SimplifiedVerdictResponse",
         "description": "Simplified verdict \u2014 the essential info a working pro needs."
       },
+      "SyncExitsRequest": {
+        "properties": {
+          "apply": {
+            "type": "boolean",
+            "title": "Apply",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "SyncExitsRequest"
+      },
+      "SyncExitsResponse": {
+        "properties": {
+          "updated": {
+            "type": "integer",
+            "title": "Updated"
+          },
+          "skipped": {
+            "type": "integer",
+            "title": "Skipped"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SyncExitsResponseItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "updated",
+          "skipped",
+          "items",
+          "message"
+        ],
+        "title": "SyncExitsResponse"
+      },
+      "SyncExitsResponseItem": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "exit_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Date"
+          },
+          "exit_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Price"
+          },
+          "exit_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Reason"
+          },
+          "realized_r": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Realized R"
+          },
+          "pnl_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pnl Usd"
+          },
+          "mfe_r": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mfe R"
+          },
+          "mae_r": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mae R"
+          },
+          "plan_adherence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Adherence"
+          },
+          "applied": {
+            "type": "boolean",
+            "title": "Applied",
+            "default": false
+          },
+          "skipped": {
+            "type": "boolean",
+            "title": "Skipped",
+            "default": false
+          },
+          "skip_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skip Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol"
+        ],
+        "title": "SyncExitsResponseItem"
+      },
       "TVScreenRequest": {
         "properties": {
           "config": {
@@ -4119,6 +5939,18 @@
             "type": "boolean",
             "title": "Multi Timeframe",
             "default": false
+          },
+          "enrich_with_catalysts": {
+            "type": "boolean",
+            "title": "Enrich With Catalysts",
+            "default": false
+          },
+          "min_confluence": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 0.0,
+            "title": "Min Confluence",
+            "default": 0
           }
         },
         "additionalProperties": false,
@@ -4127,7 +5959,7 @@
           "config"
         ],
         "title": "TVScreenRequest",
-        "description": "Request for TV Screener discovery.\n\n`config` can be a dict (inline ScreenConfig) or a string (template name)."
+        "description": "Request for TV Screener discovery.\n\n`config` can be a dict (inline ScreenConfig) or a string (template name).\n`enrich_with_catalysts` (D-47 PR 1) runs the 5 D-46 catalyst signals\n(sector RS, post-earnings drift, analyst revision, insider cluster,\noptions flow) on each result. Off by default because it adds 5-10s\nper result; turn on for the morning-ritual screen."
       },
       "TVScreenResponse": {
         "properties": {
@@ -4171,6 +6003,225 @@
         ],
         "title": "TVScreenResponse"
       },
+      "TechnicalAnalysis": {
+        "properties": {
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "ma_alignment": {
+            "type": "string",
+            "title": "Ma Alignment"
+          },
+          "rsi": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rsi"
+          },
+          "rsi_regime": {
+            "type": "string",
+            "title": "Rsi Regime"
+          },
+          "adx": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adx"
+          },
+          "adx_verdict": {
+            "type": "string",
+            "title": "Adx Verdict"
+          },
+          "atr_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Atr Pct"
+          },
+          "volatility_regime": {
+            "type": "string",
+            "title": "Volatility Regime"
+          },
+          "volume_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volume Ratio"
+          },
+          "avg_daily_volume_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Daily Volume Usd"
+          },
+          "bb_position": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bb Position"
+          },
+          "macd_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Macd Status"
+          },
+          "structure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Structure"
+          },
+          "swing_highs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swing Highs"
+          },
+          "swing_lows": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swing Lows"
+          },
+          "key_resistance": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Resistance"
+          },
+          "key_support": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Support"
+          },
+          "pullback_quality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pullback Quality"
+          },
+          "pullback_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pullback Score"
+          },
+          "findings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Findings"
+          },
+          "chart_reading": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChartReadingAnalysis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "score",
+          "ma_alignment",
+          "rsi_regime",
+          "adx_verdict",
+          "volatility_regime",
+          "findings"
+        ],
+        "title": "TechnicalAnalysis",
+        "description": "Technical indicator regime and findings."
+      },
       "TickerAnalysisRequest": {
         "properties": {
           "symbol": {
@@ -4213,6 +6264,196 @@
         ],
         "title": "TickerAnalysisRequest",
         "description": "Request to analyze a single ticker."
+      },
+      "TickerAnalysisResponse": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price"
+          },
+          "change_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Pct"
+          },
+          "sector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector"
+          },
+          "technical": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TechnicalAnalysis"
+              },
+              {
+                "$ref": "#/components/schemas/MultiTimeframeTechnical"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Technical"
+          },
+          "fundamental": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FundamentalAnalysis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "earnings": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EarningsAnalysis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sentiment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SentimentAnalysis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "risk": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RiskAssessment"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/AnalysisVerdict"
+          },
+          "execution_ms": {
+            "type": "integer",
+            "title": "Execution Ms"
+          },
+          "analysis_timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysis Timestamp"
+          },
+          "data_age_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Age Hours"
+          },
+          "data_sources": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Sources"
+          },
+          "stale_warning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stale Warning"
+          },
+          "data_quality_warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Data Quality Warnings",
+            "default": []
+          },
+          "macro_context": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Macro Context"
+          },
+          "options_flow": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options Flow"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "symbol",
+          "verdict",
+          "execution_ms"
+        ],
+        "title": "TickerAnalysisResponse",
+        "description": "Complete ticker analysis response combining all dimensions."
       },
       "TickerBrief": {
         "properties": {
@@ -4284,6 +6525,44 @@
             "type": "object",
             "title": "Education Hints",
             "default": {}
+          },
+          "catalyst_breakout": {
+            "type": "boolean",
+            "title": "Catalyst Breakout",
+            "default": false
+          },
+          "catalyst_breakout_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalyst Breakout Reason"
+          },
+          "days_to_earnings": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days To Earnings"
+          },
+          "thesis_one_liner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thesis One Liner"
           }
         },
         "additionalProperties": false,
@@ -4301,6 +6580,226 @@
         ],
         "title": "TickerBrief",
         "description": "A single ticker result within a morning brief screen section."
+      },
+      "TimeframeChartReading": {
+        "properties": {
+          "timeframe": {
+            "type": "string",
+            "title": "Timeframe"
+          },
+          "bos_events": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Bos Events"
+          },
+          "choch_events": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Choch Events"
+          },
+          "structure_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Structure Label"
+          },
+          "tpo_profiles": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Tpo Profiles"
+          },
+          "composite_tpo_profile": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Composite Tpo Profile"
+          },
+          "order_blocks": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Order Blocks"
+          },
+          "fair_value_gaps": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Fair Value Gaps"
+          },
+          "breaker_blocks": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Breaker Blocks"
+          },
+          "liquidity_levels": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Liquidity Levels"
+          },
+          "breakout_events": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Breakout Events"
+          },
+          "data_quality_warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Data Quality Warnings"
+          },
+          "timeframes_analyzed": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Timeframes Analyzed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "timeframe"
+        ],
+        "title": "TimeframeChartReading",
+        "description": "Chart reading signals for a single timeframe."
+      },
+      "TradePlan": {
+        "properties": {
+          "scale_in": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Scale In",
+            "default": []
+          },
+          "scale_out": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Scale Out",
+            "default": []
+          },
+          "trail_type": {
+            "type": "string",
+            "title": "Trail Type",
+            "default": "atr"
+          },
+          "trail_value": {
+            "type": "number",
+            "title": "Trail Value",
+            "default": 2.0
+          },
+          "trail_activation_r": {
+            "type": "number",
+            "title": "Trail Activation R",
+            "default": 1.0
+          },
+          "move_to_breakeven_at_r": {
+            "type": "number",
+            "title": "Move To Breakeven At R",
+            "default": 1.0
+          },
+          "max_hold_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Hold Days"
+          },
+          "max_position_pct": {
+            "type": "number",
+            "title": "Max Position Pct",
+            "default": 10.0
+          },
+          "daily_loss_limit_pct": {
+            "type": "number",
+            "title": "Daily Loss Limit Pct",
+            "default": 2.0
+          },
+          "entry_basis": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Basis"
+          },
+          "structural_stop_level": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Structural Stop Level"
+          },
+          "structural_target_levels": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Structural Target Levels",
+            "default": []
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "TradePlan",
+        "description": "Dynamic trade management plan \u2014 scale in/out, trail stops, breakeven rules."
       },
       "ValidationError": {
         "properties": {
@@ -4341,6 +6840,38 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VerdictResponse": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "tone": {
+            "type": "string",
+            "title": "Tone"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "action",
+          "tone",
+          "summary"
+        ],
+        "title": "VerdictResponse",
+        "description": "Plain-English second opinion for one screened ticker.\n\nHelps a beginner understand *why* a candidate is (or isn't) a clean swing\nentry without reading the cryptic proxy columns. `action` uses the same\nvocabulary as the ticker page / Morning Brief so it never contradicts them."
       },
       "WatchlistAnalyzeRequest": {
         "properties": {
@@ -4405,6 +6936,17 @@
               }
             ],
             "title": "Position Size"
+          },
+          "days_to_earnings": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days To Earnings"
           }
         },
         "additionalProperties": false,
@@ -4416,6 +6958,64 @@
         ],
         "title": "WatchlistItemResponse",
         "description": "Individual watchlist item verdict."
+      },
+      "WatchlistRefreshResponse": {
+        "properties": {
+          "refresh_time": {
+            "type": "string",
+            "title": "Refresh Time"
+          },
+          "tickers": {
+            "items": {
+              "$ref": "#/components/schemas/WatchlistItemResponse"
+            },
+            "type": "array",
+            "title": "Tickers"
+          },
+          "verdict_changes": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Verdict Changes"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WatchlistItemResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "refresh_time",
+          "tickers",
+          "verdict_changes",
+          "items"
+        ],
+        "title": "WatchlistRefreshResponse",
+        "description": "Result of a watchlist refresh \u2014 new verdicts + any verdict changes."
+      },
+      "WatchlistTickersUpdate": {
+        "properties": {
+          "symbols": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Symbols"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "symbols"
+        ],
+        "title": "WatchlistTickersUpdate",
+        "description": "Request body for adding tickers to the watchlist."
       }
     }
   },

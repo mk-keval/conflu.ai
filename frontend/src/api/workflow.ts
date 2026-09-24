@@ -34,6 +34,8 @@ export interface PortfolioResponse {
 
 // ── API calls ──
 
-export async function analyzePortfolio(symbols: string[]): Promise<PortfolioResponse> {
+export async function analyzePortfolio(
+  symbols: string[]
+): Promise<PortfolioResponse> {
   return apiPost<PortfolioResponse>('/api/v1/portfolio/analyze', { symbols });
 }

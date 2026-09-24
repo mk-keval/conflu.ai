@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { AlertPreferences, InAppAlert, RiskTolerance } from '@/types/professional';
+import type {
+  AlertPreferences,
+  InAppAlert,
+  RiskTolerance,
+} from '@/types/professional';
 
 // ── Default Alert Preferences ──
 
@@ -69,11 +73,9 @@ export const useProModeStore = create<ProModeStore>()(
           startDate: state.startDate || new Date().toISOString(),
         })),
 
-      setAccountSize: (size) =>
-        set({ accountSize: Math.max(5000, size) }),
+      setAccountSize: (size) => set({ accountSize: Math.max(5000, size) }),
 
-      setRiskTolerance: (tol) =>
-        set({ riskTolerance: tol }),
+      setRiskTolerance: (tol) => set({ riskTolerance: tol }),
 
       updateAlertPreferences: (prefs) =>
         set((state) => ({
@@ -104,8 +106,7 @@ export const useProModeStore = create<ProModeStore>()(
           notifications: state.notifications.map((n) => ({ ...n, read: true })),
         })),
 
-      clearNotifications: () =>
-        set({ notifications: [] }),
+      clearNotifications: () => set({ notifications: [] }),
 
       resetProgress: () =>
         set({

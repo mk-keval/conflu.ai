@@ -12,7 +12,12 @@ interface ColumnHeaderProps {
   onSort: (key: string) => void;
 }
 
-export function ColumnHeader({ column, sortKey, sortDir, onSort }: ColumnHeaderProps) {
+export function ColumnHeader({
+  column,
+  sortKey,
+  sortDir,
+  onSort,
+}: ColumnHeaderProps) {
   const isSorted = sortKey === column.key;
 
   return (

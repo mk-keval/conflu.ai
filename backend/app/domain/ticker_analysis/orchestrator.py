@@ -157,6 +157,21 @@ def _compute_missing_technicals(symbol: str, tv_data: dict[str, Any]) -> dict[st
                 if not pd.isna(last):
                     result["SMA20"] = round(float(last), 2)
 
+        # Mentor liquidity metric — 10-day mean dollar volume (Close × Volume).
+        # Mirrors technical.py:426-429 (avg_daily_volume_usd_calc), taught at
+        # technical.py:945/1104 ("20-Day Avg Daily Value: how much capital is
+        # genuinely committed"). The merge manifest below (orchestrator.py:546)
+        # carries this key into tv_data so the synthesis calc gate
+        # (synthesis.py:834) fires on the mentor's OWN mean — the raw-TV gate
+        # keys on the screener's point-in-time dollar_volume, which can print a
+        # fat spike today yet stay structurally illiquid on a 10-day mean.
+        if not tv_data.get("avg_daily_volume_usd_calc") and len(hist) >= 10:
+            mentor_dollar_series = hist["Close"] * hist["Volume"]
+            if mentor_dollar_series is not None and len(mentor_dollar_series) >= 10:
+                mentor_dollar_mean = mentor_dollar_series.tail(10).mean()
+                if not pd.isna(mentor_dollar_mean):
+                    result["avg_daily_volume_usd_calc"] = round(float(mentor_dollar_mean), 2)
+
         return result
     except Exception:
         log.warning("technical_data_fallback_failed", symbol=symbol)
@@ -546,6 +561,9 @@ class TickerAnalysisService:
         for key in ("RSI", "ADX", "MACD.macd", "MACD.signal", "SMA20"):
             if not tv_data.get(key) and computed.get(key):
                 tv_data[key] = computed[key]
+        # Zero dollar volume is evidence of illiquidity, not missing data.
+        if tv_data.get("avg_daily_volume_usd_calc") is None and computed.get("avg_daily_volume_usd_calc") is not None:
+            tv_data["avg_daily_volume_usd_calc"] = computed["avg_daily_volume_usd_calc"]
 
         # Cross-reference RSI/ADX: log + reconcile when discrepancy > 5 points
         for key in ("RSI", "ADX"):

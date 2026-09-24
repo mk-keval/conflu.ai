@@ -31,7 +31,7 @@ export function Header() {
   });
 
   return (
-    <header className="relative z-30 flex h-14 items-center justify-between border-b border-white/10 bg-surface/60 backdrop-blur-xl px-4 gap-4">
+    <header className="relative z-30 flex h-14 items-center justify-between gap-4 border-b border-white/10 bg-surface/60 px-4 backdrop-blur-xl">
       <div className="relative w-full max-w-[140px] sm:max-w-[180px] lg:max-w-md">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
@@ -41,12 +41,12 @@ export function Header() {
             placeholder="Search symbols... (/)"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-10 rounded-lg border border-border/60 bg-background px-3 py-2 text-sm text-text-primary placeholder-text-muted outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all duration-150"
+            className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 pl-10 pr-10 text-sm text-text-primary placeholder-text-muted outline-none transition-all duration-150 focus:border-accent focus:ring-2 focus:ring-accent/20"
           />
           {searchQuery && (
             <button
               onClick={handleClearSearch}
-              className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
+              className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted transition-colors hover:text-text-primary"
               aria-label="Clear search"
             >
               <X className="h-4 w-4" />
@@ -61,7 +61,7 @@ export function Header() {
         <button
           onClick={toggleProMode}
           className={cn(
-            'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors',
+            'flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors',
             enabled
               ? 'border-accent/30 bg-accent/10 text-accent'
               : 'border-border/60 bg-white/[0.04] text-text-muted hover:text-text-primary'
@@ -73,7 +73,9 @@ export function Header() {
           ) : (
             <User className="h-3.5 w-3.5" />
           )}
-          <span className="hidden sm:inline">{enabled ? 'Guided' : 'Explorer'}</span>
+          <span className="hidden sm:inline">
+            {enabled ? 'Guided' : 'Explorer'}
+          </span>
         </button>
 
         {/* Notification bell */}

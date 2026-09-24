@@ -1,27 +1,35 @@
 import { useState } from 'react';
-import { Target, Eye, Ban, ShieldAlert, ChevronRight, ChevronDown } from 'lucide-react';
+import {
+  Target,
+  Eye,
+  Ban,
+  ShieldAlert,
+  ChevronRight,
+  ChevronDown,
+} from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useSectorFocus } from '@/hooks/useMarketRegime';
 import type { SectorFocusEntry } from '@/types/sector';
 
-const VERDICT_STYLES: Record<string, { chip: string; icon: React.ReactNode }> = {
-  FOCUS: {
-    chip: 'bg-gain/15 text-gain border border-gain/40',
-    icon: <Target className="h-3.5 w-3.5" />,
-  },
-  WATCH: {
-    chip: 'bg-warning/10 text-warning border border-warning/30',
-    icon: <Eye className="h-3.5 w-3.5" />,
-  },
-  AVOID: {
-    chip: 'bg-loss/10 text-loss border border-loss/30',
-    icon: <Ban className="h-3.5 w-3.5" />,
-  },
-  AVOID_RELATIVE: {
-    chip: 'bg-loss/5 text-loss/80 border border-loss/20',
-    icon: <Ban className="h-3.5 w-3.5" />,
-  },
-};
+const VERDICT_STYLES: Record<string, { chip: string; icon: React.ReactNode }> =
+  {
+    FOCUS: {
+      chip: 'bg-gain/15 text-gain border border-gain/40',
+      icon: <Target className="h-3.5 w-3.5" />,
+    },
+    WATCH: {
+      chip: 'bg-warning/10 text-warning border border-warning/30',
+      icon: <Eye className="h-3.5 w-3.5" />,
+    },
+    AVOID: {
+      chip: 'bg-loss/10 text-loss border border-loss/30',
+      icon: <Ban className="h-3.5 w-3.5" />,
+    },
+    AVOID_RELATIVE: {
+      chip: 'bg-loss/5 text-loss/80 border border-loss/20',
+      icon: <Ban className="h-3.5 w-3.5" />,
+    },
+  };
 
 function EntryRow({
   entry,
@@ -39,26 +47,34 @@ function EntryRow({
     <div
       className={cn(
         'rounded-lg p-3',
-        isFocus ? 'bg-gain/[0.06] border border-gain/25' : 'bg-surface-hover/40 border border-border/40'
+        isFocus
+          ? 'border border-gain/25 bg-gain/[0.06]'
+          : 'border border-border/40 bg-surface-hover/40'
       )}
     >
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className={cn('inline-flex items-center gap-1 text-[11px] font-bold uppercase px-2 py-0.5 rounded-full', style.chip)}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className={cn(
+            'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold uppercase',
+            style.chip
+          )}
+        >
           {style.icon} {entry.verdict.replace('_', ' ')}
         </span>
         <span className="text-sm font-semibold text-text-primary">
           {entry.name}
-          <span className="text-text-muted font-normal"> · {entry.symbol}</span>
+          <span className="font-normal text-text-muted"> · {entry.symbol}</span>
         </span>
-        {entry.score != null && (
-          <FocusScore score={entry.score} />
-        )}
+        {entry.score != null && <FocusScore score={entry.score} />}
       </div>
       {!compact && entry.reasons.length > 0 && (
         <ul className="mt-1.5 space-y-0.5">
           {entry.reasons.map((r, i) => (
-            <li key={i} className="text-xs text-text-secondary flex items-start gap-1.5">
-              <span className="text-text-muted shrink-0">•</span>
+            <li
+              key={i}
+              className="flex items-start gap-1.5 text-xs text-text-secondary"
+            >
+              <span className="shrink-0 text-text-muted">•</span>
               <span>{r}</span>
             </li>
           ))}
@@ -67,7 +83,7 @@ function EntryRow({
       {isFocus && onHunt && (
         <button
           onClick={() => onHunt(entry.name)}
-          className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-accent hover:text-accent/80 transition-colors"
+          className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-accent transition-colors hover:text-accent/80"
         >
           Hunt swing candidates in {entry.name}
           <ChevronRight className="h-3 w-3" />
@@ -77,13 +93,14 @@ function EntryRow({
   );
 }
 
-export function SectorFocusCard({ compact = false }: { compact?: boolean }) {  const { data, isLoading, error } = useSectorFocus();
+export function SectorFocusCard({ compact = false }: { compact?: boolean }) {
+  const { data, isLoading, error } = useSectorFocus();
 
   if (isLoading && !data) {
     return (
-      <div className="rounded-xl border border-border bg-surface p-4 animate-pulse">
-        <div className="h-3 w-40 bg-surface-hover rounded mb-3" />
-        <div className="h-16 bg-surface-hover rounded" />
+      <div className="animate-pulse rounded-xl border border-border bg-surface p-4">
+        <div className="mb-3 h-3 w-40 rounded bg-surface-hover" />
+        <div className="h-16 rounded bg-surface-hover" />
       </div>
     );
   }
@@ -94,9 +111,12 @@ export function SectorFocusCard({ compact = false }: { compact?: boolean }) {  c
   };
 
   return (
-    <section aria-label="This week's sector focus" className="rounded-xl border border-accent/25 bg-surface p-4">
-      <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
-        <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+    <section
+      aria-label="This week's sector focus"
+      className="rounded-xl border border-accent/25 bg-surface p-4"
+    >
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-text-primary">
           <Target className="h-4 w-4 text-accent" /> This Week's Sector Focus
         </h2>
         <div className="flex items-center gap-2 text-[10px] text-text-muted">
@@ -105,37 +125,48 @@ export function SectorFocusCard({ compact = false }: { compact?: boolean }) {  c
           </span>
           <span>·</span>
           <span title={new Date(data.next_refresh_at).toLocaleString()}>
-            refreshes {new Date(data.next_refresh_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            refreshes{' '}
+            {new Date(data.next_refresh_at).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
           </span>
         </div>
       </div>
 
       {data.no_hunt_mode ? (
-        <div className="flex items-start gap-2 rounded-lg bg-loss/5 border border-loss/30 p-3">
-          <ShieldAlert className="h-4 w-4 text-loss mt-0.5 shrink-0" />
+        <div className="flex items-start gap-2 rounded-lg border border-loss/30 bg-loss/5 p-3">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-loss" />
           <div>
             <p className="text-sm font-semibold text-loss">No-hunt mode</p>
-            <p className="text-xs text-text-secondary mt-0.5">
-              Broad market weakness detected — capital preservation first. Re-check after conditions stabilize.
+            <p className="mt-0.5 text-xs text-text-secondary">
+              Broad market weakness detected — capital preservation first.
+              Re-check after conditions stabilize.
             </p>
           </div>
         </div>
       ) : data.focus.length === 0 ? (
-        <p className="text-sm text-text-muted py-2">
+        <p className="py-2 text-sm text-text-muted">
           No sector clears the bar this week. Patience is a position.
         </p>
       ) : (
         <div className="space-y-2">
           {data.focus.map((e) => (
-            <EntryRow key={e.symbol} entry={e} onHunt={handleHunt} compact={compact} />
+            <EntryRow
+              key={e.symbol}
+              entry={e}
+              onHunt={handleHunt}
+              compact={compact}
+            />
           ))}
         </div>
       )}
 
       {!compact && data.watch.length > 0 && (
-        <details className="mt-3 group">
-          <summary className="cursor-pointer text-xs font-semibold text-text-muted hover:text-text-secondary flex items-center gap-1.5">
-            <Eye className="h-3 w-3" /> Watch ({data.watch.length}) — rising, not yet confirmed
+        <details className="group mt-3">
+          <summary className="flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-text-muted hover:text-text-secondary">
+            <Eye className="h-3 w-3" /> Watch ({data.watch.length}) — rising,
+            not yet confirmed
           </summary>
           <div className="mt-2 space-y-2">
             {data.watch.slice(0, 4).map((e) => (
@@ -146,8 +177,8 @@ export function SectorFocusCard({ compact = false }: { compact?: boolean }) {  c
       )}
 
       {!compact && data.avoid.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-border/40">
-          <p className="text-xs font-semibold text-text-muted flex items-center gap-1.5 mb-1.5">
+        <div className="mt-3 border-t border-border/40 pt-3">
+          <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-text-muted">
             <Ban className="h-3 w-3" /> Skip for longs this week
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -155,7 +186,7 @@ export function SectorFocusCard({ compact = false }: { compact?: boolean }) {  c
               <span
                 key={e.symbol}
                 title={e.reasons.join(' · ')}
-                className="text-[11px] px-2 py-0.5 rounded-full bg-loss/5 text-loss/80 border border-loss/20 cursor-help"
+                className="cursor-help rounded-full border border-loss/20 bg-loss/5 px-2 py-0.5 text-[11px] text-loss/80"
               >
                 {e.name}
               </span>
@@ -183,14 +214,16 @@ function FocusScore({ score }: { score: number }) {
           e.stopPropagation();
           setOpen((o) => !o);
         }}
-        className="inline-flex items-center gap-1 text-xs font-mono text-text-secondary hover:text-accent transition-colors"
+        className="inline-flex items-center gap-1 font-mono text-xs text-text-secondary transition-colors hover:text-accent"
         aria-expanded={open}
       >
         {Math.round(score)}/100
-        <ChevronDown className={cn('h-3 w-3 transition-transform', open && 'rotate-180')} />
+        <ChevronDown
+          className={cn('h-3 w-3 transition-transform', open && 'rotate-180')}
+        />
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-64 rounded-lg border border-border bg-surface p-3 shadow-xl text-xs">
+        <div className="absolute right-0 top-full z-50 mt-1 w-64 rounded-lg border border-border bg-surface p-3 text-xs shadow-xl">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
             How this score is built
           </p>
@@ -202,18 +235,24 @@ function FocusScore({ score }: { score: number }) {
               ['Volume confirmation', '15%'],
             ].map(([label, weight]) => (
               <li key={label} className="flex items-center gap-2">
-                <span className="h-1.5 rounded-sm bg-accent/60" style={{ width: `${parseInt(weight) * 1.6}px` }} />
+                <span
+                  className="h-1.5 rounded-sm bg-accent/60"
+                  style={{ width: `${parseInt(weight) * 1.6}px` }}
+                />
                 <span className="text-text-primary">{label}</span>
-                <span className="ml-auto font-mono text-text-muted">{weight}</span>
+                <span className="ml-auto font-mono text-text-muted">
+                  {weight}
+                </span>
               </li>
             ))}
-            <li className="flex items-center justify-between pt-1 border-t border-border/50">
+            <li className="flex items-center justify-between border-t border-border/50 pt-1">
               <span className="text-text-muted">Improvement bonus</span>
               <span className="font-mono text-gain">up to +10</span>
             </li>
           </ul>
           <p className="mt-2 text-[10px] leading-relaxed text-text-muted">
-            In weak markets the score is capped or demoted to WATCH regardless of components — capital protection first.
+            In weak markets the score is capped or demoted to WATCH regardless
+            of components — capital protection first.
           </p>
         </div>
       )}

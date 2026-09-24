@@ -1,0 +1,748 @@
+"""Workflow API router (plan Sec.2B, Sec.2E).
+
+Exposes the paper-trade journal as a read-only API so the frontend can
+hydrate its local store from the CSV ledger (D7: single source of truth).
+
+Also exposes the enforcement endpoints for the 2-touchpoint daily routine:
+- POST /api/v1/workflow/paper-trades/enforce  — Touchpoint A: run gate + write journal
+- POST /api/v1/workflow/paper-trades/sync-exits  — Touchpoint B: infer + apply exits
+"""
+
+from __future__ import annotations
+
+import csv
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any, Literal
+
+from fastapi import APIRouter, Body, HTTPException, Query
+from pydantic import BaseModel
+
+from backend.app.api.schemas import ApiResponse, MetaInfo
+from backend.app.core.logging import get_logger
+
+# Import ticker_analysis first to avoid circular import (see paper_trade_from_brief.py)
+import backend.app.domain.ticker_analysis  # noqa: F401
+
+from backend.app.domain.workflow import exits as exits_mod
+from backend.app.domain.workflow import gate as gate_mod
+from backend.app.domain.workflow import journal as journal_mod
+from backend.app.domain.workflow import sizing as sizing_mod
+from backend.app.domain.ticker_analysis.technical import _fetch_daily_ohlcv
+
+# Re-export journal functions for the existing endpoints
+read_rows = journal_mod.read_rows
+read_open_positions = journal_mod.read_open_positions
+read_closed_trades = journal_mod.read_closed_trades
+sector_exposure = journal_mod.sector_exposure
+available_capital = journal_mod.available_capital
+DEFAULT_TRADES_DIR = journal_mod.DEFAULT_TRADES_DIR
+
+router = APIRouter(prefix="/workflow", tags=["workflow"])
+log = get_logger("conflu.api.workflow")
+
+# Import morning brief service directly (avoid HTTP self-call deadlock)
+from backend.app.infrastructure.professional.morning_brief import MorningBriefService
+
+# Reuse the same constants from paper_trade_from_brief.py
+REPO_ROOT = Path(__file__).resolve().parents[4]
+CSV_DIR = REPO_ROOT / "docs" / "paper_trades"
+CSV_TEMPLATE = CSV_DIR / "TEMPLATE.csv"
+REJECTIONS_PATH = CSV_DIR / "REJECTIONS.csv"
+REJECTIONS_HEADER = [
+    "date_seen", "symbol", "sector", "action", "conviction",
+    "failed_step", "gate_verdict", "reason", "notes",
+]
+GATE_VERSION = "1D-enforcement"
+
+# Singleton service instance (same pattern as professional router)
+_morning_brief_service: MorningBriefService | None = None
+
+
+def _get_morning_brief_service() -> MorningBriefService:
+    global _morning_brief_service
+    if _morning_brief_service is None:
+        _morning_brief_service = MorningBriefService()
+    return _morning_brief_service
+
+
+class JournalRow(BaseModel):
+    """Normalized journal row (both D-50 21-col and D-51 29-col schemas)."""
+    model_config = {"extra": "allow"}
+
+    date_entered: str | None = None
+    symbol: str
+    sector: str | None = None
+    action: str | None = None
+    entry_type: str | None = None
+    entry_price: float | None = None
+    stop_loss: float | None = None
+    target_1: float | None = None
+    target_2: float | None = None
+    position_size_pct: float | None = None
+    account_value: float | None = None
+    shares: float | None = None
+    confluence_count: int | None = None
+    signal_at_entry: float | None = None
+    gate_verdict: str | None = None
+    gate_failed_step: str | None = None
+    entry_low: float | None = None
+    entry_high: float | None = None
+    risk_reward_planned: float | None = None
+    gate_version: str | None = None
+    notes: str | None = None
+    date_closed: str | None = None
+    exit_price: float | None = None
+    exit_reason: str | None = None
+    realized_r: float | None = None
+    pnl_usd: float | None = None
+    mfe_r: float | None = None
+    mae_r: float | None = None
+    plan_adherence: float | None = None
+    _file: str | None = None
+
+
+class JournalResponse(BaseModel):
+    """Journal rows response."""
+    rows: list[JournalRow]
+    count: int
+
+
+class OpenPositionsResponse(BaseModel):
+    """Open positions from the journal."""
+    positions: list[JournalRow]
+    count: int
+    total_size_pct: float
+    sector_exposure: dict[str, float]
+
+
+class ClosedTradesResponse(BaseModel):
+    """Closed trades from the journal."""
+    trades: list[JournalRow]
+    count: int
+    win_rate: float | None
+    expectancy_r: float | None
+    profit_factor: float | None
+
+
+class AvailableCapitalResponse(BaseModel):
+    """Available capital for new positions."""
+    account_value: float
+    open_notional: float
+    available: float
+    sector_exposure: dict[str, float]
+
+
+@router.get(
+    "/journal",
+    summary="Read all journal rows",
+    description="Returns all rows from the paper-trade journal CSV files (both open and closed).",
+)
+async def get_journal(
+    limit: int | None = Query(None, ge=1, le=10000),
+) -> ApiResponse:
+    rows = read_rows()
+    if limit:
+        rows = rows[:limit]
+    return ApiResponse(
+        data=JournalResponse(rows=[JournalRow(**r) for r in rows], count=len(rows)),
+        meta=MetaInfo(),
+    )
+
+
+@router.get(
+    "/journal/open",
+    summary="Read open positions",
+    description="Returns rows with no date_closed (the current open book).",
+)
+async def get_open_positions() -> ApiResponse:
+    rows = read_open_positions()
+    total_size = sum(
+        float(r.get("position_size_pct") or 0.0) for r in rows
+    )
+    return ApiResponse(
+        data=OpenPositionsResponse(
+            positions=[JournalRow(**r) for r in rows],
+            count=len(rows),
+            total_size_pct=round(total_size, 2),
+            sector_exposure=sector_exposure(),
+        ),
+        meta=MetaInfo(),
+    )
+
+
+@router.get(
+    "/journal/closed",
+    summary="Read closed trades",
+    description="Returns rows with a date_closed (the measurable sample for expectancy).",
+)
+async def get_closed_trades() -> ApiResponse:
+    rows = read_closed_trades()
+    wins = 0
+    total_r = 0.0
+    gross_profit = 0.0
+    gross_loss = 0.0
+    for r in rows:
+        rr = float(r.get("realized_r") or 0.0)
+        total_r += rr
+        if rr > 0:
+            wins += 1
+            gross_profit += rr
+        elif rr < 0:
+            gross_loss += abs(rr)
+    count = len(rows)
+    win_rate = wins / count if count else None
+    expectancy = total_r / count if count else None
+    profit_factor = gross_profit / gross_loss if gross_loss else None
+    return ApiResponse(
+        data=ClosedTradesResponse(
+            trades=[JournalRow(**r) for r in rows],
+            count=count,
+            win_rate=win_rate,
+            expectancy_r=expectancy,
+            profit_factor=profit_factor,
+        ),
+        meta=MetaInfo(),
+    )
+
+
+@router.get(
+    "/journal/capital",
+    summary="Available capital for new positions",
+    description="Returns the account value minus open notional, with sector exposure.",
+)
+async def get_available_capital(
+    account_value: float | None = Query(None, gt=0),
+) -> ApiResponse:
+    avail = available_capital(explicit_account_value=account_value)
+    open_rows = read_open_positions()
+    open_notional = sum(
+        (float(r.get("position_size_pct") or 0.0) / 100.0) * (account_value or 100_000.0)
+        for r in open_rows
+    )
+    return ApiResponse(
+        data=AvailableCapitalResponse(
+            account_value=account_value or 100_000.0,
+            open_notional=round(open_notional, 2),
+            available=round(avail, 2),
+            sector_exposure=sector_exposure(),
+        ),
+        meta=MetaInfo(),
+    )
+
+
+@router.get(
+    "/journal/trades-dir",
+    summary="Get the journal directory path",
+    description="Returns the path to the paper-trades directory for debugging.",
+)
+async def get_trades_dir() -> ApiResponse:
+    return ApiResponse(
+        data={"path": str(DEFAULT_TRADES_DIR)},
+        meta=MetaInfo(),
+    )
+
+
+# ── Helper functions (ported from paper_trade_from_brief.py) ──
+
+_OVERALL_LITERALS = ("PASS", "FAIL", "CONDITIONAL")
+
+
+def _normalize_overall(raw: object) -> Literal["PASS", "FAIL", "CONDITIONAL"]:
+    text = str(raw or "").strip().upper()
+    if text in _OVERALL_LITERALS:
+        return text  # type: ignore[return-value]
+    return "CONDITIONAL"
+
+
+def _attached_gate(verdict: dict) -> gate_mod.GateResult | None:
+    gate_dict = (verdict.get("verdict") or {}).get("gate")
+    if not isinstance(gate_dict, dict):
+        return None
+    try:
+        steps = [
+            gate_mod.GateStepResult(
+                name=s["name"], passed=bool(s["passed"]),
+                conditional=bool(s.get("conditional", False)),
+                note=str(s.get("note", "")),
+            )
+            for s in gate_dict.get("steps", [])
+        ]
+        if not steps:
+            return None
+        return gate_mod.GateResult(
+            overall=_normalize_overall(gate_dict.get("overall", "CONDITIONAL")),
+            steps=steps,
+            conviction_score=int(gate_dict.get("conviction_score", 0)),
+            data_gaps=[g for g in gate_dict.get("data_gaps", []) if isinstance(g, str)],
+            evaluated_at=str(gate_dict.get("evaluated_at", "")),
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _reevaluate_portfolio_fit(
+    attached: gate_mod.GateResult,
+    *,
+    symbol: str,
+    stop_loss: float | None,
+    sector: str,
+    position_size_pct: float | None,
+) -> tuple[list[gate_mod.GateStepResult], str]:
+    steps = list(attached.steps)
+    open_positions = journal_mod.read_open_positions()
+    if not open_positions:
+        journal_step = gate_mod.GateStepResult(
+            name="Portfolio Fit", passed=True,
+            note="No open positions in the paper journal — book is verified clear; no count/sector conflicts.",
+        )
+    else:
+        journal_step = gate_mod.evaluate_portfolio_fit(
+            gate_mod.build_gate_input(
+                symbol=symbol,
+                stop_loss=stop_loss,
+                sector=sector,
+                entry_type="initial",
+                position_size_pct=position_size_pct,
+                open_positions=open_positions,
+            )
+        )
+    replaced = False
+    for i, s in enumerate(steps):
+        if s.name == "Portfolio Fit":
+            steps[i] = journal_step
+            replaced = True
+            break
+    if not replaced:
+        steps.append(journal_step)
+    return steps, gate_mod.compute_gate(steps)
+
+
+def _first_unpassed_step(
+    steps: list[gate_mod.GateStepResult],
+) -> tuple[str | None, str | None]:
+    hard_fail = next((s.name for s in steps if not s.passed and not s.conditional), None)
+    first_conditional = next((s.name for s in steps if s.conditional), None)
+    return hard_fail, first_conditional
+
+
+def _load_header() -> list[str]:
+    with CSV_TEMPLATE.open("r", encoding="utf-8") as f:
+        return next(csv.reader(f))
+
+
+def _append_rejection(rejection: dict, trades_dir: Path) -> None:
+    path = trades_dir / "REJECTIONS.csv"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    header = REJECTIONS_HEADER
+    if path.exists() and path.stat().st_size > 0:
+        with path.open("r", encoding="utf-8", newline="") as f:
+            existing = next(csv.reader(f))
+        if existing:
+            header = existing
+            if "date_seen" not in [h.strip() for h in header]:
+                header = REJECTIONS_HEADER
+    with path.open("a", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=header, extrasaction="ignore")
+        w.writerow(rejection)
+
+
+def _patch_row_in_file(path: Path, target: dict, updates: dict[str, object]) -> None:
+    if not path.exists():
+        return
+    with path.open("r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        header = reader.fieldnames or []
+        rows = list(reader)
+    for r in rows:
+        if (r.get("symbol") == target.get("symbol")
+                and r.get("date_entered") == target.get("date_entered")):
+            for k, v in updates.items():
+                r[k] = v
+            break
+    with path.open("w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=header)
+        w.writeheader()
+        w.writerows(rows)
+
+
+# ── Enforce endpoint (Touchpoint A) ──
+
+class EnforceRequest(BaseModel):
+    min_conviction: int = 5
+    only: str | None = None  # comma-separated symbols
+
+
+class EnforceResponseItem(BaseModel):
+    symbol: str
+    gate_verdict: str
+    entry_price: float | None = None
+    stop_loss: float | None = None
+    position_size_pct: float | None = None
+    target_1: float | None = None
+    target_2: float | None = None
+    rejected: bool = False
+    failed_step: str | None = None
+    reason: str | None = None
+
+
+class EnforceResponse(BaseModel):
+    accepted: list[EnforceResponseItem]
+    rejected: list[EnforceResponseItem]
+    message: str
+
+
+@router.post(
+    "/paper-trades/enforce",
+    summary="Touchpoint A — Run gate enforcement and write paper trades",
+    description="Fetches morning brief, evaluates candidates through the 7-step gate, "
+                "and writes accepted trades to today's CSV (like --apply).",
+    response_model=ApiResponse[EnforceResponse],
+)
+async def enforce_paper_trades(
+    request: EnforceRequest = Body(default=EnforceRequest()),
+) -> ApiResponse[EnforceResponse]:
+    trades_dir = CSV_DIR
+    trades_dir.mkdir(parents=True, exist_ok=True)
+
+    # Fetch morning brief using internal service (avoid HTTP self-call)
+    try:
+        service = _get_morning_brief_service()
+        brief_response = await service.generate_morning_brief()
+        brief = brief_response  # MorningBriefResponse object
+        # Convert to dict for compatibility with existing code
+        brief = brief.model_dump(mode="json")
+    except Exception as e:
+        raise HTTPException(502, f"Failed to fetch morning brief: {e}")
+
+    # Collect candidates
+    candidates: list[tuple[str, dict]] = []
+    for section in brief.get("screen_sections", []):
+        for t in section.get("tickers", []):
+            if t.get("conviction", 0) >= request.min_conviction:
+                candidates.append((t["symbol"], t))
+
+    if request.only:
+        wanted = {s.strip().upper() for s in request.only.split(",")}
+        candidates = [(s, t) for s, t in candidates if s in wanted]
+
+    trade_rows = []
+    rejections = []
+    accepted_items = []
+    rejected_items = []
+
+    for sym, brief_t in candidates:
+        try:
+            # Fetch verdict using internal service (avoid HTTP self-call)
+            from backend.app.api.dependencies import get_ticker_analysis_engine
+            from backend.app.domain.ticker_analysis.models import TickerAnalysisRequest
+            
+            engine = await get_ticker_analysis_engine()
+            v_resp = await engine.analyze_async(TickerAnalysisRequest(symbol=sym, timeframe="1D"))
+            verdict = v_resp.model_dump(mode="json")
+
+            # Build row with gate enforcement
+            trade_row, rejection = await _build_row(sym, brief_t, verdict)
+
+            if rejection is not None:
+                rejected_items.append(EnforceResponseItem(
+                    symbol=sym, gate_verdict="FAIL", rejected=True,
+                    failed_step=rejection.get("failed_step"),
+                    reason=rejection.get("reason"),
+                ))
+                rejections.append(rejection)
+                continue
+
+            if trade_row is None:
+                continue
+
+            trade_rows.append(trade_row)
+            accepted_items.append(EnforceResponseItem(
+                symbol=sym,
+                gate_verdict=trade_row["gate_verdict"],
+                entry_price=trade_row.get("entry_price"),
+                stop_loss=trade_row.get("stop_loss"),
+                position_size_pct=trade_row.get("position_size_pct"),
+                target_1=trade_row.get("target_1"),
+                target_2=trade_row.get("target_2"),
+            ))
+
+        except Exception as e:
+            rejected_items.append(EnforceResponseItem(
+                symbol=sym, gate_verdict="FAIL", rejected=True,
+                failed_step="error", reason=str(e),
+            ))
+
+    # Write CSV if any accepted
+    message = f"{len(trade_rows)} accepted, {len(rejections)} rejected"
+    if trade_rows:
+        today = datetime.now(UTC).strftime("%Y-%m-%d")
+        out_path = CSV_DIR / f"{today}.csv"
+        header = _load_header()
+        with out_path.open("w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=header, extrasaction="ignore")
+            w.writeheader()
+            w.writerows(trade_rows)
+        message += f" — written to {today}.csv"
+    else:
+        message += " — no qualifying setups today"
+
+    return ApiResponse(
+        data=EnforceResponse(
+            accepted=accepted_items,
+            rejected=rejected_items,
+            message=message,
+        ),
+        meta=MetaInfo(),
+    )
+
+
+# Build row helper (adapted from paper_trade_from_brief.py)
+async def _build_row(symbol: str, brief_section: dict, verdict: dict) -> tuple[dict | None, dict | None]:
+    """Build a trade row or rejection dict from verdict + gate."""
+    v = verdict.get("verdict") or {}
+    tech = verdict.get("technical") or {}
+    tp = v.get("trade_plan") or {}
+
+    # Extract gate
+    attached = _attached_gate(verdict)
+    if not attached:
+        return None, {
+            "date_seen": datetime.now(UTC).strftime("%Y-%m-%d"),
+            "symbol": symbol, "sector": v.get("sector", ""),
+            "action": v.get("action", ""), "conviction": v.get("conviction", 0),
+            "failed_step": "gate", "gate_verdict": "FAIL",
+            "reason": "No gate attached to verdict", "notes": "",
+        }
+
+    # Re-evaluate Portfolio Fit against journal
+    entry = v.get("entry_zone_low") or v.get("entry_zone_high") or 0
+    stop = v.get("stop_loss") or 0
+    sector = v.get("sector", "")
+    size_pct = v.get("position_size_pct", 0)
+    steps, overall = _reevaluate_portfolio_fit(
+        attached, symbol=symbol, stop_loss=stop, sector=sector, position_size_pct=size_pct,
+    )
+    failed_step, conditional_step = next((s.name for s in steps if not s.passed and not s.conditional), None), \
+                                    next((s.name for s in steps if s.conditional), None)
+
+    # Compute size
+    try:
+        size = sizing_mod.compute_position_size_pct(entry, stop, overall)
+    except ValueError as e:
+        return None, {
+            "date_seen": datetime.now(UTC).strftime("%Y-%m-%d"),
+            "symbol": symbol, "sector": sector, "action": v.get("action", ""),
+            "conviction": v.get("conviction", 0), "failed_step": "sizing",
+            "gate_verdict": "FAIL", "reason": f"Sizing rejected: {e}", "notes": f"entry={entry} stop={stop}",
+        }
+
+    if overall == "FAIL":
+        failed = failed_step or "gate"
+        reason = next((s.note for s in steps if not s.passed and not s.conditional), "Gate failed.")
+        return None, {
+            "date_seen": datetime.now(UTC).strftime("%Y-%m-%d"),
+            "symbol": symbol, "sector": sector, "action": v.get("action", ""),
+            "conviction": v.get("conviction", 0), "failed_step": failed,
+            "gate_verdict": "FAIL", "reason": reason[:250],
+            "notes": f"entry={entry} stop={stop} size_pct={size}",
+        }
+
+    # Accepted row
+    targets = v.get("targets") or []
+    t1 = round(targets[0], 2) if len(targets) >= 1 else ""
+    t2 = round(targets[1], 2) if len(targets) >= 2 else ""
+
+    account_value = journal_mod.available_capital()
+    shares = round((size / 100.0 * account_value) / entry, 2) if entry else ""
+
+    confluence_raw = brief_section.get("confluence_score", 0) if (brief_section := v) else 0
+    confluence_norm = round((confluence_raw or 0) / 20) if confluence_raw else 0
+
+    triggers = v.get("buy_triggers") or []
+    red_flags = v.get("key_red_flags") or []
+    signal = ";".join(triggers[:2]) if triggers else brief_section.get("screen_name", "") if (brief_section := v) else ""
+    notes_parts = []
+    if triggers:
+        notes_parts.append("Triggers: " + "; ".join(triggers[:2]))
+    if red_flags:
+        notes_parts.append("⚠️ " + "; ".join(red_flags[:1]))
+    if confluence_raw:
+        notes_parts.append(f"raw confluence {confluence_raw}/100")
+    if overall == "CONDITIONAL" and conditional_step:
+        notes_parts.append(f"conditional on {conditional_step}")
+    notes = " | ".join(notes_parts)
+
+    trade_row = {
+        "date_entered": datetime.now(UTC).strftime("%Y-%m-%d"),
+        "symbol": symbol,
+        "sector": sector,
+        "action": v.get("action", "ACCUMULATE"),
+        "entry_type": "initial",
+        "entry_price": entry,
+        "stop_loss": stop,
+        "target_1": t1 if (t1 := round(targets[0], 2) if len(targets) >= 1 else "") else "",
+        "target_2": t2 if (t2 := round(targets[1], 2) if len(targets) >= 2 else "") else "",
+        "position_size_pct": size,
+        "account_value": round(account_value, 2),
+        "shares": shares,
+        "confluence_count": confluence_norm,
+        "signal_at_entry": signal[:200],
+        "gate_verdict": overall,
+        "gate_failed_step": conditional_step if overall == "CONDITIONAL" else "",
+        "entry_low": v.get("entry_zone_low"),
+        "entry_high": v.get("entry_zone_high"),
+        "risk_reward_planned": v.get("risk_reward", ""),
+        "gate_version": GATE_VERSION,
+        "notes": notes[:500],
+    }
+    return trade_row, None
+
+
+# ── Sync-exits endpoint (Touchpoint B) ──
+
+class SyncExitsRequest(BaseModel):
+    apply: bool = False
+
+
+class SyncExitsResponseItem(BaseModel):
+    symbol: str
+    exit_date: str | None = None
+    exit_price: float | None = None
+    exit_reason: str | None = None
+    realized_r: float | None = None
+    pnl_usd: float | None = None
+    mfe_r: float | None = None
+    mae_r: float | None = None
+    plan_adherence: float | None = None
+    applied: bool = False
+    skipped: bool = False
+    skip_reason: str | None = None
+
+
+class SyncExitsResponse(BaseModel):
+    updated: int
+    skipped: int
+    items: list[SyncExitsResponseItem]
+    message: str
+
+
+@router.post(
+    "/paper-trades/sync-exits",
+    summary="Touchpoint B — Sync exits from OHLCV (infer + apply)",
+    description="Fetches daily OHLCV for open journal rows, infers exit (stop/target/time), "
+                "and when apply=true writes exit data + plan_adherence to the CSV.",
+    response_model=ApiResponse[SyncExitsResponse],
+)
+async def sync_exits(
+    request: SyncExitsRequest = Body(default=SyncExitsRequest()),
+) -> ApiResponse[SyncExitsResponse]:
+    open_rows = journal_mod.read_open_positions()
+    if not open_rows:
+        return ApiResponse(
+            data=SyncExitsResponse(
+                updated=0, skipped=0, items=[],
+                message="No open journal rows to sync.",
+            ),
+            meta=MetaInfo(),
+        )
+
+    updated = 0
+    skipped = 0
+    items = []
+
+    for row in open_rows:
+        symbol = str(row.get("symbol") or "").strip().upper()
+        if not symbol:
+            skipped += 1
+            items.append(SyncExitsResponseItem(symbol="?", skipped=True, skip_reason="no symbol"))
+            continue
+        entry = journal_mod._as_float(row.get("entry_price"))
+        stop = journal_mod._as_float(row.get("stop_loss"))
+        if not entry or not stop or stop >= entry:
+            skipped += 1
+            items.append(SyncExitsResponseItem(symbol=symbol, skipped=True, skip_reason="invalid geometry"))
+            continue
+        targets = [
+            t for t in (
+                journal_mod._as_float(row.get("target_1")),
+                journal_mod._as_float(row.get("target_2")),
+            ) if t is not None
+        ]
+        max_hold = journal_mod._as_int(row.get("max_hold_days"))
+
+        df = _fetch_daily_ohlcv(symbol)
+        if df is None or df.empty:
+            skipped += 1
+            items.append(SyncExitsResponseItem(symbol=symbol, skipped=True, skip_reason="no OHLCV"))
+            continue
+        bars = []
+        for _, b in df.reset_index().iterrows():
+            d = str(b.get("Date") or b.get("Datetime") or "")[:10]
+            if d < str(row.get("date_entered") or "")[:10]:
+                continue
+            bars.append({
+                "date": d,
+                "open": b["Open"], "high": b["High"],
+                "low": b["Low"], "close": b["Close"],
+            })
+        fill = exits_mod.infer_exit(
+            bars, entry=entry, stop=stop,
+            targets=targets, max_hold_days=max_hold,
+        )
+        if not fill.exit_price or not fill.exit_date:
+            skipped += 1
+            items.append(SyncExitsResponseItem(symbol=symbol, skipped=True, skip_reason="exit not reached"))
+            continue
+
+        realized_r = (fill.exit_price - entry) / (entry - stop)
+        account_value = journal_mod._as_float(row.get("account_value"))
+        pnl_usd = None
+        if account_value:
+            risk_amount = account_value * (journal_mod.position_size_pct(row) / 100.0)
+            pnl_usd = round(realized_r * risk_amount, 2)
+
+        plan_adherence = 1.0 if fill.exit_reason in (exits_mod.EXIT_STOP, exits_mod.EXIT_TARGET_1, exits_mod.EXIT_TARGET_2) else 0.5
+
+        updates = {
+            "date_closed": fill.exit_date,
+            "exit_price": round(fill.exit_price, 2),
+            "exit_reason": fill.exit_reason,
+            "realized_r": round(realized_r, 2),
+            "pnl_usd": pnl_usd,
+            "mfe_r": fill.mfe_r,
+            "mae_r": fill.mae_r,
+            "plan_adherence": plan_adherence,
+        }
+
+        item = SyncExitsResponseItem(
+            symbol=symbol,
+            exit_date=fill.exit_date,
+            exit_price=round(fill.exit_price, 2),
+            exit_reason=fill.exit_reason,
+            realized_r=round(realized_r, 2),
+            pnl_usd=pnl_usd,
+            mfe_r=fill.mfe_r,
+            mae_r=fill.mae_r,
+            plan_adherence=plan_adherence,
+            applied=request.apply,
+        )
+        items.append(item)
+
+        if request.apply:
+            _patch_row_in_file(CSV_DIR / str(row.get("_file")), row, updates)
+            updated += 1
+        else:
+            skipped += 1
+
+    message = f"{updated} exit(s) {'applied' if request.apply else 'would be applied'} ({skipped} skipped)"
+    if not request.apply and updated > 0:
+        message += " — re-run with apply=true to persist"
+
+    return ApiResponse(
+        data=SyncExitsResponse(
+            updated=updated, skipped=skipped, items=items, message=message,
+        ),
+        meta=MetaInfo(),
+    )

@@ -1,5 +1,13 @@
 import { useRef, useEffect } from 'react';
-import { createChart, type IChartApi, type ISeriesApi, type UTCTimestamp, CandlestickSeries, HistogramSeries, LineSeries } from 'lightweight-charts';
+import {
+  createChart,
+  type IChartApi,
+  type ISeriesApi,
+  type UTCTimestamp,
+  CandlestickSeries,
+  HistogramSeries,
+  LineSeries,
+} from 'lightweight-charts';
 import { useResizeObserver } from '@/hooks/useResizeObserver';
 import { useChartStore } from '@/store/chart';
 import type { OHLCVCandle, IndicatorPoint } from '@/types/data';
@@ -92,18 +100,28 @@ export function ChartPane({
     if (!candleSeriesRef.current || candles.length === 0) return;
 
     const mappedCandles = [...candles]
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      .sort(
+        (a, b) =>
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      )
       // Drop placeholder/holiday rows where yfinance returns null OHLC —
       // lightweight-charts throws "open must be a number" on null values,
       // which blanked the whole Charts page (ErrorBoundary).
-      .filter((c) =>
-        c.open !== null && c.open !== undefined &&
-        c.high !== null && c.high !== undefined &&
-        c.low !== null && c.low !== undefined &&
-        c.close !== null && c.close !== undefined
+      .filter(
+        (c) =>
+          c.open !== null &&
+          c.open !== undefined &&
+          c.high !== null &&
+          c.high !== undefined &&
+          c.low !== null &&
+          c.low !== undefined &&
+          c.close !== null &&
+          c.close !== undefined
       )
       .map((c) => ({
-        time: Math.floor(new Date(c.timestamp).getTime() / 1000) as UTCTimestamp,
+        time: Math.floor(
+          new Date(c.timestamp).getTime() / 1000
+        ) as UTCTimestamp,
         open: c.open,
         high: c.high,
         low: c.low,
@@ -132,7 +150,9 @@ export function ChartPane({
         continue;
       }
 
-      const color = INDICATOR_COLORS[indicatorName as keyof typeof INDICATOR_COLORS] || '#7B68EE';
+      const color =
+        INDICATOR_COLORS[indicatorName as keyof typeof INDICATOR_COLORS] ||
+        '#7B68EE';
 
       let series = currentSeries.get(indicatorName);
       if (!series) {
@@ -145,9 +165,14 @@ export function ChartPane({
       }
 
       const mappedData = [...points]
-        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+        .sort(
+          (a, b) =>
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        )
         .map((p) => ({
-          time: Math.floor(new Date(p.timestamp).getTime() / 1000) as UTCTimestamp,
+          time: Math.floor(
+            new Date(p.timestamp).getTime() / 1000
+          ) as UTCTimestamp,
           value: p.value,
         }));
       series.setData(mappedData);
@@ -163,9 +188,11 @@ export function ChartPane({
   }, [indicators, activeIndicators]);
 
   return (
-    <div className="rounded border border-dark-600 bg-dark-900">
-      <div className="flex items-center justify-between border-b border-dark-600 px-3 py-1.5">
-        <span className="text-xs font-medium text-dark-200">{symbol} — {timeframe}</span>
+    <div className="border-dark-600 bg-dark-900 rounded border">
+      <div className="border-dark-600 flex items-center justify-between border-b px-3 py-1.5">
+        <span className="text-dark-200 text-xs font-medium">
+          {symbol} — {timeframe}
+        </span>
       </div>
       <div ref={containerRef} />
     </div>

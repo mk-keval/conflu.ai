@@ -8,7 +8,11 @@ interface LoadScreenModalProps {
   onLoad: (screen: SavedScreenListItem) => void;
 }
 
-export function LoadScreenModal({ open, onClose, onLoad }: LoadScreenModalProps) {
+export function LoadScreenModal({
+  open,
+  onClose,
+  onLoad,
+}: LoadScreenModalProps) {
   const [screens, setScreens] = useState<SavedScreenListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -57,24 +61,32 @@ export function LoadScreenModal({ open, onClose, onLoad }: LoadScreenModalProps)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-lg rounded-lg bg-dark-800 p-6 shadow-xl">
-        <h2 className="mb-4 text-lg font-semibold text-white">Load Saved Screen</h2>
+      <div className="bg-dark-800 w-full max-w-lg rounded-lg p-6 shadow-xl">
+        <h2 className="mb-4 text-lg font-semibold text-white">
+          Load Saved Screen
+        </h2>
 
         {loading ? (
           <div className="py-8 text-center text-gray-400">Loading...</div>
         ) : screens.length === 0 ? (
-          <div className="py-8 text-center text-gray-400">No saved screens yet.</div>
+          <div className="py-8 text-center text-gray-400">
+            No saved screens yet.
+          </div>
         ) : (
           <div className="max-h-80 space-y-2 overflow-y-auto">
             {screens.map((screen) => (
               <div
                 key={screen.id}
-                className="flex items-center justify-between rounded border border-dark-600 p-3"
+                className="border-dark-600 flex items-center justify-between rounded border p-3"
               >
-                <div className="flex-1 cursor-pointer" onClick={() => handleLoad(screen)}>
+                <div
+                  className="flex-1 cursor-pointer"
+                  onClick={() => handleLoad(screen)}
+                >
                   <div className="font-medium text-white">{screen.name}</div>
                   <div className="text-xs text-gray-400">
-                    v{screen.version} &middot; {new Date(screen.updated_at).toLocaleDateString()}
+                    v{screen.version} &middot;{' '}
+                    {new Date(screen.updated_at).toLocaleDateString()}
                     {screen.tags.length > 0 && ` · ${screen.tags.join(', ')}`}
                   </div>
                 </div>

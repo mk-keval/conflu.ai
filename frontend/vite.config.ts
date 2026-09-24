@@ -47,4 +47,9 @@ export default defineConfig({
       },
     },
   },
+  test: {
+    exclude: ['tests/**', 'node_modules/**', '**/tests/**', '**/node_modules/**', '*.e2e.ts', '*.spec.ts'],
+    globals: true,
+    environment: 'jsdom',
+  },
 });

@@ -26,37 +26,87 @@ import { TemplateInfoStrip } from './TemplateInfoStrip';
 import { ScreenerEducation } from './ScreenerEducation';
 import type { WSMessage } from '@/types/ws';
 import type { SectorPerformance } from '@/types/sector';
-import { ChevronDown, Play, Loader2, RefreshCw, Columns, List, BookOpen, TrendingUp, TrendingDown, Gauge } from 'lucide-react';
+import {
+  ChevronDown,
+  Play,
+  Loader2,
+  RefreshCw,
+  Columns,
+  List,
+  BookOpen,
+  TrendingUp,
+  TrendingDown,
+  Gauge,
+} from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { ALL_COLUMNS_META, DEFAULT_VISIBLE_COLUMNS } from './ScreenerTable';
 
 // ── Regime-to-screener recommendation mapping ──
 // Maps market regime labels to recommended / avoid screener configs.
 // Used by TemplateDropdown to show badges (✅ Recommended / ⚠️ Caution).
-const REGIME_SCREENER_MAP: Record<string, { recommended: string[]; avoid: string[] }> = {
+const REGIME_SCREENER_MAP: Record<
+  string,
+  { recommended: string[]; avoid: string[] }
+> = {
   Exuberance: {
-    recommended: ['trend-follower', 'momentum-breakout', '52week-breakout', 'bull-flag-continuation', 'volatility-expansion', 'volume-surge-breakout'],
+    recommended: [
+      'trend-follower',
+      'momentum-breakout',
+      '52week-breakout',
+      'bull-flag-continuation',
+      'volatility-expansion',
+      'volume-surge-breakout',
+    ],
     avoid: ['mean-reversion', 'oversold-bounce', 'low-vol-setup'],
   },
   'Risk-On': {
-    recommended: ['trend-follower', 'trend-follower-mtf', 'momentum-breakout', '52week-breakout', 'bull-flag-continuation', 'high-conviction-stack'],
+    recommended: [
+      'trend-follower',
+      'trend-follower-mtf',
+      'momentum-breakout',
+      '52week-breakout',
+      'bull-flag-continuation',
+      'high-conviction-stack',
+    ],
     avoid: ['distribution', 'breakdown', 'oversold-bounce'],
   },
   Neutral: {
-    recommended: ['high-conviction-stack', 'quality-trend-fundamentals', 'institutional-swing-quality', 'trend-follower-mtf', 'volume-trend-accumulation'],
+    recommended: [
+      'high-conviction-stack',
+      'quality-trend-fundamentals',
+      'institutional-swing-quality',
+      'trend-follower-mtf',
+      'volume-trend-accumulation',
+    ],
     avoid: ['momentum-breakout', 'breakdown'],
   },
   Cautious: {
-    recommended: ['low-vol-setup', 'mean-reversion', 'oversold-bounce', 'volume-trend-accumulation', 'quality-trend-fundamentals'],
+    recommended: [
+      'low-vol-setup',
+      'mean-reversion',
+      'oversold-bounce',
+      'volume-trend-accumulation',
+      'quality-trend-fundamentals',
+    ],
     avoid: ['momentum-breakout', '52week-breakout', 'volatility-expansion'],
   },
   'Risk-Off': {
-    recommended: ['oversold-bounce', 'distribution', 'low-vol-setup', 'mean-reversion'],
-    avoid: ['trend-follower', 'momentum-breakout', '52week-breakout', 'bull-flag-continuation'],
+    recommended: [
+      'oversold-bounce',
+      'distribution',
+      'low-vol-setup',
+      'mean-reversion',
+    ],
+    avoid: [
+      'trend-follower',
+      'momentum-breakout',
+      '52week-breakout',
+      'bull-flag-continuation',
+    ],
   },
   Crisis: {
     recommended: [],
-    avoid: [],  // All screeners are risky — show warning instead
+    avoid: [], // All screeners are risky — show warning instead
   },
 };
 
@@ -76,30 +126,44 @@ const SECTOR_NAME_KEYWORDS: Record<string, string[]> = {
   Energy: ['Energy Minerals'],
   Utilities: ['Utilities'],
   'Real Estate': ['Real Estate'],
-  'Consumer Cyclical': ['Retail Trade', 'Consumer Non-Durables', 'Commercial Services'],
+  'Consumer Cyclical': [
+    'Retail Trade',
+    'Consumer Non-Durables',
+    'Commercial Services',
+  ],
   'Consumer Staples': ['Consumer Non-Durables', 'Retail Trade'],
   'Communication Services': ['Technology Services', 'Commercial Services'],
 };
 
-function getScreenerRecommendation(templateName: string, regimeLabel: string | null): 'recommended' | 'avoid' | null {
+function getScreenerRecommendation(
+  templateName: string,
+  regimeLabel: string | null
+): 'recommended' | 'avoid' | null {
   if (!regimeLabel) return null;
-  const mapping = REGIME_SCREENER_MAP[regimeLabel] ?? DEFAULT_REGIME_RECOMMENDATION;
-  if (mapping.recommended.some((r) => templateName.toLowerCase().includes(r))) return 'recommended';
-  if (mapping.avoid.some((r) => templateName.toLowerCase().includes(r))) return 'avoid';
+  const mapping =
+    REGIME_SCREENER_MAP[regimeLabel] ?? DEFAULT_REGIME_RECOMMENDATION;
+  if (mapping.recommended.some((r) => templateName.toLowerCase().includes(r)))
+    return 'recommended';
+  if (mapping.avoid.some((r) => templateName.toLowerCase().includes(r)))
+    return 'avoid';
   return null;
 }
 
-function RegimeBadge({ recommendation }: { recommendation: 'recommended' | 'avoid' | null }) {
+function RegimeBadge({
+  recommendation,
+}: {
+  recommendation: 'recommended' | 'avoid' | null;
+}) {
   if (recommendation === 'recommended') {
     return (
-      <span className="ml-auto text-[10px] font-semibold text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded shrink-0 flex items-center gap-1">
+      <span className="ml-auto flex shrink-0 items-center gap-1 rounded bg-green-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-green-500">
         <span>Best for today</span>
       </span>
     );
   }
   if (recommendation === 'avoid') {
     return (
-      <span className="ml-auto text-[10px] font-medium text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded shrink-0">
+      <span className="ml-auto shrink-0 rounded bg-red-400/10 px-1.5 py-0.5 text-[10px] font-medium text-red-400">
         ⚠️
       </span>
     );
@@ -125,12 +189,18 @@ function ScreenerContent() {
   const [executionTime, setExecutionTime] = useState(0);
   const [fetchedAt, setFetchedAt] = useState<string>('');
   // Sector filter: initialized from URL ?sector= param, cleared when results change
-  const [sectorFilter, setSectorFilter] = useState<string>(() => searchParams.get('sector') || '');
-  const [sortState, setSortState] = useState<{ key: string | null; dir: 'asc' | 'desc' | null }>({ key: 'score', dir: 'desc' });
+  const [sectorFilter, setSectorFilter] = useState<string>(
+    () => searchParams.get('sector') || ''
+  );
+  const [sortState, setSortState] = useState<{
+    key: string | null;
+    dir: 'asc' | 'desc' | null;
+  }>({ key: 'score', dir: 'desc' });
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
   const [activeTab, setActiveTab] = useState<'results' | 'learn'>('results');
-  const [templateDetails, setTemplateDetails] = useState<ScreenTemplateDetail | null>(null);
+  const [templateDetails, setTemplateDetails] =
+    useState<ScreenTemplateDetail | null>(null);
 
   // Column visibility — persisted in localStorage
   const COL_KEY = 'screener:visible-columns';
@@ -154,7 +224,9 @@ function ScreenerContent() {
 
   // Multi-template convergence tracking: ticker → set of template names
   const MAX_CONVERGENCE_RUNS = 5;
-  const [templateRuns, setTemplateRuns] = useState<{ template: string; tickers: string[] }[]>([]);
+  const [templateRuns, setTemplateRuns] = useState<
+    { template: string; tickers: string[] }[]
+  >([]);
   const convergenceMap = useMemo(() => {
     const map = new Map<string, number>();
     for (const run of templateRuns) {
@@ -167,9 +239,7 @@ function ScreenerContent() {
 
   // Fetch templates on mount
   useEffect(() => {
-    fetchTVTemplates()
-      .then(setTemplates)
-      .catch(console.error);
+    fetchTVTemplates().then(setTemplates).catch(console.error);
   }, []);
 
   // Update selected template when config or templates change
@@ -204,7 +274,9 @@ function ScreenerContent() {
   useEffect(() => {
     if (!selectedTemplate) return;
     fetchTVTemplate(selectedTemplate)
-      .then((data) => setTemplateDetails(data as unknown as ScreenTemplateDetail))
+      .then((data) =>
+        setTemplateDetails(data as unknown as ScreenTemplateDetail)
+      )
       .catch(() => setTemplateDetails(null));
   }, [selectedTemplate]);
 
@@ -233,7 +305,11 @@ function ScreenerContent() {
       setTotalMatches(data.total_matches);
       setExecutionTime(data.execution_ms);
       setFetchedAt(data.fetched_at);
-      setScreenName(data.screen_name.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()));
+      setScreenName(
+        data.screen_name
+          .replace(/-/g, ' ')
+          .replace(/\b\w/g, (c) => c.toUpperCase())
+      );
       setCurrentPage(0); // Reset to first page on new results
 
       // Update convergence tracking (keep last N runs)
@@ -251,7 +327,9 @@ function ScreenerContent() {
   useEffect(() => {
     if (sectorRotationData) {
       useSectorRotationStore.getState().setSectors(sectorRotationData.sectors);
-      useSectorRotationStore.getState().setRotationPhase(sectorRotationData.rotation_phase ?? '');
+      useSectorRotationStore
+        .getState()
+        .setRotationPhase(sectorRotationData.rotation_phase ?? '');
     }
   }, [sectorRotationData]);
 
@@ -278,17 +356,24 @@ function ScreenerContent() {
     await refetch();
   }, [refetch]);
 
-  const handleTemplateChange = useCallback((templateName: string) => {
-    setSelectedTemplate(templateName);
-    const template = templates.find((t) => t.name === templateName);
-    if (template) {
-      setConfig(templateName);
-      setScreenName(template.name.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()));
-    }
-  }, [templates, setConfig]);
+  const handleTemplateChange = useCallback(
+    (templateName: string) => {
+      setSelectedTemplate(templateName);
+      const template = templates.find((t) => t.name === templateName);
+      if (template) {
+        setConfig(templateName);
+        setScreenName(
+          template.name
+            .replace(/-/g, ' ')
+            .replace(/\b\w/g, (c) => c.toUpperCase())
+        );
+      }
+    },
+    [templates, setConfig]
+  );
 
   const handleSort = useCallback((key: string) => {
-    setSortState(prev => {
+    setSortState((prev) => {
       if (prev.key === key) {
         if (prev.dir === null) return { key, dir: 'asc' };
         if (prev.dir === 'asc') return { key, dir: 'desc' };
@@ -308,9 +393,12 @@ function ScreenerContent() {
     setCurrentPage(0);
   }, []);
 
-  const handleRowClick = useCallback((ticker: TVScoredTicker) => {
-    navigate(`/ticker/${ticker.symbol}`);
-  }, [navigate]);
+  const handleRowClick = useCallback(
+    (ticker: TVScoredTicker) => {
+      navigate(`/ticker/${ticker.symbol}`);
+    },
+    [navigate]
+  );
 
   // ── Sector filter logic ──
   // Extract unique sectors from results for the filter pills
@@ -404,17 +492,31 @@ function ScreenerContent() {
           visibleColumns={visibleColumns}
           onToggleColumn={toggleColumn}
         />
-        <div className="flex-1 flex items-center justify-center p-8">
+        <div className="flex flex-1 items-center justify-center p-8">
           <div className="text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-loss-bg flex items-center justify-center">
-              <svg className="w-8 h-8 text-loss" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-loss-bg">
+              <svg
+                className="h-8 w-8 text-loss"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
               </svg>
             </div>
-            <h3 className="text-lg font-medium text-text-primary mb-1">Error Loading Data</h3>
-            <p className="text-text-muted mb-4">{(error as Error)?.message || 'Unknown error occurred'}</p>
+            <h3 className="mb-1 text-lg font-medium text-text-primary">
+              Error Loading Data
+            </h3>
+            <p className="mb-4 text-text-muted">
+              {(error as Error)?.message || 'Unknown error occurred'}
+            </p>
             <button onClick={handleRunScreen} className="btn-primary">
-              <RefreshCw className="w-4 h-4 mr-2" />
+              <RefreshCw className="mr-2 h-4 w-4" />
               Retry
             </button>
           </div>
@@ -450,10 +552,18 @@ function ScreenerContent() {
 
       {/* Tab navigation */}
       <div className="flex border-b border-border bg-surface/20 px-4">
-        {([
-          { key: 'results' as const, label: 'Results', icon: <List className="h-4 w-4" /> },
-          { key: 'learn' as const, label: 'Learn', icon: <BookOpen className="h-4 w-4" /> },
-        ]).map((tab) => (
+        {[
+          {
+            key: 'results' as const,
+            label: 'Results',
+            icon: <List className="h-4 w-4" />,
+          },
+          {
+            key: 'learn' as const,
+            label: 'Learn',
+            icon: <BookOpen className="h-4 w-4" />,
+          },
+        ].map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
@@ -461,7 +571,7 @@ function ScreenerContent() {
               'flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-semibold transition-colors',
               activeTab === tab.key
                 ? 'border-accent text-accent'
-                : 'border-transparent text-text-muted hover:text-text-primary hover:border-border'
+                : 'border-transparent text-text-muted hover:border-border hover:text-text-primary'
             )}
           >
             {tab.icon}
@@ -472,31 +582,33 @@ function ScreenerContent() {
 
       {/* Tab content */}
       {activeTab === 'results' ? (
-        <div className="flex-1 overflow-hidden relative flex flex-col">
+        <div className="relative flex flex-1 flex-col overflow-hidden">
           {/* Sector filter pills */}
           {uniqueSectors.length > 0 && (
-            <div className="flex items-center gap-1.5 px-4 py-2 border-b border-border/30 shrink-0 overflow-x-auto">
+            <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-border/30 px-4 py-2">
               <button
                 onClick={() => setSectorFilter('')}
-                className={`text-xs px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap ${
+                className={`whitespace-nowrap rounded-full border px-2.5 py-1 text-xs transition-colors ${
                   !sectorFilter
-                    ? 'bg-accent/10 border-accent/30 text-accent font-medium'
-                    : 'border-border/50 text-text-muted hover:text-text-primary hover:border-text-muted/30'
+                    ? 'border-accent/30 bg-accent/10 font-medium text-accent'
+                    : 'border-border/50 text-text-muted hover:border-text-muted/30 hover:text-text-primary'
                 }`}
               >
                 All ({results.length})
               </button>
               {uniqueSectors.map((sector) => {
-                const count = results.filter((r) => r.tv_data?.sector === sector).length;
+                const count = results.filter(
+                  (r) => r.tv_data?.sector === sector
+                ).length;
                 const isActive = sectorFilter === sector;
                 return (
                   <button
                     key={sector}
                     onClick={() => setSectorFilter(isActive ? '' : sector)}
-                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap ${
+                    className={`whitespace-nowrap rounded-full border px-2.5 py-1 text-xs transition-colors ${
                       isActive
-                        ? 'bg-accent/10 border-accent/30 text-accent font-medium'
-                        : 'border-border/50 text-text-muted hover:text-text-primary hover:border-text-muted/30'
+                        ? 'border-accent/30 bg-accent/10 font-medium text-accent'
+                        : 'border-border/50 text-text-muted hover:border-text-muted/30 hover:text-text-primary'
                     }`}
                   >
                     {sector} ({count})
@@ -542,21 +654,28 @@ function FreshnessBadge({ fetchedAt }: { fetchedAt: string }) {
 
   useEffect(() => {
     setLabel(formatElapsed(fetchedAt));
-    const interval = setInterval(() => setLabel(formatElapsed(fetchedAt)), 10_000);
+    const interval = setInterval(
+      () => setLabel(formatElapsed(fetchedAt)),
+      10_000
+    );
     return () => clearInterval(interval);
   }, [fetchedAt]);
 
   if (!fetchedAt) return null;
 
-  const color = label === 'just now' || label.endsWith('s ago')
-    ? 'text-accent'
-    : label.endsWith('m ago')
-    ? 'text-warning'
-    : 'text-loss';
+  const color =
+    label === 'just now' || label.endsWith('s ago')
+      ? 'text-accent'
+      : label.endsWith('m ago')
+        ? 'text-warning'
+        : 'text-loss';
 
   return (
-    <span className={cn('inline-flex items-center gap-1 text-xs', color)} title={fetchedAt}>
-      <span className="w-1.5 h-1.5 rounded-full bg-current" />
+    <span
+      className={cn('inline-flex items-center gap-1 text-xs', color)}
+      title={fetchedAt}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
       {label}
     </span>
   );
@@ -580,7 +699,8 @@ function ColumnCustomizer({
     const handler = (e: MouseEvent) => {
       const target = e.target as Node;
       const isOutsideParent = ref.current && !ref.current.contains(target);
-      const isOutsideDropdown = dropdownRef.current && !dropdownRef.current.contains(target);
+      const isOutsideDropdown =
+        dropdownRef.current && !dropdownRef.current.contains(target);
       if (isOutsideParent && isOutsideDropdown) setOpen(false);
     };
     document.addEventListener('mousedown', handler);
@@ -606,7 +726,7 @@ function ColumnCustomizer({
   const renderItem = (meta: (typeof ALL_COLUMNS_META)[number]) => (
     <label
       key={meta.key}
-      className="flex items-center gap-2 px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover/40 cursor-pointer select-none"
+      className="flex cursor-pointer select-none items-center gap-2 px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover/40"
     >
       <input
         type="checkbox"
@@ -627,26 +747,27 @@ function ColumnCustomizer({
         aria-label="Customize columns"
         title="Customize columns"
       >
-        <Columns className="w-4 h-4" />
+        <Columns className="h-4 w-4" />
       </button>
-      {open && createPortal(
-        <div
-          ref={dropdownRef}
-          style={dropdownStyle}
-          className="w-44 bg-surface-elevated border border-border/50 rounded-lg shadow-xl py-1"
-        >
-          {normalCols.map(renderItem)}
-          {advancedCols.length > 0 && (
-            <>
-              <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-text-muted border-t border-border/40 mt-1">
-                Advanced
-              </div>
-              {advancedCols.map(renderItem)}
-            </>
-          )}
-        </div>,
-        document.body
-      )}
+      {open &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            style={dropdownStyle}
+            className="w-44 rounded-lg border border-border/50 bg-surface-elevated py-1 shadow-xl"
+          >
+            {normalCols.map(renderItem)}
+            {advancedCols.length > 0 && (
+              <>
+                <div className="mt-1 border-t border-border/40 px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                  Advanced
+                </div>
+                {advancedCols.map(renderItem)}
+              </>
+            )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
@@ -678,11 +799,13 @@ function ScreenerHeader({
 }) {
   return (
     <div className="border-b border-border bg-surface/50 backdrop-blur-sm">
-      <div className="px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-4 flex-1 min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-3">
+        <div className="flex min-w-0 flex-1 items-center gap-4">
           <div>
-            <h1 className="font-display text-xl font-semibold tracking-tight text-text-primary">{screenName}</h1>
-            <p className="text-sm text-text-muted flex items-center gap-2">
+            <h1 className="font-display text-xl font-semibold tracking-tight text-text-primary">
+              {screenName}
+            </h1>
+            <p className="flex items-center gap-2 text-sm text-text-muted">
               <span>{totalMatches.toLocaleString()} matches</span>
               {executionTime > 0 && <span>• {executionTime}ms</span>}
               <FreshnessBadge fetchedAt={fetchedAt} />
@@ -690,7 +813,7 @@ function ScreenerHeader({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Template Selector */}
           <TemplateDropdown
             templates={templates}
@@ -706,19 +829,22 @@ function ScreenerHeader({
           >
             {isRunning ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 <span>Running...</span>
               </>
             ) : (
               <>
-                <Play className="w-4 h-4" />
+                <Play className="h-4 w-4" />
                 <span>Run Screen</span>
               </>
             )}
           </button>
 
           {/* Column Customizer */}
-          <ColumnCustomizer visibleColumns={visibleColumns} onToggle={onToggleColumn} />
+          <ColumnCustomizer
+            visibleColumns={visibleColumns}
+            onToggle={onToggleColumn}
+          />
 
           {/* Export Buttons */}
           <ExportButtons />
@@ -750,7 +876,8 @@ function TemplateDropdown({
     const handler = (e: MouseEvent) => {
       const target = e.target as Node;
       const isOutsideParent = ref.current && !ref.current.contains(target);
-      const isOutsideDropdown = dropdownRef.current && !dropdownRef.current.contains(target);
+      const isOutsideDropdown =
+        dropdownRef.current && !dropdownRef.current.contains(target);
       if (isOutsideParent && isOutsideDropdown) setOpen(false);
     };
     document.addEventListener('mousedown', handler);
@@ -780,56 +907,72 @@ function TemplateDropdown({
       <button
         ref={btnRef}
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 cursor-pointer pl-3 pr-8 py-2 text-sm bg-surface border border-border rounded-lg
-                   text-text-primary
-                   hover:border-text-muted/30 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent
-                   transition-colors duration-150 min-w-[180px] w-full text-left"
+        className="flex w-full min-w-[180px] cursor-pointer items-center gap-2 rounded-lg border border-border bg-surface py-2 pl-3 pr-8 text-left text-sm text-text-primary transition-colors duration-150 hover:border-text-muted/30 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
       >
         {direction && (
           <span
-            className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
+            className={`inline-block h-2 w-2 flex-shrink-0 rounded-full ${
               isLong ? 'bg-green-500' : isShort ? 'bg-red-500' : 'bg-gray-500'
             }`}
           />
         )}
-        <span className="flex-1 truncate">{selectedTemplate?.name || selected || 'Select template'}</span>
-        <ChevronDown className={`absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted pointer-events-none transition-transform ${open ? 'rotate-180' : ''}`} />
+        <span className="flex-1 truncate">
+          {selectedTemplate?.name || selected || 'Select template'}
+        </span>
+        <ChevronDown
+          className={`pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted transition-transform ${open ? 'rotate-180' : ''}`}
+        />
       </button>
-      {open && createPortal(
-        <div
-          ref={dropdownRef}
-          style={dropdownStyle}
-          className="bg-surface border border-border rounded-lg shadow-xl max-h-[320px] overflow-y-auto"
-        >
-          {templates.map((t) => {
-            const tLong = t.direction === 'long';
-            const tShort = t.direction === 'short';
-            return (
-              <button
-                key={t.name}
-                onClick={() => { onChange(t.name); setOpen(false); }}
-                className={`flex items-center gap-2 w-full text-left px-3 py-2 text-sm transition-colors hover:bg-border/30 ${
-                  t.name === selected ? 'bg-accent/10 text-accent' : 'text-text-primary'
-                }`}
-                title={t.description}
-              >
-                {t.direction ? (
-                  <span
-                    className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
-                      tLong ? 'bg-green-500' : tShort ? 'bg-red-500' : 'bg-gray-500'
-                    }`}
+      {open &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            style={dropdownStyle}
+            className="max-h-[320px] overflow-y-auto rounded-lg border border-border bg-surface shadow-xl"
+          >
+            {templates.map((t) => {
+              const tLong = t.direction === 'long';
+              const tShort = t.direction === 'short';
+              return (
+                <button
+                  key={t.name}
+                  onClick={() => {
+                    onChange(t.name);
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-border/30 ${
+                    t.name === selected
+                      ? 'bg-accent/10 text-accent'
+                      : 'text-text-primary'
+                  }`}
+                  title={t.description}
+                >
+                  {t.direction ? (
+                    <span
+                      className={`inline-block h-2 w-2 flex-shrink-0 rounded-full ${
+                        tLong
+                          ? 'bg-green-500'
+                          : tShort
+                            ? 'bg-red-500'
+                            : 'bg-gray-500'
+                      }`}
+                    />
+                  ) : (
+                    <span className="inline-block h-2 w-2 flex-shrink-0" />
+                  )}
+                  <span className="flex-1 truncate">{t.name}</span>
+                  <RegimeBadge
+                    recommendation={getScreenerRecommendation(
+                      t.name,
+                      regimeLabel
+                    )}
                   />
-                ) : (
-                  <span className="inline-block w-2 h-2 flex-shrink-0" />
-                )}
-                <span className="flex-1 truncate">{t.name}</span>
-                <RegimeBadge recommendation={getScreenerRecommendation(t.name, regimeLabel)} />
-              </button>
-            );
-          })}
-        </div>,
-        document.body
-      )}
+                </button>
+              );
+            })}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
@@ -848,17 +991,35 @@ function MarketOverviewPanel() {
 
   const comp = regime.composite_score;
   const label = regime.regime_label;
-  const colorClass = comp >= 65 ? 'text-green-400' : comp >= 50 ? 'text-yellow-400' : comp >= 35 ? 'text-orange-400' : 'text-red-400';
-  const barColor = comp >= 65 ? 'bg-green-500' : comp >= 50 ? 'bg-yellow-400' : comp >= 35 ? 'bg-orange-400' : 'bg-red-500';
+  const colorClass =
+    comp >= 65
+      ? 'text-green-400'
+      : comp >= 50
+        ? 'text-yellow-400'
+        : comp >= 35
+          ? 'text-orange-400'
+          : 'text-red-400';
+  const barColor =
+    comp >= 65
+      ? 'bg-green-500'
+      : comp >= 50
+        ? 'bg-yellow-400'
+        : comp >= 35
+          ? 'bg-orange-400'
+          : 'bg-red-500';
   const leaders = sectorData?.leaders.slice(0, 3) ?? [];
   const laggards = sectorData?.laggards.slice(0, 3) ?? [];
-  const sectorLookup = new Map((sectorData?.sectors ?? []).map((s) => [s.symbol, s]));
+  const sectorLookup = new Map(
+    (sectorData?.sectors ?? []).map((s) => [s.symbol, s])
+  );
 
   // Determine suggested strategy
   const getStrategyHint = (lbl: string): string => {
-    if (lbl === 'Exuberance' || lbl === 'Risk-On') return 'Trend/momentum screeners recommended';
+    if (lbl === 'Exuberance' || lbl === 'Risk-On')
+      return 'Trend/momentum screeners recommended';
     if (lbl === 'Neutral') return 'Quality/value screeners preferred';
-    if (lbl === 'Cautious') return 'Defensive/mean-reversion screeners suggested';
+    if (lbl === 'Cautious')
+      return 'Defensive/mean-reversion screeners suggested';
     if (lbl === 'Risk-Off') return 'Oversold bounce & distribution screeners';
     if (lbl === 'Crisis') return 'Avoid new positions — capital preservation';
     return '';
@@ -868,21 +1029,26 @@ function MarketOverviewPanel() {
     <div className="border-b border-border/50">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 w-full px-4 py-1.5 text-[11px] text-text-muted hover:text-text-primary transition-colors"
+        className="flex w-full items-center gap-2 px-4 py-1.5 text-[11px] text-text-muted transition-colors hover:text-text-primary"
       >
         <Gauge className="h-3 w-3" />
         <span>Market Pulse</span>
-        <ChevronDown className={`h-3 w-3 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={`h-3 w-3 transition-transform ${expanded ? 'rotate-180' : ''}`}
+        />
       </button>
       {expanded && (
-        <div className="px-4 pb-3 pt-1 grid grid-cols-[1fr_auto] gap-4 text-xs">
+        <div className="grid grid-cols-[1fr_auto] gap-4 px-4 pb-3 pt-1 text-xs">
           {/* Left: Regime + Score Bar */}
-          <div className="space-y-1.5 min-w-0">
+          <div className="min-w-0 space-y-1.5">
             <div className="flex items-center gap-2">
               <span className={`font-semibold ${colorClass}`}>{label}</span>
               <span className="text-text-muted">{comp.toFixed(0)}/100</span>
-              <div className="flex-1 h-1.5 rounded-full bg-border max-w-[120px]">
-                <div className={`h-full rounded-full ${barColor}`} style={{ width: `${comp}%` }} />
+              <div className="h-1.5 max-w-[120px] flex-1 rounded-full bg-border">
+                <div
+                  className={`h-full rounded-full ${barColor}`}
+                  style={{ width: `${comp}%` }}
+                />
               </div>
             </div>
             <p className="text-text-muted">{getStrategyHint(label)}</p>
@@ -892,15 +1058,21 @@ function MarketOverviewPanel() {
           <div className="flex gap-6">
             {leaders.length > 0 && (
               <div className="space-y-0.5">
-                <p className="text-[10px] font-medium text-green-500 uppercase tracking-wider">Leading</p>
+                <p className="text-[10px] font-medium uppercase tracking-wider text-green-500">
+                  Leading
+                </p>
                 {leaders.map((sym) => {
                   const s = sectorLookup.get(sym);
                   return (
                     <div key={sym} className="flex items-center gap-1.5">
-                      <TrendingUp className="h-3 w-3 text-green-500 shrink-0" />
-                      <span className="text-text-primary">{s?.name || sym}</span>
+                      <TrendingUp className="h-3 w-3 shrink-0 text-green-500" />
+                      <span className="text-text-primary">
+                        {s?.name || sym}
+                      </span>
                       {s?.change_1d != null && (
-                        <span className="text-green-500 font-mono">+{s.change_1d.toFixed(1)}%</span>
+                        <span className="font-mono text-green-500">
+                          +{s.change_1d.toFixed(1)}%
+                        </span>
                       )}
                     </div>
                   );
@@ -909,15 +1081,21 @@ function MarketOverviewPanel() {
             )}
             {laggards.length > 0 && (
               <div className="space-y-0.5">
-                <p className="text-[10px] font-medium text-red-400 uppercase tracking-wider">Lagging</p>
+                <p className="text-[10px] font-medium uppercase tracking-wider text-red-400">
+                  Lagging
+                </p>
                 {laggards.map((sym) => {
                   const s = sectorLookup.get(sym);
                   return (
                     <div key={sym} className="flex items-center gap-1.5">
-                      <TrendingDown className="h-3 w-3 text-red-400 shrink-0" />
-                      <span className="text-text-primary">{s?.name || sym}</span>
+                      <TrendingDown className="h-3 w-3 shrink-0 text-red-400" />
+                      <span className="text-text-primary">
+                        {s?.name || sym}
+                      </span>
                       {s?.change_1d != null && (
-                        <span className="text-red-400 font-mono">{s.change_1d.toFixed(1)}%</span>
+                        <span className="font-mono text-red-400">
+                          {s.change_1d.toFixed(1)}%
+                        </span>
                       )}
                     </div>
                   );
@@ -935,22 +1113,29 @@ function MarketOverviewPanel() {
  * Sector Focus Banner — shows recommended sectors from rotation data.
  * Clicking a sector focuses the screener results to that sector.
  */
-function SectorFocusBanner({ onSelectSector }: { onSelectSector: (sector: string) => void }) {
+function SectorFocusBanner({
+  onSelectSector,
+}: {
+  onSelectSector: (sector: string) => void;
+}) {
   const { data: rotationData } = useSectorRotation();
   const sectors: SectorPerformance[] = rotationData?.sectors ?? [];
   const rotationPhase = rotationData?.rotation_phase ?? '';
 
   // Sort by 1d change descending, take top 4
   const topSectors = useMemo(
-    () => [...sectors].sort((a, b) => (b.change_1d ?? 0) - (a.change_1d ?? 0)).slice(0, 4),
+    () =>
+      [...sectors]
+        .sort((a, b) => (b.change_1d ?? 0) - (a.change_1d ?? 0))
+        .slice(0, 4),
     [sectors]
   );
 
   if (topSectors.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-2 px-4 py-2 border-b border-border/30 bg-surface/10">
-      <span className="text-[10px] font-semibold uppercase text-text-muted tracking-wider shrink-0">
+    <div className="flex items-center gap-2 border-b border-border/30 bg-surface/10 px-4 py-2">
+      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
         Focus{rotationPhase ? ` · ${rotationPhase}` : ''}
       </span>
       <div className="flex gap-1.5 overflow-x-auto">
@@ -961,12 +1146,18 @@ function SectorFocusBanner({ onSelectSector }: { onSelectSector: (sector: string
             <button
               key={s.symbol}
               onClick={() => onSelectSector(s.name)}
-              className="flex items-center gap-1.5 text-xs bg-surface/30 border border-border/40 hover:border-accent/30 rounded-full px-2.5 py-1 transition-colors shrink-0"
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-border/40 bg-surface/30 px-2.5 py-1 text-xs transition-colors hover:border-accent/30"
               title={`Click to filter by ${s.name}`}
             >
-              <span className="text-text-primary font-medium">{s.name}</span>
-              <span className={cn('font-mono', isPos ? 'text-green-500' : 'text-red-400')}>
-                {isPos ? '+' : ''}{change.toFixed(1)}%
+              <span className="font-medium text-text-primary">{s.name}</span>
+              <span
+                className={cn(
+                  'font-mono',
+                  isPos ? 'text-green-500' : 'text-red-400'
+                )}
+              >
+                {isPos ? '+' : ''}
+                {change.toFixed(1)}%
               </span>
             </button>
           );

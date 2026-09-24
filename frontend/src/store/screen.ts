@@ -49,7 +49,10 @@ interface ScreenStore {
   setHasUnsavedChanges: (changed: boolean) => void;
 
   // Custom template config setters
-  setCustomTemplateConfig: (templateKey: string, config: ScreenTemplateConfig) => void;
+  setCustomTemplateConfig: (
+    templateKey: string,
+    config: ScreenTemplateConfig
+  ) => void;
   resetCustomTemplateConfig: (templateKey: string) => void;
   getCustomTemplateConfig: (templateKey: string) => ScreenTemplateConfig | null;
   isTemplateModified: (templateKey: string) => boolean;
@@ -117,7 +120,8 @@ export const useScreenStore = create<ScreenStore>()(
         }),
       resetCustomTemplateConfig: (templateKey) =>
         set((state) => {
-          const { [templateKey]: removed, ...rest } = state.customTemplateConfigs;
+          const { [templateKey]: removed, ...rest } =
+            state.customTemplateConfigs;
           // Manual persistence as fallback
           if (typeof window !== 'undefined') {
             try {

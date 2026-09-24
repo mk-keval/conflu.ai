@@ -6,10 +6,15 @@ interface ScreenDiffViewProps {
   onClose: () => void;
 }
 
-export function ScreenDiffView({ current, previous, onClose }: ScreenDiffViewProps) {
+export function ScreenDiffView({
+  current,
+  previous,
+  onClose,
+}: ScreenDiffViewProps) {
   if (!current || !previous) return null;
 
-  const diffFields: { label: string; currentVal: string; prevVal: string }[] = [];
+  const diffFields: { label: string; currentVal: string; prevVal: string }[] =
+    [];
 
   if (current.name !== previous.name) {
     diffFields.push({
@@ -29,7 +34,7 @@ export function ScreenDiffView({ current, previous, onClose }: ScreenDiffViewPro
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-lg rounded-lg bg-dark-800 p-6 shadow-xl">
+      <div className="bg-dark-800 w-full max-w-lg rounded-lg p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-white">
             Version Changes: v{previous.version} → v{current.version}
@@ -46,15 +51,23 @@ export function ScreenDiffView({ current, previous, onClose }: ScreenDiffViewPro
         ) : (
           <div className="space-y-3">
             {diffFields.map((field, i) => (
-              <div key={i} className="rounded border border-dark-600 p-3">
-                <div className="mb-1 text-xs font-medium text-gray-500">{field.label}</div>
+              <div key={i} className="border-dark-600 rounded border p-3">
+                <div className="mb-1 text-xs font-medium text-gray-500">
+                  {field.label}
+                </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
-                    <div className="text-xs text-red-400">Previous (v{previous.version})</div>
-                    <div className="text-gray-300 line-through">{field.prevVal}</div>
+                    <div className="text-xs text-red-400">
+                      Previous (v{previous.version})
+                    </div>
+                    <div className="text-gray-300 line-through">
+                      {field.prevVal}
+                    </div>
                   </div>
                   <div>
-                    <div className="text-xs text-green-400">Current (v{current.version})</div>
+                    <div className="text-xs text-green-400">
+                      Current (v{current.version})
+                    </div>
                     <div className="text-gray-100">{field.currentVal}</div>
                   </div>
                 </div>

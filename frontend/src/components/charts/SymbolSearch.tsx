@@ -32,13 +32,13 @@ export function SymbolSearch() {
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={selectedSymbol || 'Search symbols...'}
-          className="w-64 rounded-lg border border-border/60 bg-background pl-10 pr-3 py-2 text-sm text-text-primary placeholder-text-muted outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all duration-150"
+          className="w-64 rounded-lg border border-border/60 bg-background py-2 pl-10 pr-3 text-sm text-text-primary placeholder-text-muted outline-none transition-all duration-150 focus:border-accent focus:ring-2 focus:ring-accent/20"
         />
       </div>
       <button
         onClick={handleSubmit}
         disabled={!search.trim()}
-        className="btn-primary gap-1.5 px-3 py-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+        className="btn-primary gap-1.5 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
         title="Load chart"
       >
         <Search className="h-4 w-4" />

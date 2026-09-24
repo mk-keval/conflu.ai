@@ -6,10 +6,10 @@ This is your **operating manual** for paper trading with conflu.ai. Follow it ev
 
 ## The Daily Ritual (15-20 minutes, market open + 1 hour)
 
-### Step 1: Run the morning ritual script (1 minute)
+### Step 1: Generate today's candidate list (1 minute)
 
 ```bash
-python backend/scripts/daily_morning_ritual.py --min-confluence 2 --limit 50
+python backend/scripts/paper_trade_from_brief.py --min-conviction 5
 ```
 
 This will:
@@ -38,7 +38,7 @@ Look at the top 5 candidates. For each, ask:
 1. **Does the THESIS make sense to you?** (Read the verdict's `buy_triggers` and `key_red_flags`.)
 2. **Is the ENTRY acceptable?** (Should be in the entry zone, not chasing.)
 3. **Is the STOP at a structural level?** (Not an arbitrary %.)
-4. **Is the TARGET realistic?** (At least 1.5-2x the stop distance.)
+4. **Is the TARGET realistic?** (At least **2.5x** the stop distance - a minimum **2.5:1** reward-to-risk.) This matches `RISK_REWARD_PASS` in `frontend/src/workflow/gate.ts` and the elite blueprint. Under 2.5:1 is a **SKIP**, not a candidate.
 
 If yes to all 4, it's a candidate. If no to any, skip.
 
@@ -52,24 +52,50 @@ date_entered,symbol,sector,action,entry_price,stop_loss,target_1,target_2,positi
 2026-09-01,FTNT,Technology,BUY,168,160,185,200,6,3,"post_earnings+insider_ownership_17%+sector_RS_tracking","Held back, watching for confirmation."
 ```
 
-### Step 4: Monitor and update (5 minutes at close)
+### Step 4: Close the loop - record the exit (5 minutes at close)
 
-End of day:
-- For each open position, check the price vs entry/stop/target
-- Update the CSV with a comment column or new "status" column
-- If hit target: close the trade, record P&L
-- If hit stop: close the trade, record loss
-- If still open: add a row to tomorrow's CSV with current price
+**This step is mandatory.** Without it the system cannot be measured: no exits
+means no win rate, no expectancy, no average R. The 2026-09 bypass-path cohort
+(31 rows) was voided precisely because this step was never performed.
+
+When a position ends, fill in the outcome columns **on its existing row** - do
+NOT open a row in tomorrow's file:
+
+| Column | Value |
+|---|---|
+| `date_closed` | `YYYY-MM-DD` |
+| `exit_price` | actual exit price |
+| `exit_reason` | `stop` / `target_1` / `target_2` / `trail` / `time_stop` / `thesis_break` / `manual` |
+| `shares` | shares actually taken |
+| `realized_r` | `(exit_price - entry_price) / (entry_price - stop_loss)` - signed |
+| `pnl_usd` | optional - dollar result |
+| `mfe_r` | optional - best unrealized R reached (did we exit too early?) |
+| `mae_r` | optional - worst unrealized R (was the stop too wide?) |
+| `plan_adherence` | `followed` / `partial` / `broke` - did you run the plan? |
+
+A position that is still open **stays open**. Never duplicate it into a new
+day's file - that is what made the previous cohort unmeasurable.
+
+`plan_adherence` is a **process** metric, not a success metric. You can be 100%
+adherent to a bad plan and still lose. Profitability is measured by `realized_r`
+and expectancy.
 
 ### Step 5: Weekly review (Sunday, 15 minutes)
 
-At the end of each week:
+Only **closed** rows count (those with a `date_closed`). Open rows are not
+evidence yet.
+
 1. Count: how many trades won, lost, still open?
 2. Compute win rate: wins / (wins + losses)
-3. Compute average R-multiple: sum(R-multiples) / closed trades
-4. Look at the **losing trades**: what was wrong? Was the catalyst signal wrong, or was your execution?
-5. Look at the **winning trades**: which catalyst signal was the strongest predictor?
-6. Adjust the system: if insider cluster predicts but sector RS doesn't, you can tighten the screener filter to `min_confluence=3`.
+3. Compute **expectancy**: `mean(realized_r)` across closed trades - THE north-star number
+4. Compute **profit factor**: `sum(winning realized_r) / abs(sum(losing realized_r))`
+5. Look at the **losing trades**: was the catalyst signal wrong, or was the execution wrong? Check `mae_r` - did it go green first and then stop you out?
+6. Look at the **winning trades**: check `mfe_r` - did you leave R on the table?
+7. Review `REJECTIONS.csv`: were the rejected candidates actually the losers? If the gate rejects winners, the gate is wrong.
+8. **Kill criteria** - if after 30+ closed trades expectancy <= 0, the system is not working. Change it or stop. Do not "give it more time" without a reason.
+
+**Minimum sample:** do not draw pattern-level conclusions below ~30 closed
+trades per pattern. Below that you are reading noise, not edge.
 
 ---
 
@@ -115,9 +141,12 @@ Track these metrics weekly:
 ```
 docs/
 ├── PAPER_TRADING/             # this workflow doc + future updates
+├── paper_trades/              # per-day candidate/outcome CSVs (one per trading day)
+│   ├── TEMPLATE.csv           # the 21-column schema (12 entry + 9 exit-capture)
+│   ├── REJECTIONS.csv         # every candidate the gate rejected, and which step
+│   └── archive/               # voided cohorts (see archive/README.md)
 ├── SESSIONS/
-│   ├── morning_brief/         # daily JSON output from the morning ritual
-│   └── paper_trades/          # per-day CSV files (one per trading day)
+│   └── morning_brief/         # daily JSON output from the morning brief
 ├── DECISIONS/                 # ADR-style decision records
 └── ...
 ```
@@ -126,11 +155,32 @@ docs/
 
 ## First day checklist (today)
 
-- [ ] Run the morning ritual script
-- [ ] Look at the top 5 candidates
-- [ ] Pick 1-2 that match your conviction
-- [ ] Create `docs/paper_trades/2026-09-01.csv` with the trades
+- [ ] Run the morning brief generator script (writes the **candidate** CSV)
+- [ ] **Pick 1-2 that match your conviction** - do NOT keep everything the script wrote. Run each through the 7-step gate, drop the rest, and log the rejects in `REJECTIONS.csv`
 - [ ] Set alerts in your broker at the entry/stop/target prices (paper account)
-- [ ] End of day: update the CSV with current price
+- [ ] End of day: **record the exit** on any position that closed (Step 4). An open position stays open.
 
 That's it. The rest is discipline.
+
+---
+
+## The script (preferred path)
+
+`backend/scripts/paper_trade_from_brief.py` — fetches the same data as the UI's Morning Brief page and writes the CSV automatically.
+
+```bash
+# Write all candidates (conviction >= 5) to today's CSV
+python backend/scripts/paper_trade_from_brief.py
+
+# Write only specific tickers
+python backend/scripts/paper_trade_from_brief.py --only HRMY,SLDE,DOCU
+
+# Higher conviction bar (only the strongest setups)
+python backend/scripts/paper_trade_from_brief.py --min-conviction 7
+```
+
+Output: `docs/paper_trades/YYYY-MM-DD.csv` - a **candidate list**, not a trade list.
+
+> **KNOWN GAP (2026-09-16).** The script writes *every* candidate above the conviction floor. It does **not** run the validation gate, size by conviction, or record a rejection. Do not treat its output as validated. Until the gate is enforced in this path, apply Step 2 by hand and log the rejects to `docs/paper_trades/REJECTIONS.csv`. Source: [evidence audit](../SESSIONS/2026-09-16_paper-trade-evidence-audit.md).
+
+The old `daily_morning_ritual.py` script is **deprecated** as of 2026-09-03 — it called `/api/v1/screen/tv` directly with filter names that no longer exist in the schema. The new script uses the same `/api/v1/professional/morning-brief` endpoint as the UI, so what you see in the app and what you get in the CSV are guaranteed to match.

@@ -414,6 +414,20 @@ def _compute_indicators_from_ohlcv(ohlcv: pd.DataFrame) -> dict[str, Any]:
             if avg_vol and avg_vol > 0:
                 result["relative_volume_10d_calc"] = round(float(last_vol / avg_vol), 2)
 
+        # avg_daily_volume_usd — mentor teaching comment
+        # What this number means and why it matters (wave-1 learning slice):
+        # Most beginners only look at "how many shares changed hands." But a
+        # stock can trade 2M shares and still be illiquid in dollars if the
+        # price is pennies, or trade lightly and still be a whale's pool if
+        # the price is $$$. Dollar volume (Close × Volume) is the REAL liquidity:
+        # it tells you how much capital is truly flowing through the ticker
+        # each day, so you can judge whether your order (and your exit) will
+        # find a buyer/seller without moving the price against you.
+        if len(ohlcv) >= 10:
+            avg_dollar_vol = (ohlcv["Close"] * ohlcv["Volume"]).tail(10).mean()
+            if avg_dollar_vol is not None and not pd.isna(avg_dollar_vol) and avg_dollar_vol > 0:
+                result["avg_daily_volume_usd_calc"] = round(float(avg_dollar_vol), 2)
+
         # Close price
         result["close"] = round(float(ohlcv["Close"].iloc[-1]), 2)
 

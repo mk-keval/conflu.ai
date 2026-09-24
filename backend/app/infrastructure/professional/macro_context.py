@@ -11,6 +11,7 @@ trader holds in their head when sizing and validating any trade.
 
 from __future__ import annotations
 
+import math
 import time
 from dataclasses import dataclass, field, asdict
 from typing import Any
@@ -139,14 +140,21 @@ def _fetch_one(symbol: str) -> float | None:
 
 
 def _pct_change(symbol: str) -> float | None:
-    """1-day % change for an index/ETF."""
+    """1-day % change for an index/ETF.
+
+    Returns None when the inputs are unusable: missing history, non-finite
+    close prices (NaN/inf from yfinance delisted tickers or partial trading
+    days), or a zero previous close. Returning None — instead of NaN — keeps
+    NaN from propagating into the leading-sector pick and rendering as the
+    literal string `+nan%` in macro notes.
+    """
     try:
         h = yf.Ticker(symbol).history(period="5d", interval="1d")
         if h is None or len(h) < 2:
             return None
         prev = float(h["Close"].iloc[-2])
         last = float(h["Close"].iloc[-1])
-        if prev == 0:
+        if not (math.isfinite(prev) and math.isfinite(last)) or prev == 0:
             return None
         return (last / prev - 1) * 100
     except Exception:

@@ -1,8 +1,20 @@
 import type { ScreenSymbolResult } from './screener';
 
-export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
+export type ConnectionState =
+  | 'connecting'
+  | 'connected'
+  | 'disconnected'
+  | 'reconnecting';
 
-export type WSChannelType = 'price' | 'indicator' | 'signal' | 'screener' | 'risk' | 'backtest' | 'alert' | 'replay';
+export type WSChannelType =
+  | 'price'
+  | 'indicator'
+  | 'signal'
+  | 'screener'
+  | 'risk'
+  | 'backtest'
+  | 'alert'
+  | 'replay';
 
 export interface WSSubscriptionMessage {
   type: 'subscribe' | 'unsubscribe';

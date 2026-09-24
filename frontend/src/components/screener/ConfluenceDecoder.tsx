@@ -18,11 +18,31 @@ const PILLARS: Array<{
   max: number;
   meaning: string;
 }> = [
-  { code: 'T', name: 'Trend', max: 30, meaning: 'Is the stock in a clear direction?' },
-  { code: 'M', name: 'Momentum', max: 25, meaning: 'Is buying pressure building?' },
-  { code: 'V', name: 'Volume', max: 20, meaning: 'Are real traders behind the move?' },
+  {
+    code: 'T',
+    name: 'Trend',
+    max: 30,
+    meaning: 'Is the stock in a clear direction?',
+  },
+  {
+    code: 'M',
+    name: 'Momentum',
+    max: 25,
+    meaning: 'Is buying pressure building?',
+  },
+  {
+    code: 'V',
+    name: 'Volume',
+    max: 20,
+    meaning: 'Are real traders behind the move?',
+  },
   { code: 'Q', name: 'Quality', max: 15, meaning: 'Low-risk price behavior?' },
-  { code: 'F', name: 'Fundamental', max: 10, meaning: 'Does the business back the trade?' },
+  {
+    code: 'F',
+    name: 'Fundamental',
+    max: 10,
+    meaning: 'Does the business back the trade?',
+  },
 ];
 
 interface Props {
@@ -43,7 +63,10 @@ export function ConfluenceDecoder({ value, className }: Props) {
       const el = btnRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
-      setPos({ left: Math.min(r.left, window.innerWidth - 340), top: r.bottom + 6 });
+      setPos({
+        left: Math.min(r.left, window.innerWidth - 340),
+        top: r.bottom + 6,
+      });
     };
     update();
     window.addEventListener('scroll', update, true);
@@ -58,7 +81,10 @@ export function ConfluenceDecoder({ value, className }: Props) {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
       const path = e.composedPath() as Node[];
-      if ((!popRef.current || !path.includes(popRef.current)) && (!btnRef.current || !path.includes(btnRef.current))) {
+      if (
+        (!popRef.current || !path.includes(popRef.current)) &&
+        (!btnRef.current || !path.includes(btnRef.current))
+      ) {
         setOpen(false);
       }
     };
@@ -95,7 +121,7 @@ export function ConfluenceDecoder({ value, className }: Props) {
           setOpen((o) => !o);
         }}
         className={cn(
-          'inline-flex items-center gap-1 font-mono text-dark-200 transition-colors hover:text-accent',
+          'text-dark-200 inline-flex items-center gap-1 font-mono transition-colors hover:text-accent',
           className
         )}
         title="Break down this confluence score"
@@ -116,7 +142,11 @@ export function ConfluenceDecoder({ value, className }: Props) {
               <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
                 Confluence breakdown
               </span>
-              <button onClick={() => setOpen(false)} aria-label="Close" className="text-text-muted hover:text-text-primary">
+              <button
+                onClick={() => setOpen(false)}
+                aria-label="Close"
+                className="text-text-muted hover:text-text-primary"
+              >
                 <X className="h-3 w-3" />
               </button>
             </div>
@@ -129,18 +159,27 @@ export function ConfluenceDecoder({ value, className }: Props) {
                   <div key={p.code}>
                     <div className="mb-0.5 flex items-baseline justify-between gap-2">
                       <span className="text-text-primary">
-                        <span className="font-mono text-text-muted">{p.code}</span> {p.name}
-                        <span className="ml-1.5 text-text-muted normal-case">— {p.meaning}</span>
+                        <span className="font-mono text-text-muted">
+                          {p.code}
+                        </span>{' '}
+                        {p.name}
+                        <span className="ml-1.5 normal-case text-text-muted">
+                          — {p.meaning}
+                        </span>
                       </span>
                       <span className="shrink-0 font-mono text-text-muted">
                         {found ? `${score}/${p.max}` : `–/${p.max}`}
                       </span>
                     </div>
-                    <div className="h-1 w-full overflow-hidden rounded bg-bg-muted">
+                    <div className="bg-bg-muted h-1 w-full overflow-hidden rounded">
                       <div
                         className={cn(
                           'h-full rounded transition-all',
-                          pct >= 70 ? 'bg-gain' : pct >= 40 ? 'bg-amber-400' : 'bg-loss'
+                          pct >= 70
+                            ? 'bg-gain'
+                            : pct >= 40
+                              ? 'bg-amber-400'
+                              : 'bg-loss'
                         )}
                         style={{ width: `${found ? pct : 0}%` }}
                       />
@@ -150,7 +189,9 @@ export function ConfluenceDecoder({ value, className }: Props) {
               })}
             </div>
             <p className="mt-2.5 border-t border-border pt-2 text-[10px] leading-relaxed text-text-muted">
-              Pillars are weighted by market regime — trend matters most in strong trends; volume and quality lead in choppy markets. Total maps to the letter rating.
+              Pillars are weighted by market regime — trend matters most in
+              strong trends; volume and quality lead in choppy markets. Total
+              maps to the letter rating.
             </p>
           </div>,
           document.body

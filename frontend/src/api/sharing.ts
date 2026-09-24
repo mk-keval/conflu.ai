@@ -10,8 +10,6 @@ export async function generateShareToken(
   });
 }
 
-export async function resolveSharedScreen(
-  token: string
-): Promise<SavedScreen> {
+export async function resolveSharedScreen(token: string): Promise<SavedScreen> {
   return apiGet<SavedScreen>(`/api/v1/shared/${token}`);
 }

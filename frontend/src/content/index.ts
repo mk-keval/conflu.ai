@@ -43,7 +43,15 @@ interface EducationDoc {
   metrics: Record<string, Lesson>;
   backtestMetrics: Record<string, Lesson>;
   tradePlan: Record<string, Lesson>;
-  modules: Record<string, { title: string; whatItIs: string; whyItMatters: string; howScoreWorks: string }>;
+  modules: Record<
+    string,
+    {
+      title: string;
+      whatItIs: string;
+      whyItMatters: string;
+      howScoreWorks: string;
+    }
+  >;
   concepts: Record<string, Lesson>;
   glossary: GlossaryEntry[];
 }
@@ -93,15 +101,30 @@ export function getThresholds(): Record<string, number> {
 
 // ── Cross-section lookup ──
 
-const LESSON_INDEX: Record<string, { lesson: Lesson; section: 'metrics' | 'backtestMetrics' | 'tradePlan' | 'concepts' }> =
-  (() => {
-    const idx: Record<string, { lesson: Lesson; section: 'metrics' | 'backtestMetrics' | 'tradePlan' | 'concepts' }> = {};
-    for (const [k, v] of Object.entries(doc.metrics)) idx[k] = { lesson: v, section: 'metrics' };
-    for (const [k, v] of Object.entries(doc.backtestMetrics)) idx[k] = { lesson: v, section: 'backtestMetrics' };
-    for (const [k, v] of Object.entries(doc.tradePlan)) idx[k] = { lesson: v, section: 'tradePlan' };
-    for (const [k, v] of Object.entries(doc.concepts)) idx[k] = { lesson: v, section: 'concepts' };
-    return idx;
-  })();
+const LESSON_INDEX: Record<
+  string,
+  {
+    lesson: Lesson;
+    section: 'metrics' | 'backtestMetrics' | 'tradePlan' | 'concepts';
+  }
+> = (() => {
+  const idx: Record<
+    string,
+    {
+      lesson: Lesson;
+      section: 'metrics' | 'backtestMetrics' | 'tradePlan' | 'concepts';
+    }
+  > = {};
+  for (const [k, v] of Object.entries(doc.metrics))
+    idx[k] = { lesson: v, section: 'metrics' };
+  for (const [k, v] of Object.entries(doc.backtestMetrics))
+    idx[k] = { lesson: v, section: 'backtestMetrics' };
+  for (const [k, v] of Object.entries(doc.tradePlan))
+    idx[k] = { lesson: v, section: 'tradePlan' };
+  for (const [k, v] of Object.entries(doc.concepts))
+    idx[k] = { lesson: v, section: 'concepts' };
+  return idx;
+})();
 
 /**
  * Resolve a lesson by key across all sections.
@@ -127,18 +150,25 @@ export function findLesson(key: string): Lesson | undefined {
 export function renderValueText(key: string, value: string): string | null {
   const lesson = findLesson(key);
   if (!lesson?.valueInterpretation) return null;
-  const out = evaluateBands(lesson.valueInterpretation as Parameters<typeof evaluateBands>[0], value);
+  const out = evaluateBands(
+    lesson.valueInterpretation as Parameters<typeof evaluateBands>[0],
+    value
+  );
   return out || null;
 }
 
 /** Tooltip-grade summary: oneLiner (+ dynamic band line when a value is given). */
-export function tooltipSummary(key: string, value?: string): { label: string; oneLiner: string; readLine?: string } | null {
+export function tooltipSummary(
+  key: string,
+  value?: string
+): { label: string; oneLiner: string; readLine?: string } | null {
   const lesson = findLesson(key);
   if (!lesson) return null;
   return {
     label: lesson.label,
     oneLiner: lesson.oneLiner ?? '',
-    readLine: value != null ? (renderValueText(key, value) ?? undefined) : undefined,
+    readLine:
+      value != null ? (renderValueText(key, value) ?? undefined) : undefined,
   };
 }
 
@@ -147,6 +177,7 @@ export function tooltipSummary(key: string, value?: string): { label: string; on
 export function searchGlossary(query: string): GlossaryEntry[] {
   const q = query.toLowerCase();
   return doc.glossary.filter(
-    (e) => e.term.toLowerCase().includes(q) || e.definition.toLowerCase().includes(q)
+    (e) =>
+      e.term.toLowerCase().includes(q) || e.definition.toLowerCase().includes(q)
   );
 }

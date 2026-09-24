@@ -31,8 +31,16 @@ export {
   getAlertHistory,
   dismissAlertHistory,
 } from './alerts';
-export { generateShareToken as generateShareTokenApi, resolveSharedScreen } from './sharing';
-export { runBacktest, fetchBacktest, fetchTrades, fetchEquity } from './backtest';
+export {
+  generateShareToken as generateShareTokenApi,
+  resolveSharedScreen,
+} from './sharing';
+export {
+  runBacktest,
+  fetchBacktest,
+  fetchTrades,
+  fetchEquity,
+} from './backtest';
 export { fetchOHLCV, fetchIndicators } from './data';
 export {
   fetchBeta,

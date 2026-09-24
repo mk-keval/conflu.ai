@@ -853,10 +853,13 @@ class TestSynthesisOverrides:
 
     def _make_technical(self, **kw: Any) -> TechnicalAnalysis:
         base = TechnicalAnalysis(
-            score=0.0, ma_alignment="mixed", rsi=50.0, rsi_regime="neutral",
-            adx=20.0, adx_verdict="weak", atr_pct=2.0, volatility_regime="normal",
-            volume_ratio=1.0, bb_position="inside", macd_status="neutral",
-            findings=[],
+            score=0.0, ma_alignment="bullish", rsi=55.0, rsi_regime="neutral_bullish",
+            adx=25.0, adx_verdict="moderate", atr_pct=2.0, volatility_regime="normal",
+            volume_ratio=1.0, avg_daily_volume_usd=1.0, bb_position="inside",
+            macd_status="bullish", structure="bullish",
+            swing_highs=[110.0, 115.0, 120.0], swing_lows=[95.0, 98.0, 100.0],
+            key_resistance=[115.0, 120.0], key_support=[98.0, 95.0],
+            pullback_quality="A", pullback_score=85.0, findings=[],
         )
         return base.model_copy(update=kw) if kw else base
 

@@ -7,13 +7,8 @@ interface AlertsPanelProps {
 }
 
 export function AlertsPanel({ open, onClose }: AlertsPanelProps) {
-  const {
-    alerts,
-    isLoading,
-    toggleAlert,
-    deleteAlert,
-    isUpdating,
-  } = useAlerts();
+  const { alerts, isLoading, toggleAlert, deleteAlert, isUpdating } =
+    useAlerts();
 
   if (!open) return null;
 
@@ -31,7 +26,7 @@ export function AlertsPanel({ open, onClose }: AlertsPanelProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-2xl rounded-lg bg-dark-800 p-6 shadow-xl">
+      <div className="bg-dark-800 w-full max-w-2xl rounded-lg p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-white">Active Alerts</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white">
@@ -40,7 +35,9 @@ export function AlertsPanel({ open, onClose }: AlertsPanelProps) {
         </div>
 
         {isLoading ? (
-          <div className="py-8 text-center text-gray-400">Loading alerts...</div>
+          <div className="py-8 text-center text-gray-400">
+            Loading alerts...
+          </div>
         ) : alerts.length === 0 ? (
           <div className="py-8 text-center text-gray-400">
             No alerts configured. Create alerts from the screener toolbar.
@@ -51,13 +48,17 @@ export function AlertsPanel({ open, onClose }: AlertsPanelProps) {
               <div
                 key={alert.id}
                 className={`rounded border p-3 ${
-                  alert.is_active ? 'border-dark-600' : 'border-dark-700 opacity-60'
+                  alert.is_active
+                    ? 'border-dark-600'
+                    : 'border-dark-700 opacity-60'
                 }`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-white">{alert.name}</span>
+                      <span className="font-medium text-white">
+                        {alert.name}
+                      </span>
                       <span
                         className={`rounded px-2 py-0.5 text-xs ${getAlertTypeBadge(alert.alert_type)}`}
                       >
@@ -65,7 +66,9 @@ export function AlertsPanel({ open, onClose }: AlertsPanelProps) {
                       </span>
                     </div>
                     {alert.description && (
-                      <div className="mt-1 text-xs text-gray-400">{alert.description}</div>
+                      <div className="mt-1 text-xs text-gray-400">
+                        {alert.description}
+                      </div>
                     )}
                     <div className="mt-1 flex flex-wrap gap-2 text-xs text-gray-500">
                       <span>Triggered: {alert.trigger_count}x</span>

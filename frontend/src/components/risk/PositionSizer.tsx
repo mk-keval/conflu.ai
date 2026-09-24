@@ -20,7 +20,10 @@ export function PositionSizer() {
   const mutation = useMutation({
     mutationFn: () =>
       postPositionSize({
-        symbols: symbols.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean),
+        symbols: symbols
+          .split(',')
+          .map((s) => s.trim().toUpperCase())
+          .filter(Boolean),
         method,
         cash,
         params: { risk_per_trade: riskPerTrade },
@@ -34,33 +37,40 @@ export function PositionSizer() {
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleSubmit} className="space-y-3 rounded border border-dark-600 bg-dark-800 p-3">
-        <h3 className="text-xs font-semibold text-dark-100">Position Sizing</h3>
+      <form
+        onSubmit={handleSubmit}
+        className="border-dark-600 bg-dark-800 space-y-3 rounded border p-3"
+      >
+        <h3 className="text-dark-100 text-xs font-semibold">Position Sizing</h3>
 
         <div>
-          <label className="mb-1 block text-xs text-dark-300">Symbols</label>
+          <label className="text-dark-300 mb-1 block text-xs">Symbols</label>
           <input
             type="text"
             value={symbols}
             onChange={(e) => setSymbols(e.target.value)}
-            className="w-full rounded border border-dark-500 bg-dark-700 px-3 py-1.5 text-sm text-dark-50 focus:border-accent focus:outline-none"
+            className="border-dark-500 bg-dark-700 text-dark-50 w-full rounded border px-3 py-1.5 text-sm focus:border-accent focus:outline-none"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-xs text-dark-300">Total Cash</label>
+            <label className="text-dark-300 mb-1 block text-xs">
+              Total Cash
+            </label>
             <input
               type="number"
               value={cash}
               onChange={(e) => setCash(Number(e.target.value))}
               min={1000}
               step={1000}
-              className="w-full rounded border border-dark-500 bg-dark-700 px-3 py-1.5 text-sm text-dark-50 focus:border-accent focus:outline-none"
+              className="border-dark-500 bg-dark-700 text-dark-50 w-full rounded border px-3 py-1.5 text-sm focus:border-accent focus:outline-none"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs text-dark-300">Risk/Trade (%)</label>
+            <label className="text-dark-300 mb-1 block text-xs">
+              Risk/Trade (%)
+            </label>
             <input
               type="number"
               value={riskPerTrade}
@@ -68,13 +78,13 @@ export function PositionSizer() {
               min={0.1}
               max={10}
               step={0.1}
-              className="w-full rounded border border-dark-500 bg-dark-700 px-3 py-1.5 text-sm text-dark-50 focus:border-accent focus:outline-none"
+              className="border-dark-500 bg-dark-700 text-dark-50 w-full rounded border px-3 py-1.5 text-sm focus:border-accent focus:outline-none"
             />
           </div>
         </div>
 
         <div>
-          <label className="mb-1 block text-xs text-dark-300">Method</label>
+          <label className="text-dark-300 mb-1 block text-xs">Method</label>
           <div className="flex gap-2">
             {METHOD_OPTIONS.map((opt) => (
               <button
@@ -85,7 +95,7 @@ export function PositionSizer() {
                   'flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors',
                   method === opt.value
                     ? 'bg-accent text-white'
-                    : 'border border-dark-500 text-dark-200 hover:bg-dark-600'
+                    : 'border-dark-500 text-dark-200 hover:bg-dark-600 border'
                 )}
               >
                 {opt.label}
@@ -100,7 +110,7 @@ export function PositionSizer() {
           className={cn(
             'w-full rounded py-2 text-xs font-semibold transition-colors',
             mutation.isPending
-              ? 'cursor-not-allowed bg-dark-500 text-dark-300'
+              ? 'bg-dark-500 text-dark-300 cursor-not-allowed'
               : 'bg-accent text-white hover:bg-accent-dark'
           )}
         >
@@ -108,7 +118,9 @@ export function PositionSizer() {
         </button>
 
         {mutation.isError && (
-          <p className="text-xs text-loss">Error: {(mutation.error as Error)?.message}</p>
+          <p className="text-xs text-loss">
+            Error: {(mutation.error as Error)?.message}
+          </p>
         )}
       </form>
 
@@ -123,17 +135,17 @@ function PositionSizerResult({ data }: { data: PositionSizeResult }) {
 
   if (!entries.length) {
     return (
-      <div className="rounded border border-dark-600 bg-dark-800 p-3 text-center text-xs text-dark-400">
+      <div className="border-dark-600 bg-dark-800 text-dark-400 rounded border p-3 text-center text-xs">
         No position sizes calculated
       </div>
     );
   }
 
   return (
-    <div className="rounded border border-dark-600 bg-dark-800 p-3">
+    <div className="border-dark-600 bg-dark-800 rounded border p-3">
       <div className="mb-2 flex items-center justify-between">
-        <h4 className="text-xs font-semibold text-dark-200">Position Sizes</h4>
-        <div className="text-right text-[10px] text-dark-400">
+        <h4 className="text-dark-200 text-xs font-semibold">Position Sizes</h4>
+        <div className="text-dark-400 text-right text-[10px]">
           Method: {data.method}
           <br />
           Cash: {formatPrice(data.cash)}
@@ -143,10 +155,12 @@ function PositionSizerResult({ data }: { data: PositionSizeResult }) {
         {entries.map(([symbol, size]) => (
           <div
             key={symbol}
-            className="flex items-center justify-between rounded bg-dark-900 px-3 py-2"
+            className="bg-dark-900 flex items-center justify-between rounded px-3 py-2"
           >
-            <span className="text-xs font-medium text-dark-100">{symbol}</span>
-            <span className="font-mono text-xs text-dark-50">{formatPrice(size)}</span>
+            <span className="text-dark-100 text-xs font-medium">{symbol}</span>
+            <span className="text-dark-50 font-mono text-xs">
+              {formatPrice(size)}
+            </span>
           </div>
         ))}
       </div>

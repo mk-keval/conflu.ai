@@ -1,9 +1,10 @@
 /**
  * Daily Routine domain logic (Phase 1, gap #4).
  *
- * Pure functions for constructing and advancing a 4-step Daily Routine, so the
- * ordering/advance rules are unit-testable without touching the Zustand store
- * or localStorage. The store in `store/workflowStore.ts` delegates here.
+ * Pure functions for constructing and advancing a 2-touchpoint Daily Routine
+ * (Slice 3 — Mission Surface), so the ordering/advance rules are
+ * unit-testable without touching the Zustand store or localStorage.
+ * The store in `store/workflowStore.ts` delegates here.
  */
 
 import type {
@@ -13,16 +14,20 @@ import type {
   RoutineStepSeq,
 } from '../types/workflow';
 
-/** The four steps, in order, that make up a working-professional routine. */
-export const ROUTINE_STEPS: readonly { seq: RoutineStepSeq; label: RoutineStepLabel }[] = [
-  { seq: 1, label: 'Pre-Market' },
-  { seq: 2, label: 'Market Open' },
-  { seq: 3, label: 'Mid-Day' },
-  { seq: 4, label: 'After-Close Journal' },
+/** Two touchpoints (Slice 3): Pre-Market (Touchpoint A) + After-Close (Touchpoint B). */
+export const ROUTINE_STEPS: readonly {
+  seq: RoutineStepSeq;
+  label: RoutineStepLabel;
+}[] = [
+  { seq: 1, label: 'Pre-Market (Touchpoint A)' },
+  { seq: 2, label: 'After-Close (Touchpoint B)' },
 ];
 
 /** Build a fresh, all-pending routine for the given local date key. */
-export function newRoutine(date: string, now: () => string = () => new Date().toISOString()): DailyRoutine {
+export function newRoutine(
+  date: string,
+  now: () => string = () => new Date().toISOString()
+): DailyRoutine {
   const steps: RoutineStep[] = ROUTINE_STEPS.map(({ seq, label }) => ({
     seq,
     step: label,
@@ -58,7 +63,14 @@ export function completeRoutineStep(
   if (routine.steps[index].status === 'completed') return routine;
 
   const steps = routine.steps.map((s, i) =>
-    i === index ? { ...s, status: 'completed' as const, completedAt: now(), ...(data ? { data } : {}) } : s
+    i === index
+      ? {
+          ...s,
+          status: 'completed' as const,
+          completedAt: now(),
+          ...(data ? { data } : {}),
+        }
+      : s
   );
   const nextStep = index + 1;
   const isComplete = nextStep >= routine.steps.length;

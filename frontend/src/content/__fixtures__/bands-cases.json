@@ -1,23 +1,200 @@
 {
   "$comment": "SHARED PARITY FIXTURE — consumed by frontend/src/content/__tests__/evaluateBands.test.ts AND backend/tests/test_education_bands.py. Both evaluators must produce byte-identical output for every case.",
   "cases": [
-    { "name": "ordered first-match wins", "value": "15", "expected": "HIGH 15", "interpretation": { "type": "bands", "transform": null, "bands": [ { "if": "value > 10", "text": "HIGH ${value}" } ] } },
-    { "name": "boundary equal passes >=", "value": "10", "expected": "AT 10", "interpretation": { "type": "bands", "transform": null, "bands": [ { "if": "value >= 10", "text": "AT ${value}" } ] } },
-    { "name": "below band hits fallback", "value": "3", "expected": "LOW 3", "interpretation": { "type": "bands", "transform": null, "bands": [ { "if": "value >= 50", "text": "HUGE ${value}" }, { "if": "", "text": "LOW ${value}" } ] } },
-    { "name": "strict greater excludes equality", "value": "5", "expected": "NOT ABOVE 5", "interpretation": { "type": "bands", "transform": null, "bands": [ { "if": "value > 5", "text": "ABOVE ${value}" }, { "if": "", "text": "NOT ABOVE ${value}" } ] } },
-    { "name": "less-than band", "value": "-2.5", "expected": "NEG -2.5", "interpretation": { "type": "bands", "transform": null, "bands": [ { "if": "value < 0", "text": "NEG ${value}" } ] } },
-    { "name": "string equality case-insensitive", "value": "Bullish", "expected": "UP BULLISH", "interpretation": { "type": "bands", "transform": null, "bands": [ { "if": "value == 'bullish'", "text": "UP BULLISH" } ] } },
-    { "name": "string inequality", "value": "neutral", "expected": "NOT BEARISH neutral", "interpretation": { "type": "bands", "transform": null, "bands": [ { "if": "value != 'bearish'", "text": "NOT BEARISH ${value}" } ] } },
-    { "name": "non-numeric vs numeric condition falls back", "value": "N/A", "expected": "UNKNOWN N/A", "interpretation": { "type": "bands", "transform": null, "bands": [ { "if": "value > 30", "text": "BIG ${value}" }, { "if": "", "text": "UNKNOWN ${value}" } ] } },
-    { "name": "percent transform", "value": "24.6", "expected": "STRONG 24.6%", "interpretation": { "type": "bands", "transform": "percent", "bands": [ { "if": "value > 20", "text": "STRONG ${value}" } ] } },
-    { "name": "ratio transform rounds 2dp", "value": "1.7777", "expected": "RATIO 1.78x", "interpretation": { "type": "bands", "transform": "ratio", "bands": [ { "if": "value > 1", "text": "RATIO ${value}" } ] } },
-    { "name": "compactNumber millions", "value": "2500000", "expected": "VOL 2.5M", "interpretation": { "type": "bands", "transform": "compactNumber", "bands": [ { "if": "value > 1000000", "text": "VOL ${value}" } ] } },
-    { "name": "compactNumber thousands", "value": "42300", "expected": "VOL 42.3K", "interpretation": { "type": "bands", "transform": "compactNumber", "bands": [ { "if": "value > 1000", "text": "VOL ${value}" } ] } },
-    { "name": "money transform separators", "value": "1250.5", "expected": "CAP $1,250.50", "interpretation": { "type": "bands", "transform": "money", "bands": [ { "if": "value > 100", "text": "CAP ${value}" } ] } },
-    { "name": "plain passthrough keeps enum verbatim", "value": "golden_cross", "expected": "STATE golden_cross", "interpretation": { "type": "bands", "transform": "plain", "bands": [ { "if": "value != ''", "text": "STATE ${value}" } ] } },
-    { "name": "decimal trimmed to 2 places", "value": "0.333333", "expected": "VAL 0.33", "interpretation": { "type": "bands", "transform": null, "bands": [ { "if": "value > 0", "text": "VAL ${value}" } ] } },
-    { "name": "integer stays integer", "value": "72", "expected": "VAL 72", "interpretation": { "type": "bands", "transform": null, "bands": [ { "if": "value > 0", "text": "VAL ${value}" } ] } },
-    { "name": "negative decimal", "value": "-14.25", "expected": "NEG -14.25", "interpretation": { "type": "bands", "transform": null, "bands": [ { "if": "value < 0", "text": "NEG ${value}" } ] } },
-    { "name": "multi-band middle branch selected", "value": "50", "expected": "mid-range 50", "interpretation": { "type": "bands", "transform": null, "bands": [ { "if": "value > 70", "text": "overbought ${value}" }, { "if": "value > 30", "text": "mid-range ${value}" }, { "if": "value >= 0", "text": "oversold ${value}" } ] } }
+    {
+      "name": "ordered first-match wins",
+      "value": "15",
+      "expected": "HIGH 15",
+      "interpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [{ "if": "value > 10", "text": "HIGH ${value}" }]
+      }
+    },
+    {
+      "name": "boundary equal passes >=",
+      "value": "10",
+      "expected": "AT 10",
+      "interpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [{ "if": "value >= 10", "text": "AT ${value}" }]
+      }
+    },
+    {
+      "name": "below band hits fallback",
+      "value": "3",
+      "expected": "LOW 3",
+      "interpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [
+          { "if": "value >= 50", "text": "HUGE ${value}" },
+          { "if": "", "text": "LOW ${value}" }
+        ]
+      }
+    },
+    {
+      "name": "strict greater excludes equality",
+      "value": "5",
+      "expected": "NOT ABOVE 5",
+      "interpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [
+          { "if": "value > 5", "text": "ABOVE ${value}" },
+          { "if": "", "text": "NOT ABOVE ${value}" }
+        ]
+      }
+    },
+    {
+      "name": "less-than band",
+      "value": "-2.5",
+      "expected": "NEG -2.5",
+      "interpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [{ "if": "value < 0", "text": "NEG ${value}" }]
+      }
+    },
+    {
+      "name": "string equality case-insensitive",
+      "value": "Bullish",
+      "expected": "UP BULLISH",
+      "interpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [{ "if": "value == 'bullish'", "text": "UP BULLISH" }]
+      }
+    },
+    {
+      "name": "string inequality",
+      "value": "neutral",
+      "expected": "NOT BEARISH neutral",
+      "interpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [
+          { "if": "value != 'bearish'", "text": "NOT BEARISH ${value}" }
+        ]
+      }
+    },
+    {
+      "name": "non-numeric vs numeric condition falls back",
+      "value": "N/A",
+      "expected": "UNKNOWN N/A",
+      "interpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [
+          { "if": "value > 30", "text": "BIG ${value}" },
+          { "if": "", "text": "UNKNOWN ${value}" }
+        ]
+      }
+    },
+    {
+      "name": "percent transform",
+      "value": "24.6",
+      "expected": "STRONG 24.6%",
+      "interpretation": {
+        "type": "bands",
+        "transform": "percent",
+        "bands": [{ "if": "value > 20", "text": "STRONG ${value}" }]
+      }
+    },
+    {
+      "name": "ratio transform rounds 2dp",
+      "value": "1.7777",
+      "expected": "RATIO 1.78x",
+      "interpretation": {
+        "type": "bands",
+        "transform": "ratio",
+        "bands": [{ "if": "value > 1", "text": "RATIO ${value}" }]
+      }
+    },
+    {
+      "name": "compactNumber millions",
+      "value": "2500000",
+      "expected": "VOL 2.5M",
+      "interpretation": {
+        "type": "bands",
+        "transform": "compactNumber",
+        "bands": [{ "if": "value > 1000000", "text": "VOL ${value}" }]
+      }
+    },
+    {
+      "name": "compactNumber thousands",
+      "value": "42300",
+      "expected": "VOL 42.3K",
+      "interpretation": {
+        "type": "bands",
+        "transform": "compactNumber",
+        "bands": [{ "if": "value > 1000", "text": "VOL ${value}" }]
+      }
+    },
+    {
+      "name": "money transform separators",
+      "value": "1250.5",
+      "expected": "CAP $1,250.50",
+      "interpretation": {
+        "type": "bands",
+        "transform": "money",
+        "bands": [{ "if": "value > 100", "text": "CAP ${value}" }]
+      }
+    },
+    {
+      "name": "plain passthrough keeps enum verbatim",
+      "value": "golden_cross",
+      "expected": "STATE golden_cross",
+      "interpretation": {
+        "type": "bands",
+        "transform": "plain",
+        "bands": [{ "if": "value != ''", "text": "STATE ${value}" }]
+      }
+    },
+    {
+      "name": "decimal trimmed to 2 places",
+      "value": "0.333333",
+      "expected": "VAL 0.33",
+      "interpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [{ "if": "value > 0", "text": "VAL ${value}" }]
+      }
+    },
+    {
+      "name": "integer stays integer",
+      "value": "72",
+      "expected": "VAL 72",
+      "interpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [{ "if": "value > 0", "text": "VAL ${value}" }]
+      }
+    },
+    {
+      "name": "negative decimal",
+      "value": "-14.25",
+      "expected": "NEG -14.25",
+      "interpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [{ "if": "value < 0", "text": "NEG ${value}" }]
+      }
+    },
+    {
+      "name": "multi-band middle branch selected",
+      "value": "50",
+      "expected": "mid-range 50",
+      "interpretation": {
+        "type": "bands",
+        "transform": null,
+        "bands": [
+          { "if": "value > 70", "text": "overbought ${value}" },
+          { "if": "value > 30", "text": "mid-range ${value}" },
+          { "if": "value >= 0", "text": "oversold ${value}" }
+        ]
+      }
+    }
   ]
 }

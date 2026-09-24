@@ -20,6 +20,41 @@ from backend.app.domain.ticker_analysis import technical as tech_module
 from backend.app.domain.ticker_analysis.orchestrator import TickerAnalysisService
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("dollar_volume", [0.0, 50_000.0])
+async def test_orchestrator_merges_mentor_liquidity(monkeypatch, dollar_volume):
+    from backend.app.domain.ticker_analysis import orchestrator
+
+    monkeypatch.setattr(orchestrator, "_compute_missing_technicals", lambda *args: {
+        "avg_daily_volume_usd_calc": dollar_volume,
+    })
+    with patch.object(orchestrator.synthesis, "synthesise", wraps=orchestrator.synthesis.synthesise) as synthesise:
+        await test_analyze_async_populates_technical(monkeypatch)
+    assert synthesise.call_args.kwargs["tv_data"]["avg_daily_volume_usd_calc"] == dollar_volume
+
+
+@pytest.mark.parametrize("rows", [9, 49, 50, 60])
+def test_compute_mentor_liquidity_from_last_ten_products(rows, monkeypatch):
+    import pandas as pd
+    from backend.app.domain.ticker_analysis.orchestrator import _compute_missing_technicals
+
+    history = pd.DataFrame({
+        "Close": [float(i + 1) for i in range(rows)],
+        "Volume": [float(rows - i) * 100 for i in range(rows)],
+    })
+    ticker = MagicMock()
+    ticker.history.return_value = history
+    monkeypatch.setattr("yfinance.Ticker", lambda symbol: ticker)
+    result = _compute_missing_technicals("TEST", {
+        "RSI": 50, "ADX": 25, "MACD.macd": 1, "SMA20": 100,
+    })
+    if rows < 50:
+        assert "avg_daily_volume_usd_calc" not in result
+    else:
+        expected = round(float((history["Close"] * history["Volume"]).tail(10).mean()), 2)
+        assert result["avg_daily_volume_usd_calc"] == expected
+
+
 def test_technical_analyze_signature_accepts_ohlcv_kwargs() -> None:
     """D-43 regression: the orchestrator passes daily/weekly/intraday OHLCV
     frames as kwargs into ``technical.analyze`` to enable parallel pre-fetch.

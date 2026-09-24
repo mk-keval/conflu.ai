@@ -6,13 +6,15 @@ interface SkeletonProps {
 
 export function SkeletonLine({ className }: SkeletonProps) {
   return (
-    <div className={cn('h-4 w-full animate-pulse rounded bg-dark-500', className)} />
+    <div
+      className={cn('bg-dark-500 h-4 w-full animate-pulse rounded', className)}
+    />
   );
 }
 
 export function SkeletonCard({ className }: SkeletonProps) {
   return (
-    <div className={cn('rounded bg-dark-700 p-4', className)}>
+    <div className={cn('bg-dark-700 rounded p-4', className)}>
       <SkeletonLine className="mb-3 w-1/3" />
       <SkeletonLine className="mb-2" />
       <SkeletonLine className="w-2/3" />
@@ -20,7 +22,10 @@ export function SkeletonCard({ className }: SkeletonProps) {
   );
 }
 
-export function SkeletonTable({ rows = 5, className }: SkeletonProps & { rows?: number }) {
+export function SkeletonTable({
+  rows = 5,
+  className,
+}: SkeletonProps & { rows?: number }) {
   return (
     <div className={cn('space-y-2', className)}>
       <div className="flex gap-4 pb-2">

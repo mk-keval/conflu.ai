@@ -178,9 +178,8 @@ def create_app() -> FastAPI:
     app.add_middleware(RateLimitMiddleware)
     app.add_middleware(APIKeyMiddleware)
 
-    # ── Routers ──
+# ── Routers ──
     from backend.app.api.routers import (
-        sector_focus_router,
         backtest_router,
         data_router,
         health_router,
@@ -188,6 +187,7 @@ def create_app() -> FastAPI:
         professional_router,
         regime_router,
         risk_router,
+        sector_focus_router,
         sector_rotation_router,
         ticker_analysis_router,
         tv_screener_router,
@@ -205,7 +205,9 @@ def create_app() -> FastAPI:
     app.include_router(sector_rotation_router, prefix="/api/v1")
     app.include_router(ticker_analysis_router, prefix="/api/v1")
     app.include_router(tv_screener_router, prefix="/api/v1")
+    from backend.app.api.routers.workflow import router as workflow_router
     app.include_router(admin_router, prefix="/api/v1")
+    app.include_router(workflow_router, prefix="/api/v1")
 
     # ── WebSocket ──
     from backend.app.api.ws.handler import register_ws_routes

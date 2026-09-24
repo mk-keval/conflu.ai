@@ -276,3 +276,22 @@ async def get_data(
         data={"symbol": symbol, "timeframe": params.timeframe, "candles": candles},
         meta=MetaInfo(timestamp=datetime.now(UTC).isoformat()),
     )
+
+
+# ── Latest price (for open positions tracker) ──
+@router.get(
+    "/price/{symbol}",
+    summary="Get latest price",
+    description="Fetch the most recent close price for a symbol (last daily bar).",
+    status_code=200,
+)
+async def get_latest_price(symbol: str) -> Any:
+    """Get the latest close price for a symbol."""
+    df = _fetch_ohlcv(symbol.upper(), "1D", limit=2)
+    if df.empty:
+        return ApiResponse(data={"symbol": symbol.upper(), "price": None}, meta=MetaInfo(timestamp=datetime.now(UTC).isoformat()))
+    last = df.iloc[-1]
+    return ApiResponse(
+        data={"symbol": symbol.upper(), "price": float(last["close"])},
+        meta=MetaInfo(timestamp=datetime.now(UTC).isoformat()),
+    )

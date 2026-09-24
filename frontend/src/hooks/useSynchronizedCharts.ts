@@ -6,9 +6,7 @@ import type { IChartApi, Time } from 'lightweight-charts';
  * The first chart in the map acts as the "master" — its visible range
  * changes are propagated to all slave charts.
  */
-export function useSynchronizedCharts(
-  chartRefs: Map<string, IChartApi>
-): void {
+export function useSynchronizedCharts(chartRefs: Map<string, IChartApi>): void {
   const syncingRef = useRef(false);
   const rafRef = useRef<number | null>(null);
 
@@ -62,9 +60,7 @@ export function useSynchronizedCharts(
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       try {
-        masterChart
-          .timeScale()
-          .unsubscribeVisibleTimeRangeChange(timeRangeCb);
+        masterChart.timeScale().unsubscribeVisibleTimeRangeChange(timeRangeCb);
       } catch {
         // Ignore errors during unsubscribe
       }

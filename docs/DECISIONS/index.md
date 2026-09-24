@@ -4,6 +4,16 @@ This section contains Architecture Decision Records (ADRs) for significant proje
 
 ## Index
 
+- [D-59: 0A-ii Control Study Re-run & D1 Tiered Sizing Activation](D-59-0a-ii-control-study-gate-verdict-tagging.md) — **0A-ii re-run with 2.5:1 floor active**: 0 PASS, 0 FAIL, 31 CONDITIONAL (all Liquidity — data limitation, not gate bug); exit replay 77.8% win, +1.093R; **D1 tier implemented**: CONDITIONAL at R/R ≥ 2.0 with r1 ≥ 1.0 (half-size via existing CONDITIONAL_HALVING=0.5), PASS at ≥ 2.5, FAIL below 2.0; 834 backend tests pass
+
+- [D-58: 1H Source Fix: Structural Targets & Measured R:R](D-58-1h-source-fix-structural-targets-measured-rr.md) — **unblocks 5d R:R floor & D1**: targets always from structure (unconditional), RR measured not invented, provenance recorded (entry_basis, structural_stop_level, structural_target_levels); gate consistency assertion validates measured RR; 593 tests pass
+
+- [D-57: Fix Invariant-2 Watch Promotion Logic](D-57-fix-invariant-2-watch-promotion-logic.md)
+
+- [D-56: Gate Enforcement Spine — Wave-1 Completion (1E/2B/2C/2D/1D/2E) + 0A-i Control Study](D-56-gate-enforcement-wave1-complete.md) - **closes the Wave-1 spine**: 10% stop ceiling + 5d stub surfacing (1E), journal reader (2B), real Portfolio Fit 8-pos/30%-sector (2C), risk-based sizing w/ CONDITIONAL halving (2D), gate enforcement in `paper_trade_from_brief.py` — PASS/CONDITIONAL×0.5/FAIL→REJECTIONS, blank stop always rejects (1D), auto exits `infer_exit` (2E); **0A-i control study** `control_study_voided_cohort.py` — re-reads the 31 voided rows read-only: 4/31 manufactured (PAGP, LNG, CVX×2 — exact R25 reproduction), 7/30 stops over the 10% ceiling, exit replay 14/31 resolved (win 85.7%, +1.31R, PF 10.2), 17 explicitly unresolvable; 79 tests pass. 0A-ii + 5d still blocked until 1H (D-52)
+
+- [D-55: Preserve zero dollar volume and use one mentor liquidity check](D-55-mentor-liquidity-zero-and-single-gate.md)
+
 - [ADR-001: DuckDB as Analytics Database](0001-duckdb-analytics-database.md)
 - [ADR-002: vectorbt for Backtesting](0002-vectorbt-backtesting.md)
 - [ADR-003: FastAPI for API Layer](0003-fastapi-api-layer.md)
@@ -49,6 +59,11 @@ This section contains Architecture Decision Records (ADRs) for significant proje
 - [D-46: Five Missing Elite Trader Features (Catalyst Data Layer — Macro Context, Sector RS, Analyst Revisions, Insider Cluster, Options Flow)](D-46-elite-trader-catalyst-data.md)
 - [D-47: Catalyst-Enriched Screener + Paper Trading Workflow (Phase 3 PR 1 — confluence filter, daily ritual, trade log)](D-47-catalyst-screener-paper-trading.md)
 - [D-48: Real-Time Earnings Calendar (Phase 3 PR 2 — yfinance-backed, replaces empty hand-curated JSON)](D-48-yfinance-earnings-calendar.md)
+- [D-50: Paper-Trade Measurement Loop - Exit-Capture Schema + Void the 2026-09 Bypass Cohort](D-50-paper-trade-exit-capture-schema.md) - 21-column schema, rejection log, cohort voided, README drift fixed; measurement before enforcement — **schema + one statistic AMENDED by D-51**
+- [D-51: Paper-Trade Schema v2 (29 columns) + Gate Sequencing - Ship Enforcement Now, Defer the R:R Floor](D-51-paper-trade-schema-v2-and-gate-sequencing.md) - **amends D-50**; 21→29 cols (21 ENTRY + 8 EXIT), `shares` moved to ENTRY, adds `entry_low`/`entry_high`/`risk_reward_planned`/`gate_version`/`account_value`/`entry_type`/`gate_verdict`/`gate_failed_step`; corrects the "(7%)" R:R figure (T1-based → T2-based 11/30 = 37%, and *neither* is a selectivity measure); single exit for v1 (D9); gate ships with 5a/5b/5c, R:R floor deferred to 1H (REV7)
+- [D-49: RESERVED](D-50-paper-trade-exit-capture-schema.md) - Windows cp1252 + `+nan%` fixes (referenced in the 2026-09-05 session log; formal record not yet written)
+- **D-52: RESERVED** — phase 1H R:R source fix in `synthesis.py` (renumbered from the planning doc's original D-51 projection to avoid collision with the schema record)
+- [D-53: Gate Enforcement Spine — Wave-1C Backend Gate Evaluator + Verdict Wiring](D-53-gate-enforcement-spine-wave1c.md) - **7-step gate backend evaluator implemented** (`backend/app/domain/workflow/gate.py`, `evaluate_gate`/`build_gate_input`, honest CONDITIONAL degradation, $10M ADV workflow floor incl. zero-ADV FAIL per D-55); wired last in `synthesis.synthesise()` after all conviction mutations with `gate=` on every verdict; `evaluate_stop_distance` moved + re-exported; 5d R:R floor still deferred to D-52/1H; 76 tests pass. Journal/sizing/exit slices remain reserved under this spine
 
 ## Other Decision Records
 - [Phase 9: Advanced Backtest](2026-06-19-phase9-advanced-backtest.md) — ATR-based sizing, vectorized signals, parameter optimization, monte carlo, multi-symbol backtest 

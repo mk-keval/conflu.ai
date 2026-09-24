@@ -18,7 +18,9 @@ export async function getScreen(id: string): Promise<SavedScreen> {
   return apiGet<SavedScreen>(`/api/v1/screens/${id}`);
 }
 
-export async function createScreen(data: CreateScreenRequest): Promise<SavedScreen> {
+export async function createScreen(
+  data: CreateScreenRequest
+): Promise<SavedScreen> {
   return apiPost<SavedScreen>('/api/v1/screens', data);
 }
 
@@ -50,7 +52,9 @@ export async function revertToVersion(
   screenId: string,
   version: number
 ): Promise<SavedScreen> {
-  return apiPost<SavedScreen>(`/api/v1/screens/${screenId}/versions/${version}/revert`);
+  return apiPost<SavedScreen>(
+    `/api/v1/screens/${screenId}/versions/${version}/revert`
+  );
 }
 
 export async function getReplayResult(
@@ -58,10 +62,15 @@ export async function getReplayResult(
   version?: number
 ): Promise<ScreenReplayResult> {
   const params = version ? { version } : {};
-  return apiGet<ScreenReplayResult>(`/api/v1/screens/${screenConfigId}/replay`, { params });
+  return apiGet<ScreenReplayResult>(
+    `/api/v1/screens/${screenConfigId}/replay`,
+    { params }
+  );
 }
 
-export async function startReplay(data: ReplayRequest): Promise<{ result_id: string }> {
+export async function startReplay(
+  data: ReplayRequest
+): Promise<{ result_id: string }> {
   return apiPost<{ result_id: string }>('/api/v1/screens/replay', data);
 }
 
@@ -74,8 +83,6 @@ export async function generateShareToken(
   });
 }
 
-export async function getSharedScreen(
-  token: string
-): Promise<SavedScreen> {
+export async function getSharedScreen(token: string): Promise<SavedScreen> {
   return apiGet<SavedScreen>(`/api/v1/shared/${token}`);
 }

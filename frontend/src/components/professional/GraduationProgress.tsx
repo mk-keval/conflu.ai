@@ -48,17 +48,16 @@ export function GraduationProgress({
   );
 
   const nextUnlock = schedule.find((s) => !s.unlocked);
-  const progressPct = Math.min(
-    100,
-    (daysActive / 90) * 100
-  );
+  const progressPct = Math.min(100, (daysActive / 90) * 100);
 
   return (
     <div data-testid="graduation-progress" className="space-y-3">
       {/* Header */}
       <div className="flex items-center gap-2">
         <GraduationCap className="h-4 w-4 text-accent" />
-        <span className="text-sm font-semibold text-text-primary">Graduation Path</span>
+        <span className="text-sm font-semibold text-text-primary">
+          Graduation Path
+        </span>
       </div>
 
       {/* Progress bar */}
@@ -67,7 +66,7 @@ export function GraduationProgress({
           <span>Day {daysActive}</span>
           <span>{Math.min(90, daysActive)} / 90 days</span>
         </div>
-        <div className="h-2 rounded-full bg-surface-tertiary overflow-hidden">
+        <div className="h-2 overflow-hidden rounded-full bg-surface-tertiary">
           <div
             className="h-full rounded-full bg-accent transition-all duration-500"
             style={{ width: `${progressPct}%` }}
@@ -77,9 +76,10 @@ export function GraduationProgress({
 
       {/* Next unlock */}
       {nextUnlock && (
-        <div className="rounded-md bg-accent/10 border border-accent/20 p-2">
-          <span className="text-xs text-text-muted block">
-            Next unlock in {nextUnlock.daysRemaining} day{nextUnlock.daysRemaining !== 1 ? 's' : ''}:
+        <div className="rounded-md border border-accent/20 bg-accent/10 p-2">
+          <span className="block text-xs text-text-muted">
+            Next unlock in {nextUnlock.daysRemaining} day
+            {nextUnlock.daysRemaining !== 1 ? 's' : ''}:
           </span>
           <span className="text-sm font-medium text-accent">
             {nextUnlock.label}
@@ -93,7 +93,7 @@ export function GraduationProgress({
           <div
             key={item.feature}
             className={cn(
-              'flex items-center justify-between py-1 px-2 rounded',
+              'flex items-center justify-between rounded px-2 py-1',
               item.unlocked ? 'bg-green-500/5' : 'opacity-60'
             )}
           >

@@ -1,5 +1,13 @@
 import { useEffect, useRef } from 'react';
-import { X, TrendingUp, TrendingDown, Target, AlertTriangle, Play, Loader2 } from 'lucide-react';
+import {
+  X,
+  TrendingUp,
+  TrendingDown,
+  Target,
+  AlertTriangle,
+  Play,
+  Loader2,
+} from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { formatPrice, formatPct, changePct } from '@/lib/format';
 import { fetchDeepAnalysis } from '@/api/screener';
@@ -19,19 +27,30 @@ const BREAKDOWN_FACTORS = [
   { key: 'fundamental', label: 'Fundamental', color: 'text-cyan-400' },
 ];
 
-function ScoreBar({ score, label, color }: { score: number; label: string; color: string }) {
+function ScoreBar({
+  score,
+  label,
+  color,
+}: {
+  score: number;
+  label: string;
+  color: string;
+}) {
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-xs">
         <span className="text-text-secondary">{label}</span>
-        <span className={cn('font-mono font-medium', color)}>{score.toFixed(1)}</span>
+        <span className={cn('font-mono font-medium', color)}>
+          {score.toFixed(1)}
+        </span>
       </div>
-      <div className="h-2 bg-surface rounded-full overflow-hidden">
+      <div className="h-2 overflow-hidden rounded-full bg-surface">
         <div
           className="h-full rounded-full transition-all duration-300"
           style={{
             width: `${Math.max(0, Math.min(100, score))}%`,
-            backgroundColor: score >= 70 ? '#22C55E' : score >= 40 ? '#F59E0B' : '#EF4444',
+            backgroundColor:
+              score >= 70 ? '#22C55E' : score >= 40 ? '#F59E0B' : '#EF4444',
           }}
         />
       </div>
@@ -39,15 +58,29 @@ function ScoreBar({ score, label, color }: { score: number; label: string; color
   );
 }
 
-function PriceLevel({ label, value, color, icon }: { label: string; value: number; color: string; icon: React.ReactNode }) {
+function PriceLevel({
+  label,
+  value,
+  color,
+  icon,
+}: {
+  label: string;
+  value: number;
+  color: string;
+  icon: React.ReactNode;
+}) {
   return (
-    <div className="flex items-center gap-3 p-3 bg-surface/50 rounded-lg border border-border/50">
-      <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded bg-surface border border-border">
+    <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-surface/50 p-3">
+      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded border border-border bg-surface">
         {icon}
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs text-text-muted uppercase tracking-wide">{label}</p>
-        <p className={cn('font-mono font-semibold text-price', color)}>{formatPrice(value)}</p>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs uppercase tracking-wide text-text-muted">
+          {label}
+        </p>
+        <p className={cn('font-mono text-price font-semibold', color)}>
+          {formatPrice(value)}
+        </p>
       </div>
     </div>
   );
@@ -57,7 +90,12 @@ export function DetailPanel({ ticker, onClose }: DetailPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Fetch deep analysis when ticker changes
-  const { data: analysis, isLoading, error, refetch: refetchAnalysis } = useQuery({
+  const {
+    data: analysis,
+    isLoading,
+    error,
+    refetch: refetchAnalysis,
+  } = useQuery({
     queryKey: ['deep-analysis', ticker?.symbol],
     queryFn: async () => {
       if (!ticker) return null;
@@ -100,7 +138,7 @@ export function DetailPanel({ ticker, onClose }: DetailPanelProps) {
 
   const change = ticker.tv_data?.change ?? 0;
   const price = ticker.tv_data?.close ?? 0;
-  const changePctVal = price !== change ? changePct(price, change) ?? 0 : 0;
+  const changePctVal = price !== change ? (changePct(price, change) ?? 0) : 0;
   const isGain = change >= 0;
 
   return (
@@ -120,14 +158,17 @@ export function DetailPanel({ ticker, onClose }: DetailPanelProps) {
       {/* Panel */}
       <div
         ref={panelRef}
-        className="relative w-full max-w-lg flex flex-col bg-surface border-l border-border shadow-xl transition-transform duration-200 ease-out"
+        className="relative flex w-full max-w-lg flex-col border-l border-border bg-surface shadow-xl transition-transform duration-200 ease-out"
         style={{ transform: 'translateX(0)' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="flex items-center gap-3">
-            <h2 id="detail-panel-title" className="text-lg font-semibold text-text-primary">
+            <h2
+              id="detail-panel-title"
+              className="text-lg font-semibold text-text-primary"
+            >
               {ticker.symbol}
             </h2>
             <span
@@ -141,54 +182,69 @@ export function DetailPanel({ ticker, onClose }: DetailPanelProps) {
           </div>
           <button
             onClick={handleClose}
-            className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors"
+            className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary"
             aria-label="Close detail panel"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        <div className="flex-1 space-y-6 overflow-y-auto p-4">
           {/* Price & Change */}
           <div className="flex items-center gap-4">
-            <div className="text-3xl font-bold font-mono tabular-nums text-text-primary">
+            <div className="font-mono text-3xl font-bold tabular-nums text-text-primary">
               {formatPrice(ticker.entry)}
             </div>
-            <div className={cn('flex items-center gap-2 font-mono text-price', isGain ? 'text-gain' : 'text-loss')}>
-              {isGain ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
+            <div
+              className={cn(
+                'flex items-center gap-2 font-mono text-price',
+                isGain ? 'text-gain' : 'text-loss'
+              )}
+            >
+              {isGain ? (
+                <TrendingUp className="h-5 w-5" />
+              ) : (
+                <TrendingDown className="h-5 w-5" />
+              )}
               <span>
-                {isGain ? '+' : ''}{change.toFixed(2)} ({formatPct(changePctVal)})
+                {isGain ? '+' : ''}
+                {change.toFixed(2)} ({formatPct(changePctVal)})
               </span>
             </div>
           </div>
 
           {/* Score & Rating */}
-          <div className="flex items-center gap-4 p-4 bg-surface/50 rounded-lg border border-border/50">
+          <div className="flex items-center gap-4 rounded-lg border border-border/50 bg-surface/50 p-4">
             <div className="flex flex-col items-center gap-1">
-              <span className="text-3xl font-bold font-mono tabular-nums text-text-primary">
+              <span className="font-mono text-3xl font-bold tabular-nums text-text-primary">
                 {ticker.score.toFixed(1)}
               </span>
               <span className="text-xs text-text-muted">Confluence Score</span>
             </div>
-            <div className="w-px h-12 bg-border" />
+            <div className="h-12 w-px bg-border" />
             <div className="flex flex-col items-center gap-1">
               <span
                 className={cn(
                   'badge px-3 py-1 text-sm font-medium',
-                  ticker.rating === 'A+' ? 'badge-green' :
-                  ticker.rating === 'A' ? 'badge-green' :
-                  ticker.rating === 'B+' ? 'badge-neutral' :
-                  ticker.rating === 'B' ? 'badge-neutral' : 'badge-red'
+                  ticker.rating === 'A+'
+                    ? 'badge-green'
+                    : ticker.rating === 'A'
+                      ? 'badge-green'
+                      : ticker.rating === 'B+'
+                        ? 'badge-neutral'
+                        : ticker.rating === 'B'
+                          ? 'badge-neutral'
+                          : 'badge-red'
                 )}
               >
                 {ticker.rating}
               </span>
               <span className="text-xs text-text-muted">Rating</span>
             </div>
-            <div className="w-px h-12 bg-border" />
+            <div className="h-12 w-px bg-border" />
             <div className="flex flex-col items-center gap-1">
-              <span className="text-xl font-bold font-mono tabular-nums text-text-primary">
+              <span className="font-mono text-xl font-bold tabular-nums text-text-primary">
                 {ticker.risk_reward.toFixed(2)}
               </span>
               <span className="text-xs text-text-muted">R:R</span>
@@ -197,7 +253,7 @@ export function DetailPanel({ ticker, onClose }: DetailPanelProps) {
 
           {/* Confluence Breakdown */}
           <div>
-            <h3 className="text-sm font-semibold text-text-secondary mb-3 uppercase tracking-wide">
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-text-secondary">
               Confluence Breakdown
             </h3>
             <div className="space-y-3">
@@ -218,13 +274,16 @@ export function DetailPanel({ ticker, onClose }: DetailPanelProps) {
           {/* Why This Score */}
           {ticker.rationale && ticker.rationale.length > 0 && (
             <div>
-              <h3 className="text-sm font-semibold text-text-secondary mb-3 uppercase tracking-wide">
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-text-secondary">
                 Why This Score
               </h3>
               <ul className="space-y-1.5">
                 {ticker.rationale.map((point, i) => (
-                  <li key={i} className="flex items-start gap-2 text-xs text-text-secondary">
-                    <span className="mt-1 w-1.5 h-1.5 rounded-full bg-text-muted/30 flex-shrink-0" />
+                  <li
+                    key={i}
+                    className="flex items-start gap-2 text-xs text-text-secondary"
+                  >
+                    <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-text-muted/30" />
                     {point}
                   </li>
                 ))}
@@ -234,7 +293,7 @@ export function DetailPanel({ ticker, onClose }: DetailPanelProps) {
 
           {/* Entry / Stop / Targets */}
           <div>
-            <h3 className="text-sm font-semibold text-text-secondary mb-3 uppercase tracking-wide">
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-text-secondary">
               Trade Levels
             </h3>
             <div className="space-y-2">
@@ -242,13 +301,13 @@ export function DetailPanel({ ticker, onClose }: DetailPanelProps) {
                 label="Entry"
                 value={ticker.entry}
                 color="text-info"
-                icon={<Target className="w-4 h-4 text-info" />}
+                icon={<Target className="h-4 w-4 text-info" />}
               />
               <PriceLevel
                 label="Stop Loss"
                 value={ticker.stop_loss}
                 color="text-loss"
-                icon={<AlertTriangle className="w-4 h-4 text-loss" />}
+                icon={<AlertTriangle className="h-4 w-4 text-loss" />}
               />
               {ticker.targets && ticker.targets.length > 0 && (
                 <>
@@ -258,7 +317,7 @@ export function DetailPanel({ ticker, onClose }: DetailPanelProps) {
                       label={`Target ${idx + 1}`}
                       value={target}
                       color="text-accent"
-                      icon={<Target className="w-4 h-4 text-accent" />}
+                      icon={<Target className="h-4 w-4 text-accent" />}
                     />
                   ))}
                 </>
@@ -267,7 +326,7 @@ export function DetailPanel({ ticker, onClose }: DetailPanelProps) {
           </div>
 
           {/* Deep Analysis */}
-          <div className="pt-4 border-t border-border">
+          <div className="border-t border-border pt-4">
             <button
               onClick={() => refetchAnalysis()}
               disabled={isLoading}
@@ -275,12 +334,12 @@ export function DetailPanel({ ticker, onClose }: DetailPanelProps) {
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   <span>Analyzing...</span>
                 </>
               ) : (
                 <>
-                  <Play className="w-4 h-4" />
+                  <Play className="h-4 w-4" />
                   <span>Deep Analysis</span>
                 </>
               )}
@@ -290,15 +349,16 @@ export function DetailPanel({ ticker, onClose }: DetailPanelProps) {
               <div className="mt-4 space-y-3 text-sm">
                 {/* Show fund warning at screener level */}
                 {ticker.probable_fund && (
-                  <div className="p-3 rounded-lg bg-warning/10 border border-warning/30 text-warning text-xs">
-                    <strong>⚠️ Fund Detected:</strong> {ticker.probable_fund_reason}
+                  <div className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs text-warning">
+                    <strong>⚠️ Fund Detected:</strong>{' '}
+                    {ticker.probable_fund_reason}
                   </div>
                 )}
                 {/* Show OHLCV-unavailable banner */}
                 {analysis.has_ohlcv === false && (
-                  <div className="p-3 rounded-lg bg-warning/10 border border-warning/30 text-warning text-xs">
-                    <strong>Limited Data:</strong> No historical OHLCV available for{' '}
-                    {ticker.symbol}. Values estimated from TV screener data.
+                  <div className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs text-warning">
+                    <strong>Limited Data:</strong> No historical OHLCV available
+                    for {ticker.symbol}. Values estimated from TV screener data.
                   </div>
                 )}
 
@@ -313,7 +373,9 @@ export function DetailPanel({ ticker, onClose }: DetailPanelProps) {
                   <>
                     <p className="text-text-secondary">
                       <strong>TV Rating:</strong>{' '}
-                      <span className="font-mono text-text-primary">{analysis.tv_fallback.rating}</span>
+                      <span className="font-mono text-text-primary">
+                        {analysis.tv_fallback.rating}
+                      </span>
                     </p>
                     <p className="text-text-secondary">
                       <strong>TV R:R:</strong>{' '}
@@ -328,7 +390,9 @@ export function DetailPanel({ ticker, onClose }: DetailPanelProps) {
                   <p className="text-text-secondary">
                     <strong>Backtest Win Rate:</strong>{' '}
                     <span className="font-mono text-text-primary">
-                      {(analysis.backtest.win_rate as number)?.toFixed(1) ?? 'N/A'}%
+                      {(analysis.backtest.win_rate as number)?.toFixed(1) ??
+                        'N/A'}
+                      %
                     </span>
                   </p>
                 )}
@@ -344,7 +408,7 @@ export function DetailPanel({ ticker, onClose }: DetailPanelProps) {
             )}
 
             {error && (
-              <div className="mt-3 p-3 rounded-lg bg-loss-bg border border-loss/30 text-loss text-sm">
+              <div className="mt-3 rounded-lg border border-loss/30 bg-loss-bg p-3 text-sm text-loss">
                 Failed to load deep analysis. Click to retry.
               </div>
             )}

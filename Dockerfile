@@ -30,6 +30,7 @@ COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/pytho
 # Copy application code
 COPY backend/ /app/backend/
 COPY config.yaml /app/config.yaml
+COPY docs/ /app/docs/
 
 USER nonroot:nonroot
 WORKDIR /app
@@ -54,6 +55,7 @@ COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/pytho
 # Copy application code
 COPY backend/ /app/backend/
 COPY config.yaml /app/config.yaml
+COPY docs/ /app/docs/
 
 # Install dev/test dependencies
 RUN pip install --no-cache-dir -e ".[dev,test,observability]" 2>/dev/null || true

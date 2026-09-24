@@ -15,7 +15,11 @@ export function ExportButtons() {
       const data = response.results;
 
       const blob = new Blob(
-        [format === 'json' ? JSON.stringify(data, null, 2) : convertToCsv(data)],
+        [
+          format === 'json'
+            ? JSON.stringify(data, null, 2)
+            : convertToCsv(data),
+        ],
         { type: format === 'json' ? 'application/json' : 'text/csv' }
       );
       const url = URL.createObjectURL(blob);
@@ -39,7 +43,7 @@ export function ExportButtons() {
         className="btn-secondary gap-1.5"
         title="Export CSV"
       >
-        <FileSpreadsheet className="w-4 h-4" />
+        <FileSpreadsheet className="h-4 w-4" />
         <span className="hidden sm:inline">CSV</span>
       </button>
       <button
@@ -48,7 +52,7 @@ export function ExportButtons() {
         className="btn-secondary gap-1.5"
         title="Export JSON"
       >
-        <FileText className="w-4 h-4" />
+        <FileText className="h-4 w-4" />
         <span className="hidden sm:inline">JSON</span>
       </button>
     </div>
@@ -57,7 +61,16 @@ export function ExportButtons() {
 
 function convertToCsv(data: TVScoredTicker[]): string {
   if (data.length === 0) return '';
-  const headers = ['symbol', 'score', 'rating', 'entry', 'stop_loss', 'targets', 'risk_reward', 'breakdown'];
+  const headers = [
+    'symbol',
+    'score',
+    'rating',
+    'entry',
+    'stop_loss',
+    'targets',
+    'risk_reward',
+    'breakdown',
+  ];
   const csvRows = [headers.join(',')];
   for (const row of data) {
     const values = headers.map((h) => {

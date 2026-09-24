@@ -37,17 +37,23 @@ export function ReportDownload({ runId }: ReportDownloadProps) {
   }
 
   function toggleFormat(fmt: 'html' | 'pdf' | 'json') {
-    setFormats((prev) => prev.includes(fmt) ? prev.filter((f) => f !== fmt) : [...prev, fmt]);
+    setFormats((prev) =>
+      prev.includes(fmt) ? prev.filter((f) => f !== fmt) : [...prev, fmt]
+    );
   }
 
   const result = mutation.data;
 
   return (
-    <div className="space-y-3 rounded border border-dark-600 bg-dark-800 p-4">
+    <div className="border-dark-600 bg-dark-800 space-y-3 rounded border p-4">
       <div className="flex items-center justify-between">
-        <h4 className="text-xs font-semibold text-dark-200">Report Generation</h4>
-        <button onClick={() => setShowOptions(!showOptions)}
-          className="text-[10px] text-dark-400 hover:text-dark-200 transition-colors">
+        <h4 className="text-dark-200 text-xs font-semibold">
+          Report Generation
+        </h4>
+        <button
+          onClick={() => setShowOptions(!showOptions)}
+          className="text-dark-400 hover:text-dark-200 text-[10px] transition-colors"
+        >
           {showOptions ? 'Hide options' : 'Options'}
         </button>
       </div>
@@ -55,13 +61,22 @@ export function ReportDownload({ runId }: ReportDownloadProps) {
       {showOptions && (
         <div className="space-y-2">
           <div>
-            <label className="mb-1 block text-[10px] text-dark-400">Formats</label>
+            <label className="text-dark-400 mb-1 block text-[10px]">
+              Formats
+            </label>
             <div className="flex gap-2">
               {FORMATS.map((fmt) => (
-                <button key={fmt} type="button" onClick={() => toggleFormat(fmt)}
-                  className={cn('rounded px-2.5 py-1 text-[10px] font-medium uppercase transition-colors',
-                    formats.includes(fmt) ? 'bg-accent text-white' : 'border border-dark-500 text-dark-300 hover:bg-dark-600'
-                  )}>
+                <button
+                  key={fmt}
+                  type="button"
+                  onClick={() => toggleFormat(fmt)}
+                  className={cn(
+                    'rounded px-2.5 py-1 text-[10px] font-medium uppercase transition-colors',
+                    formats.includes(fmt)
+                      ? 'bg-accent text-white'
+                      : 'border-dark-500 text-dark-300 hover:bg-dark-600 border'
+                  )}
+                >
                   {fmt}
                 </button>
               ))}
@@ -69,44 +84,67 @@ export function ReportDownload({ runId }: ReportDownloadProps) {
           </div>
 
           <div className="space-y-1">
-            {([
+            {[
               [includeEquity, setIncludeEquity, 'Equity Curve'] as const,
               [includeDrawdown, setIncludeDrawdown, 'Drawdown'] as const,
               [includeTrades, setIncludeTrades, 'Trade Analysis'] as const,
               [includeRegimes, setIncludeRegimes, 'Regime Analysis'] as const,
-              [includeParams, setIncludeParams, 'Parameter Sensitivity'] as const,
-            ]).map(([value, setter, label]) => (
-              <label key={label} className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={value}
+              [
+                includeParams,
+                setIncludeParams,
+                'Parameter Sensitivity',
+              ] as const,
+            ].map(([value, setter, label]) => (
+              <label
+                key={label}
+                className="flex cursor-pointer items-center gap-2"
+              >
+                <input
+                  type="checkbox"
+                  checked={value}
                   onChange={(e) => setter(e.target.checked)}
-                  className="rounded border-dark-500 bg-dark-700 text-accent focus:ring-accent" />
-                <span className="text-[11px] text-dark-300">{label}</span>
+                  className="border-dark-500 bg-dark-700 rounded text-accent focus:ring-accent"
+                />
+                <span className="text-dark-300 text-[11px]">{label}</span>
               </label>
             ))}
           </div>
         </div>
       )}
 
-      <button onClick={handleGenerate} disabled={mutation.isPending || formats.length === 0}
-        className={cn('w-full rounded py-2 text-xs font-semibold transition-colors',
+      <button
+        onClick={handleGenerate}
+        disabled={mutation.isPending || formats.length === 0}
+        className={cn(
+          'w-full rounded py-2 text-xs font-semibold transition-colors',
           mutation.isPending || formats.length === 0
-            ? 'cursor-not-allowed bg-dark-500 text-dark-300'
+            ? 'bg-dark-500 text-dark-300 cursor-not-allowed'
             : 'bg-accent text-white hover:bg-accent-dark'
-        )}>
+        )}
+      >
         {mutation.isPending ? 'Generating...' : 'Generate Report'}
       </button>
 
       {mutation.isError && (
-        <p className="text-xs text-loss">Error: {(mutation.error as Error)?.message}</p>
+        <p className="text-xs text-loss">
+          Error: {(mutation.error as Error)?.message}
+        </p>
       )}
 
       {result && result.formats.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-[10px] text-dark-400">Download:</p>
+          <p className="text-dark-400 text-[10px]">Download:</p>
           {result.formats.map((f) => (
-            <a key={f.format} href={f.download_url} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-2 rounded bg-dark-700 px-3 py-1.5 text-xs text-accent hover:text-accent-light hover:bg-dark-600 transition-colors">
-              <span className="uppercase text-[10px] font-medium">{f.format}</span>
+            <a
+              key={f.format}
+              href={f.download_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-dark-700 hover:bg-dark-600 flex items-center gap-2 rounded px-3 py-1.5 text-xs text-accent transition-colors hover:text-accent-light"
+            >
+              <span className="text-[10px] font-medium uppercase">
+                {f.format}
+              </span>
               <span className="text-dark-400 truncate">{f.download_url}</span>
             </a>
           ))}

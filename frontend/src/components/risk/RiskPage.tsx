@@ -3,7 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useRiskStore } from '@/store/risk';
 import { useWS } from '@/ws/WebSocketProvider';
 import { riskChannel, signalChannel } from '@/ws/channels';
-import { fetchBeta, fetchCorrelation, fetchVaR, fetchRiskSummary } from '@/api/risk';
+import {
+  fetchBeta,
+  fetchCorrelation,
+  fetchVaR,
+  fetchRiskSummary,
+} from '@/api/risk';
 import { STALE_TIMES } from '@/lib/constants';
 import { cn } from '@/lib/cn';
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary';
@@ -22,12 +27,21 @@ const TABS = [
   { id: 'var', label: 'VaR / CVaR' },
 ] as const;
 
-function SymbolInput({ symbols, onChange }: { symbols: string[]; onChange: (s: string[]) => void }) {
+function SymbolInput({
+  symbols,
+  onChange,
+}: {
+  symbols: string[];
+  onChange: (s: string[]) => void;
+}) {
   const [value, setValue] = useState(symbols.join(','));
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      const parsed = value.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
+      const parsed = value
+        .split(',')
+        .map((s) => s.trim().toUpperCase())
+        .filter(Boolean);
       if (JSON.stringify(parsed) !== JSON.stringify(symbols)) {
         onChange(parsed);
       }
@@ -37,13 +51,15 @@ function SymbolInput({ symbols, onChange }: { symbols: string[]; onChange: (s: s
 
   return (
     <div className="flex items-center gap-2">
-      <label className="text-xs text-dark-300 whitespace-nowrap">Symbols:</label>
+      <label className="text-dark-300 whitespace-nowrap text-xs">
+        Symbols:
+      </label>
       <input
         type="text"
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="AAPL,MSFT,GOOGL"
-        className="flex-1 rounded border border-dark-500 bg-dark-700 px-3 py-1.5 text-sm text-dark-50 placeholder-dark-400 focus:border-accent focus:outline-none"
+        className="border-dark-500 bg-dark-700 text-dark-50 placeholder-dark-400 flex-1 rounded border px-3 py-1.5 text-sm focus:border-accent focus:outline-none"
       />
     </div>
   );
@@ -111,21 +127,26 @@ function RiskContent() {
   return (
     <div className="flex h-full flex-col">
       {/* Header toolbar */}
-      <div className="flex items-center gap-3 border-b border-dark-600 px-4 py-3">
+      <div className="border-dark-600 flex items-center gap-3 border-b px-4 py-3">
         <SymbolInput symbols={selectedSymbols} onChange={setSymbols} />
         <div className="flex-1" />
         {/* Risk summary badge */}
         {summaryQuery.data && (
-          <div className="flex items-center gap-3 text-[10px] text-dark-400">
-            <span>Exposure: {summaryQuery.data.total_exposure?.toLocaleString() ?? '—'}</span>
+          <div className="text-dark-400 flex items-center gap-3 text-[10px]">
+            <span>
+              Exposure:{' '}
+              {summaryQuery.data.total_exposure?.toLocaleString() ?? '—'}
+            </span>
             <span>β: {summaryQuery.data.beta_weighted?.toFixed(2) ?? '—'}</span>
-            <span>Div: {summaryQuery.data.diversification_score?.toFixed(2) ?? '—'}</span>
+            <span>
+              Div: {summaryQuery.data.diversification_score?.toFixed(2) ?? '—'}
+            </span>
           </div>
         )}
       </div>
 
       {/* Tab bar */}
-      <div className="flex border-b border-dark-600 px-4">
+      <div className="border-dark-600 flex border-b px-4">
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -134,7 +155,7 @@ function RiskContent() {
               'border-b-2 px-4 py-2.5 text-xs font-medium transition-colors',
               activeView === tab.id
                 ? 'border-accent text-accent-light'
-                : 'border-transparent text-dark-300 hover:text-dark-100'
+                : 'text-dark-300 hover:text-dark-100 border-transparent'
             )}
           >
             {tab.label}
@@ -184,23 +205,34 @@ function RiskContent() {
             </div>
             <div className="mb-4 flex items-center gap-3">
               <div>
-                <label className="mb-1 block text-[10px] text-dark-400">Confidence</label>
+                <label className="text-dark-400 mb-1 block text-[10px]">
+                  Confidence
+                </label>
                 <select
                   value={varConfidence}
                   onChange={(e) => setVarConfidence(Number(e.target.value))}
-                  className="rounded border border-dark-500 bg-dark-700 px-2 py-1 text-xs text-dark-50 focus:border-accent focus:outline-none"
+                  className="border-dark-500 bg-dark-700 text-dark-50 rounded border px-2 py-1 text-xs focus:border-accent focus:outline-none"
                 >
-                  <option value={0.90}>90%</option>
+                  <option value={0.9}>90%</option>
                   <option value={0.95}>95%</option>
                   <option value={0.99}>99%</option>
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-[10px] text-dark-400">Method</label>
+                <label className="text-dark-400 mb-1 block text-[10px]">
+                  Method
+                </label>
                 <select
                   value={varMethod}
-                  onChange={(e) => setVarMethod(e.target.value as 'historical' | 'parametric' | 'monte_carlo')}
-                  className="rounded border border-dark-500 bg-dark-700 px-2 py-1 text-xs text-dark-50 focus:border-accent focus:outline-none"
+                  onChange={(e) =>
+                    setVarMethod(
+                      e.target.value as
+                        | 'historical'
+                        | 'parametric'
+                        | 'monte_carlo'
+                    )
+                  }
+                  className="border-dark-500 bg-dark-700 text-dark-50 rounded border px-2 py-1 text-xs focus:border-accent focus:outline-none"
                 >
                   <option value="historical">Historical</option>
                   <option value="parametric">Parametric</option>
@@ -236,16 +268,22 @@ function RiskTabExplainer({ metricKey }: { metricKey: string }) {
   const lesson = findLesson(metricKey);
   if (!lesson) return null;
   return (
-    <div className="mb-4 rounded border border-dark-600 bg-dark-800/60 p-3">
+    <div className="border-dark-600 bg-dark-800/60 mb-4 rounded border p-3">
       <div className="mb-0.5 flex items-center justify-between">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-dark-400">
+        <span className="text-dark-400 text-[10px] font-semibold uppercase tracking-wider">
           {lesson.label}
         </span>
-        <EducationTooltip metricKey={metricKey} metricLabel={lesson.label} compact />
+        <EducationTooltip
+          metricKey={metricKey}
+          metricLabel={lesson.label}
+          compact
+        />
       </div>
-      <p className="text-xs text-dark-300">
+      <p className="text-dark-300 text-xs">
         {lesson.oneLiner}
-        {lesson.what ? ` ${lesson.what.slice(0, 180)}${lesson.what.length > 180 ? '…' : ''}` : ''}
+        {lesson.what
+          ? ` ${lesson.what.slice(0, 180)}${lesson.what.length > 180 ? '…' : ''}`
+          : ''}
       </p>
     </div>
   );

@@ -22,7 +22,13 @@ export const usePortfolioStore = create<PortfolioStore>()(
         set((state) => {
           if (state.items.some((i) => i.symbol === symbol)) return state;
           return {
-            items: [...state.items, { symbol: symbol.toUpperCase(), addedAt: new Date().toISOString() }],
+            items: [
+              ...state.items,
+              {
+                symbol: symbol.toUpperCase(),
+                addedAt: new Date().toISOString(),
+              },
+            ],
           };
         }),
       removeSymbol: (symbol) =>

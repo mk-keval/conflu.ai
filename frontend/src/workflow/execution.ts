@@ -66,16 +66,15 @@ export function targetPriceAtRMul(
 }
 
 /** Build the scale-out target list from raw targets + the plan's r-multiples. */
-export function scaleOutTargets(
-  setup: ExecutionSetup
-): ScaleOutTarget[] {
+export function scaleOutTargets(setup: ExecutionSetup): ScaleOutTarget[] {
   const { targets, scaleOut, entryMid, stopLoss } = setup;
   if (scaleOut && scaleOut.length > 0) {
     return scaleOut
       .map((s, i) => ({
         rMultiple: s.r_multiple,
         sizePct: s.size_pct,
-        targetPrice: targets[i] ?? targetPriceAtRMul(entryMid, stopLoss, s.r_multiple),
+        targetPrice:
+          targets[i] ?? targetPriceAtRMul(entryMid, stopLoss, s.r_multiple),
       }))
       .filter((t) => t.rMultiple > 0);
   }
@@ -103,9 +102,10 @@ export function buildTranches(
   setup: ExecutionSetup
 ): TrancheAllocation[] {
   const qty = splitShares(totalShares);
-  const triggers = setup.triggerPrices && setup.triggerPrices.length >= 3
-    ? setup.triggerPrices
-    : [setup.entryMid, setup.entryMid, setup.entryHigh];
+  const triggers =
+    setup.triggerPrices && setup.triggerPrices.length >= 3
+      ? setup.triggerPrices
+      : [setup.entryMid, setup.entryMid, setup.entryHigh];
   return qty.map((n, i) => ({
     seq: (i + 1) as 1 | 2 | 3,
     weight: TRANCHES[i],
@@ -118,7 +118,10 @@ export function buildTranches(
 }
 
 /** Build the broker-ready OCO bracket object for copy/export. */
-export function buildOcoBracket(totalShares: number, setup: ExecutionSetup): OcoBracket {
+export function buildOcoBracket(
+  totalShares: number,
+  setup: ExecutionSetup
+): OcoBracket {
   const tranches = buildTranches(totalShares, setup);
   const targets = scaleOutTargets(setup);
   return {
@@ -144,7 +147,10 @@ export interface ExecutionPlan {
   timeStopDays: number;
 }
 
-export function buildExecutionPlan(totalShares: number, setup: ExecutionSetup): ExecutionPlan {
+export function buildExecutionPlan(
+  totalShares: number,
+  setup: ExecutionSetup
+): ExecutionPlan {
   return {
     tranches: buildTranches(totalShares, setup),
     targets: scaleOutTargets(setup),

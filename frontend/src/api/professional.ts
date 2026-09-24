@@ -194,7 +194,9 @@ function mapMorningBrief(raw: RawMorningBrief): MorningBriefResponse {
   };
 }
 
-function mapSimplifiedVerdict(raw: RawSimplifiedVerdict): SimplifiedVerdictResponse {
+function mapSimplifiedVerdict(
+  raw: RawSimplifiedVerdict
+): SimplifiedVerdictResponse {
   return {
     symbol: raw.symbol ?? '',
     action: raw.action ?? 'WATCH',
@@ -234,7 +236,9 @@ function mapEducation(raw: RawEducationResponse): EducationResponse {
   };
 }
 
-function mapWatchlistAnalyze(raw: RawWatchlistAnalyzeResponse): WatchlistAnalyzeResponse {
+function mapWatchlistAnalyze(
+  raw: RawWatchlistAnalyzeResponse
+): WatchlistAnalyzeResponse {
   return {
     items: (raw.items ?? []).map((item) => ({
       symbol: item.symbol,
@@ -252,7 +256,9 @@ function mapWatchlistAnalyze(raw: RawWatchlistAnalyzeResponse): WatchlistAnalyze
   };
 }
 
-function mapPositionSizeResponse(raw: RawPositionSizeResponse): PositionSizeResponse {
+function mapPositionSizeResponse(
+  raw: RawPositionSizeResponse
+): PositionSizeResponse {
   return {
     positionSize: raw.position_size,
     shares: raw.shares,
@@ -294,19 +300,28 @@ function mapInAppAlert(raw: RawInAppAlert): InAppAlert {
 /** Get the complete morning brief (regime, market internals, sector rotation, top 9 picks).
  *  Unwraps ApiResponse envelope and maps snake_case to camelCase. */
 export async function fetchMorningBrief(): Promise<MorningBriefResponse> {
-  const raw = await apiGet<RawMorningBrief>('/api/v1/professional/morning-brief');
+  const raw = await apiGet<RawMorningBrief>(
+    '/api/v1/professional/morning-brief'
+  );
   return mapMorningBrief(raw);
 }
 
 /** Get simplified verdict for a single ticker.
  *  Unwraps ApiResponse envelope and maps snake_case to camelCase. */
-export async function fetchSimplifiedVerdict(symbol: string): Promise<SimplifiedVerdictResponse> {
-  const raw = await apiGet<RawSimplifiedVerdict>(`/api/v1/professional/verdict/${symbol}`);
+export async function fetchSimplifiedVerdict(
+  symbol: string
+): Promise<SimplifiedVerdictResponse> {
+  const raw = await apiGet<RawSimplifiedVerdict>(
+    `/api/v1/professional/verdict/${symbol}`
+  );
   return mapSimplifiedVerdict(raw);
 }
 
 /** Get plain-English explanation for a metric. */
-export async function explainMetric(metric: string, symbol?: string): Promise<EducationResponse> {
+export async function explainMetric(
+  metric: string,
+  symbol?: string
+): Promise<EducationResponse> {
   const params = new URLSearchParams();
   if (symbol) params.set('symbol', symbol);
   const raw = await apiGet<RawEducationResponse>(
@@ -316,14 +331,19 @@ export async function explainMetric(metric: string, symbol?: string): Promise<Ed
 }
 
 /** Batch analyze a watchlist. */
-export async function analyzeWatchlist(symbols: string[]): Promise<WatchlistAnalyzeResponse> {
-  const raw = await apiPost<RawWatchlistAnalyzeResponse>('/api/v1/professional/watchlist/analyze', { symbols });
+export async function analyzeWatchlist(
+  symbols: string[]
+): Promise<WatchlistAnalyzeResponse> {
+  const raw = await apiPost<RawWatchlistAnalyzeResponse>(
+    '/api/v1/professional/watchlist/analyze',
+    { symbols }
+  );
   return mapWatchlistAnalyze(raw);
 }
 
 /** Calculate position size from trade parameters. */
 export async function calculatePositionSize(
-  params: PositionSizeRequest,
+  params: PositionSizeRequest
 ): Promise<PositionSizeResponse> {
   const queryParams = new URLSearchParams({
     symbol: params.symbol,
@@ -332,9 +352,12 @@ export async function calculatePositionSize(
     stop_loss: String(params.stopLoss),
     conviction: params.conviction,
   });
-  if (params.maxPositionPct) queryParams.set('max_position_pct', String(params.maxPositionPct));
-  if (params.maxSectorPct) queryParams.set('max_sector_pct', String(params.maxSectorPct));
-  if (params.riskPerTradePct) queryParams.set('risk_per_trade_pct', String(params.riskPerTradePct));
+  if (params.maxPositionPct)
+    queryParams.set('max_position_pct', String(params.maxPositionPct));
+  if (params.maxSectorPct)
+    queryParams.set('max_sector_pct', String(params.maxSectorPct));
+  if (params.riskPerTradePct)
+    queryParams.set('risk_per_trade_pct', String(params.riskPerTradePct));
   const raw = await apiGet<RawPositionSizeResponse>(
     `/api/v1/professional/position-size?${queryParams.toString()}`
   );
@@ -343,21 +366,33 @@ export async function calculatePositionSize(
 
 /** Get alert preferences. */
 export async function fetchAlertPreferences(): Promise<AlertPreferences> {
-  const raw = await apiGet<RawAlertPreferences>('/api/v1/professional/alerts/preferences');
+  const raw = await apiGet<RawAlertPreferences>(
+    '/api/v1/professional/alerts/preferences'
+  );
   return mapAlertPreferences(raw);
 }
 
 /** Update alert preferences. */
-export async function updateAlertPreferences(prefs: Partial<AlertPreferences>): Promise<AlertPreferences> {
-  const raw = await apiPut<RawAlertPreferences>('/api/v1/professional/alerts/preferences', prefs);
+export async function updateAlertPreferences(
+  prefs: Partial<AlertPreferences>
+): Promise<AlertPreferences> {
+  const raw = await apiPut<RawAlertPreferences>(
+    '/api/v1/professional/alerts/preferences',
+    prefs
+  );
   return mapAlertPreferences(raw);
 }
 
 /** Get recent in-app alerts. */
-export async function fetchAlerts(limit?: number, unreadOnly?: boolean): Promise<InAppAlert[]> {
+export async function fetchAlerts(
+  limit?: number,
+  unreadOnly?: boolean
+): Promise<InAppAlert[]> {
   const params = new URLSearchParams();
   if (limit) params.set('limit', String(limit));
   if (unreadOnly) params.set('unread_only', 'true');
-  const raw = await apiGet<RawInAppAlert[]>(`/api/v1/professional/alerts?${params.toString()}`);
+  const raw = await apiGet<RawInAppAlert[]>(
+    `/api/v1/professional/alerts?${params.toString()}`
+  );
   return raw.map(mapInAppAlert);
 }

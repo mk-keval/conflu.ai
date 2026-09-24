@@ -43,9 +43,10 @@ export function sharedScreenChannel(token: string): string {
   return `shared:${token}`;
 }
 
-export function parseChannel(
-  channel: string
-): { type: WSChannelType; params: string[] } {
+export function parseChannel(channel: string): {
+  type: WSChannelType;
+  params: string[];
+} {
   const parts = channel.split(':');
   const type = parts[0] as WSChannelType;
   const params = parts.slice(1);

@@ -53,11 +53,7 @@
         "Using RSI alone instead of combining with trend (MA alignment) and volume confirmation."
       ],
       "example": "NVDA at RSI 72 during a product-launch rally stayed overbought for three weeks and gained another 18% — overbought marked STRENGTH there. The same reading on a stock with falling revenue preceded a 25% drop.",
-      "related": [
-        "ma_alignment",
-        "volume_ratio",
-        "adx"
-      ]
+      "related": ["ma_alignment", "volume_ratio", "adx"]
     },
     "ma_alignment": {
       "label": "MA Alignment",
@@ -90,11 +86,7 @@
         "Ignoring alignment and chasing a stock that is above its 20-day MA but below its 200-day MA."
       ],
       "example": "AAPL shows SMA20 at $175, SMA50 at $170, SMA200 at $160 — all stacked upward. This bullish alignment added +0.4 to the technical score and helped confirm the uptrend before a 12% rally.",
-      "related": [
-        "sma_50_200",
-        "rsi",
-        "adx"
-      ]
+      "related": ["sma_50_200", "rsi", "adx"]
     },
     "adx": {
       "label": "ADX (Average Directional Index)",
@@ -127,11 +119,7 @@
         "Ignoring ADX and trading crossovers in choppy markets (ADX < 20) where whipsaws are frequent."
       ],
       "example": "TSLA during its 2020 run had ADX above 40 for months — the trend was powerful. In summer 2022, ADX dropped below 15 while price drifted sideways — traders using trend-following lost money on false breakouts.",
-      "related": [
-        "ma_alignment",
-        "rsi",
-        "macd_status"
-      ]
+      "related": ["ma_alignment", "rsi", "macd_status"]
     },
     "atr_pct": {
       "label": "ATR % (Average True Range Percent)",
@@ -164,11 +152,7 @@
         "Confusing ATR% with beta — ATR% is the stock's own daily range; beta is how it moves relative to the market."
       ],
       "example": "NVDA at $400 with ATR% of 3.5% means a typical day sees a $14 swing. A 2 ATR stop would be $28 (7%). If you risk 1% of a $50K account ($500), you'd buy ~18 shares. Same math on a 1% ATR stock would buy ~60 shares.",
-      "related": [
-        "suggested_stop_pct",
-        "suggested_position_size_pct",
-        "beta"
-      ]
+      "related": ["suggested_stop_pct", "suggested_position_size_pct", "beta"]
     },
     "volume_ratio": {
       "label": "Volume Ratio (Relative Volume)",
@@ -205,11 +189,7 @@
         "Ignoring low volume breakouts — a stock breaking resistance on 0.5x volume often fails."
       ],
       "example": "META earnings day: volume ratio 4.2x. The stock gapped up 15% on massive volume — institutions were aggressively accumulating. Two weeks later, a 5% rally on 0.6x volume quickly reversed — no conviction behind it.",
-      "related": [
-        "avg_volume_20d",
-        "ma_alignment",
-        "consecutive_gains"
-      ]
+      "related": ["avg_volume_20d", "ma_alignment", "consecutive_gains"]
     },
     "bb_position": {
       "label": "Bollinger Band Position",
@@ -242,11 +222,7 @@
         "Buying just because price is below the lower band — a falling knife can cut deeper; wait for a reversal signal."
       ],
       "example": "NVDA broke above the upper band in May 2023 with RSI at 65 and volume 2.5x — continued up 40% over two months. The same stock pierced the upper band in July 2022 with RSI at 82 and volume 0.8x — pulled back 15% in a week.",
-      "related": [
-        "rsi",
-        "volume_ratio",
-        "atr_pct"
-      ]
+      "related": ["rsi", "volume_ratio", "atr_pct"]
     },
     "macd_status": {
       "label": "MACD (Moving Average Convergence Divergence)",
@@ -279,11 +255,7 @@
         "Ignoring the histogram — the distance between MACD and signal line shows momentum acceleration/deceleration before the cross happens."
       ],
       "example": "AMD bullish MACD cross in November 2022 at $65 preceded a 60% rally over four months. Bearish cross in July 2023 at $110 preceded a 25% correction. The histogram started shrinking two weeks before the bearish cross — early warning.",
-      "related": [
-        "rsi",
-        "adx",
-        "ma_alignment"
-      ]
+      "related": ["rsi", "adx", "ma_alignment"]
     },
     "avg_volume_20d": {
       "label": "Avg Volume (20d)",
@@ -321,12 +293,7 @@
         "Not checking if volume is real — some low-float stocks show high volume from a few large trades, not broad participation."
       ],
       "example": "Apple trades ~50M shares/day — you can buy $1M worth instantly. A micro-cap might trade 50K shares/day — a $10K order could move the price 5%. The screener's '×2.3' volume badge uses current volume vs this 20-day average.",
-      "related": [
-        "volume_ratio",
-        "market_cap",
-        "bid_ask_spread",
-        "liquidity"
-      ]
+      "related": ["volume_ratio", "market_cap", "bid_ask_spread", "liquidity"]
     },
     "sma_50_200": {
       "label": "SMA 50/200 (Golden Cross / Death Cross)",
@@ -359,11 +326,7 @@
         "Expecting immediate moves — crosses are long-term signals; the payoff can take months."
       ],
       "example": "S&P 500 Golden Cross in April 2019 preceded a 35% rally over 18 months. Death Cross in March 2020 was a false signal — the market bottomed days later and rallied 100%+. Context (Fed policy, earnings) matters more than the cross alone.",
-      "related": [
-        "ma_alignment",
-        "adx",
-        "consecutive_gains"
-      ]
+      "related": ["ma_alignment", "adx", "consecutive_gains"]
     },
     "consecutive_gains": {
       "label": "Consecutive Gains",
@@ -404,11 +367,7 @@
         "Ignoring the magnitude — 5 days of +0.2% gains is not the same as 5 days of +2% gains."
       ],
       "example": "NVDA had 8 consecutive up days in May 2023 (AI rally) — gained 22% during the streak, then pulled back 8% over the next week. A 3-day streak in a boring utility stock might mean nothing.",
-      "related": [
-        "rsi",
-        "volume_ratio",
-        "ma_alignment"
-      ]
+      "related": ["rsi", "volume_ratio", "ma_alignment"]
     },
     "change_1w": {
       "label": "1-Week Change",
@@ -457,11 +416,7 @@
         "Confusing a 1-week change with a 1-month or 1-year change — timeframe matters enormously."
       ],
       "example": "META +12% in one week after Q1 2023 earnings — confirmed a trend reversal from the 2022 bear market. The same week, a small biotech +15% on FDA approval news — but volume was 0.5x average, and it gave back all gains in two weeks.",
-      "related": [
-        "consecutive_gains",
-        "volume_ratio",
-        "rsi"
-      ]
+      "related": ["consecutive_gains", "volume_ratio", "rsi"]
     },
     "beta": {
       "label": "Beta (Market Correlation)",
@@ -502,11 +457,7 @@
         "Using beta as a predictor — it describes past correlation, not future causation. Correlations change during crises (everything correlates to 1 in a crash)."
       ],
       "example": "NVDA beta ~1.8 — in 2022 when S&P fell 19%, NVDA fell ~50%. In 2023 when S&P rose 24%, NVDA rose ~240%. JNJ beta ~0.6 — in 2022 fell only ~5%; in 2023 rose ~10%. Beta predicts the 'gearing' to market moves.",
-      "related": [
-        "atr_pct",
-        "market_regime",
-        "suggested_position_size_pct"
-      ]
+      "related": ["atr_pct", "market_regime", "suggested_position_size_pct"]
     },
     "market_regime": {
       "label": "Market Regime",
@@ -597,11 +548,7 @@
         "Ignoring sector context — a 'great chart' in a hated sector often fails, while a 'mediocre chart' in a loved sector rips."
       ],
       "example": "2022: Energy (XLE) +60% while Tech (XLK) -30% — rotating into energy early was the trade. 2023: Tech +50%, Energy -5% — rotation flipped. Traders who stayed in energy 'because it worked last year' missed the tech rally.",
-      "related": [
-        "market_regime",
-        "vix",
-        "institutional_flow"
-      ]
+      "related": ["market_regime", "vix", "institutional_flow"]
     },
     "vix": {
       "label": "VIX (Volatility Index)",
@@ -646,11 +593,7 @@
         "Shorting VIX (selling volatility) as a 'free money' strategy — works until it doesn't. VIX spikes can wipe out months of gains in days."
       ],
       "example": "VIX 12 in January 2018 — market topped weeks later. VIX 82 in March 2020 — market bottomed that week. VIX 35 in October 2022 — bear market low. VIX is best used as a contrarian *context* tool, not a timing signal.",
-      "related": [
-        "market_regime",
-        "advance_decline_ratio",
-        "sp500_futures"
-      ]
+      "related": ["market_regime", "advance_decline_ratio", "sp500_futures"]
     },
     "advance_decline_ratio": {
       "label": "Advance/Decline Ratio",
@@ -691,11 +634,7 @@
         "Using daily A/D alone — too noisy. Look at the cumulative A/D line or 5–10 day averages for signal."
       ],
       "example": "January 2022: S&P 500 made a new high but A/D ratio was 0.6 — only 37% of stocks participating. Classic divergence. The index peaked days later and fell 25%. June 2023: S&P 500 broke out with A/D ratio 3.2 — broad participation confirmed the new bull leg.",
-      "related": [
-        "market_regime",
-        "vix",
-        "sector_rotation"
-      ]
+      "related": ["market_regime", "vix", "sector_rotation"]
     },
     "dollar_index": {
       "label": "Dollar Index (DXY)",
@@ -736,11 +675,7 @@
         "Ignoring the *rate of change* — a dollar that rises 5% in a month hurts earnings more than one that rises 5% over a year (companies hedge)."
       ],
       "example": "DXY 114 in September 2022 — S&P 500 earnings estimates cut 5–10% for high-international-revenue names. DXY 90 in July 2023 — same companies raised guidance. The dollar moved 20% in 10 months; earnings followed.",
-      "related": [
-        "market_regime",
-        "sector_rotation",
-        "sp500_futures"
-      ]
+      "related": ["market_regime", "sector_rotation", "sp500_futures"]
     },
     "sp500_futures": {
       "label": "S&P 500 Futures",
@@ -781,11 +716,7 @@
         "Assuming futures predict the *day's close* — they only predict the *open*. The market often reverses the futures move by 10 AM."
       ],
       "example": "NVDA earnings May 2023: futures +1.5% pre-market on blowout guide. Market opened +1.2%, closed +3%. Same quarter 2022: futures -2% on miss; opened -2.5%, closed -5%. Futures direction matched the day's direction 70%+ of earnings days.",
-      "related": [
-        "nasdaq_futures",
-        "market_regime",
-        "vix"
-      ]
+      "related": ["nasdaq_futures", "market_regime", "vix"]
     },
     "nasdaq_futures": {
       "label": "Nasdaq 100 Futures",
@@ -826,11 +757,7 @@
         "Overreacting to /NQ moves — higher beta means more noise. A 1% /NQ move can reverse in the first 15 minutes."
       ],
       "example": "ChatGPT launch Nov 2022: /NQ futures +3% pre-market on Microsoft/OpenAI news. /ES only +0.8%. Tech leadership confirmed. Feb 2025: DeepSeek news — /NQ -2.5% pre-market, /ES -0.8%. Tech-specific panic.",
-      "related": [
-        "sp500_futures",
-        "sector_rotation",
-        "beta"
-      ]
+      "related": ["sp500_futures", "sector_rotation", "beta"]
     },
     "market_cap": {
       "label": "Market Cap",
@@ -915,12 +842,7 @@
         "Assuming a low P/E is automatically cheap — a stock at 5× earnings might be heading to zero."
       ],
       "example": "Company A earns $2/share and trades at $40 → P/E of 20. Company B earns $2/share and trades at $100 → P/E of 50. Company B needs to grow earnings 2.5× faster just to catch up to Company A's valuation.",
-      "related": [
-        "peg_ratio",
-        "eps",
-        "earnings_growth_yoy",
-        "price_to_sales"
-      ]
+      "related": ["peg_ratio", "eps", "earnings_growth_yoy", "price_to_sales"]
     },
     "eps": {
       "label": "EPS (Earnings Per Share)",
@@ -1310,12 +1232,7 @@
         "Ignoring industry norms — retailers operate with lower current ratios than manufacturers because inventory turns fast."
       ],
       "example": "Company has $500M current assets and $200M current liabilities → current ratio of 2.5. If it pays off $100M of debt using cash, assets drop to $400M, liabilities to $100M → ratio improves to 4.0. But it now has less cash for operations.",
-      "related": [
-        "debt_to_equity",
-        "fcf_yield",
-        "profit_margin",
-        "quick_ratio"
-      ]
+      "related": ["debt_to_equity", "fcf_yield", "profit_margin", "quick_ratio"]
     },
     "revenue_growth_yoy": {
       "label": "Revenue Growth (YoY)",
@@ -1579,10 +1496,7 @@
         "Ignoring why a miss happened — some misses come from profitable investments that will pay off later."
       ],
       "example": "A company estimates $1.00 EPS but reports $1.12: a +12% surprise, landing in the BIG BEAT band. The next quarter it estimates $1.05 but reports $1.03: a -2% surprise, landing in the slight-miss band.",
-      "related": [
-        "beat_rate",
-        "next_earnings_date"
-      ]
+      "related": ["beat_rate", "next_earnings_date"]
     },
     "beat_rate": {
       "label": "Beat Rate",
@@ -1623,10 +1537,7 @@
         "Ignoring guidance changes — a company might beat recent estimates but lower future guidance, which matters more."
       ],
       "example": "A stock with a 3-out-of-4 beat rate recently delivered positive surprises in three of its last four quarters. That track record earns a positive weight in the earnings score.",
-      "related": [
-        "last_surprise_pct",
-        "next_earnings_date"
-      ]
+      "related": ["last_surprise_pct", "next_earnings_date"]
     },
     "next_earnings_date": {
       "label": "Next Earnings Date",
@@ -1641,10 +1552,7 @@
         "Forgetting that gaps happen overnight and a limit order set during the trading day may not protect you."
       ],
       "example": "A stock trading at $120 has earnings in five days. Many swing traders trim position size ahead of the event. If the report is a clean beat, the stock might open near $132 the next morning; a miss could open near $108.",
-      "related": [
-        "last_surprise_pct",
-        "beat_rate"
-      ]
+      "related": ["last_surprise_pct", "beat_rate"]
     },
     "analyst_consensus": {
       "label": "Analyst Consensus",
@@ -1689,10 +1597,7 @@
         "Ignoring the coverage count — a Strong Buy from one analyst is far less meaningful than a consensus from twenty."
       ],
       "example": "Stock XYZ has twelve analysts covering it: five rate Strong Buy, four rate Buy, two rate Hold, and one rates Sell. The consensus is highly positive and adds to the sentiment score.",
-      "related": [
-        "target_upside_pct",
-        "institutional_ownership"
-      ]
+      "related": ["target_upside_pct", "institutional_ownership"]
     },
     "insider_status": {
       "label": "Insider Activity",
@@ -1729,10 +1634,7 @@
         "Missing the bigger picture — one CEO buying $50k means little if the stock is at an all-time high and the CFO sold $5m."
       ],
       "example": "Three of the four C-suite officers bought shares in the open market over the last three months. That pattern is labelled buying and contributes a positive insider signal.",
-      "related": [
-        "institutional_ownership",
-        "target_upside_pct"
-      ]
+      "related": ["institutional_ownership", "target_upside_pct"]
     },
     "short_interest_pct": {
       "label": "Short Interest",
@@ -1769,11 +1671,7 @@
         "Ignoring the short ratio (days to cover) — high short interest with low days to cover is far less dangerous than the reverse."
       ],
       "example": "A stock with 22% short interest has many bears betting against it. If it misses earnings and falls 5%, nothing special happens. If it beats earnings and rises 8%, short sellers may rush to cover, accelerating the rally.",
-      "related": [
-        "short_ratio",
-        "volume_ratio",
-        "consecutive_gains"
-      ]
+      "related": ["short_ratio", "volume_ratio", "consecutive_gains"]
     },
     "short_ratio": {
       "label": "Short Ratio (Days to Cover)",
@@ -1810,11 +1708,7 @@
         "Treating high days to cover as inherently bullish — the shorts might be correct, and the stock can continue falling."
       ],
       "example": "A stock with 18% short interest and 6.2 days to cover sits in the elevated / high band on both measures. If the company guides higher next quarter, short sellers may scramble to buy back shares, adding upward pressure.",
-      "related": [
-        "short_interest_pct",
-        "volume_ratio",
-        "consecutive_gains"
-      ]
+      "related": ["short_interest_pct", "volume_ratio", "consecutive_gains"]
     },
     "institutional_ownership": {
       "label": "Institutional Ownership",
@@ -1851,11 +1745,7 @@
         "Ignoring whether the shares are held long term or are just short-term trading inventory."
       ],
       "example": "A small-cap biotech with 8% institutional ownership sits in the minimal band. That alone does not say the science is bad, but it does warn that the professional money crowd has not embraced the story yet.",
-      "related": [
-        "analyst_consensus",
-        "target_upside_pct",
-        "insider_status"
-      ]
+      "related": ["analyst_consensus", "target_upside_pct", "insider_status"]
     },
     "target_upside_pct": {
       "label": "Price Target Upside",
@@ -2345,21 +2235,14 @@
       "oneLiner": "A price range where you want to buy, not a single exact number.",
       "what": "An entry zone is a band of prices where the stock looks attractive. Markets move fast, so chasing a precise entry rarely works. A zone gives you patience and flexibility.",
       "example": "A stock at $50 might have an entry zone of $48 to $49.50. You place a limit order somewhere in that range. If it never reaches your zone, you wait instead of chasing.",
-      "related": [
-        "scale_in",
-        "risk_limits"
-      ]
+      "related": ["scale_in", "risk_limits"]
     },
     "scale_in": {
       "label": "Scale In",
       "oneLiner": "Buying in pieces instead of all at once to reduce timing risk.",
       "what": "Scaling in means splitting your intended position into multiple buys at different prices. If the stock drops, you pay a lower average price. If it jumps, you still have a partial position rather than missing the entire move.",
       "example": "You want a $10,000 position. Buy 6% ($600) at the first signal, 3.6% ($360) if it dips 2% further, and 2.4% ($240) if it drops another 3%. Total: $12,000 invested with a better average price if the dip materialized.",
-      "related": [
-        "entry_zone",
-        "r_multiple",
-        "scale_out"
-      ]
+      "related": ["entry_zone", "r_multiple", "scale_out"]
     },
     "r_multiple": {
       "label": "R-Multiple",
@@ -2367,56 +2250,35 @@
       "what": "R stands for the initial risk per share. If you buy at $50 and set a stop at $48, your R is $2 per share. A 2R target means you aim to make $4 per share — twice your risk. Every trade outcome is reported as an R-multiple: plus 2R, minus 1R, plus 0.5R.",
       "whyMatters": "R-multiple makes every trade comparable regardless of dollar size. A $500 profit on one trade and a $200 profit on another are meaningless without context. If the first risked $1,000 and the second risked $50, the second was actually the better trade.",
       "example": "Trade 1: Risked $2 per share, made $6. Result: plus 3R. Trade 2: Risked $5 per share, made $3. Result: plus 0.6R. Trade 1 was superior even though the dollar profit was smaller.",
-      "related": [
-        "scale_out",
-        "trailing_stop",
-        "breakeven_move",
-        "expectancy"
-      ]
+      "related": ["scale_out", "trailing_stop", "breakeven_move", "expectancy"]
     },
     "scale_out": {
       "label": "Scale Out",
       "oneLiner": "Taking partial profits at multiple targets instead of exiting the entire position at once.",
       "what": "Scaling out means you sell portions of your position at different profit levels. You lock in some wins while letting the remainder run. It balances greed and fear.",
       "example": "Buy 100 shares. Sell 40 shares at 1R profit, sell another 30 at 1.5R, sell the final 30 at 2R. At 1R, you move your stop on the remaining shares to breakeven so the rest of the trade is risk-free.",
-      "related": [
-        "r_multiple",
-        "trailing_stop",
-        "breakeven_move"
-      ]
+      "related": ["r_multiple", "trailing_stop", "breakeven_move"]
     },
     "trailing_stop": {
       "label": "Trailing Stop",
       "oneLiner": "A stop loss that follows the price up — but never moves down.",
       "what": "A trailing stop starts at your original exit level. As the stock price rises, the stop rises with it, usually by a fixed percentage or by recent swing lows. The critical rule: the stop never moves back down once raised.",
       "example": "You buy at $50 with a 10% trailing stop ($45). The stock climbs to $60. Your stop is now $54. It drops to $55 — you are still in. If it drops to $53, the stop triggers and you exit with a $3-per-share win.",
-      "related": [
-        "stop_loss",
-        "breakeven_move",
-        "time_stop"
-      ]
+      "related": ["stop_loss", "breakeven_move", "time_stop"]
     },
     "breakeven_move": {
       "label": "Breakeven Move",
       "oneLiner": "Raising your stop to your entry price after the trade moves in your favor.",
       "what": "Once the stock has moved far enough in your favor, you move your stop loss to your original buy price. From that point, the worst outcome is neither a win nor a loss — you break even. It turns a risky trade into a risk-free one.",
       "example": "You buy at $50 with a stop at $48. The stock rises to $52, a 2R gain. You move your stop to $50. Now if the stock drops back to $50, you exit with zero profit and zero loss. You cannot lose money on this trade anymore.",
-      "related": [
-        "trailing_stop",
-        "stop_loss",
-        "scale_out"
-      ]
+      "related": ["trailing_stop", "stop_loss", "scale_out"]
     },
     "time_stop": {
       "label": "Time Stop",
       "oneLiner": "Exiting a trade after N days if it has not moved — dead money has a cost.",
       "what": "A time stop says: if this trade has not acted within X days, sell regardless of whether you are up or down. Capital sitting in a flat stock is capital that is not working for you elsewhere.",
       "example": "You set a 10-day time stop. The stock sits at $51 for 10 days after you bought at $50. You sell at $51 for a tiny win, freeing capital to deploy into a stock that is actually moving.",
-      "related": [
-        "trailing_stop",
-        "entry_zone",
-        "risk_limits"
-      ]
+      "related": ["trailing_stop", "entry_zone", "risk_limits"]
     },
     "risk_limits": {
       "label": "Risk Limits",
@@ -2469,38 +2331,28 @@
       "oneLiner": "Which industries lead or lag changes over time as money flows between sectors.",
       "what": "Sector rotation shows which industries are leading and lagging. Leading sectors tend to continue outperforming for a period. Think of it like fashion trends — what is in style changes over time as investors move money between sectors.",
       "example": "When tech is leading and utilities are lagging, investors are in a risk-on mood. When utilities lead and tech lags, they are in a risk-off mood.",
-      "related": [
-        "regime_states",
-        "risk_on"
-      ]
+      "related": ["regime_states", "risk_on"]
     },
     "risk_on": {
       "label": "Risk-On vs Risk-Off",
       "oneLiner": "Investor mood swings between optimistic buying and scared selling.",
       "what": "Risk-on means investors are optimistic and buying growth stocks, tech, and smaller companies. Risk-off means they are scared and buying safer assets like utilities, bonds, and gold.",
       "example": "Risk-on: Bitcoin rallies, tech stocks surge. Risk-off: Gold rises, utilities outperform.",
-      "related": [
-        "regime_states",
-        "sector_rotation"
-      ]
+      "related": ["regime_states", "sector_rotation"]
     },
     "conviction_score": {
       "label": "Conviction Score",
       "oneLiner": "How confident the system is in a trade idea, from 1 to 10.",
       "what": "The conviction score measures how strongly multiple independent signals agree. Seven or higher means several unrelated checks aligned. Four to six means mixed evidence. One to three means weak or conflicting signals.",
       "example": "A stock at conviction 8 out of 10 means technical, fundamental, and sentiment all agree on the direction — rare and more reliable than a stock at conviction 3.",
-      "related": [
-        "verdict"
-      ]
+      "related": ["verdict"]
     },
     "regime": {
       "label": "Market Regime",
       "oneLiner": "The current personality of the broad market — trending, choppy, or volatile.",
       "what": "Market regime describes whether the market is in a strong uptrend, a choppy sideways range, or a high-volatility environment. Different strategies work best in different regimes.",
       "example": "In a strong-trend regime, momentum strategies shine. In a choppy ranging regime, mean-reversion strategies work better.",
-      "related": [
-        "regime_states"
-      ]
+      "related": ["regime_states"]
     },
     "regime_states": {
       "label": "Regime States",
@@ -2508,61 +2360,42 @@
       "what": "Exuberance: euphoric buying, valuations stretched. Risk-On: steady gains with healthy participation; trend strategies shine. Neutral: no clear directional bias; stock-specific setups matter more than market calls. Cautious: sellers gaining ground; tighten stops and shrink positions. Risk-Off: broad selling; capital preservation first. Crisis: panic conditions; cash is a position. Sub-conditions refine these: defensive_flight (investors rushing to safety), risk_on (high confidence), choppy (no clear direction with frequent reversals), strong_trend, ranging, high_vol, low_vol. The regime re-weights scoring: trend counts most in strong trends; volume and quality lead in choppy markets.",
       "whyItMatters": "The same setup behaves differently in different weather. A breakout in Risk-On is routine; the same breakout in Risk-Off usually fails.",
       "example": "Score 53 (Neutral) means mixed signals — keep position sizes normal but demand extra confirmation before adding risk. Score 25 (Risk-Off) means the same stock gets a smaller position or a pass.",
-      "related": [
-        "market_regime",
-        "sector_rotation",
-        "vix"
-      ]
+      "related": ["market_regime", "sector_rotation", "vix"]
     },
     "stop_loss": {
       "label": "Stop Loss",
       "oneLiner": "An automatic exit order that limits your loss if the trade goes wrong.",
       "what": "A stop loss is your emergency exit. If the stock drops to a preset price, you sell automatically. It prevents a small loss from becoming a large one.",
       "example": "You buy at $100 and set a stop at $90. If the stock drops to $90, you sell and limit the loss to 10%. Without a stop, a -10% loss can turn into -50% if you hold and hope.",
-      "related": [
-        "trailing_stop",
-        "breakeven_move",
-        "risk_limits"
-      ]
+      "related": ["trailing_stop", "breakeven_move", "risk_limits"]
     },
     "position_sizing": {
       "label": "Position Sizing",
       "oneLiner": "How much of your money goes into each trade — the most important risk control.",
       "what": "Position sizing decides the percentage of your portfolio to allocate to a single trade. The goal is that no single loss should hurt your account significantly. One to two percent risk per trade is standard for professionals.",
       "example": "With a $100,000 account risking 1.5% per trade, the maximum loss on any single position is $1,500.",
-      "related": [
-        "risk_limits",
-        "kelly_criterion"
-      ]
+      "related": ["risk_limits", "kelly_criterion"]
     },
     "diversification": {
       "label": "Diversification",
       "oneLiner": "Spreading your money across different investments to reduce risk.",
       "what": "Do not put all your eggs in one basket. Diversification spreads your capital across sectors, asset classes, or strategies so that one bad position does not sink your account.",
       "example": "Instead of buying 5 tech stocks, buy 1 tech plus 1 healthcare plus 1 energy plus 1 finance plus 1 consumer. If tech crashes, the others may hold steady.",
-      "related": [
-        "correlation_matrix",
-        "risk_limits"
-      ]
+      "related": ["correlation_matrix", "risk_limits"]
     },
     "pre_market": {
       "label": "Pre-Market Trading",
       "oneLiner": "Trading that happens before the regular market session opens.",
       "what": "Pre-market prices show where a stock trades before the market opens, typically 4:00 AM to 9:30 AM Eastern. Big pre-market moves often set the tone for the day.",
       "example": "If a stock gapped up 3% pre-market after strong earnings, expect a higher opening price. A -3% pre-market drop suggests something disappointed.",
-      "related": [
-        "volume_ratio"
-      ]
+      "related": ["volume_ratio"]
     },
     "verdict": {
       "label": "Verdict",
       "oneLiner": "The system's overall opinion: Strong Buy, Buy, Watch, Hold, Avoid, or Sell.",
       "what": "The verdict is the final summary of all the analysis. It combines module scores, conviction, and dealbreakers into one action.",
       "example": "Strong Buy means exceptional setup with high conviction and aligned signals. Avoid means significant problems were found across multiple checks.",
-      "related": [
-        "conviction_score",
-        "regime_states"
-      ]
+      "related": ["conviction_score", "regime_states"]
     },
     "graduation": {
       "label": "Graduation Path",
@@ -2576,54 +2409,34 @@
       "oneLiner": "The maximum loss you can expect over a given time period, with a set confidence level.",
       "what": "VaR answers: how bad could things get? A 1-day 95% VaR of $500 means there is a 5% chance you lose more than $500 in one day. It is a worst-case snapshot, not a guarantee.",
       "example": "A $50,000 portfolio with a 1-day 95% VaR of $1,200 means on 19 out of 20 normal days, losses stay under $1,200. The 1-in-20 day could be worse.",
-      "related": [
-        "cvar",
-        "max_drawdown_pct",
-        "kelly_criterion"
-      ]
+      "related": ["cvar", "max_drawdown_pct", "kelly_criterion"]
     },
     "cvar": {
       "label": "CVaR (Conditional Value at Risk)",
       "oneLiner": "The average loss in the worst-case tail beyond VaR — how bad things get when they go wrong.",
       "what": "CVaR, also called Expected Shortfall, goes beyond VaR. If VaR says you might lose $1,200, CVaR asks: if you are in the losing 5%, what is the AVERAGE loss? CVaR is usually larger than VaR and considered a more complete risk measure.",
       "example": "Portfolio VaR (95%) = $1,200. CVaR (95%) = $2,100. When the bad day happens, the average loss is $2,100, not just $1,200.",
-      "related": [
-        "var",
-        "max_drawdown_pct",
-        "ulcer_index"
-      ]
+      "related": ["var", "max_drawdown_pct", "ulcer_index"]
     },
     "kelly_criterion": {
       "label": "Kelly Criterion",
       "oneLiner": "A formula for sizing bets so your wealth grows fastest over time without ruin.",
       "what": "The Kelly Criterion calculates the mathematically optimal position size based on your win rate and the typical win versus loss. It tells you the percentage of capital to risk on each bet to maximize long-term growth.",
       "example": "If your strategy wins 55% of the time and your average win is $1.10 per $1 risked, Kelly suggests risking about 10% of capital per trade. Most traders use half Kelly (5%) to reduce volatility.",
-      "related": [
-        "position_sizing",
-        "expectancy",
-        "profit_factor"
-      ]
+      "related": ["position_sizing", "expectancy", "profit_factor"]
     },
     "correlation_matrix": {
       "label": "Correlation Matrix",
       "oneLiner": "A grid showing how strongly different holdings move together — from lockstep to opposite.",
       "what": "A correlation matrix compares every pair of assets in a portfolio. A correlation of +1 means they move together perfectly. A correlation of -1 means they move in opposite directions. Zero means no relationship.",
       "example": "A portfolio of 5 tech stocks might show correlations of +0.7 to +0.9. That is barely diversified. Add utilities (correlation near 0) or bonds (negative correlation during some periods) and the portfolio becomes safer.",
-      "related": [
-        "diversification",
-        "beta",
-        "risk_limits"
-      ]
+      "related": ["diversification", "beta", "risk_limits"]
     },
     "liquidity": {
       "label": "Liquidity",
       "oneLiner": "How easily you can buy or sell without moving the price.",
       "what": "Liquidity is the width of the market for a stock — how many willing buyers and sellers exist right now. Think of a farmers' market vs a rare collectibles auction: at the market you can trade anytime at fair prices; at the auction, one sale can swing the price wildly. Volume and spread are its vital signs.",
-      "related": [
-        "avg_volume_20d",
-        "volume_ratio",
-        "spread"
-      ]
+      "related": ["avg_volume_20d", "volume_ratio", "spread"]
     }
   },
   "glossary": [
@@ -2926,79 +2739,52 @@
     {
       "term": "Interest Coverage",
       "definition": "How many times over a company could pay its interest expenses from operating profit (EBIT ÷ interest). Below 2x means profit barely covers debt costs — risky if earnings dip.",
-      "related": [
-        "debt_to_equity",
-        "current_ratio"
-      ]
+      "related": ["debt_to_equity", "current_ratio"]
     },
     {
       "term": "Payout Ratio",
       "definition": "The share of earnings paid to shareholders as dividends (dividends ÷ net income). A 50% payout leaves half the profit to reinvest; above ~80% is hard to sustain.",
-      "related": [
-        "dividend_yield"
-      ]
+      "related": ["dividend_yield"]
     },
     {
       "term": "Quick Ratio",
       "definition": "Like the current ratio but excludes inventory — can the company pay its next 12 months of bills with truly liquid assets? Above 1.0 is healthy; below 0.7 warrants caution.",
-      "related": [
-        "current_ratio"
-      ]
+      "related": ["current_ratio"]
     },
     {
       "term": "Bid-Ask Spread",
       "definition": "The gap between the highest price buyers offer and the lowest price sellers accept. Wide spreads are an invisible tax on every trade — common in low-volume stocks. Also just called \"the spread\".",
-      "related": [
-        "avg_volume_20d",
-        "liquidity"
-      ]
+      "related": ["avg_volume_20d", "liquidity"]
     },
     {
       "term": "Market Regime",
       "definition": "The overall personality of the market right now — trending up, chopping sideways, or swinging wildly. The best setups differ in each regime, so the first question an elite trader asks is: what kind of market am I in?",
-      "related": [
-        "regime"
-      ]
+      "related": ["regime"]
     },
     {
       "term": "Risk-On",
       "definition": "A market mood where capital flows freely into stocks and other risky assets. Prices tend to rise and momentum setups work well. The opposite of Risk-Off.",
-      "related": [
-        "risk_off",
-        "market_regime"
-      ]
+      "related": ["risk_off", "market_regime"]
     },
     {
       "term": "Risk-Off",
       "definition": "A defensive market mood where investors flee risky assets and hoard cash or bonds. Prices fall, rallies fade, and you want smaller size and wider stops. The opposite of Risk-On.",
-      "related": [
-        "risk_on",
-        "market_regime"
-      ]
+      "related": ["risk_on", "market_regime"]
     },
     {
       "term": "Exuberance",
       "definition": "A frothy, greed-driven phase where buyers chase strength and pullbacks barely happen. Legitimate but dangerous — late entries catch the reversal, so the plan (stop + target) matters even more.",
-      "related": [
-        "risk_on",
-        "market_regime"
-      ]
+      "related": ["risk_on", "market_regime"]
     },
     {
       "term": "Crisis",
       "definition": "A fear-driven phase of heavy selling and wild volatility. Most systems tighten or stand aside; if you trade, size is tiny and stops are non-negotiable.",
-      "related": [
-        "risk_off",
-        "market_regime"
-      ]
+      "related": ["risk_off", "market_regime"]
     },
     {
       "term": "NEUTRAL",
       "definition": "A range-bound market with no strong trend. In a neutral regime, fade-the-extremes and breakout-from-range setups often beat chasing momentum; respect the two boundaries instead of betting on a breakout.",
-      "related": [
-        "market_regime",
-        "risk_off"
-      ]
+      "related": ["market_regime", "risk_off"]
     }
   ]
 }

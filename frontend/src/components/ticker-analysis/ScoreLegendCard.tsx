@@ -26,7 +26,11 @@ const PILLARS = [
   { code: 'F', name: 'Fundamental', max: 10 },
 ];
 
-export function ScoreLegendCard({ defaultOpen = false }: { defaultOpen?: boolean }) {
+export function ScoreLegendCard({
+  defaultOpen = false,
+}: {
+  defaultOpen?: boolean;
+}) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
@@ -41,7 +45,12 @@ export function ScoreLegendCard({ defaultOpen = false }: { defaultOpen?: boolean
           <Scale className="h-3.5 w-3.5 text-text-muted" />
           How our scores relate
         </span>
-        <ChevronDown className={cn('h-3.5 w-3.5 text-text-muted transition-transform', open && 'rotate-180')} />
+        <ChevronDown
+          className={cn(
+            'h-3.5 w-3.5 text-text-muted transition-transform',
+            open && 'rotate-180'
+          )}
+        />
       </button>
 
       {open && (
@@ -49,7 +58,10 @@ export function ScoreLegendCard({ defaultOpen = false }: { defaultOpen?: boolean
           {/* 1 — module scores */}
           <div>
             <p className="mb-1 text-[11px] font-semibold text-text-primary">
-              1 · Module scores <span className="font-normal text-text-muted">(−1.0 to +1.0)</span>
+              1 · Module scores{' '}
+              <span className="font-normal text-text-muted">
+                (−1.0 to +1.0)
+              </span>
             </p>
             <div className="mb-1 flex flex-wrap gap-x-3 gap-y-0.5">
               {MODULE_WEIGHTS.map((m) => (
@@ -58,14 +70,25 @@ export function ScoreLegendCard({ defaultOpen = false }: { defaultOpen?: boolean
                 </span>
               ))}
             </div>
-            <MiniBars items={MODULE_WEIGHTS.map((m) => ({ label: m.name.slice(0, 4), pct: m.pct }))} />
-            <p className="mt-1">Weighted average of these five drives the verdict (BUY/WATCH/AVOID…). Weights shift with market regime.</p>
+            <MiniBars
+              items={MODULE_WEIGHTS.map((m) => ({
+                label: m.name.slice(0, 4),
+                pct: m.pct,
+              }))}
+            />
+            <p className="mt-1">
+              Weighted average of these five drives the verdict
+              (BUY/WATCH/AVOID…). Weights shift with market regime.
+            </p>
           </div>
 
           {/* 2 — screener pillars */}
           <div>
             <p className="mb-1 text-[11px] font-semibold text-text-primary">
-              2 · Screener score <span className="font-normal text-text-muted">(0–100 → A+ / A / B / C / D)</span>
+              2 · Screener score{' '}
+              <span className="font-normal text-text-muted">
+                (0–100 → A+ / A / B / C / D)
+              </span>
             </p>
             <div className="mb-1 flex flex-wrap gap-x-3 gap-y-0.5">
               {PILLARS.map((p) => (
@@ -74,22 +97,34 @@ export function ScoreLegendCard({ defaultOpen = false }: { defaultOpen?: boolean
                 </span>
               ))}
             </div>
-            <MiniBars items={PILLARS.map((p) => ({ label: p.code, pct: (p.max / 100) * 100 }))} />
-            <p className="mt-1">Five pillars sum to 100 and power the screener table ranking ("Scr" column).</p>
+            <MiniBars
+              items={PILLARS.map((p) => ({
+                label: p.code,
+                pct: (p.max / 100) * 100,
+              }))}
+            />
+            <p className="mt-1">
+              Five pillars sum to 100 and power the screener table ranking
+              ("Scr" column).
+            </p>
           </div>
 
           {/* 3 — conviction */}
           <div>
             <p className="mb-1 text-[11px] font-semibold text-text-primary">
-              3 · Conviction <span className="font-normal text-text-muted">(1–10)</span>
+              3 · Conviction{' '}
+              <span className="font-normal text-text-muted">(1–10)</span>
             </p>
             <p>
-              Confidence in the final call: ≥8 strong alignment, 6–7 solid, 4–5 mixed, ≤3 weak or conflicting signals. Low conviction automatically shrinks suggested position size.
+              Confidence in the final call: ≥8 strong alignment, 6–7 solid, 4–5
+              mixed, ≤3 weak or conflicting signals. Low conviction
+              automatically shrinks suggested position size.
             </p>
           </div>
 
           <p className="border-t border-border pt-2 text-[11px] italic">
-            Module scores power this Ticker Analysis verdict; screener pillars rank the table; conviction expresses confidence in both.
+            Module scores power this Ticker Analysis verdict; screener pillars
+            rank the table; conviction expresses confidence in both.
           </p>
         </div>
       )}
@@ -99,14 +134,18 @@ export function ScoreLegendCard({ defaultOpen = false }: { defaultOpen?: boolean
 
 function MiniBars({ items }: { items: Array<{ label: string; pct: number }> }) {
   return (
-    <div className="flex h-1.5 w-full overflow-hidden rounded bg-bg-muted">
+    <div className="bg-bg-muted flex h-1.5 w-full overflow-hidden rounded">
       {items.map((it) => (
         <div
           key={it.label}
           style={{ width: `${it.pct}%` }}
           className={cn(
             'h-full',
-            items.indexOf(it) % 3 === 0 ? 'bg-accent/70' : items.indexOf(it) % 3 === 1 ? 'bg-accent/45' : 'bg-accent/60'
+            items.indexOf(it) % 3 === 0
+              ? 'bg-accent/70'
+              : items.indexOf(it) % 3 === 1
+                ? 'bg-accent/45'
+                : 'bg-accent/60'
           )}
           title={`${it.label} ${Math.round(it.pct)}%`}
         />

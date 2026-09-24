@@ -70,7 +70,11 @@ describe('evaluateBands — transforms applied to interpolated value', () => {
   it('percent', () => {
     expect(
       evaluateBands(
-        { type: 'bands', transform: 'percent', bands: [{ if: 'value > 20', text: 'strong at ${value}' }] },
+        {
+          type: 'bands',
+          transform: 'percent',
+          bands: [{ if: 'value > 20', text: 'strong at ${value}' }],
+        },
         '24.6'
       )
     ).toBe('strong at 24.6%');
@@ -79,7 +83,11 @@ describe('evaluateBands — transforms applied to interpolated value', () => {
   it('ratio', () => {
     expect(
       evaluateBands(
-        { type: 'bands', transform: 'ratio', bands: [{ if: 'value > 1', text: '${value} of average' }] },
+        {
+          type: 'bands',
+          transform: 'ratio',
+          bands: [{ if: 'value > 1', text: '${value} of average' }],
+        },
         '1.7777'
       )
     ).toBe('1.78x of average');
@@ -88,7 +96,11 @@ describe('evaluateBands — transforms applied to interpolated value', () => {
   it('compactNumber', () => {
     expect(
       evaluateBands(
-        { type: 'bands', transform: 'compactNumber', bands: [{ if: 'value > 0', text: '${value} shares/day' }] },
+        {
+          type: 'bands',
+          transform: 'compactNumber',
+          bands: [{ if: 'value > 0', text: '${value} shares/day' }],
+        },
         '2500000'
       )
     ).toBe('2.5M shares/day');
@@ -97,7 +109,11 @@ describe('evaluateBands — transforms applied to interpolated value', () => {
   it('money', () => {
     expect(
       evaluateBands(
-        { type: 'bands', transform: 'money', bands: [{ if: 'value > 100', text: 'cap ${value}' }] },
+        {
+          type: 'bands',
+          transform: 'money',
+          bands: [{ if: 'value > 100', text: 'cap ${value}' }],
+        },
         '1250.5'
       )
     ).toBe('cap $1,250.50');

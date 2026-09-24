@@ -1,35 +1,34 @@
 import { describe, it, expect } from 'vitest';
 import { newRoutine } from '@/workflow/routine';
 import {
-  buildJournalData,
   formatStepTime,
   routineStepList,
   todayKey,
-  JOURNAL_QUESTIONS,
+  TOUCHPOINT_A_ACTIONS,
+  TOUCHPOINT_B_ACTIONS,
 } from '../DailyRoutine';
-
-describe('JOURNAL_QUESTIONS', () => {
-  it('defines the 3 thesis-vs-reality journal questions', () => {
-    expect(JOURNAL_QUESTIONS).toHaveLength(3);
-    expect(JOURNAL_QUESTIONS.map((q) => q.key)).toEqual(['q1', 'q2', 'q3']);
-  });
-});
-
-describe('buildJournalData', () => {
-  it('merges answers and stamps the journaledAt timestamp', () => {
-    const data = buildJournalData({ q1: 'thesis', q2: 'reality', q3: 'do differently' });
-    expect(data.q1).toBe('thesis');
-    expect(data.q2).toBe('reality');
-    expect(data.q3).toBe('do differently');
-    expect(typeof data.journaledAt).toBe('string');
-    expect(new Date(data.journaledAt as string).getTime()).not.toBeNaN();
-  });
-});
 
 describe('todayKey', () => {
   it('returns a YYYY-MM-DD local date string', () => {
     const key = todayKey();
     expect(key).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+describe('TOUCHPOINT_A_ACTIONS', () => {
+  it('defines pre-market actions (API-driven)', () => {
+    expect(TOUCHPOINT_A_ACTIONS.length).toBeGreaterThan(0);
+    expect(TOUCHPOINT_A_ACTIONS[0]).toContain('Run Gate Enforcement');
+    expect(TOUCHPOINT_A_ACTIONS[0]).toContain('fetch brief');
+    expect(TOUCHPOINT_A_ACTIONS[0]).toContain('write journal');
+  });
+});
+
+describe('TOUCHPOINT_B_ACTIONS', () => {
+  it('defines after-close actions (API-driven)', () => {
+    expect(TOUCHPOINT_B_ACTIONS.length).toBeGreaterThan(0);
+    expect(TOUCHPOINT_B_ACTIONS[0]).toContain('Sync Exits (Dry Run)');
+    expect(TOUCHPOINT_B_ACTIONS[2]).toContain('Sync Exits (Apply)');
   });
 });
 
@@ -40,15 +39,15 @@ describe('routineStepList', () => {
 
   it('flags exactly one step as next on an in_progress routine', () => {
     let r = newRoutine('2026-08-28', () => '2026-08-28T09:00:00.000Z');
-    r = { ...r, currentStep: 2 }; // next step index 2 (seq 3)
+    r = { ...r, currentStep: 0 }; // next step index 0 (seq 1)
     const list = routineStepList(r);
     expect(list.filter((s) => s.isNext)).toHaveLength(1);
-    expect(list.find((s) => s.isNext)?.seq).toBe(3);
+    expect(list.find((s) => s.isNext)?.seq).toBe(1);
   });
 
   it('flags no step as next once the routine is completed', () => {
     let r = newRoutine('2026-08-28', () => '2026-08-28T09:00:00.000Z');
-    r = { ...r, status: 'completed', currentStep: 3 };
+    r = { ...r, status: 'completed', currentStep: 1 };
     expect(routineStepList(r).every((s) => !s.isNext)).toBe(true);
   });
 });

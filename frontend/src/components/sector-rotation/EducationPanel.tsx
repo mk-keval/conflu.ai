@@ -1,6 +1,15 @@
 import { useState } from 'react';
 import { cn } from '@/lib/cn';
-import { ChevronDown, BookOpen, BarChart3, Lightbulb, ArrowRightLeft, AlertTriangle, Zap, Eye } from 'lucide-react';
+import {
+  ChevronDown,
+  BookOpen,
+  BarChart3,
+  Lightbulb,
+  ArrowRightLeft,
+  AlertTriangle,
+  Zap,
+  Eye,
+} from 'lucide-react';
 
 interface EducationSection {
   id: string;
@@ -18,7 +27,7 @@ const SECTIONS: EducationSection[] = [
     icon: <Lightbulb className="h-4 w-4" />,
     content: [
       'Sector rotation is the constant movement of money between different parts of the stock market. Think of it like a party: early on, everyone piles into one room (tech). Later, the crowd moves to another room (energy). By watching where the crowd is going, you can position yourself ahead of the move.',
-      'The core insight: NOT all sectors perform well at the same time. Money flows in cycles. Your job isn\'t to predict the future — it\'s to identify which sector has the strongest tailwind RIGHT NOW and ride it.',
+      "The core insight: NOT all sectors perform well at the same time. Money flows in cycles. Your job isn't to predict the future — it's to identify which sector has the strongest tailwind RIGHT NOW and ride it.",
     ],
     subsections: [
       {
@@ -31,15 +40,15 @@ const SECTIONS: EducationSection[] = [
         ],
       },
     ],
-    tip: 'The phase label at the top tells you where we are in this cycle. But today\'s price action may differ — the phase uses trailing data to avoid false signals.',
+    tip: "The phase label at the top tells you where we are in this cycle. But today's price action may differ — the phase uses trailing data to avoid false signals.",
   },
   {
     id: 'how-it-works',
     title: 'Smart Money Flow — Following the Institutions',
     icon: <Eye className="h-4 w-4" />,
     content: [
-      'Big money (pension funds, hedge funds) can\'t move in and out of positions overnight. When institutions decide a sector is the place to be, they accumulate over days or weeks — and you can see their footprints in price, volume, and relative strength.',
-      'The key tells: When a sector rises on ABOVE-average volume while most other sectors are flat or down, that\'s institutional buying. When it falls on heavy volume while lagging peers, that\'s institutional selling.',
+      "Big money (pension funds, hedge funds) can't move in and out of positions overnight. When institutions decide a sector is the place to be, they accumulate over days or weeks — and you can see their footprints in price, volume, and relative strength.",
+      "The key tells: When a sector rises on ABOVE-average volume while most other sectors are flat or down, that's institutional buying. When it falls on heavy volume while lagging peers, that's institutional selling.",
       'Retail noise looks different: low volume, random price moves, no follow-through.',
     ],
     tip: 'Volume is your lie detector. A sector up 3% on normal volume = noise. A sector up 3% on 1.6x average volume = institutions loading up.',
@@ -49,7 +58,7 @@ const SECTIONS: EducationSection[] = [
     title: 'Reading the Dashboard — What Each Number Means',
     icon: <BarChart3 className="h-4 w-4" />,
     content: [
-      'The heatmap and flows tab give you three key signals. Here\'s how to read them without a finance degree.',
+      "The heatmap and flows tab give you three key signals. Here's how to read them without a finance degree.",
     ],
     subsections: [
       {
@@ -61,9 +70,10 @@ const SECTIONS: EducationSection[] = [
           '• RS = +2 or higher → extreme outlier, something BIG is happening',
           '• RS negative → lagging, money is leaving',
           '',
-          'Think of it like lap times on a track. If the average sector runs a 60-second lap and XLK runs a 52-second lap, its RS is high — it\'s lapping the field.',
+          "Think of it like lap times on a track. If the average sector runs a 60-second lap and XLK runs a 52-second lap, its RS is high — it's lapping the field.",
         ],
-        highlight: 'RS > 2 on high volume = institutions piling in aggressively. That\'s your signal to pay attention, not to chase blindly.',
+        highlight:
+          "RS > 2 on high volume = institutions piling in aggressively. That's your signal to pay attention, not to chase blindly.",
       },
       {
         title: 'Volume Ratio — "Is This Real or Just Noise?"',
@@ -104,7 +114,7 @@ const SECTIONS: EducationSection[] = [
         text: [
           'Leaders: XLF (Financials), XLI (Industrials), XLY (Consumer Disc.), XLK (Tech)',
           'Strategy: Look for breakouts in cyclicals. Reduce defensive positions. The economy is healing and risk-taking is rewarded.',
-          'Risk: Don\'t buy everything — only sectors showing RS > 0.5 with rising volume.',
+          "Risk: Don't buy everything — only sectors showing RS > 0.5 with rising volume.",
         ],
       },
       {
@@ -112,7 +122,7 @@ const SECTIONS: EducationSection[] = [
         text: [
           'Leaders: XLK (Tech), XLC (Comms)',
           'Strategy: Ride momentum with trailing stops. The trend is your friend. Use pullbacks to the EMA as entry points.',
-          'Risk: Don\'t get greedy — growth phases don\'t last forever. Have an exit plan before you enter.',
+          "Risk: Don't get greedy — growth phases don't last forever. Have an exit plan before you enter.",
         ],
       },
       {
@@ -128,9 +138,9 @@ const SECTIONS: EducationSection[] = [
         text: [
           'Leaders: XLP (Staples), XLU (Utilities), XLV (Health Care), XLRE (Real Estate)',
           'Strategy: Reduce position sizes. Avoid beaten-down cyclicals. Cash is a valid position.',
-          'Risk: Don\'t try to catch falling knives. If tech is getting crushed, don\'t buy the dip — wait for the rotation to exhaust.',
+          "Risk: Don't try to catch falling knives. If tech is getting crushed, don't buy the dip — wait for the rotation to exhaust.",
           '',
-          '⚠️ IMPORTANT: The app detects this phase using 1-week trailing data. A single strong day (like today\'s tech rally) won\'t immediately flip the label. Switch to 1D view to see today\'s action, and watch for the phase to update in coming days if the rally sustains.',
+          "⚠️ IMPORTANT: The app detects this phase using 1-week trailing data. A single strong day (like today's tech rally) won't immediately flip the label. Switch to 1D view to see today's action, and watch for the phase to update in coming days if the rally sustains.",
         ],
       },
     ],
@@ -146,8 +156,8 @@ const SECTIONS: EducationSection[] = [
       {
         title: '1D (Today) — "What\'s Happening Right Now"',
         text: [
-          'Best for: Timing entries and exits. Seeing today\'s money flow. Catching intraday shifts.',
-          'Use it when: You want to see which sector is hot TODAY. It\'s reactive — captures the current session.',
+          "Best for: Timing entries and exits. Seeing today's money flow. Catching intraday shifts.",
+          "Use it when: You want to see which sector is hot TODAY. It's reactive — captures the current session.",
           'Limitation: One day is noise. A single news event (like MSFT earnings) can distort it.',
         ],
       },
@@ -156,7 +166,7 @@ const SECTIONS: EducationSection[] = [
         text: [
           'Best for: Confirming real rotations. Filtering out daily noise. Seeing the big picture.',
           'Use it when: You want to know where money has been flowing all week, not just since this morning.',
-          'Limitation: Lags behind sudden reversals. A Friday rally won\'t show up until Monday.',
+          "Limitation: Lags behind sudden reversals. A Friday rally won't show up until Monday.",
         ],
       },
       {
@@ -167,7 +177,7 @@ const SECTIONS: EducationSection[] = [
           '3. If both align (e.g., 1W says tech, 1D says tech) → strong signal. Go with it.',
           '4. If they conflict (e.g., 1W says defensives, 1D says tech) → possible shift. Watch for 2-3 more days of confirmation before acting.',
           '',
-          'This is exactly what\'s happening today: 1W says defensives, 1D says tech. A conflict = a potential shift. Watch the next few days.',
+          "This is exactly what's happening today: 1W says defensives, 1D says tech. A conflict = a potential shift. Watch the next few days.",
         ],
       },
     ],
@@ -184,20 +194,20 @@ const SECTIONS: EducationSection[] = [
         title: '❌ Mistake 1: Buying the First Big Day',
         text: [
           'Today tech is up 5.5%. FOMO kicks in. Slow down.',
-          'One day doesn\'t make a trend. Wait for confirmation — a pullback that holds, or a second leg up on volume.',
+          "One day doesn't make a trend. Wait for confirmation — a pullback that holds, or a second leg up on volume.",
         ],
       },
       {
         title: '❌ Mistake 2: Ignoring the Timeframe Conflict',
         text: [
-          'If 1W says one thing and 1D says another, don\'t pick a side yet. The market is deciding. Wait.',
+          "If 1W says one thing and 1D says another, don't pick a side yet. The market is deciding. Wait.",
         ],
       },
       {
         title: '❌ Mistake 3: Fighting the Phase',
         text: [
-          'If the phase says "defensive flight" and you keep buying tech dips, you\'re fighting the macro trend. Sometimes you\'ll win (like today), but over time it\'s a losing game.',
-          'Better approach: Wait for the phase label itself to change. That\'s your macro buy signal.',
+          "If the phase says \"defensive flight\" and you keep buying tech dips, you're fighting the macro trend. Sometimes you'll win (like today), but over time it's a losing game.",
+          "Better approach: Wait for the phase label itself to change. That's your macro buy signal.",
         ],
       },
       {
@@ -222,7 +232,9 @@ export function EducationPanel() {
     <div className="rounded-xl border border-border bg-surface">
       <div className="flex items-center gap-2 border-b border-border px-5 py-3">
         <BookOpen className="h-4 w-4 text-accent" />
-        <h2 className="text-sm font-bold text-text-primary">Learn About Sector Rotation</h2>
+        <h2 className="text-sm font-bold text-text-primary">
+          Learn About Sector Rotation
+        </h2>
       </div>
 
       <div className="divide-y divide-border">
@@ -236,29 +248,50 @@ export function EducationPanel() {
                 className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-surface-hover"
               >
                 <span className="text-accent">{section.icon}</span>
-                <span className="flex-1 text-sm font-semibold text-text-primary">{section.title}</span>
-                <ChevronDown className={cn(
-                  'h-4 w-4 text-text-muted transition-transform duration-200',
-                  isOpen && 'rotate-180'
-                )} />
+                <span className="flex-1 text-sm font-semibold text-text-primary">
+                  {section.title}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    'h-4 w-4 text-text-muted transition-transform duration-200',
+                    isOpen && 'rotate-180'
+                  )}
+                />
               </button>
 
               {isOpen && (
                 <div className="space-y-4 px-5 pb-5 pt-1">
                   {section.content.map((para, i) => (
-                    <p key={i} className="text-sm leading-relaxed text-text-secondary">{para}</p>
+                    <p
+                      key={i}
+                      className="text-sm leading-relaxed text-text-secondary"
+                    >
+                      {para}
+                    </p>
                   ))}
 
                   {section.subsections?.map((sub, i) => (
                     <div key={i} className="space-y-1.5">
-                      <h4 className="text-sm font-bold text-text-primary">{sub.title}</h4>
-                      {sub.text.map((line, j) => (
-                        line === '' ? <br key={j} /> :
-                        <p key={j} className="text-sm leading-relaxed text-text-secondary">{line}</p>
-                      ))}
+                      <h4 className="text-sm font-bold text-text-primary">
+                        {sub.title}
+                      </h4>
+                      {sub.text.map((line, j) =>
+                        line === '' ? (
+                          <br key={j} />
+                        ) : (
+                          <p
+                            key={j}
+                            className="text-sm leading-relaxed text-text-secondary"
+                          >
+                            {line}
+                          </p>
+                        )
+                      )}
                       {sub.highlight && (
                         <div className="mt-2 rounded-md border border-accent/20 bg-accent/5 px-3 py-2">
-                          <p className="text-xs leading-relaxed text-accent">{sub.highlight}</p>
+                          <p className="text-xs leading-relaxed text-accent">
+                            {sub.highlight}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -267,7 +300,9 @@ export function EducationPanel() {
                   {section.tip && (
                     <div className="flex items-start gap-2 rounded-md border border-border bg-surface-tertiary/50 px-3 py-2">
                       <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
-                      <p className="text-xs leading-relaxed text-text-secondary">{section.tip}</p>
+                      <p className="text-xs leading-relaxed text-text-secondary">
+                        {section.tip}
+                      </p>
                     </div>
                   )}
                 </div>

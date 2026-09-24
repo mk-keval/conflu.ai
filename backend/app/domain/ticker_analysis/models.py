@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any, Literal
+from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ── Analysis Configuration ──
@@ -38,6 +40,13 @@ class TechnicalAnalysis(BaseModel):
     atr_pct: float | None = None
     volatility_regime: str  # low / normal / high / extreme
     volume_ratio: float | None = None
+    # avg_daily_volume_usd — average daily DOLLAR volume over a 10-day window
+    # (mean of Close × Volume per day). Why it matters in plain English:
+    # a penny stock with 10M shares traded looks "active", but if each share
+    # is worth $1 the real money moving through it is tiny. Looking at $
+    # instead of shares tells you how much capital is genuinely committed —
+    # enough to absorb your order and get you out when you need to be.
+    avg_daily_volume_usd: float | None = None
     bb_position: str | None = None  # below_lower / inside / above_upper
     macd_status: str | None = None  # bullish / bearish / neutral
     # Market structure (new)
@@ -212,6 +221,11 @@ class TradePlan(BaseModel):
     max_position_pct: float = 10.0  # Hard cap on position size
     daily_loss_limit_pct: float = 2.0  # Stop trading if daily loss exceeds this
     
+    # Provenance (1H source fix) — recorded structural levels for audit
+    entry_basis: float | None = None  # mid + 0.09*range (plan Sec.15 Q2)
+    structural_stop_level: float | None = None  # structural level used for stop
+    structural_target_levels: list[float] = []  # structural levels used for targets
+    
     # Notes
     notes: list[str] = []
 
@@ -232,10 +246,38 @@ class MentorNarration(BaseModel):
     thesis_one_liner: str = ""     # trader-style compression of the above
 
 
+class GateStepResult(BaseModel):
+    """One workflow check; conditional never means approved."""
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    name: Literal["Liquidity", "Structure", "Positioning", "Catalyst", "Risk/Reward", "Portfolio Fit", "Conviction"]
+    passed: bool
+    conditional: bool = False
+    note: str = ""
+
+
+class GateResult(BaseModel):
+    """Advisory workflow assessment, distinct from strategy validation."""
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    overall: Literal["PASS", "FAIL", "CONDITIONAL"]
+    # Alias to match frontend ValidationGate.stepResults
+    steps: list[GateStepResult] = Field(default_factory=list, alias="stepResults")
+    # Aliases to match frontend ValidationGate field names
+    conviction_score: int = Field(default=0, alias="convictionScore")
+    data_gaps: list[str] = Field(default_factory=list, alias="dataGaps")
+    evaluated_at: str = Field(default="", alias="evaluatedAt")
+    # Additional fields expected by frontend
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    symbol: str = ""
+    created_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat(), alias="createdAt")
+
+
 class AnalysisVerdict(BaseModel):
     """Final actionable verdict synthesised from all modules."""
     model_config = ConfigDict(extra="forbid")
 
+    gate: GateResult | None = None
     action: str  # BUY / SELL / HOLD / WATCH
     conviction: int  # 1-10
     entry_zone_low: float | None = None
@@ -260,6 +302,10 @@ class AnalysisVerdict(BaseModel):
     binary_risk: bool = False
     # D-44: ISO date of the imminent earnings event (when binary_risk=True).
     earnings_date: str | None = None
+    # Provenance (1H source fix) — recorded structural levels for audit
+    entry_basis: float | None = None  # mid + 0.09*range (plan Sec.15 Q2)
+    structural_stop_level: float | None = None  # structural level used for stop
+    structural_target_levels: list[float] = []  # structural levels used for targets
 
 
 class MultiTimeframeTechnical(BaseModel):

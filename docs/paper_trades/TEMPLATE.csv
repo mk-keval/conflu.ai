@@ -1,1 +1,1 @@
-date_entered,symbol,sector,action,entry_price,stop_loss,target_1,target_2,position_size_pct,confluence_count,signal_at_entry,notes
+date_entered,symbol,sector,action,entry_type,entry_price,stop_loss,target_1,target_2,position_size_pct,account_value,shares,confluence_count,signal_at_entry,gate_verdict,gate_failed_step,entry_low,entry_high,risk_reward_planned,gate_version,notes,date_closed,exit_price,exit_reason,realized_r,pnl_usd,mfe_r,mae_r,plan_adherence

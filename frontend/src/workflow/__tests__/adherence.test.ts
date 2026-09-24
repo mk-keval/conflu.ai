@@ -5,10 +5,7 @@ import {
   adherenceStreak,
   selectAdherence,
 } from '../adherence';
-import {
-  ADHERENCE_MAX_STEPS,
-  type PaperTrade,
-} from '../../types/workflow';
+import { ADHERENCE_MAX_STEPS, type PaperTrade } from '../../types/workflow';
 
 function trade(overrides: Partial<PaperTrade> & { id: string }): PaperTrade {
   return {
@@ -59,7 +56,12 @@ describe('rollingAdherence', () => {
   it('averages over the most recent `window` trades', () => {
     const trades = [
       trade({ id: '1', stepsFollowed: 13, stepsTotal: 13, adherencePct: 100 }),
-      trade({ id: '2', stepsFollowed: 10, stepsTotal: 13, adherencePct: 76.92 }),
+      trade({
+        id: '2',
+        stepsFollowed: 10,
+        stepsTotal: 13,
+        adherencePct: 76.92,
+      }),
       trade({ id: '3', stepsFollowed: 7, stepsTotal: 13, adherencePct: 53.85 }),
     ];
     const res = rollingAdherence(trades, 2);
@@ -78,7 +80,12 @@ describe('rollingAdherence', () => {
   });
 
   it('ignores open trades (not yet closed)', () => {
-    const open = trade({ id: 'OPEN', status: 'open', outcome: 'open', closedAt: null });
+    const open = trade({
+      id: 'OPEN',
+      status: 'open',
+      outcome: 'open',
+      closedAt: null,
+    });
     const closed1 = trade({ id: '1', adherencePct: 50 });
     const res = rollingAdherence([open, closed1], 20);
     expect(res.count).toBe(1);

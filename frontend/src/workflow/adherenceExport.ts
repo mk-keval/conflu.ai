@@ -32,7 +32,8 @@ const OUTCOME_LABEL: Record<string, string> = {
  * want — the dashboard passes closed trades newest-first).
  */
 export function buildAdherenceCsv(trades: PaperTrade[]): string {
-  const header = 'symbol,opened,closed,outcome,steps_followed,steps_total,adherence_pct';
+  const header =
+    'symbol,opened,closed,outcome,steps_followed,steps_total,adherence_pct';
   const rows = trades.map((t) =>
     [
       escapeCsv(t.symbol),
