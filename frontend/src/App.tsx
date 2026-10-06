@@ -7,6 +7,7 @@ import {
   BacktestPage,
   BacktestResultPage,
   ComparisonDashboard,
+  FilterSweepPage,
 } from './components/backtest';
 import { RiskPage } from './components/risk';
 import { SectorRotationPage } from './components/sector-rotation';
@@ -39,6 +40,7 @@ export function App() {
         <Route path="/workflow" element={<WorkflowPage />} />
         <Route path="/charts" element={<ChartsPage />} />
         <Route path="/backtest" element={<BacktestPage />} />
+        <Route path="/backtest/filter-sweep" element={<FilterSweepPage />} />
         <Route
           path="/backtest/result/:runId"
           element={<BacktestResultPage />}

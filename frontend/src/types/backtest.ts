@@ -139,6 +139,146 @@ export interface CompareRequest {
   bootstrap_samples: number;
 }
 
+// ── Filter Sweep Types ──
+
+export interface FilterParamRange {
+  name: string;
+  display_name: string;
+  param_type: 'int' | 'float' | 'categorical';
+  low?: number;
+  high?: number;
+  step?: number;
+  choices?: string[];
+  description: string;
+}
+
+export interface FilterSweepConfig {
+  sweep_id?: string;
+  name: string;
+  description: string;
+  screen_name: string;
+  param_grid: Record<string, FilterParamRange>;
+  symbols: string[];
+  timeframe: string;
+  start_date: string;
+  end_date?: string;
+  initial_cash: number;
+  fees_bps: number;
+  slippage_bps: number;
+  position_sizing: 'fixed' | 'atr' | 'kelly';
+  sizing_params: Record<string, unknown>;
+  optimization_metric: 'sharpe' | 'sortino' | 'calmar' | 'win_rate' | 'profit_factor' | 'expectancy';
+  max_combinations: number;
+  parallel_jobs: number;
+}
+
+export interface FilterSweepResult {
+  params: Record<string, unknown>;
+  total_return: number | null;
+  annualized_return: number | null;
+  sharpe: number | null;
+  sortino: number | null;
+  calmar: number | null;
+  max_drawdown: number | null;
+  win_rate: number | null;
+  profit_factor: number | null;
+  expectancy: number | null;
+  avg_win: number | null;
+  avg_loss: number | null;
+  total_trades: number;
+  winning_trades: number;
+  losing_trades: number;
+  avg_hold_days: number | null;
+  max_consecutive_wins: number;
+  max_consecutive_losses: number;
+  max_drawdown_pct: number | null;
+  recovery_factor: number | null;
+  payoff_ratio: number | null;
+  best_trade: number | null;
+  worst_trade: number | null;
+  run_id: string;
+  config_hash: string;
+  valid: boolean;
+  error_message?: string;
+}
+
+export interface FilterSweepSummary {
+  sweep_id: string;
+  name: string;
+  screen_name: string;
+  total_combinations: number;
+  valid_results: number;
+  failed_results: number;
+  best_by_sharpe: FilterSweepResult | null;
+  best_by_expectancy: FilterSweepResult | null;
+  best_by_win_rate: FilterSweepResult | null;
+  best_by_profit_factor: FilterSweepResult | null;
+  best_by_calmar: FilterSweepResult | null;
+  param_sensitivity: Record<string, Record<string, number>>;
+  all_results: FilterSweepResult[];
+  sweep_config: Record<string, unknown>;
+  created_at: string;
+  duration_ms: number;
+  status: 'running' | 'completed' | 'failed';
+  error_message?: string;
+}
+
+export interface FilterSweepPreset {
+  name: string;
+  description: string;
+  screen_name: string;
+  symbols: string[];
+  timeframe: string;
+  start_date: string;
+  end_date: string;
+  optimization_metric: string;
+  max_combinations: number;
+  params: Record<string, FilterParamRange>;
+}
+
+export interface FilterSweepListItem {
+  sweep_id: string;
+  name: string;
+  screen_name: string;
+  status: string;
+  total_combinations: number;
+  valid_results: number;
+  failed_results: number;
+  best_expectancy: number | null;
+  best_sharpe: number | null;
+  created_at: string;
+  duration_ms: number;
+}
+
+export interface FilterSweepPresetResponse {
+  [presetName: string]: {
+    name: string;
+    description: string;
+    screen_name: string;
+    symbols: string[];
+    timeframe: string;
+    start_date: string;
+    end_date: string;
+    optimization_metric: string;
+    max_combinations: number;
+    params: Record<string, FilterParamRange>;
+  };
+}
+
+export interface FilterSweepParamsResponse {
+  [paramName: string]: FilterParamRange;
+}
+
+export interface FilterSweepRunResponse {
+  sweep_id: string;
+  status: string;
+}
+
+export interface FilterSweepStatusResponse {
+  sweep_id: string;
+  status: string;
+}
+
 export interface StrategyComparisonResult {
   comparison_id: string;
   run_ids: string[];

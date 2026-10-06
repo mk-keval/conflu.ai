@@ -8,21 +8,81 @@ from typing import Any
 from backend.app.domain.ticker_analysis.models import EarningsAnalysis
 
 
-def analyze(info: dict[str, Any]) -> EarningsAnalysis:
+def analyze(info: dict[str, Any], symbol: str | None = None) -> EarningsAnalysis:
     """Analyse earnings quality from yfinance info dict.
 
     Fields used: earningsQuarterly (DataFrame), earningsTimestamp,
     earningsSurprisePct, revenueSurprisePct, lastSplitDate, etc.
     Also falls back to averages from info where quarterly breakdown
     is unavailable.
+
+    If `symbol` is provided, fetches earnings_dates from yfinance to get
+    the last reported quarter's surprise data (yfinance .info doesn't
+    populate earningsSurprisePct).
     """
     findings: list[str] = []
     score = 0.0
     weight_count = 0
 
     # ── Last Quarter Surprise ──
-    surprise_pct = info.get("earningsSurprisePct") or info.get("surprisePct")
-    rev_surprise_pct = info.get("revenueSurprisePct")
+    # Try to get from yfinance earnings_dates DataFrame (has actual reported data)
+    surprise_pct = None
+    rev_surprise_pct = None
+    last_surprise_pct = None
+    days_until_earnings = None
+    next_earnings_date = None
+
+    if symbol:
+        try:
+            import yfinance as yf
+            ed = yf.Ticker(symbol).earnings_dates
+            if ed is not None and not ed.empty:
+                # Find the most recent quarter with reported EPS (not future estimates)
+                for i, row in ed.iterrows():
+                    r = row.get("Reported EPS")
+                    if r is not None and str(r).lower() != "nan":
+                        surprise_pct = float(row.get("Surprise(%)", 0)) if row.get("Surprise(%)") is not None else 0
+                        rev_surprise_pct = float(row.get("Revenue Surprise(%)", 0)) if row.get("Revenue Surprise(%)") is not None else None
+                        last_surprise_pct = surprise_pct
+                        break
+                # Also get next earnings date
+                if days_until_earnings is None:
+                    for i, row in ed.iterrows():
+                        r = row.get("Reported EPS")
+                        if r is None or str(r).lower() == "nan":
+                            # This is a future earnings date
+                            if hasattr(i, "strftime"):
+                                next_earnings_date = i.strftime("%Y-%m-%d")
+                                dt = i
+                                if dt.tzinfo is None:
+                                    dt = dt.replace(tzinfo=timezone.utc)
+                            else:
+                                dt = datetime.fromisoformat(str(i).replace("Z", "+00:00")).replace(tzinfo=timezone.utc)
+                            days_until_earnings = (dt - datetime.now(timezone.utc)).days
+                            break
+        except Exception:
+            pass  # Silently fall back to .info values
+
+    # Fallback to .info values if earnings_dates didn't work
+    if surprise_pct is None:
+        surprise_pct = info.get("earningsSurprisePct") or info.get("surprisePct")
+    if rev_surprise_pct is None:
+        rev_surprise_pct = info.get("revenueSurprisePct")
+    if last_surprise_pct is None:
+        last_surprise_pct = surprise_pct
+    if days_until_earnings is None:
+        next_date = info.get("earningsTimestampStart") or info.get("earningsTimestamp")
+        if next_date:
+            try:
+                if isinstance(next_date, (int, float)):
+                    dt = datetime.fromtimestamp(next_date)
+                else:
+                    dt = datetime.fromisoformat(str(next_date).replace("Z", "+00:00"))
+                dt = dt.replace(tzinfo=timezone.utc)
+                days_until_earnings = (dt - datetime.now(timezone.utc)).days
+                next_earnings_date = dt.strftime("%Y-%m-%d")
+            except Exception:
+                pass
 
     if surprise_pct is not None:
         if surprise_pct > 10:
@@ -86,10 +146,7 @@ def analyze(info: dict[str, Any]) -> EarningsAnalysis:
     # ── Next Earnings Date ──
     next_date = info.get("earningsTimestampStart") or info.get("earningsTimestamp")
     next_date_str = None
-    days_until_earnings: int | None = None
     if next_date:
-        from datetime import datetime
-
         try:
             if isinstance(next_date, (int, float)):
                 dt = datetime.fromtimestamp(next_date)
@@ -99,7 +156,7 @@ def analyze(info: dict[str, Any]) -> EarningsAnalysis:
             # hit naive-vs-aware TypeError (which previously swallowed the
             # whole proximity computation into the except branch).
             if dt.tzinfo is None:
-                dt = dt.astimezone()
+                dt = dt.replace(tzinfo=timezone.utc)
             next_date_str = dt.strftime("%b %d, %Y")
             days_until = (dt - datetime.now(timezone.utc).astimezone()).days
             # P1.5: persist the proximity so brief cards + watchlist rows can

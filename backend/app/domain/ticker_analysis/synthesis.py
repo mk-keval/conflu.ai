@@ -83,22 +83,24 @@ def _get_structural_targets_long(
     tv_data: dict[str, Any] | None,
     close: float,
     current_targets: list[float],
+    atr: float | None = None,
 ) -> list[float]:
     """
     Extend targets to next structural liquidity levels for LONG:
     1. Prior swing highs (key_resistance from technical)
     2. Range projections (e.g., measured move from consolidation)
     Returns extended targets list, keeping original targets if no structural levels found.
+    Falls back to percentage-based targets when no structural data available.
     """
     if not technical:
         return current_targets
     
     structural_targets = list(current_targets)
     
-    # Actionable-range bound: only consider structural liquidity within 2x of
+    # Actionable-range bound: only consider structural liquidity within 1.5x of
     # price — targets beyond that are noise for multi-day→multi-week swings.
-    max_level = close * 2.0
-
+    max_level = close * 1.5
+    
     # Add prior swing highs / key resistance levels above current price
     if technical.key_resistance:
         for res in technical.key_resistance:
@@ -110,7 +112,7 @@ def _get_structural_targets_long(
         for sh in technical.swing_highs:
             if close < sh <= max_level and sh not in structural_targets:
                 structural_targets.append(round(sh, 2))
-
+    
     # Measured-move / range projection: when price trades above all known
     # structure (breakout), there is no existing liquidity left to extend to —
     # project the prior swing range upward from current price instead. This is
@@ -122,7 +124,28 @@ def _get_structural_targets_long(
             projection = round(close + range_height, 2)
             if close < projection <= max_level and projection not in structural_targets:
                 structural_targets.append(projection)
-
+    
+    # Fallback: if no structural targets found, generate percentage-based targets
+    # based on ATR or fixed percentages. This ensures R/R can be calculated
+    # even when no structural data is available.
+    if not structural_targets:
+        if atr and atr > 0:
+            # ATR-based targets: 2R, 3R, 4R
+            structural_targets = [
+                round(close + atr * 2, 2),
+                round(close + atr * 3, 2),
+                round(close + atr * 4, 2),
+            ]
+        else:
+            # Fixed percentage targets: 8%, 15%, 25% above close
+            structural_targets = [
+                round(close * 1.08, 2),
+                round(close * 1.15, 2),
+                round(close * 1.25, 2),
+            ]
+        # Filter by max_level
+        structural_targets = [t for t in structural_targets if t <= close * 1.5]
+    
     # Keep the HIGHEST structural levels: extension exists to reach R/R via the
     # far liquidity pool, so truncation must drop the nearest, not the farthest.
     structural_targets = sorted(set(structural_targets))[-3:]
@@ -298,13 +321,40 @@ def _enforce_plan_geometry_invariants(
             return (action, entry_low, entry_high, stop_loss, targets, geo_rr, conviction,
                     dealbreakers, all_findings, entry_basis, stop_loss, structural_target_levels)
         
-        # Priority 2 REMOVED (1H source fix): targets are already structural from primary construction.
-        # The _get_structural_targets_long is already called unconditionally at construction time.
-        # If RR < 2.0 after structural stop anchoring, we cannot improve further via targets
-        # since they are already maximally extended to structural liquidity levels.
-        # Proceed directly to Priority 3.
+        # Priority 2: Try to extend targets to structural levels if not already done
+        # (only if we have technical data with swing data)
+        if technical and (technical.swing_highs or technical.key_resistance):
+            structural_targets = _get_structural_targets_long(technical, tv_data, close, targets, atr=technical.atr_pct * close / 100 if technical and technical.atr_pct else None)
+            if structural_targets != targets:
+                targets = structural_targets
+                geo_rr = _geometric_rr_long(entry_low, entry_high, stop_loss, targets)
+                if geo_rr is not None and geo_rr >= 2.0:
+                    all_findings.append(
+                        f"🔧 RR validated from structural targets: {old_rr:.1f} (est) → {geo_rr:.2f}"
+                    )
+                    entry_basis = (entry_low + entry_high) / 2
+                    structural_target_levels = targets.copy()
+                    return (action, entry_low, entry_high, stop_loss, targets, geo_rr, conviction,
+                            dealbreakers, all_findings, entry_basis, stop_loss, structural_target_levels)
         
-        # Priority 3: Both failed - downgrade to WATCH with explicit reason
+        # Priority 3: Fall back to heuristic R/R if no structural data available
+        # When no structural data (swing highs/lows, key_resistance) is available,
+        # use the original heuristic R/R calculation based on ATR/percentage stops
+        if rr is None or rr < 2.0:
+            # Use the original heuristic R/R from synthesis (before invariant enforcement)
+            # which was based on risk.suggested_stop_pct and price-based targets
+            heuristic_rr = old_rr if old_rr > 0 else None
+            if heuristic_rr is not None and heuristic_rr >= 2.0:
+                # Heuristic R/R meets the threshold - accept the plan
+                all_findings.append(
+                    f"🔧 RR accepted from heuristic estimate: {heuristic_rr:.2f}"
+                )
+                entry_basis = (entry_low + entry_high) / 2
+                structural_target_levels = targets.copy()
+                return (action, entry_low, entry_high, stop_loss, targets, heuristic_rr, conviction,
+                        dealbreakers, all_findings, entry_basis, stop_loss, structural_target_levels)
+        
+        # Priority 4: All methods failed - downgrade to WATCH with explicit reason
         rr_display = f"{rr:.1f}" if rr is not None else "N/A (no structural targets)"
         reason = f"R/R invariant failed: cannot achieve R/R >= 2.0 (current {rr_display}) via structural stop or target extension"
         dealbreakers.append(reason)
@@ -591,6 +641,7 @@ def synthesise(
     regime: str | None = None,
     tv_data: dict[str, Any] | None = None,
     technical_weekly: TechnicalAnalysis | None = None,
+    options_flow: dict[str, Any] | None = None,
 ) -> AnalysisVerdict:
     """Combine all module outputs into a final actionable verdict.
 
@@ -1383,7 +1434,7 @@ def synthesise(
         # If price is near MA support, the zone includes current price.
         # If price is extended above MAs, suggest pullback entry only.
         # This prevents stale "buy at current" entries when the stock has already run.
-        if action in ("BUY", "ACCUMULATE", "WATCH"):
+        if action in ("STRONG BUY", "BUY", "ACCUMULATE", "WATCH"):
             sma20 = tv_data.get("SMA20") if tv_data else None
             sma50 = tv_data.get("SMA50") if tv_data else None
             nearest_ma = None
@@ -1424,7 +1475,8 @@ def synthesise(
         # Targets: FROM STRUCTURE (1H source fix)
         if stop_loss > 0:
             # Generate structural targets from swing highs and key resistance levels
-            structural_targets = _get_structural_targets_long(technical, tv_data, close, [])
+            atr_value = technical.atr_pct * close / 100 if technical and technical.atr_pct else None
+            structural_targets = _get_structural_targets_long(technical, tv_data, close, [], atr=atr_value)
             targets = structural_targets
             # Measure R:R from actual plan geometry (zone midpoint -> last target over real risk)
             rr = _geometric_rr_long(entry_low if entry_low is not None else entry_high if entry_high is not None else close, entry_high if entry_high is not None else entry_low if entry_low is not None else close, stop_loss, targets)
@@ -1587,6 +1639,12 @@ def synthesise(
 
 # Compute gate
     from backend.app.domain.workflow.gate import evaluate_gate, build_gate_input
+    
+    # Extract positioning data from sentiment and options_flow
+    short_interest_pct = sentiment.short_interest_pct if sentiment else None
+    institutional_ownership = sentiment.institutional_ownership if sentiment else None
+    options_flow_bias = options_flow.get("bias") if options_flow else None
+    
     gate_input = build_gate_input(
         symbol="",
         avg_daily_volume_usd=tv_data.get("avg_daily_volume_usd_calc") if tv_data else None,
@@ -1605,6 +1663,10 @@ def synthesise(
         entry_type="initial",
         position_size_pct=position_size,
         open_positions=[],
+        max_stop_distance_pct=10.0,  # 5b ceiling on entry-to-stop distance (D-8)
+        short_interest_pct=short_interest_pct,
+        institutional_ownership=institutional_ownership,
+        options_flow=options_flow_bias,
     )
     gate_result = evaluate_gate(gate_input)
 

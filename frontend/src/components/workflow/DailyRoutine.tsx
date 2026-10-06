@@ -100,7 +100,7 @@ export function DailyRoutine() {
     items: Array<{ 
       symbol: string; 
       exit_reason: string; 
-      realized_r: number;
+      realized_r: number | null;
       applied: boolean;
     }>;
   } | null>(null);
@@ -117,8 +117,12 @@ export function DailyRoutine() {
         rejected: res.data.rejected?.length ?? 0,
         message: res.data.message ?? '',
       });
-    } catch (e) {
-      setEnforceResult({ accepted: 0, rejected: 0, message: `Error: ${e}` });
+    } catch (e: any) {
+      const msg = e?.response?.data?.error?.message
+        || e?.response?.data?.message
+        || e?.message
+        || 'Unknown error';
+      setEnforceResult({ accepted: 0, rejected: 0, message: `Error: ${msg}` });
     } finally {
       setEnforceLoading(false);
     }
@@ -144,8 +148,12 @@ export function DailyRoutine() {
           applied: item.applied ?? false,
         })),
       });
-    } catch (e) {
-      setSyncResult({ updated: 0, skipped: 0, message: `Error: ${e}`, applied: apply, items: [] });
+    } catch (e: any) {
+      const msg = e?.response?.data?.error?.message
+        || e?.response?.data?.message
+        || e?.message
+        || 'Unknown error';
+      setSyncResult({ updated: 0, skipped: 0, message: `Error: ${msg}`, applied: apply, items: [] });
     } finally {
       setSyncLoading(false);
       setSyncDryRunLoading(false);
@@ -383,8 +391,8 @@ export function DailyRoutine() {
                               <li key={i} className="flex gap-2">
                                 <span className="font-mono">{item.symbol}</span>
                                 <span>{item.exit_reason}</span>
-                                <span className={item.realized_r >= 0 ? 'text-green-500' : 'text-red-400'}>
-                                  {item.realized_r >= 0 ? '+' : ''}{item.realized_r.toFixed(2)}R
+                                <span className={item.realized_r != null && item.realized_r >= 0 ? 'text-green-500' : 'text-red-400'}>
+                                  {item.realized_r == null ? '—' : `${item.realized_r >= 0 ? '+' : ''}${item.realized_r.toFixed(2)}R`}
                                 </span>
                               </li>
                             ))}

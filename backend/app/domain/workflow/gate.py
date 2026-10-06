@@ -47,7 +47,7 @@ MAX_OPEN_POSITIONS = 8                     # cap on concurrent open positions
 SECTOR_EXPOSURE_LIMIT_PCT = 30.0           # max share of the book per sector (audit: 81% in 2)
 
 # 5c: tolerance for the reported R:R vs plan-geometry consistency assertion.
-RR_CONSISTENCY_TOL = 0.35
+RR_CONSISTENCY_TOL = 0.15
 
 # ── Step metadata (teach-first questions, ported + extended from gate.ts) ──
 GATE_STEPS: list[dict[str, str]] = [
@@ -92,6 +92,7 @@ class GateInput:
     position_size_pct: float | None = None      # candidate planned size (2C exposure)
     open_positions: list[dict] = field(default_factory=list)
     # ^ journal rows: {symbol, sector, position_size_pct, stop_loss, entry_type}
+    max_stop_distance_pct: float | None = None  # 5a/5b ceiling on entry-to-stop distance (D-8)
 
 
 def evaluate_stop_distance(
@@ -509,7 +510,7 @@ def evaluate_gate(input: GateInput) -> GateResult:
     steps: list[GateStepResult] = [
         evaluate_liquidity(input),      # 1
         evaluate_structure(input),      # 2
-        evaluate_positioning(input),    # 3 (Wave-1: CONDITIONAL, not wired)
+        evaluate_positioning(input),    # 3 (now wired with positioning data)
         evaluate_catalyst(input),       # 4
         evaluate_risk_reward(input),    # 5 (5a/5b/5c live; 5d deferred to 1H)
         evaluate_portfolio_fit(input),  # 6 (real when journal positions supplied)
@@ -521,10 +522,10 @@ def evaluate_gate(input: GateInput) -> GateResult:
     conviction_score = max(0, min(10, int(round(conviction))))
     return GateResult(
         overall=overall,
-        steps=steps,
-        conviction_score=conviction_score,
-        data_gaps=gaps,
-        evaluated_at=datetime.now(UTC).isoformat(timespec="seconds"),
+        stepResults=steps,
+        convictionScore=conviction_score,
+        dataGaps=gaps,
+        evaluatedAt=datetime.now(UTC).isoformat(timespec="seconds"),
     )
 
 
@@ -547,11 +548,17 @@ def build_gate_input(
     entry_type: str = "initial",
     position_size_pct: float | None = None,
     open_positions: list[dict] | None = None,
+    max_stop_distance_pct: float | None = None,
+    short_interest_pct: float | None = None,
+    institutional_ownership: float | None = None,
+    options_flow: str | None = None,
 ) -> GateInput:
     """Adapter from verdict/tv_data pieces to GateInput (plan Sec.1B).
 
     ``sector``/``entry_type``/``position_size_pct``/``open_positions`` feed the
     real Step-6 portfolio fit (plan Sec.2C) from the paper-trade script.
+    ``short_interest_pct``/``institutional_ownership``/``options_flow`` feed
+    Step-3 positioning (Wave-1: now wired from sentiment/options modules).
     """
     return GateInput(
         symbol=symbol,
@@ -571,4 +578,8 @@ def build_gate_input(
         entry_type=entry_type,
         position_size_pct=position_size_pct,
         open_positions=list(open_positions or []),
+        max_stop_distance_pct=max_stop_distance_pct,
+        short_interest_pct=short_interest_pct,
+        institutional_ownership=institutional_ownership,
+        options_flow=options_flow,
     )

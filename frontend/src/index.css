@@ -82,6 +82,23 @@
     @apply input cursor-pointer appearance-none;
   }
 
+  /* Fix browser autofill on dark backgrounds - prevents white-on-white */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill,
+  textarea:-webkit-autofill:hover,
+  textarea:-webkit-autofill:focus,
+  select:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px #0A0E17 inset !important;
+    -webkit-text-fill-color: #F1F5F9 !important;
+    caret-color: #F1F5F9;
+  }
+  input:-webkit-autofill::first-line {
+    font-family: inherit;
+    font-size: inherit;
+  }
+
   /* Button styles */
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background;

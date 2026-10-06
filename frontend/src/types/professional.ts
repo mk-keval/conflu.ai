@@ -55,6 +55,49 @@ export interface MorningBriefResponse {
   generatedAt: string;
 }
 
+// ── Expectancy Tracking (Sec.2E verification) ──
+
+export interface ExpectancyItem {
+  template: string;
+  regime: string;
+  nTrades: number;
+  winRate: number;
+  expectancyR: number;
+  profitFactor: number | null;
+  avgR: number;
+  avgWinR: number;
+  avgLossR: number;
+  maxWinR: number;
+  maxLossR: number;
+  totalR: number;
+  isElite: boolean;
+  eliteMinTrades: number;
+}
+
+export interface ExpectancyResponse {
+  items: ExpectancyItem[];
+  eliteCount: number;
+  totalCombinations: number;
+}
+
+export interface RollingExpectancyRequest {
+  symbol?: string;
+  template?: string;
+  regime?: string;
+  window?: number;
+}
+
+export interface RollingExpectancyResponse {
+  symbol?: string;
+  template?: string;
+  regime?: string;
+  window: number;
+  winRate: number;
+  expectancyR: number;
+  profitFactor: number | null;
+  totalR: number;
+}
+
 export interface SimplifiedVerdictResponse {
   symbol: string;
   action: string;

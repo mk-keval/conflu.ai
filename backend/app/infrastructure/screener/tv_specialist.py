@@ -83,6 +83,13 @@ FILTER_MAP: dict[str, Callable[..., Any]] = {
     "price_below_bb_lower": lambda p, col: col("close") < col("BB.lower"),
     "price_above_bb_upper": lambda p, col: col("close") > col("BB.upper"),
 
+    # 52-week high/low proximity
+    "price_near_52w_high":  lambda p, col: col("close").above_pct("price_52_week_high", 1 - p.get("pct_within", 5) / 100),
+    "price_above_52w_low":  lambda p, col: col("close").above_pct("price_52_week_low", 1 + p.get("pct_above", 30) / 100),
+
+    # Price near EMA (pullback entry zone)
+    "price_near_ema":       lambda p, col: col("close").below_pct(f"EMA{p.get('period', 20)}", 1 + p.get("pct_within", 2) / 100),
+
     # =====================================================================
     # TREND QUALITY
     # =====================================================================
@@ -226,6 +233,8 @@ FILTER_MAP: dict[str, Callable[..., Any]] = {
     "dividend_yield_gt":    lambda p, col: col("dividends_yield_current") > p.get("threshold", 0.03),
     "eps_positive":         lambda p, col: col("earnings_per_share_diluted_ttm") > 0,
     "pe_max":               lambda p, col: col("price_earnings_ttm") < p.get("max_pe", 50),
+    "rs_rank_min":          lambda p, col: col("relative_strength_rank") <= p["value"],
+    "rs_rank_max":          lambda p, col: col("relative_strength_rank") >= p["value"],
 
     # =====================================================================
     # PRICE / EXCHANGE / COUNTRY / VOLUME
@@ -310,8 +319,11 @@ SNAPSHOT_COLUMNS: list[str] = [
     # Perf columns — P1.3 RS-vs-index percentile enrichment (zero extra calls)
     "Perf.1M",
     "Perf.3M",
+    # Relative Strength rank
+    "relative_strength_rank",
     # P1.4 Catalyst-Breakout badge — proximity to 52-week high
     "price_52_week_high",
+    "price_52_week_low",
 ]
 
 

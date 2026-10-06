@@ -9,6 +9,10 @@ import type {
   WatchlistAnalyzeResponse,
   AlertPreferences,
   InAppAlert,
+  ExpectancyItem,
+  ExpectancyResponse,
+  RollingExpectancyRequest,
+  RollingExpectancyResponse,
 } from '@/types/professional';
 
 // ── Raw backend shapes (snake_case, as returned by the API) ──
@@ -395,4 +399,114 @@ export async function fetchAlerts(
     `/api/v1/professional/alerts?${params.toString()}`
   );
   return raw.map(mapInAppAlert);
+}
+
+// ── Expectancy Tracking (Sec.2E verification) ──
+
+interface RawExpectancyItem {
+  template: string;
+  regime: string;
+  n_trades: number;
+  win_rate: number;
+  expectancy_r: number;
+  profit_factor: number | null;
+  avg_r: number;
+  avg_win_r: number;
+  avg_loss_r: number;
+  max_win_r: number;
+  max_loss_r: number;
+  total_r: number;
+  is_elite: boolean;
+  elite_min_trades: number;
+}
+
+interface RawExpectancyResponse {
+  items: RawExpectancyItem[];
+  elite_count: number;
+  total_combinations: number;
+}
+
+function mapExpectancyItem(raw: RawExpectancyItem): ExpectancyItem {
+  return {
+    template: raw.template,
+    regime: raw.regime,
+    nTrades: raw.n_trades,
+    winRate: raw.win_rate,
+    expectancyR: raw.expectancy_r,
+    profitFactor: raw.profit_factor,
+    avgR: raw.avg_r,
+    avgWinR: raw.avg_win_r,
+    avgLossR: raw.avg_loss_r,
+    maxWinR: raw.max_win_r,
+    maxLossR: raw.max_loss_r,
+    totalR: raw.total_r,
+    isElite: raw.is_elite,
+    eliteMinTrades: raw.elite_min_trades,
+  };
+}
+
+function mapExpectancyResponse(raw: RawExpectancyResponse): ExpectancyResponse {
+  return {
+    items: (raw.items ?? []).map(mapExpectancyItem),
+    eliteCount: raw.elite_count,
+    totalCombinations: raw.total_combinations,
+  };
+}
+
+interface RawRollingExpectancyResponse {
+  symbol?: string;
+  template?: string;
+  regime?: string;
+  window: number;
+  win_rate: number;
+  expectancy_r: number;
+  profit_factor: number | null;
+  total_r: number;
+}
+
+function mapRollingExpectancyResponse(
+  raw: RawRollingExpectancyResponse | null
+): RollingExpectancyResponse | null {
+  if (!raw) return null;
+  return {
+    symbol: raw.symbol,
+    template: raw.template,
+    regime: raw.regime,
+    window: raw.window,
+    winRate: raw.win_rate,
+    expectancyR: raw.expectancy_r,
+    profitFactor: raw.profit_factor,
+    totalR: raw.total_r,
+  };
+}
+
+/** Get expectancy metrics per template/regime combination. */
+export async function fetchExpectancy(
+  minTrades: number = 30
+): Promise<ExpectancyResponse> {
+  const raw = await apiGet<RawExpectancyResponse>(
+    `/api/v1/workflow/expectancy?min_trades=${minTrades}`
+  );
+  return mapExpectancyResponse(raw);
+}
+
+/** Get only elite template/regime combinations (n>=minTrades and expectancy>0). */
+export async function fetchEliteExpectancy(
+  minTrades: number = 30
+): Promise<ExpectancyResponse> {
+  const raw = await apiGet<RawExpectancyResponse>(
+    `/api/v1/workflow/expectancy/elite?min_trades=${minTrades}`
+  );
+  return mapExpectancyResponse(raw);
+}
+
+/** Get rolling expectancy for a specific symbol/template/regime. */
+export async function fetchRollingExpectancy(
+  request: RollingExpectancyRequest
+): Promise<RollingExpectancyResponse | null> {
+  const raw = await apiPost<RawRollingExpectancyResponse>(
+    '/api/v1/workflow/expectancy/rolling',
+    request
+  );
+  return mapRollingExpectancyResponse(raw);
 }

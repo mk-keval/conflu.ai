@@ -182,6 +182,7 @@ def create_app() -> FastAPI:
     from backend.app.api.routers import (
         backtest_router,
         data_router,
+        filter_sweep_router,
         health_router,
         portfolio_router,
         professional_router,
@@ -197,6 +198,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(backtest_router, prefix="/api/v1")
     app.include_router(data_router, prefix="/api/v1")
+    app.include_router(filter_sweep_router, prefix="/api/v1")
     app.include_router(portfolio_router, prefix="/api/v1")
     app.include_router(professional_router, prefix="/api/v1")
     app.include_router(regime_router, prefix="/api/v1")

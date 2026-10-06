@@ -92,9 +92,9 @@ class TestScreenTemplates:
         assert config.name == "Breakdown"
         assert len(config.filters) >= 9
 
-    def test_short_squeeze_loads(self) -> None:
-        config = load_screen_template("short-squeeze")
-        assert config.name == "Short Squeeze"
+    def test_vcp_breakout_loads(self) -> None:
+        config = load_screen_template("vcp-breakout")
+        assert config.name == "vcp-breakout"
         assert len(config.filters) >= 9
 
     def test_distribution_loads(self) -> None:

@@ -6,9 +6,10 @@ import {
   ChevronUp,
   AlertCircle,
   Sun,
+  Trophy,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import { fetchMorningBrief } from '@/api/professional';
+import { fetchMorningBrief, fetchEliteExpectancy } from '@/api/professional';
 import { useProModeStore } from '@/store/professional';
 import { TickerCard } from './TickerCard';
 import { MarketInternalsStrip } from './MarketInternalsStrip';
@@ -16,7 +17,7 @@ import { SectorHeatmapMini } from './SectorHeatmapMini';
 import { SectorFocusCard } from '@/components/sector-rotation/SectorFocusCard';
 import { EducationTooltip } from './EducationTooltip';
 import { TermLink } from '@/components/learn/TermLink';
-import type { ScreenSection } from '@/types/professional';
+import type { ScreenSection, ExpectancyItem, ExpectancyResponse } from '@/types/professional';
 
 const REGIME_COLORS: Record<string, string> = {
   strong_trend: 'bg-green-500/15 text-green-400 border-green-500/30',
@@ -96,6 +97,97 @@ function ScreenSectionView({
   );
 }
 
+// ── Elite Templates Panel (Sec.2E verification) ──
+
+function EliteTemplatesPanel({
+  regime,
+  eliteTemplates,
+}: {
+  regime: string;
+  eliteTemplates: ExpectancyItem[];
+}) {
+  // Filter templates matching current regime
+  const matchingTemplates = eliteTemplates.filter(
+    (t) => t.regime.toLowerCase() === regime.toLowerCase()
+  );
+
+  if (matchingTemplates.length === 0) {
+    return (
+      <div className="bg-surface-secondary/50 rounded-lg border border-border p-4">
+        <div className="flex items-center gap-2 text-sm text-text-muted">
+          <Trophy className="h-4 w-4 text-amber-500" />
+          <span>No elite templates yet for this regime. Minimum 30 trades with positive expectancy required.</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-surface-secondary/50 rounded-lg border border-amber-500/30 p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Trophy className="h-5 w-5 text-amber-500" />
+        <h3 className="font-semibold text-text-primary">
+          Elite Templates for {regime.replace(/_/g, '-').toUpperCase()}
+        </h3>
+        <EducationTooltip
+          metricKey="elite_template"
+          metricLabel="Elite Template"
+          compact
+        />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {matchingTemplates.map((template) => (
+          <div
+            key={`${template.template}-${template.regime}`}
+            className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 transition-colors hover:border-amber-500/40"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-mono text-sm font-semibold text-text-primary">
+                {template.template}
+              </span>
+              <span className="text-2xs rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-amber-500">
+                ELITE
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div>
+                <div className="text-text-muted">Win Rate</div>
+                <div className="font-mono text-text-primary">
+                  {(template.winRate * 100).toFixed(1)}%
+                </div>
+              </div>
+              <div>
+                <div className="text-text-muted">Expectancy</div>
+                <div className="font-mono text-text-primary">
+                  {template.expectancyR > 0 ? '+' : ''}{template.expectancyR.toFixed(2)}R
+                </div>
+              </div>
+              <div>
+                <div className="text-text-muted">Profit Factor</div>
+                <div className="font-mono text-text-primary">
+                  {template.profitFactor?.toFixed(2) ?? '∞'}
+                </div>
+              </div>
+              <div>
+                <div className="text-text-muted">Trades</div>
+                <div className="font-mono text-text-primary">{template.nTrades}</div>
+              </div>
+              <div>
+                <div className="text-text-muted">Avg Win</div>
+                <div className="font-mono text-green-400">+{template.avgWinR.toFixed(2)}R</div>
+              </div>
+              <div>
+                <div className="text-text-muted">Avg Loss</div>
+                <div className="font-mono text-red-400">{template.avgLossR.toFixed(2)}R</div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function MorningBriefPage() {
   const [expandedSections, setExpandedSections] = useState<
     Record<string, boolean>
@@ -113,6 +205,16 @@ export function MorningBriefPage() {
     queryFn: fetchMorningBrief,
     staleTime: 5 * 60 * 1000, // 5 min
     retry: 2,
+  });
+
+  // Fetch elite expectancy templates
+  const {
+    data: expectancyData,
+  } = useQuery<ExpectancyResponse>({
+    queryKey: ['elite-expectancy'],
+    queryFn: () => fetchEliteExpectancy(),
+    staleTime: 15 * 60 * 1000, // 15 min
+    retry: 1,
   });
 
   const handleAddToWatchlist = (symbol: string) => {
@@ -263,6 +365,12 @@ export function MorningBriefPage() {
         <SectorFocusCard compact />
         <SectorHeatmapMini sectors={brief.sectors} />
       </div>
+
+      {/* Elite Templates for Current Regime */}
+      <EliteTemplatesPanel
+        regime={brief.regime}
+        eliteTemplates={expectancyData?.items ?? []}
+      />
 
       {/* Screen sections */}
       <div className="space-y-4">

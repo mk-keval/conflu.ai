@@ -40,6 +40,18 @@ export {
   fetchBacktest,
   fetchTrades,
   fetchEquity,
+  optimizeBacktest,
+  detectRegimes,
+  generateReport,
+  compareBacktests,
+  runFilterSweep,
+  runPresetFilterSweep,
+  getFilterSweepStatus,
+  getFilterSweepResults,
+  listFilterSweeps,
+  listFilterSweepPresets,
+  listFilterSweepParams,
+  deleteFilterSweep,
 } from './backtest';
 export { fetchOHLCV, fetchIndicators } from './data';
 export {

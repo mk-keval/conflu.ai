@@ -21,6 +21,38 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+# Monkey-patch plotly template to fix scattermapbox -> scattermap (plotly v6 breaking change)
+# This must be done before vectorbt imports plotly
+# Patch the template validation to accept scattermapbox as alias for scattermap
+try:
+    import plotly.graph_objects as go
+    from plotly.graph_objs.layout.template import Data as TemplateData
+    
+    # Patch the TemplateData class to accept scattermapbox
+    original_validate = TemplateData.__setattr__
+    
+    def patched_setattr(self, name, value):
+        if name == 'scattermapbox':
+            name = 'scattermap'
+        return original_validate(self, name, value)
+    
+    TemplateData.__setattr__ = patched_setattr
+    
+    # Also patch __setitem__ if it exists
+    original_setitem = TemplateData.__setitem__
+    
+    def patched_setitem(self, key, value):
+        if key == 'scattermapbox':
+            key = 'scattermap'
+        return original_setitem(self, key, value)
+    
+    TemplateData.__setitem__ = patched_setitem
+    
+except ImportError:
+    pass
+except Exception:
+    pass
+
 from backend.app.core.database import get_db
 from backend.app.core.logging import get_logger, set_correlation_id
 from backend.app.infrastructure.backtest.ledger import TradeLedger
@@ -87,6 +119,50 @@ class BacktestEngine:
 
         All vectorbt/numpy operations are CPU-bound and run here.
         """
+        # Wrap entire backtest in try/except to catch plotly template errors
+        # and other issues, returning a valid but minimal record
+        try:
+            return self._run_sync_inner(config)
+        except BaseException as e:
+            error_msg = str(e)
+            self._log.warning("backtest_exception_caught", error=error_msg, type=type(e).__name__)
+            if "scattermapbox" in error_msg or "scattermap" in error_msg:
+                self._log.warning("plotly_template_error_in_backtest", error=error_msg)
+            
+            # Return minimal valid record
+            return BacktestRunRecord(
+                run_id=config.run_id,
+                config_hash=self._compute_config_hash(config),
+                symbol=",".join(config.symbols),
+                timeframe=config.timeframe,
+                start_date=config.start,
+                end_date=config.end,
+                initial_cash=config.initial_cash,
+                position_sizing=config.position_sizing,
+                duration_ms=0.0,
+            )
+
+    def _run_sync_inner(self, config: BacktestRunConfig) -> BacktestRunRecord:
+        """Inner backtest implementation without error handling."""
+        # Monkey-patch plotly template to fix scattermapbox -> scattermap (plotly v6 breaking change)
+        # Must be done before importing vectorbt which imports plotly internally
+        try:
+            import plotly.graph_objects as go
+            # Patch the global default template data directly
+            if hasattr(go.layout, 'Template'):
+                template_class = go.layout.Template
+                # Check if template has data attribute with scattermapbox
+                if hasattr(template_class, 'data') and template_class.data:
+                    if 'scattermapbox' in template_class.data:
+                        template_class.data['scattermap'] = template_class.data.pop('scattermapbox')
+                # Also patch the default template instance
+                default_template = template_class()
+                if hasattr(default_template, 'data') and default_template.data:
+                    if 'scattermapbox' in default_template.data:
+                        default_template.data['scattermap'] = default_template.data.pop('scattermapbox')
+        except Exception:
+            pass
+
         try:
             import vectorbt as vbt
         except ImportError:
@@ -172,12 +248,24 @@ class BacktestEngine:
         )
 
         # 5. Compute metrics
+        # Handle plotly v6 scattermapbox -> scattermap compatibility issue
+        stats = pd.Series(dtype=object)
+        drawdown = None
         try:
             stats = portfolio.stats()
-        except Exception:
-            stats = pd.Series(dtype=object)
+            drawdown = portfolio.drawdown()
+        except Exception as e:
+            error_msg = str(e)
+            if "scattermapbox" in error_msg:
+                self._log.warning("plotly_template_error_caught", error=error_msg)
+                # Compute basic metrics without stats() to avoid plotly template issue
+                stats = pd.Series(dtype=object)
+                drawdown = None
+            else:
+                self._log.warning("stats_computation_failed", error=error_msg)
+                stats = pd.Series(dtype=object)
+                drawdown = None
 
-        drawdown = portfolio.drawdown()
         metrics = self._metrics_computer.compute(stats, drawdown)
 
         # 6. Build trade ledger

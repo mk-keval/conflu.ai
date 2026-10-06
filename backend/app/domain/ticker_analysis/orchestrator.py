@@ -645,8 +645,8 @@ class TickerAnalysisService:
                 daily_ohlcv=daily_ohlcv, weekly_ohlcv=weekly_ohlcv,
                 intraday_4h_ohlcv=intraday_4h_ohlcv, intraday_1h_ohlcv=intraday_1h_ohlcv
             )
-            f_fund = module_pool.submit(_run_module, "fundamental", fundamentals.analyze, info)
-            f_earn = module_pool.submit(_run_module, "earnings", earnings.analyze, info)
+            f_fund = module_pool.submit(_run_module, "fundamental", fundamentals.analyze, info, symbol)
+            f_earn = module_pool.submit(_run_module, "earnings", earnings.analyze, info, symbol)
             f_sent = module_pool.submit(_run_module, "sentiment", sentiment.analyze, info)
             f_risk = module_pool.submit(_run_module, "risk", risk_module.analyze, tv_data, info)
 
@@ -744,6 +744,7 @@ class TickerAnalysisService:
             regime=request.regime,
             tv_data=tv_data,
             technical_weekly=tech_weekly,
+            options_flow=options_flow.to_dict() if options_flow else None,
         )
 
         # ── 3b. Apply macro regime overlay + D-46 surface context ──

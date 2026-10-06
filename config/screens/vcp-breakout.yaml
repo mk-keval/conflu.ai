@@ -1,0 +1,86 @@
+# VCP Breakout (Minervini) — Highest Profit Factor (4.5) in Research
+# Based on: Mark Minervini VCP (repo: profit factor 4.5, tuned-provisional), D-58/D-59 gate 2.5:1 R:R floor
+# Key: RS≥96, price near 52w high, 30% off 52w low, 3+ contractions, volume surge ≥1.5x
+
+name: vcp-breakout
+description: Mark Minervini's Volatility Contraction Pattern — highest profit factor (4.5) in research
+asset_classes: ["equities"]
+timeframes: ["1D"]
+filters:
+  # --- Fundamental quality gates ---
+  - category: fundamental
+    indicator: market_cap_gt
+    params: { value: 2000000000 }
+    # $2B minimum — institutional quality (gate L140 PASS)
+  - category: fundamental
+    indicator: exchange_in
+    params: { exchanges: ["NYSE", "NASDAQ"] }
+    # Major exchanges only — liquidity gate
+  - category: fundamental
+    indicator: country_in
+    params: { countries: ["United States"] }
+    # US-domiciled — regulatory consistency
+  - category: fundamental
+    indicator: close_above
+    params: { threshold: 10.0 }
+    # $10 minimum — avoids penny stocks
+
+  # --- Volume (VCP: dry-up then surge) ---
+  - category: volume
+    indicator: avg_volume_gt
+    params: { threshold: 1000000 }
+    # 1M avg daily volume — institutional liquidity floor (sweep: 500K-5M)
+  - category: volume
+    indicator: rvol_high
+    params: { threshold: 1.5 }
+    # Volume surge on breakout ≥1.5x (VCP requirement; sweep: 1.0-2.5)
+
+  # --- Trend template (Stage 2) ---
+  - category: trend
+    indicator: price_above_ema
+    params: { period: 150 }
+    # Price above 150-day EMA — intermediate uptrend
+  - category: trend
+    indicator: price_above_ema
+    params: { period: 200 }
+    # Price above 200-day EMA — long-term uptrend (VCP Stage 2)
+  - category: trend
+    indicator: ema_stack_bullish
+    params: {}
+    # EMA20 > EMA50 > EMA200 — perfect alignment (VCP Stage 2)
+
+  # --- RS rank strict gate (CRITICAL - repo shows win rate drops materially without RS≥96) ---
+  - category: momentum
+    indicator: rs_rank_min
+    params: { value: 96 }
+    # RS rank ≥96 — top 4% of universe (strict gate from VCP/Connors; sweep: 90-98)
+
+  # --- 52w high proximity (CRITICAL - pullback research) ---
+  - category: trend
+    indicator: price_near_52w_high
+    params: { pct_within: 5 }
+    # Within 5% of 52w high — leadership cohort (VCP/Proximity Pullback research; sweep: 3-7%)
+
+  # --- 30% off 52w low (VCP base depth) ---
+  - category: trend
+    indicator: price_above_52w_low
+    params: { pct_above: 30 }
+    # At least 30% above 52w low — base depth (VCP base depth 12-35%)
+
+  # --- Volume surge on breakout ---
+  - category: volume
+    indicator: rvol_high
+    params: { threshold: 1.5 }
+    # Volume surge on breakout ≥1.5x (VCP trigger; sweep: 1.0-2.5)
+
+  # --- ADX trend strength ---
+  - category: volatility
+    indicator: adx_trending
+    params: { threshold: 25 }
+    # ADX ≥25 — genuine trend present (Wilder; sweep: 15-35)
+
+  # --- Regime filter (200-day MA channel - MR Swing) ---
+  - category: trend
+    indicator: price_above_ema
+    params: { period: 200 }
+    # 200-day MA regime filter — bull regime gate (MR Swing 77% QQQQ)

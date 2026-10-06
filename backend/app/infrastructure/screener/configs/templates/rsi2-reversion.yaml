@@ -1,0 +1,59 @@
+# RSI(2) Reversion (Connors) — Proven Mean Reversion Setup
+# Based on: Larry Connors RSI(2) (repo: tuned-provisional), HybridSwingNet (54.1% win rate, 85% directional accuracy)
+# Key: RSI(2) < 10 entry, price above SMA200, exit on RSI(2) > 70 or 5 bars
+
+name: rsi2-reversion
+description: Larry Connors' RSI(2) mean reversion — proven >55% win rate in bull regimes
+asset_classes: ["equities"]
+timeframes: ["1D"]
+filters:
+  # --- Fundamental quality gates ---
+  - category: fundamental
+    indicator: market_cap_gt
+    params: { value: 1000000000 }
+    # $1B minimum — tradeable liquidity (sweep: $500M-$10B)
+  - category: fundamental
+    indicator: exchange_in
+    params: { exchanges: ["NYSE", "NASDAQ"] }
+    # Major exchanges only — liquidity gate
+  - category: fundamental
+    indicator: country_in
+    params: { countries: ["United States"] }
+    # US-domiciled — regulatory consistency
+  - category: fundamental
+    indicator: close_above
+    params: { threshold: 10.0 }
+    # $10 minimum — avoids penny stocks
+
+  # --- Volume ---
+  - category: volume
+    indicator: avg_volume_gt
+    params: { threshold: 1000000 }
+    # 1M avg daily volume — institutional liquidity floor (sweep: 500K-5M)
+
+  # --- Long-term trend filter (Connors: must be above SMA200) ---
+  - category: trend
+    indicator: price_above_ema
+    params: { period: 200 }
+    # Price above 200 EMA — long-term uptrend confirmed (Connors requirement)
+
+  # --- RSI(2) < 10 entry (Connors trigger) ---
+  - category: momentum
+    indicator: rsi_oversold
+    params: { threshold: 10 }
+    operator: lt
+    # RSI(2) < 10 — oversold bounce trigger (Connors: RSI(2) < 10; sweep: 5-15)
+
+  # --- Exit: RSI(2) > 70 or 5 bars (handled by backtest engine - 5 bar hold)
+
+  # --- Volume floor ---
+  - category: volume
+    indicator: avg_volume_gt
+    params: { threshold: 500000 }
+    # Minimum liquidity (sweep: 500K-5M)
+
+  # --- Regime filter (bull regime only per research) ---
+  - category: trend
+    indicator: price_above_ema
+    params: { period: 200 }
+    # 200-day MA regime filter — bull regime only (Connors: bull market only)

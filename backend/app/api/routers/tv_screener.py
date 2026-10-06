@@ -11,10 +11,12 @@ Endpoints:
 from __future__ import annotations
 
 import time
+import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 
 from backend.app.infrastructure.screener.tv_engine import TVScreenEngine
 from backend.app.infrastructure.screener.tv_models import (
@@ -33,6 +35,8 @@ from backend.app.infrastructure.screener.configs import (
     load_screen_template,
     list_screen_templates,
 )
+from backend.app.infrastructure.backtest.external_backtest import ExternalBacktestEngine, BacktestConfig
+from backend.app.infrastructure.data.fetcher import OHLCVFetcher
 from backend.app.core.logging import get_logger
 
 log = get_logger("conflu.api.tv_screener")
@@ -322,6 +326,166 @@ async def get_template(name: str) -> dict[str, Any]:
             continue
 
     raise HTTPException(status_code=404, detail=f"Screen template '{name}' not found")
+
+
+# =========================================================================
+# Helper
+# =========================================================================
+# External Backtest Endpoint (Yahoo Finance + pandas, no vectorbt)
+# =========================================================================
+
+class ExternalBacktestRequest(BaseModel):
+    """Request for a single backtest using a template and Yahoo Finance data."""
+    template: str
+    symbols: list[str]
+    start: str
+    end: str
+    timeframe: str = "1D"
+    initial_cash: float = 100_000
+    fees_bps: float = 10.0
+    slippage_bps: float = 5.0
+    position_sizing: Literal["fixed", "atr", "kelly"] = "fixed"
+    sizing_params: dict[str, Any] = Field(default_factory=dict)
+    signal_params: dict[str, Any] = Field(default_factory=dict)
+
+
+class ExternalBacktestTrade(BaseModel):
+    trade_id: int
+    entry_date: str
+    exit_date: str
+    entry_price: float
+    exit_price: float
+    units: float
+    pnl: float
+    return_pct: float
+    hold_days: int
+
+
+class ExternalBacktestResponse(BaseModel):
+    run_id: str
+    template: str
+    symbol: str
+    timeframe: str
+    metrics: dict[str, float]
+    trades: list[ExternalBacktestTrade]
+    equity_curve: list[dict[str, Any]]
+    duration_ms: float
+
+
+@router.post("/backtest/external", response_model=ExternalBacktestResponse)
+async def run_external_backtest(request: ExternalBacktestRequest) -> ExternalBacktestResponse:
+    """Run a single backtest using a template and Yahoo Finance data (no vectorbt).
+    
+    Uses the ExternalBacktestEngine which fetches data from Yahoo Finance,
+    computes indicators with pandas_ta, and runs simulation with pure pandas/numpy.
+    """
+    from backend.app.infrastructure.backtest.external_backtest import ExternalBacktestEngine, BacktestConfig
+    from backend.app.infrastructure.data.fetcher import OHLCVFetcher
+    from backend.app.infrastructure.screener.configs import load_screen_template
+    
+    try:
+        # Load template to get signal_params
+        template = load_screen_template(request.template)
+        signal_params: dict[str, Any] = {}
+        for f in template.filters:
+            signal_params[f.indicator] = f.params
+        
+        config = BacktestConfig(
+            symbol=request.symbols[0],  # Primary symbol
+            timeframe=request.timeframe,
+            start_date=request.start,
+            end_date=request.end,
+            initial_cash=request.initial_cash,
+            fees_bps=request.fees_bps,
+            slippage_bps=request.slippage_bps,
+            position_sizing=request.position_sizing,
+            sizing_params=request.sizing_params,
+            signal_params=signal_params,
+        )
+        
+        fetcher = OHLCVFetcher()
+        engine = ExternalBacktestEngine(fetcher=fetcher)
+        
+        # Run backtest for each symbol and aggregate
+        all_results = []
+        all_trades = []
+        all_equity = []
+        
+        for symbol in request.symbols:
+            config.symbol = symbol
+            result = await engine.run_backtest(config)
+            
+            if result.error:
+                continue
+                
+            all_results.append({
+                "symbol": symbol,
+                "total_return": result.total_return,
+                "annualized_return": result.annualized_return,
+                "sharpe": result.sharpe_ratio,
+                "sortino": result.sortino_ratio,
+                "max_dd_pct": result.max_drawdown_pct,
+                "win_rate": result.win_rate,
+                "profit_factor": result.profit_factor,
+                "expectancy": result.expectancy,
+                "total_trades": result.total_trades,
+            })
+            
+            # Collect trades
+            for trade in result.trades:
+                all_trades.append(ExternalBacktestTrade(
+                    trade_id=trade["trade_id"],
+                    entry_date=trade["entry_date"],
+                    exit_date=trade["exit_date"],
+                    entry_price=trade["entry_price"],
+                    exit_price=trade["exit_price"],
+                    units=trade["units"],
+                    pnl=trade["pnl"],
+                    return_pct=trade["return_pct"],
+                    hold_days=trade["hold_days"],
+                ))
+            
+            # Collect equity curve
+            for point in result.equity_curve:
+                all_equity.append({"date": point["date"], "equity": point["equity"]})
+        
+        # Aggregate metrics across symbols
+        if all_results:
+            avg_return = sum(r["total_return"] for r in all_results) / len(all_results)
+            avg_sharpe = sum(r["sharpe"] for r in all_results) / len(all_results)
+            avg_win_rate = sum(r["win_rate"] for r in all_results) / len(all_results)
+            avg_pf = sum(r["profit_factor"] for r in all_results) / len(all_results)
+            avg_expectancy = sum(r["expectancy"] for r in all_results) / len(all_results)
+            total_trades = sum(r["total_trades"] for r in all_results)
+            avg_hold_days = sum(r.get("avg_hold_days", 0) for r in all_results) / len(all_results)
+        else:
+            avg_return = avg_sharpe = avg_win_rate = avg_pf = avg_expectancy = total_trades = avg_hold_days = 0
+        
+        return ExternalBacktestResponse(
+            run_id=str(uuid.uuid4()),
+            template=request.template,
+            symbol=request.symbols[0],
+            timeframe=request.timeframe,
+            metrics={
+                "total_return": avg_return * 100,
+                "annualized_return": sum(r["annualized_return"] for r in all_results) / len(all_results) * 100 if all_results else 0,
+                "sharpe_ratio": avg_sharpe,
+                "sortino_ratio": sum(r["sortino"] for r in all_results) / len(all_results) if all_results else 0,
+                "max_drawdown_pct": sum(r["max_dd_pct"] for r in all_results) / len(all_results) if all_results else 0,
+                "win_rate": avg_win_rate,
+                "profit_factor": avg_pf,
+                "expectancy": avg_expectancy,
+                "total_trades": total_trades,
+                "avg_hold_days": avg_hold_days,
+            },
+            trades=all_trades,
+            equity_curve=[{"date": p["date"], "equity": p["equity"]} for p in all_equity],
+            duration_ms=0,  # TODO: track duration
+        )
+        
+    except Exception as e:
+        log.exception("external_backtest_failed", template=request.template, error=str(e))
+        raise HTTPException(status_code=500, detail=f"External backtest failed: {str(e)}")
 
 
 # =========================================================================

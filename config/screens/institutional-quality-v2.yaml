@@ -1,0 +1,88 @@
+# Institutional Quality v2 (MR Swing Enhanced) — Regime-Aware Quality Swing
+# Based on: MR Swing (77% QQQQ win rate), institutional-swing-quality template, gate 2.5:1 R:R floor
+# Key: 200-day MA regime filter, EPS>0, PE<40, OBV rising, volume surge, regime-aware
+
+name: institutional-quality-v2
+description: MR Swing-inspired regime-aware quality swing trade — targets >55% win rate
+asset_classes: ["equities"]
+timeframes: ["1D", "4h"]
+filters:
+  # --- Fundamental quality gates ---
+  - category: fundamental
+    indicator: market_cap_gt
+    params: { value: 2000000000 }
+    # $2B minimum — institutional quality (gate L140 PASS)
+  - category: fundamental
+    indicator: exchange_in
+    params: { exchanges: ["NYSE", "NASDAQ"] }
+    # Major exchanges only — liquidity gate
+  - category: fundamental
+    indicator: country_in
+    params: { countries: ["United States"] }
+    # US-domiciled — regulatory consistency
+  - category: fundamental
+    indicator: close_above
+    params: { threshold: 10.0 }
+    # $10 minimum — avoids penny stocks
+  - category: fundamental
+    indicator: eps_positive
+    params: {}
+    # Positive EPS — fundamental quality (MR Swing fundamental gate)
+  - category: fundamental
+    indicator: pe_max
+    params: { max_pe: 40 }
+    # PE < 40 — avoids overvalued (sweep: 20-80)
+
+  # --- Volume ---
+  - category: volume
+    indicator: avg_volume_gt
+    params: { threshold: 1000000 }
+    # 1M avg daily volume — institutional liquidity floor (sweep: 500K-5M)
+  - category: volume
+    indicator: rvol_high
+    params: { threshold: 1.3 }
+    # Volume surge — institutional accumulation (sweep: 1.0-2.5)
+
+  # --- Trend stack ---
+  - category: trend
+    indicator: ema_stack_bullish
+    params: {}
+    # EMA20 > EMA50 > EMA200 — perfect alignment
+  - category: trend
+    indicator: price_above_ema
+    params: { period: 50 }
+    # Price above 50-day EMA — intermediate trend
+
+  # --- Momentum ---
+  - category: momentum
+    indicator: rsi_macd_bullish
+    params: {}
+    # RSI > 50 + MACD bullish — dual confirmation
+  - category: momentum
+    indicator: rsi_in_range
+    params: { min: 55, max: 80 }
+    # RSI 55-80 — momentum sweet spot (sweep: min 40-60, max 70-90)
+
+  # --- VWAP reclaim (institutional) ---
+  - category: volume
+    indicator: price_above_vwap
+    params: {}
+    # Price above VWAP — institutional buyer support
+
+  # --- ADX trend strength ---
+  - category: volatility
+    indicator: adx_trending
+    params: { threshold: 25 }
+    # ADX ≥25 — genuine trend present (Wilder; sweep: 15-35)
+
+  # --- Regime filter (MR Swing 200-day MA channel with hysteresis) ---
+  - category: trend
+    indicator: price_above_ema
+    params: { period: 200 }
+    # 200-day MA regime filter — bull regime gate (MR Swing 77% QQQQ)
+
+  # --- OBV rising (accumulation) ---
+  - category: volume
+    indicator: obv_rising
+    params: { min_rvol: 1.0 }
+    # OBV rising with volume confirmation — accumulation

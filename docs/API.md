@@ -620,6 +620,199 @@ Get recent in-app alerts.
 
 ---
 
+---
+
+## Workflow API (`/api/v1/workflow`)
+
+Paper-trade journal and gate enforcement endpoints. Single source of truth: CSV journal in `docs/paper_trades/`.
+
+### GET `/journal`
+Read all journal rows (open + closed).
+
+**Query Parameters:**
+- `limit` (optional, max 10000) — Max rows to return
+
+**Response:** `ApiResponse<JournalResponse>`
+```json
+{
+  "data": {
+    "rows": [...],
+    "count": 127
+  },
+  "meta": {...}
+}
+```
+
+### GET `/journal/open`
+Read open positions (rows with no `date_closed`).
+
+**Response:** `ApiResponse<OpenPositionsResponse>`
+```json
+{
+  "data": {
+    "positions": [...],
+    "count": 5,
+    "total_size_pct": 12.5,
+    "sector_exposure": {"Technology": 8.0, "Financials": 4.5}
+  }
+}
+```
+
+### GET `/journal/closed`
+Read closed trades (measurable sample for expectancy).
+
+**Response:** `ApiResponse<ClosedTradesResponse>`
+```json
+{
+  "data": {
+    "trades": [...],
+    "count": 42,
+    "win_rate": 0.64,
+    "expectancy_r": 0.47,
+    "profit_factor": 2.1
+  }
+}
+```
+
+### GET `/journal/capital`
+Available capital for new positions.
+
+**Query Parameters:**
+- `account_value` (optional, gt=0) — Explicit account value
+
+**Response:** `ApiResponse<AvailableCapitalResponse>`
+
+### POST `/paper-trades/enforce`
+**Touchpoint A** — Run gate enforcement and write paper trades.
+
+Fetches morning brief, evaluates candidates through 7-step gate, writes accepted trades to today's CSV.
+
+**Request Body:**
+```json
+{
+  "min_conviction": 5,
+  "only": "AAPL,MSFT"  // optional comma-separated symbols
+}
+```
+
+**Response:** `ApiResponse<EnforceResponse>`
+```json
+{
+  "data": {
+    "accepted": [
+      {"symbol": "AAPL", "gate_verdict": "PASS", "entry_price": 228.5, "stop_loss": 222.1, "position_size_pct": 2.1, "target_1": 241.0, "target_2": 253.5}
+    ],
+    "rejected": [
+      {"symbol": "TSLA", "gate_verdict": "FAIL", "rejected": true, "failed_step": "Risk/Reward", "reason": "R/R floor not met: 1.8 < 2.5"}
+    ],
+    "message": "2 accepted, 1 rejected — written to 2026-09-28.csv"
+  }
+}
+```
+
+### POST `/paper-trades/sync-exits`
+**Touchpoint B** — Sync exits from OHLCV (infer + apply).
+
+Fetches daily OHLCV for open journal rows, infers exit (stop/target/time), writes exit data when `apply=true`.
+
+**Request Body:**
+```json
+{ "apply": false }
+```
+
+**Response:** `ApiResponse<SyncExitsResponse>`
+```json
+{
+  "data": {
+    "updated": 3,
+    "skipped": 1,
+    "items": [
+      {
+        "symbol": "AAPL",
+        "exit_date": "2026-09-27",
+        "exit_price": 241.0,
+        "exit_reason": "target_1",
+        "realized_r": 1.9,
+        "pnl_usd": 950.0,
+        "mfe_r": 2.1,
+        "mae_r": -0.3,
+        "plan_adherence": 1.0,
+        "applied": false
+      }
+    ],
+    "message": "3 exit(s) would be applied (1 skipped) — re-run with apply=true to persist"
+  }
+}
+```
+
+### GET `/expectancy`
+Expectancy metrics per template/regime combination.
+
+**Query Parameters:**
+- `min_trades` (default: 30, ge=1) — Minimum trades for elite status
+
+**Response:** `ApiResponse<ExpectancyResponse>`
+```json
+{
+  "data": {
+    "items": [
+      {
+        "template": "trend-follower",
+        "regime": "strong_trend",
+        "n_trades": 42,
+        "win_rate": 0.62,
+        "expectancy_r": 0.47,
+        "profit_factor": 2.1,
+        "avg_r": 0.47,
+        "avg_win_r": 1.2,
+        "avg_loss_r": -0.8,
+        "max_win_r": 3.5,
+        "max_loss_r": -1.0,
+        "total_r": 19.7,
+        "is_elite": true,
+        "elite_min_trades": 30
+      }
+    ],
+    "elite_count": 3,
+    "total_combinations": 12
+  }
+}
+```
+
+### GET `/expectancy/elite`
+Only elite template/regime combinations (n≥min_trades, expectancy>0).
+
+**Response:** `ApiResponse<ExpectancyResponse>` (same shape, only elite items)
+
+### POST `/expectancy/rolling`
+Rolling expectancy for a specific filter (symbol/template/regime).
+
+**Request Body:**
+```json
+{
+  "symbol": "AAPL",
+  "template": "trend-follower",
+  "regime": "strong_trend",
+  "window": 30
+}
+```
+
+**Response:** `ApiResponse<RollingExpectancyResponse | null>`
+```json
+{
+  "data": {
+    "symbol": "AAPL",
+    "template": "trend-follower",
+    "regime": "strong_trend",
+    "window": 15,
+    "win_rate": 0.67,
+    "expectancy_r": 0.52,
+    "profit_factor": 2.4,
+    "total_r": 7.8
+  }
+}
+```
+
 ## Error Response Format
 All errors return:
 ```json

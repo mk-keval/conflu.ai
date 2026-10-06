@@ -28,6 +28,8 @@ dependencies = [
     "redis>=5.0,<6",
     "apscheduler>=3.10,<4",
     "sendgrid>=6.10,<7",
+    "plotly<6.0",  # Pin to v5 for vectorbt compatibility
+    "kissbt>=0.1.0",  # Lightweight backtesting alternative to vectorbt
 ]
 
 [project.optional-dependencies]

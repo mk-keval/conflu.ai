@@ -29,6 +29,7 @@ from backend.app.domain.workflow import exits as exits_mod
 from backend.app.domain.workflow import gate as gate_mod
 from backend.app.domain.workflow import journal as journal_mod
 from backend.app.domain.workflow import sizing as sizing_mod
+from backend.app.domain.workflow import verification as verification_mod
 from backend.app.domain.ticker_analysis.technical import _fetch_daily_ohlcv
 
 # Re-export journal functions for the existing endpoints
@@ -273,10 +274,10 @@ def _attached_gate(verdict: dict) -> gate_mod.GateResult | None:
             return None
         return gate_mod.GateResult(
             overall=_normalize_overall(gate_dict.get("overall", "CONDITIONAL")),
-            steps=steps,
-            conviction_score=int(gate_dict.get("conviction_score", 0)),
-            data_gaps=[g for g in gate_dict.get("data_gaps", []) if isinstance(g, str)],
-            evaluated_at=str(gate_dict.get("evaluated_at", "")),
+            stepResults=steps,
+            convictionScore=int(gate_dict.get("conviction_score", 0)),
+            dataGaps=[g for g in gate_dict.get("data_gaps", []) if isinstance(g, str)],
+            evaluatedAt=str(gate_dict.get("evaluated_at", "")),
         )
     except (KeyError, TypeError, ValueError):
         return None
@@ -562,6 +563,10 @@ async def _build_row(symbol: str, brief_section: dict, verdict: dict) -> tuple[d
 
     triggers = v.get("buy_triggers") or []
     red_flags = v.get("key_red_flags") or []
+    # Get template/screen name from brief section
+    template_name = brief_section.get("screen_name", "") if brief_section else ""
+    # Get regime from verdict (tv_data embedded in verdict)
+    regime_name = (verdict.get("technical") or {}).get("regime", "") if isinstance(verdict.get("technical"), dict) else ""
     signal = ";".join(triggers[:2]) if triggers else brief_section.get("screen_name", "") if (brief_section := v) else ""
     notes_parts = []
     if triggers:
@@ -596,6 +601,8 @@ async def _build_row(symbol: str, brief_section: dict, verdict: dict) -> tuple[d
         "risk_reward_planned": v.get("risk_reward", ""),
         "gate_version": GATE_VERSION,
         "notes": notes[:500],
+        "template": template_name,
+        "regime": regime_name,
     }
     return trade_row, None
 
@@ -744,5 +751,116 @@ async def sync_exits(
         data=SyncExitsResponse(
             updated=updated, skipped=skipped, items=items, message=message,
         ),
+        meta=MetaInfo(),
+    )
+
+
+# ── Expectancy Tracking (Sec.2E verification) ──
+
+class ExpectancyItem(BaseModel):
+    """Expectancy metrics for a template/regime combination."""
+    template: str
+    regime: str
+    n_trades: int
+    win_rate: float
+    expectancy_r: float
+    profit_factor: float | None
+    avg_r: float
+    avg_win_r: float
+    avg_loss_r: float
+    max_win_r: float
+    max_loss_r: float
+    total_r: float
+    is_elite: bool
+    elite_min_trades: int
+
+
+class ExpectancyResponse(BaseModel):
+    """All template/regime expectancy metrics."""
+    items: list[ExpectancyItem]
+    elite_count: int
+    total_combinations: int
+
+
+class RollingExpectancyRequest(BaseModel):
+    symbol: str | None = None
+    template: str | None = None
+    regime: str | None = None
+    window: int = 30
+
+
+class RollingExpectancyResponse(BaseModel):
+    symbol: str | None = None
+    template: str | None = None
+    regime: str | None = None
+    window: int
+    win_rate: float
+    expectancy_r: float
+    profit_factor: float | None
+    total_r: float
+
+
+@router.get(
+    "/expectancy",
+    summary="Get expectancy metrics per template/regime",
+    description="Returns rolling expectancy, win rate, profit factor for each template/regime combination. Elite badge requires n>=30 and expectancy>0.",
+    response_model=ApiResponse[ExpectancyResponse],
+)
+async def get_expectancy(
+    min_trades: int = Query(30, ge=1, description="Minimum trades for elite status"),
+) -> ApiResponse[ExpectancyResponse]:
+    metrics = verification_mod.compute_expectancy_per_template_regime(min_trades=min_trades)
+    items = [ExpectancyItem(**m.to_dict()) for m in metrics.values()]
+    elite_count = sum(1 for m in metrics.values() if m.is_elite)
+    return ApiResponse(
+        data=ExpectancyResponse(
+            items=items,
+            elite_count=elite_count,
+            total_combinations=len(items),
+        ),
+        meta=MetaInfo(),
+    )
+
+
+@router.get(
+    "/expectancy/elite",
+    summary="Get only elite template/regime combinations",
+    description="Returns only combinations with n>=30 trades and positive expectancy.",
+    response_model=ApiResponse[ExpectancyResponse],
+)
+async def get_elite_expectancy(
+    min_trades: int = Query(30, ge=1, description="Minimum trades for elite status"),
+) -> ApiResponse[ExpectancyResponse]:
+    elite_metrics = verification_mod.get_elite_templates(min_trades=min_trades)
+    items = [ExpectancyItem(**m.to_dict()) for m in elite_metrics]
+    return ApiResponse(
+        data=ExpectancyResponse(
+            items=items,
+            elite_count=len(items),
+            total_combinations=len(items),
+        ),
+        meta=MetaInfo(),
+    )
+
+
+@router.post(
+    "/expectancy/rolling",
+    summary="Get rolling expectancy for a symbol/template/regime",
+    description="Computes rolling expectancy over the last N trades for a specific filter.",
+    response_model=ApiResponse[RollingExpectancyResponse | None],
+)
+async def get_rolling_expectancy(
+    request: RollingExpectancyRequest = Body(default=RollingExpectancyRequest()),
+) -> ApiResponse[RollingExpectancyResponse | None]:
+    result = verification_mod.compute_rolling_expectancy(
+        symbol=request.symbol,
+        template=request.template,
+        regime=request.regime,
+        window=request.window,
+    )
+    if result is None:
+        return ApiResponse(data=None, meta=MetaInfo())
+    return ApiResponse(
+        data=RollingExpectancyResponse(**result),
         meta=MetaInfo(),
     )
