@@ -1,7 +1,8 @@
-"""Journal reader tests (plan Sec.2B).
+"""Journal reader tests (D-68: SQLite-backed, import/export via CSV).
 
-Uses a temp trades dir with one 29-col CSV (D-51) and one 21-col legacy CSV
-(D-50), plus TEMPLATE.csv / REJECTIONS.csv that must be ignored.
+Seeds the per-test journal DB (``_isolated_journal_db`` fixture) by importing
+a temp trades dir with one 29-col CSV (D-51) and one 21-col legacy CSV
+(D-50), plus TEMPLATE.csv / REJECTIONS.csv that must be ignored as trades.
 """
 
 from __future__ import annotations
@@ -60,34 +61,41 @@ def _make_trades_dir(tmp_path: Path) -> Path:
         "105.00", "112.00", "6.0", "2", "CHIP_SCREENER", "legacy",
         "", "", "", "", "", "", "", "", "",
     ]])
-    # Non-journal files must be ignored.
+    # Non-journal files must be ignored as trades.
     _write_csv(d / "TEMPLATE.csv", HEADER_29, [])
     _write_csv(d / "REJECTIONS.csv", ["date_seen", "symbol", "reason"], [["2026-09-18", "TSLA", "gate_fail"]])
     return d
 
 
-def test_read_rows_normalizes_and_sorts(tmp_path: Path) -> None:
+def _seed(d: Path) -> None:
+    summary = journal.import_csv_dir(d)
+    assert summary["files"] == 3  # TEMPLATE/REJECTIONS not counted as trades
+    assert summary["inserted"] == 3
+    assert summary["exit_updates"] == 1  # MSFT carries exit data
+
+
+def test_read_rows_from_store_sorted_desc(tmp_path: Path) -> None:
     d = _make_trades_dir(tmp_path)
-    rows = journal.read_rows(d)
+    _seed(d)
+    rows = journal.read_rows(d)  # deprecated trades_dir accepted and ignored
     assert len(rows) == 3
     assert rows[0]["symbol"] == "AAPL"  # 2026-09-18 first (desc)
-    assert rows[0]["position_size_pct"] == "8.0"
+    assert rows[0]["position_size_pct"] == "8.0"  # CSV-parity stringified cell
     assert rows[0]["entry_type"] == "initial"
-    # TEMPLATE/REJECTIONS never appear.
-    assert all(r["_file"] not in ("TEMPLATE.csv", "REJECTIONS.csv") for r in rows)
+    assert rows[-1]["symbol"] == "NVDA"  # 2026-09-10 last
 
 
 def test_read_open_positions_filters_by_date_closed(tmp_path: Path) -> None:
-    d = _make_trades_dir(tmp_path)
-    open_rows = journal.read_open_positions(d)
+    _seed(_make_trades_dir(tmp_path))
+    open_rows = journal.read_open_positions()
     assert {r["symbol"] for r in open_rows} == {"AAPL", "NVDA"}
-    closed = journal.read_closed_trades(d)
+    closed = journal.read_closed_trades()
     assert {r["symbol"] for r in closed} == {"MSFT"}
 
 
 def test_position_size_pct_and_account_value_accessors(tmp_path: Path) -> None:
-    d = _make_trades_dir(tmp_path)
-    rows = {r["symbol"]: r for r in journal.read_rows(d)}
+    _seed(_make_trades_dir(tmp_path))
+    rows = {r["symbol"]: r for r in journal.read_rows()}
     assert journal.position_size_pct(rows["AAPL"]) == 8.0
     assert journal.account_value(rows["AAPL"]) == 100_000.0
     # Legacy row: blank account_value → None.
@@ -95,27 +103,25 @@ def test_position_size_pct_and_account_value_accessors(tmp_path: Path) -> None:
 
 
 def test_sector_exposure_aggregates_open_book(tmp_path: Path) -> None:
-    d = _make_trades_dir(tmp_path)
-    exposure = journal.sector_exposure(d)
+    _seed(_make_trades_dir(tmp_path))
+    exposure = journal.sector_exposure()
     # Technology: AAPL 8.0 open. Semiconductors: NVDA 6.0 open. MSFT closed → excluded.
     assert exposure == {"Technology": 8.0, "Semiconductors": 6.0}
 
 
 def test_available_capital_explicit_and_fallback(tmp_path: Path) -> None:
-    d = _make_trades_dir(tmp_path)
+    _seed(_make_trades_dir(tmp_path))
     # Explicit account value: 8.0% + 6.0% open notional.
-    assert journal.available_capital(d, explicit_account_value=100_000.0) == pytest.approx(86_000.0)
+    assert journal.available_capital(explicit_account_value=100_000.0) == pytest.approx(86_000.0)
     # Fallback: most recent non-blank journal account_value = 100000 (AAPL row).
-    assert journal.available_capital(d) == pytest.approx(86_000.0)
-    # Empty dir → default $100k.
-    empty = tmp_path / "empty"
-    empty.mkdir()
-    assert journal.available_capital(empty) == pytest.approx(100_000.0)
+    assert journal.available_capital() == pytest.approx(86_000.0)
 
 
-def test_ignores_empty_and_blank_dirs(tmp_path: Path) -> None:
+def test_empty_journal_defaults(tmp_path: Path) -> None:
+    # No import: the per-test DB is empty. Deprecated trades_dir is ignored.
     empty = tmp_path / "nothing"
     empty.mkdir()
     assert journal.read_rows(empty) == []
     assert journal.read_open_positions(empty) == []
     assert journal.sector_exposure(empty) == {}
+    assert journal.available_capital(empty) == pytest.approx(100_000.0)

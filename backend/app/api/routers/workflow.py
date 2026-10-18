@@ -1,7 +1,8 @@
 """Workflow API router (plan Sec.2B, Sec.2E).
 
 Exposes the paper-trade journal as a read-only API so the frontend can
-hydrate its local store from the CSV ledger (D7: single source of truth).
+hydrate its local store from the journal DB (D-68: SQLite is the journal of
+record; D7 single source of truth).
 
 Also exposes the enforcement endpoints for the 2-touchpoint daily routine:
 - POST /api/v1/workflow/paper-trades/enforce  — Touchpoint A: run gate + write journal
@@ -10,11 +11,8 @@ Also exposes the enforcement endpoints for the 2-touchpoint daily routine:
 
 from __future__ import annotations
 
-import csv
-import sys
 from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from fastapi import APIRouter, Body, HTTPException, Query
 from pydantic import BaseModel
@@ -47,14 +45,6 @@ log = get_logger("conflu.api.workflow")
 from backend.app.infrastructure.professional.morning_brief import MorningBriefService
 
 # Reuse the same constants from paper_trade_from_brief.py
-REPO_ROOT = Path(__file__).resolve().parents[4]
-CSV_DIR = REPO_ROOT / "docs" / "paper_trades"
-CSV_TEMPLATE = CSV_DIR / "TEMPLATE.csv"
-REJECTIONS_PATH = CSV_DIR / "REJECTIONS.csv"
-REJECTIONS_HEADER = [
-    "date_seen", "symbol", "sector", "action", "conviction",
-    "failed_step", "gate_verdict", "reason", "notes",
-]
 GATE_VERSION = "1D-enforcement"
 
 # Singleton service instance (same pattern as professional router)
@@ -85,7 +75,7 @@ class JournalRow(BaseModel):
     account_value: float | None = None
     shares: float | None = None
     confluence_count: int | None = None
-    signal_at_entry: float | None = None
+    signal_at_entry: str | None = None
     gate_verdict: str | None = None
     gate_failed_step: str | None = None
     entry_low: float | None = None
@@ -138,7 +128,7 @@ class AvailableCapitalResponse(BaseModel):
 @router.get(
     "/journal",
     summary="Read all journal rows",
-    description="Returns all rows from the paper-trade journal CSV files (both open and closed).",
+    description="Returns all rows from the paper-trade journal DB (both open and closed).",
 )
 async def get_journal(
     limit: int | None = Query(None, ge=1, le=10000),
@@ -328,46 +318,6 @@ def _first_unpassed_step(
     return hard_fail, first_conditional
 
 
-def _load_header() -> list[str]:
-    with CSV_TEMPLATE.open("r", encoding="utf-8") as f:
-        return next(csv.reader(f))
-
-
-def _append_rejection(rejection: dict, trades_dir: Path) -> None:
-    path = trades_dir / "REJECTIONS.csv"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    header = REJECTIONS_HEADER
-    if path.exists() and path.stat().st_size > 0:
-        with path.open("r", encoding="utf-8", newline="") as f:
-            existing = next(csv.reader(f))
-        if existing:
-            header = existing
-            if "date_seen" not in [h.strip() for h in header]:
-                header = REJECTIONS_HEADER
-    with path.open("a", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=header, extrasaction="ignore")
-        w.writerow(rejection)
-
-
-def _patch_row_in_file(path: Path, target: dict, updates: dict[str, object]) -> None:
-    if not path.exists():
-        return
-    with path.open("r", encoding="utf-8", newline="") as f:
-        reader = csv.DictReader(f)
-        header = reader.fieldnames or []
-        rows = list(reader)
-    for r in rows:
-        if (r.get("symbol") == target.get("symbol")
-                and r.get("date_entered") == target.get("date_entered")):
-            for k, v in updates.items():
-                r[k] = v
-            break
-    with path.open("w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=header)
-        w.writeheader()
-        w.writerows(rows)
-
-
 # ── Enforce endpoint (Touchpoint A) ──
 
 class EnforceRequest(BaseModel):
@@ -398,15 +348,12 @@ class EnforceResponse(BaseModel):
     "/paper-trades/enforce",
     summary="Touchpoint A — Run gate enforcement and write paper trades",
     description="Fetches morning brief, evaluates candidates through the 7-step gate, "
-                "and writes accepted trades to today's CSV (like --apply).",
+                "and writes accepted trades to the journal DB (like --apply).",
     response_model=ApiResponse[EnforceResponse],
 )
 async def enforce_paper_trades(
     request: EnforceRequest = Body(default=EnforceRequest()),
 ) -> ApiResponse[EnforceResponse]:
-    trades_dir = CSV_DIR
-    trades_dir.mkdir(parents=True, exist_ok=True)
-
     # Fetch morning brief using internal service (avoid HTTP self-call)
     try:
         service = _get_morning_brief_service()
@@ -475,17 +422,16 @@ async def enforce_paper_trades(
                 failed_step="error", reason=str(e),
             ))
 
-    # Write CSV if any accepted
+    # Persist to the journal DB (D-68): entry-only upsert per accepted row
+    # (fresh evaluation wins; exit columns are never touched) and an
+    # insert-or-ignore per rejection (one per date+symbol).
     message = f"{len(trade_rows)} accepted, {len(rejections)} rejected"
+    for rejection in rejections:
+        journal_mod.insert_rejection(rejection)
     if trade_rows:
-        today = datetime.now(UTC).strftime("%Y-%m-%d")
-        out_path = CSV_DIR / f"{today}.csv"
-        header = _load_header()
-        with out_path.open("w", newline="", encoding="utf-8") as f:
-            w = csv.DictWriter(f, fieldnames=header, extrasaction="ignore")
-            w.writeheader()
-            w.writerows(trade_rows)
-        message += f" — written to {today}.csv"
+        inserted = sum(journal_mod.upsert_entry(row) == "inserted" for row in trade_rows)
+        updated = len(trade_rows) - inserted
+        message += f" — journal updated ({inserted} new, {updated} updated)"
     else:
         message += " — no qualifying setups today"
 
@@ -639,7 +585,7 @@ class SyncExitsResponse(BaseModel):
     "/paper-trades/sync-exits",
     summary="Touchpoint B — Sync exits from OHLCV (infer + apply)",
     description="Fetches daily OHLCV for open journal rows, infers exit (stop/target/time), "
-                "and when apply=true writes exit data + plan_adherence to the CSV.",
+                "and when apply=true writes exit data + plan_adherence to the journal DB.",
     response_model=ApiResponse[SyncExitsResponse],
 )
 async def sync_exits(
@@ -738,8 +684,13 @@ async def sync_exits(
         items.append(item)
 
         if request.apply:
-            _patch_row_in_file(CSV_DIR / str(row.get("_file")), row, updates)
-            updated += 1
+            if journal_mod.update_exit(row.get("date_entered"), row.get("symbol"), updates):
+                updated += 1
+            else:
+                item.applied = False
+                item.skipped = True
+                item.skip_reason = "row already closed"
+                skipped += 1
         else:
             skipped += 1
 

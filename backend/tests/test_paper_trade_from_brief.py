@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 import pytest
 
 # Same bootstrap the script uses at runtime.
@@ -150,3 +151,36 @@ def test_sector_exposure_ceiling_rejects(monkeypatch: pytest.MonkeyPatch) -> Non
     assert row is None
     assert rejection is not None
     assert rejection["failed_step"] == "Portfolio Fit"
+
+
+def test_sync_exits_applies_to_journal_db(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Touchpoint B persists exits through the store (D-68) — no CSV rewrite."""
+    from paper_trade_from_brief import sync_exits
+
+    journal_module.upsert_entry({
+        "date_entered": "2026-10-01", "symbol": "TEST", "sector": "Technology",
+        "entry_price": 100.0, "stop_loss": 95.0, "target_1": 110.0,
+        "position_size_pct": 10.0, "account_value": 100_000.0, "gate_verdict": "PASS",
+    })
+    df = pd.DataFrame({
+        "Date": pd.to_datetime(["2026-10-01", "2026-10-02"]),
+        "Open": [100.0, 111.0], "High": [101.0, 112.0],
+        "Low": [99.0, 110.0], "Close": [100.5, 111.0],
+    })
+    monkeypatch.setattr("paper_trade_from_brief._fetch_daily_ohlcv", lambda _sym: df)
+
+    rc = sync_exits(tmp_path, apply=True)  # trades_dir arg is accepted and ignored
+    assert rc == 0
+    closed = journal_module.read_closed_trades()
+    assert len(closed) == 1
+    assert closed[0]["symbol"] == "TEST"
+    assert closed[0]["date_closed"] == "2026-10-02"
+    assert closed[0]["exit_reason"] == "target_1"
+    assert closed[0]["mfe_r"] == "2.4"  # (112 - 100) / 5
+    assert closed[0]["plan_adherence"] == "1.0"
+
+    # Second run: nothing open → no-op, no duplicate exits.
+    assert sync_exits(tmp_path, apply=True) == 0
+    assert len(journal_module.read_closed_trades()) == 1

@@ -1,62 +1,37 @@
-"""Paper-trade journal reader (plan Sec.2B).
+"""Paper-trade journal (D-68): SQLite-backed store, read API unchanged.
 
-Reads the dated CSV files in ``docs/paper_trades/`` (the 29-column D-51 schema,
-or the 21-column D-50 legacy schema) and exposes the open book for:
+The journal of record is ``data/paper_trades.db`` (SQLite; see
+``journal_store`` for schema, upsert rules, import/export). This module keeps
+the historical read API used by the gate's Step-6 portfolio fit, the
+paper-trade enforcement endpoints, the auto-exit backfill, and expectancy
+verification. CSV files in ``docs/paper_trades/`` are import/export
+artifacts only.
 
-- the gate's Step-6 portfolio fit (plan Sec.2C),
-- the paper-trade enforcement script (phase 1D),
-- the auto-exit backfill (plan Sec.2E).
+``trades_dir`` parameters are deprecated-but-accepted (ignored with a debug
+log) so no caller breaks during the migration.
 
-Defensive by design: rows are plain CSVs written by the daily ritual / script,
-and legacy rows may lack some columns entirely (``account_value`` was blank on
-many early rows). Never raise on a malformed row — skip it and report.
+Defensive by design: rows are normalized dicts with stringified cells
+(CSV parity); never raise on a malformed row — skip it and report.
 """
 
 from __future__ import annotations
 
-import csv
 from pathlib import Path
 from typing import Any
 
-DEFAULT_TRADES_DIR = Path(__file__).resolve().parents[4] / "docs" / "paper_trades"
+from backend.app.core.logging import get_logger
+from backend.app.domain.workflow import journal_store
 
-# Files that live in the trades dir but are NOT journal data.
-NON_JOURNAL_FILES = {"TEMPLATE.csv", "REJECTIONS.csv"}
+log = get_logger("conflu.workflow.journal")
 
-# Columns present in the D-51 29-column schema (superset of D-50's 21).
-ENTRY_COLUMNS = [
-    "date_entered", "symbol", "sector", "action", "entry_type", "entry_price",
-    "stop_loss", "target_1", "target_2", "position_size_pct", "account_value",
-    "shares", "confluence_count", "signal_at_entry", "gate_verdict",
-    "gate_failed_step", "entry_low", "entry_high", "risk_reward_planned",
-    "gate_version", "notes",
-]
-EXIT_COLUMNS = [
-    "date_closed", "exit_price", "exit_reason", "realized_r", "pnl_usd",
-    "mfe_r", "mae_r", "plan_adherence",
-]
+# Kept for compatibility with existing callers (verification.py, router):
+# the path where CSV import/export artifacts live — NOT the journal store.
+DEFAULT_TRADES_DIR = journal_store.DEFAULT_CSV_DIR
 
 
-def _journal_files(trades_dir: Path | str | None = None) -> list[Path]:
-    """Dated journal CSVs in the trades dir (archive/, TEMPLATE, REJECTIONS excluded)."""
-    root = Path(trades_dir or DEFAULT_TRADES_DIR)
-    if not root.is_dir():
-        return []
-    return sorted(
-        p for p in root.glob("*.csv")
-        if p.name not in NON_JOURNAL_FILES
-    )
-
-
-def _row_dict(row: dict[str, Any]) -> dict[str, Any]:
-    """Normalize a CSV row: lowercase keys, strip whitespace, None for ''/'-'."""
-    out: dict[str, Any] = {}
-    for k, v in row.items():
-        key = (k or "").strip().lower()
-        if isinstance(v, str):
-            v = v.strip()
-        out[key] = None if v in ("", "-", "NA", "nan") else v
-    return out
+def _note_deprecated(func_name: str, trades_dir: Path | str | None) -> None:
+    if trades_dir is not None:
+        log.debug("journal.trades_dir_ignored", func=func_name, trades_dir=str(trades_dir))
 
 
 def _as_float(value: Any) -> float | None:
@@ -74,22 +49,13 @@ def _as_int(value: Any) -> int | None:
 
 
 def read_rows(trades_dir: Path | str | None = None) -> list[dict[str, Any]]:
-    """All journal rows (both schemas) across dated CSVs, most-recent first.
+    """All journal rows from the DB, most-recent first.
 
     Rows are normalized dicts; numeric-ish cells are left as strings unless a
     typed accessor is used (see ``position_size_pct`` etc.).
     """
-    rows: list[dict[str, Any]] = []
-    for path in _journal_files(trades_dir):
-        with path.open("r", encoding="utf-8", newline="") as fh:
-            for raw in csv.DictReader(fh):
-                norm = _row_dict(raw)
-                if not norm.get("symbol"):
-                    continue  # blank/header-only line
-                norm["_file"] = path.name
-                rows.append(norm)
-    rows.sort(key=lambda r: r.get("date_entered") or "", reverse=True)
-    return rows
+    _note_deprecated("read_rows", trades_dir)
+    return journal_store.fetch_rows()
 
 
 def read_open_positions(trades_dir: Path | str | None = None) -> list[dict[str, Any]]:
@@ -158,6 +124,21 @@ def available_capital(
     return account_value_f - open_notional
 
 
+# ── Write API (store re-exports; router/script/tests call these) ──
+
+set_db_path = journal_store.set_db_path
+reset_db_path = journal_store.reset_db_path
+get_db_path = journal_store.get_db_path
+upsert_entry = journal_store.upsert_entry
+update_exit = journal_store.update_exit
+insert_rejection = journal_store.insert_rejection
+record_run = journal_store.record_run
+list_runs = journal_store.list_runs
+list_rejections = journal_store.list_rejections
+export_csv = journal_store.export_csv
+import_csv_dir = journal_store.import_csv_dir
+
+
 __all__ = [
     "DEFAULT_TRADES_DIR",
     "read_rows",
@@ -167,4 +148,15 @@ __all__ = [
     "account_value",
     "sector_exposure",
     "available_capital",
+    "set_db_path",
+    "reset_db_path",
+    "get_db_path",
+    "upsert_entry",
+    "update_exit",
+    "insert_rejection",
+    "record_run",
+    "list_runs",
+    "list_rejections",
+    "export_csv",
+    "import_csv_dir",
 ]
