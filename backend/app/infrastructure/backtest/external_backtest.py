@@ -268,11 +268,11 @@ class ExternalBacktestEngine:
                     'Volume': 'volume', 'EMA20': 'EMA20', 'EMA50': 'EMA50', 'EMA200': 'EMA200',
                     'MACD.macd': 'MACD.macd', 'MACD.signal': 'MACD.signal', 'MACD.hist': 'MACD.hist',
                     'RSI': 'RSI', 'RSI2': 'RSI2', 'ADX': 'ADX', 'ATR': 'ATR',
-                    'BB.upper': 'BB.upper', 'BB.middle': 'BB.middle', 'BB.lower': 'BB.lower',
+                    'BB.upper': 'BB.upper', 'BB.basis': 'BB.basis', 'BB.lower': 'BB.lower',
                     'VWAP': 'VWAP', 'OBV': 'OBV', 'average_volume_10d_calc': 'average_volume_10d_calc',
                     'relative_volume_10d_calc': 'relative_volume_10d_calc',
                     'price_52_week_high': 'price_52_week_high', 'price_52_week_low': 'price_52_week_low',
-                    'CCI20': 'CCI20', 'STOCH.K': 'STOCH.K', 'STOCH.D': 'STOCH.D',
+                    'CCI20': 'CCI20', 'Stoch.K': 'Stoch.K', 'Stoch.D': 'Stoch.D',
                     'VWAP': 'VWAP', 'OBV': 'OBV', 'price': 'price', 'change': 'change',
                     'price_52_week_high': 'price_52_week_high', 'price_52_week_low': 'price_52_week_low',
                 })
@@ -555,7 +555,7 @@ class ExternalBacktestEngine:
         bb = ta.bbands(close, length=20, std=2)
         if bb is not None:
             result['BB.upper'] = bb.iloc[:, 0]
-            result['BB.middle'] = bb.iloc[:, 1]
+            result['BB.basis'] = bb.iloc[:, 1]
             result['BB.lower'] = bb.iloc[:, 2]
         
         typical_price = (high + low + close) / 3
@@ -578,8 +578,8 @@ class ExternalBacktestEngine:
         
         stoch = ta.stoch(high, low, close, k=14, d=3)
         if stoch is not None:
-            result['STOCH.K'] = stoch.iloc[:, 0]
-            result['STOCH.D'] = stoch.iloc[:, 1]
+            result['Stoch.K'] = stoch.iloc[:, 0]
+            result['Stoch.D'] = stoch.iloc[:, 1]
         
         result['SMA20'] = ta.sma(close, length=20)
         

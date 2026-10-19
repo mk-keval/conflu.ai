@@ -158,3 +158,20 @@ class TestEvaluateFiltersLocal:
         mask = spec.evaluate_filters_local(frame, rules)
         assert mask is not None
         assert not mask.any()
+
+    def test_stoch_filters_use_live_column_names(self) -> None:
+        """`Stoch.K` is the live TV casing — dead `STOCH.K` must not resolve."""
+        spec = TVScreenerSpecialist()
+        live = pd.DataFrame(
+            {"ticker": ["A", "B"], "Stoch.K": [15.0, 60.0], "Stoch.D": [18.0, 55.0]}
+        )
+        rules = [
+            FilterRule(category="momentum", indicator="stoch_oversold", params={"threshold": 20})
+        ]
+        mask = spec.evaluate_filters_local(live, rules)
+        assert mask is not None
+        assert list(mask) == [True, False]
+
+        # Old dead casing must fail closed (no silent match widening)
+        stale = live.rename(columns={"Stoch.K": "STOCH.K"})
+        assert spec.evaluate_filters_local(stale, rules) is None

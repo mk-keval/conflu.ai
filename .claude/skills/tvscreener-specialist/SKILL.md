@@ -243,20 +243,32 @@ Confluence scoring inputs = selected TV columns only:
   `ranging` 15/20/25/25/15; `high_vol` 20/15/30/25/10; `low_vol` 25/25/15/20/15.
 - TF weights in `tv_engine.py`: `1D` 0.50, `4h` 0.25, `1W` 0.25, `2h` 0.15, `30m` 0.10.
 
-### ⚠️ Open findings from the 2026-10-19 probe (fix path documented, not yet applied)
+### ✅ Findings from the 2026-10-19 probe — FIXED in app code (session log in docs/SESSIONS)
 
-1. `SNAPSHOT_COLUMNS` + `FILTER_MAP` stoch filters use `STOCH.K/STOCH.D` (dead) →
-   switch to `Stoch.K/Stoch.D`.
-2. `BB.middle` (dead) → `BB.basis`; `relative_strength_rank` (dead) → keep RS computed
-   locally from `Perf.*` (as the P1.3 path already does).
-3. Snapshot selects (`price`, `ipo_date`, `institutional_ownership`, `short_float`,
-   `float_shares`, `OBV`, `supertrend*`) are all-null — harmless, but don't gate on them.
-4. `build_query()`/`snapshot_engine` set `set_property('interval', ...)` — **no-op
-   upstream**; per-TF behavior must come from pipe suffixes per column (`EMA20|240`,
-   `RSI|60`) in `select` and/or `where`, or per-TF queries. Today every "TF" query
-   actually returns 1D data.
-5. `where2` can now do cross-TF filters in ONE query — the client-side intersect in
-   `discover_multi_tf()` can be simplified if desired.
+1. ~~`SNAPSHOT_COLUMNS` + `FILTER_MAP` stoch filters use `STOCH.K/STOCH.D` (dead)~~ →
+   now `Stoch.K/Stoch.D`, and `BB.middle` → `BB.basis`. Local backtest twin frames
+   (`filter_sweep_engine.py`, `external_backtest.py`) were renamed in lockstep because
+   `filter_sweep_engine` feeds them into `specialist.evaluate_filters_local` — the
+   shared FILTER_MAP requires identical names on both sides.
+2. ~~`set_property('interval', ...)` — no-op upstream~~ → removed from `build_query()`
+   and `snapshot_engine`; timeframes now go into per-column pipe suffixes:
+   `_TF_SUFFIX` (`4h`→`|240`, …) + `_TF_AWARE_PREFIXES` whitelist (EMA/SMA/RSI/MACD./
+   BB./Stoch./CCI/ADX/ATR/close/volume/VWAP/relative_volume_10d_calc — all
+   probe-verified). `compile_filters()` suffixes each rule by **its own** `timeframe`
+   (fundamentals never suffixed); `build_query()` suffixes the select list by the
+   config's primary TF; `discover()` strips suffixes back to base names
+   (`EMA20|240`→`EMA20`) for downstream consumers. `price_near_ema` wraps its
+   EMA in `col()` so `below_pct()` also gets the suffix (raw string column args
+   bypass the factory).
+   Bonus fix: single-filter configs used to emit `filter2: "greater"` (`where2` needs
+   And/Or) — now always And-wrapped.
+3. Still true: snapshot selects (`price`, `ipo_date`, `institutional_ownership`,
+   `short_float`, `float_shares`, `OBV`, `supertrend*`) are all-null — harmless, but
+   don't gate on them.
+4. Still open by design: `relative_strength_rank` is dead upstream — `rs_rank_min/max`
+   need a product decision (rewire to local `Perf.*`-based RS, or drop). And
+   `discover_multi_tf()` keeps per-TF queries + client-side intersect; one-query
+   cross-TF filters are now possible if we choose to collapse it (§10 cookbook #3).
 
 ## 10. Cookbook
 

@@ -93,7 +93,7 @@ def _compute_indicators_for_snapshot(df: pd.DataFrame) -> pd.DataFrame:
         bb = ta.bbands(close, length=20, std=2)
         if bb is not None:
             result.loc[mask, 'BB.upper'] = bb.iloc[:, 0]  # Upper band
-            result.loc[mask, 'BB.middle'] = bb.iloc[:, 1]  # Middle band
+            result.loc[mask, 'BB.basis'] = bb.iloc[:, 1]  # Basis (middle) band
             result.loc[mask, 'BB.lower'] = bb.iloc[:, 2]  # Lower band
         
         # VWAP (Volume Weighted Average Price)
@@ -110,8 +110,8 @@ def _compute_indicators_for_snapshot(df: pd.DataFrame) -> pd.DataFrame:
         # Stochastic
         stoch = ta.stoch(high, low, close, k=14, d=3)
         if stoch is not None:
-            result.loc[mask, 'STOCH.K'] = stoch.iloc[:, 0]
-            result.loc[mask, 'STOCH.D'] = stoch.iloc[:, 1]
+            result.loc[mask, 'Stoch.K'] = stoch.iloc[:, 0]
+            result.loc[mask, 'Stoch.D'] = stoch.iloc[:, 1]
         
         # CCI
         result.loc[mask, 'CCI20'] = ta.cci(high, low, close, length=20)
