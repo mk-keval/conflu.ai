@@ -1,5 +1,14 @@
 # D-61: Elite Template Deployment — Filter Sweep Backtest Results → Screener Integration
 
+> **⚠️ SUPERSEDED (2026-10-19):** All WR/PF numbers in this document come from the
+> D-61 engine, which had a 4h-timeframe blind spot, silently skipped unavailable
+> filters, and used look-ahead/collapsed exits. A corrected re-validation found the
+> numbers were inflated by an order of magnitude (PF 3–52 → largely 1.2–1.9).
+> **Use `docs/backtests/VALIDATION_REPORT.md` + `docs/backtests/validation_20261019_191610.json`
+> instead.** The deployment *changes* below (template selection, regime map) are still
+> the operative configuration; only the supporting statistics are void.
+> A weight review against the new numbers is pending (user decision).
+
 **Date**: 2026-09-26
 **Status**: Implemented
 **Branch**: `fix/technical-tab-empty`

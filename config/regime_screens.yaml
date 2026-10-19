@@ -11,6 +11,15 @@
 #
 # UPDATED: Using elite templates validated in D-61 (>55% WR, >1.5 PF)
 # Backtest: 21 templates × 10 symbols × 730 days (2023-2024)
+#
+# CAVEAT (2026-10-19): The D-61 inline WR/PF stats below are SUPERSEDED.
+# A full re-validation on a corrected engine (per-rule timeframes, no
+# look-ahead, ATR exits) is in docs/backtests/VALIDATION_REPORT.md +
+# docs/backtests/validation_20261019_191610.json. Weights here have NOT
+# been re-tuned to the new numbers yet — a weight review is pending
+# user decision (see report § 4: bull-flag-continuation is the weakest
+# deployed template; quality-trend-fundamentals / high-conviction-stack
+# are stronger non-deployed candidates).
 
 version: 2
 
