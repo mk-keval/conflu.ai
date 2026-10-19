@@ -701,8 +701,10 @@ class ExternalBacktestEngine:
         pending_signal_idx: Optional[int] = None
         units = 0.0
         entry_idx = -1
+        entry_signal_idx = -1
         entry_raw = 0.0
         entry_fill = 0.0
+        entry_atr = 0.0
         stop_price = 0.0
         target_price = 0.0
 
@@ -752,9 +754,15 @@ class ExternalBacktestEngine:
                         {
                             "trade_id": len(trades),
                             "entry_date": _date(entry_idx),
+                            "signal_date": _date(entry_signal_idx),
                             "exit_date": _date(i),
+                            "direction": "long" if direction == 1 else "short",
                             "entry_price": float(entry_raw),
                             "exit_price": float(exit_raw),
+                            "stop_price": float(stop_price),
+                            "target_price": float(target_price),
+                            "atr": float(entry_atr),
+                            "risk_per_share": float(abs(entry_raw - stop_price)),
                             "exit_reason": exit_reason,
                             "units": float(units),
                             "pnl": float(pnl),
@@ -768,6 +776,8 @@ class ExternalBacktestEngine:
                     in_position = False
                     units = 0.0
                     entry_idx = -1
+                    entry_signal_idx = -1
+                    entry_atr = 0.0
 
             # 2) Execute a pending entry at this bar's open
             if not in_position and pending_signal_idx is not None:
@@ -782,8 +792,10 @@ class ExternalBacktestEngine:
                     if cost <= cash:
                         units = entry_units
                         entry_idx = i
+                        entry_signal_idx = sig
                         entry_raw = entry_price_raw
                         entry_fill = fill
+                        entry_atr = float(a)
                         stop_price = entry_raw - direction * config.stop_atr_mult * a
                         target_price = entry_raw + direction * config.target_atr_mult * a
                         cash -= direction * units * entry_fill

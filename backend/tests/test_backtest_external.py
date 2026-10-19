@@ -90,6 +90,49 @@ class TestSimulationSemantics:
         assert result.exit_reason_counts == {"time": 1}
         assert result.time_in_market_pct > 0
 
+    def test_trade_rows_expose_levels_and_signal_date(self):
+        """Journal-facing fields: signal date, stop/target levels, ATR, direction."""
+        df = _frame([100.0] * 12)
+        df["ATR"] = 1.0
+        idx = df.index
+        entries = pd.Series(False, index=idx)
+        entries.iloc[4] = True
+        size = _size(None, idx, 4, 100.0)
+
+        config = BacktestConfig(
+            symbol="TEST", start_date="2024-01-01", end_date="2024-01-12",
+            fees_bps=0, slippage_bps=0, max_hold_bars=3,
+        )
+        result = _engine()._run_simulation(df, entries, size, config)
+
+        trade = result.trades[0]
+        assert trade["signal_date"] == str(idx[4].date())  # signal bar
+        assert trade["entry_date"] == str(idx[5].date())  # next bar
+        assert trade["stop_price"] == pytest.approx(98.0)
+        assert trade["target_price"] == pytest.approx(103.0)
+        assert trade["atr"] == pytest.approx(1.0)
+        assert trade["risk_per_share"] == pytest.approx(2.0)
+        assert trade["direction"] == "long"
+
+    def test_short_trade_rows_report_short_direction(self):
+        df = _frame([100.0] * 10)
+        df["ATR"] = 1.0
+        idx = df.index
+        entries = pd.Series(False, index=idx)
+        entries.iloc[2] = True
+        size = _size(None, idx, 2, 100.0)
+
+        config = BacktestConfig(
+            symbol="TEST", start_date="2024-01-01", end_date="2024-01-10",
+            fees_bps=0, slippage_bps=0, direction="short", max_hold_bars=2,
+        )
+        result = _engine()._run_simulation(df, entries, size, config)
+
+        trade = result.trades[0]
+        assert trade["direction"] == "short"
+        assert trade["stop_price"] == pytest.approx(102.0)
+        assert trade["target_price"] == pytest.approx(97.0)
+
     def test_stop_wins_when_both_stop_and_target_touched_same_bar(self):
         highs = [100.5, 100.5, 104.0, 100.5, 100.5]
         lows = [99.5, 99.5, 97.0, 99.5, 99.5]

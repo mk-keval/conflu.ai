@@ -28,6 +28,7 @@ import backend.app.domain.ticker_analysis  # noqa: F401
 from backend.app.domain.workflow import exits as exits_mod
 from backend.app.domain.workflow import gate as gate_mod
 from backend.app.domain.workflow import journal as journal_mod
+from backend.app.domain.workflow import replay_store
 from backend.app.domain.workflow import sizing as sizing_mod
 from backend.app.domain.workflow import verification as verification_mod
 from backend.app.domain.ticker_analysis.technical import _fetch_daily_ohlcv
@@ -1103,3 +1104,35 @@ async def get_rolling_expectancy(
         data=RollingExpectancyResponse(**result),
         meta=MetaInfo(),
     )
+
+
+# ── Replay ledger (D-71) ────────────────────────────────────────────────────
+
+
+@router.get(
+    "/replay",
+    summary="Latest two-month replay ledger",
+    description=(
+        "Simulated screen-template replay stored in replay_runs / replay_trades. "
+        "Deliberately separate from the forward journal: replay rows never count "
+        "toward expectancy or the kill rule. Returns {run, rows, summary}; "
+        "run is null until `python run_paper_replay.py` has been run."
+    ),
+)
+async def get_replay() -> ApiResponse:
+    payload = replay_store.latest_run()
+    if payload is None:
+        return ApiResponse(
+            data={"run": None, "rows": [], "summary": None}, meta=MetaInfo()
+        )
+    return ApiResponse(data=payload, meta=MetaInfo())
+
+
+@router.delete(
+    "/replay",
+    summary="Clear the replay ledger",
+    description="Deletes replay_runs / replay_trades rows. The forward journal is untouched.",
+)
+async def delete_replay() -> ApiResponse:
+    removed = replay_store.clear()
+    return ApiResponse(data={"removed": removed}, meta=MetaInfo())
