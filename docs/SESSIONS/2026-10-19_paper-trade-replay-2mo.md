@@ -161,8 +161,8 @@ dollar P&L is net of 10 bps fees + 5 bps slippage/side.**
 | **choppy = mean-reversion only** | **332** | **39.8%** | **−0.015** | **0.97** | **−$26,427** | **−$80** | **−0.038** |
 
 - **The full menu swap halves the per-trade chop bleed** (choppy gross −0.322R →
-  −0.168R) **but takes 67% more trades**, so the dollar loss is unchanged (−$100.1k).
-  A less-bad average is not enough — exposure matters.
+  −0.168R) **but takes 67% more choppy trades** (405 vs 242), so the dollar loss is
+  unchanged (−$100.1k). A less-bad average is not enough — exposure matters.
 - **Only one screen survives chop**: mean-reversion is ≈ flat in isolation
   (−0.038R, 203 trades, WR 40.4%). The same screen showed +0.118R when it only got the
   dedupe leftovers — the "edge" is fragile (in-sample, subset-dependent).

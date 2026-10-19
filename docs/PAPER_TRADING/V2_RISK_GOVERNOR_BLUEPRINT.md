@@ -29,7 +29,7 @@ behavior never drift apart again.
 What-if runs on the same 2-month window (`run_replay_experiments.py`):
 
 - baseline: 371 trades, gross −0.203R, net −$99.8k, 30.7% net win rate (needs 44.6%).
-- choppy → full ranging menu: −0.123R gross but −$100k net (67% more trades).
+- choppy → full ranging menu: −0.123R gross but −$100k net (67% more choppy trades).
 - choppy → mean-reversion only: −0.015R gross, −$26.4k net, 39.8% net win rate — the
   best in-sample result, still below the ≈44% break-even.
 - wider target (4.5 ATR): net avg win +1.21R; neutral net +0.031R — helps trend/neutral,

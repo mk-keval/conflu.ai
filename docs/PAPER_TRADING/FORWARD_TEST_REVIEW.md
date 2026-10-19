@@ -29,9 +29,9 @@ exactly. R-multiples are gross; dollar P&L is net of costs.
 What this says (hypotheses, not conclusions):
 
 - **Menu routing alone is not the fix.** The full ranging menu halves per-trade chop
-  bleed but takes 67% more trades; total $ loss is unchanged. The single-screen variant
-  (choppy → mean-reversion only) is ≈ flat gross (−0.015R, −$26.4k net) but still below
-  the ≈44% net break-even win rate.
+  bleed but takes 67% more choppy trades (405 vs 242); total $ loss is unchanged. The
+  single-screen variant (choppy → mean-reversion only) is ≈ flat gross (−0.015R,
+  −$26.4k net) but still below the ≈44% net break-even win rate.
 - **Screen edges are regime-specific.** statistical-mean-reversion was positive overall
   (+0.162R) because of neutral days, but −0.298R on choppy days. Mean-reversion is the
   only chop screen that is ≈ flat; low-vol-setup is ≈ −0.37R everywhere it traded.
