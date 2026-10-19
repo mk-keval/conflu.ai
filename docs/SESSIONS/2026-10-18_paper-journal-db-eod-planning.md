@@ -77,3 +77,29 @@ Verification: full backend suite **841 passed**; the only failures are **pre-exi
 - **P2** — correctness rails: ET market dates, upsert end-to-end, same-day exit guard, `entry_timing` excursions, run logging (`enforce`/`sync-exits`/`run-close` + `GET /workflow/runs`), `GET /workflow/journal/rejections`.
 - P3 — `POST /workflow/paper-trades/run-close` + `--run-close` CLI.
 - P4 — UI hydration fix, Journal tab, one-go button, retire the void writer.
+
+---
+
+## P2 implemented (same session, continued)
+
+**Slice P2 — correctness rails — is done.** ET market dates, same-day guard, EOD excursion exclusion, run logging, and the read endpoints the UI needs.
+
+What landed:
+
+1. **ET market dates (2.1)** — `journal_store.market_today()` (`zoneinfo.ZoneInfo("America/New_York")`; `tzdata` verified available on Windows) replaces every UTC stamp used as a market date: 4 sites in the router (`date_seen` ×3, `date_entered`), 6 in the script, and `record_run`'s default `run_date`. `ran_at`/`created_at`/`updated_at` stay UTC ISO.
+2. **Upsert end-to-end (2.2)** — enforce now reports earlier same-day acceptances not re-accepted this run ("N earlier acceptance(s) kept") in the response message; a re-run never deletes rows.
+3. **Same-day guard (2.3)** — sync-exits (router + script) skips rows with `date_entered >= today` with reason "entered today — exits start next session" (skip, not error). This is what makes the P3 one-click enforce→sync safe: a position logged minutes earlier cannot be "closed" using the entry day's pre-fill price action.
+4. **EOD excursion exclusion (2.4)** — `infer_exit(..., exclude_entry_bar_excursions=False)` new flag; sync passes `True` for `entry_timing == "eod"` (the store already stamps `'eod'` on insert). Bar 0's high/low predate the close fill → excluded from MFE/MAE (bug R4).
+5. **Run logging (2.5)** — enforce + sync-exits (router and script) append `workflow_runs` rows with counts, status (`ok`/`partial`), message, and trimmed per-symbol `details_json`. On enforce, `skipped` = earlier same-day acceptances kept.
+6. **New endpoints (2.6)** — `GET /workflow/runs?limit=14`, `GET /workflow/journal/rejections?limit=200`, plus `GET /workflow/journal/export` (CSV download, unblocks the P4 export button).
+
+Tests: **+10** — `test_exits.py` (entry-bar exclusion, fill-bar excursions kept, entry-night empty), `test_journal_db.py` (ET date + run-date default), `test_paper_trade_from_brief.py` (guard + run row; proves no OHLCV fetch for today's rows), new `test_workflow_endpoints.py` (guard + run log, empty-book run log, enforce kept-rows + run log via stubbed brief/engine, runs/rejections/export endpoints).
+
+Verification: full backend suite **851 passed** (baseline 841 + 10), same 4 pre-existing `test_regime_selector` failures only; flaky e2e passed.
+
+**Commit note:** same surgical staging as P1 — `workflow.py`'s import hunk mixes my changes with the user's uncommitted `import asyncio`; the two `asyncio.wait_for` timeout hunks are also the user's and stay unstaged. The script (`backend/scripts/`) remains gitignored/untracked.
+
+## Next steps
+
+- P3 — `POST /workflow/paper-trades/run-close` (single run row; nested calls `log_run=False`) + `--run-close` CLI.
+- P4 — UI hydration fix, Journal tab (runs strip / trades / rejections / export), one-go button, retire the void writer.

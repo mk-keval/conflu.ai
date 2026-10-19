@@ -624,7 +624,7 @@ Get recent in-app alerts.
 
 ## Workflow API (`/api/v1/workflow`)
 
-Paper-trade journal and gate enforcement endpoints. Single source of truth: CSV journal in `docs/paper_trades/`.
+Paper-trade journal and gate enforcement endpoints. Single source of truth: the SQLite journal at `data/paper_trades.db` (D-68; `CONFLU_CORE_PAPER_JOURNAL_PATH`). CSV in `docs/paper_trades/` is an import/export artifact only. Market dates (`date_entered`, `date_seen`, `run_date`) are **ET market dates**; `ran_at`/`created_at` are UTC ISO.
 
 ### GET `/journal`
 Read all journal rows (open + closed).
@@ -685,7 +685,7 @@ Available capital for new positions.
 ### POST `/paper-trades/enforce`
 **Touchpoint A** — Run gate enforcement and write paper trades.
 
-Fetches morning brief, evaluates candidates through 7-step gate, writes accepted trades to today's CSV.
+Fetches morning brief, evaluates candidates through 7-step gate, upserts accepted trades into the journal DB (entry-only; a same-day re-run updates entry fields and never touches exit columns). Rejections are persisted to the rejection log. Every run appends a `workflow_runs` row (`mode="enforce"`).
 
 **Request Body:**
 ```json
@@ -705,7 +705,7 @@ Fetches morning brief, evaluates candidates through 7-step gate, writes accepted
     "rejected": [
       {"symbol": "TSLA", "gate_verdict": "FAIL", "rejected": true, "failed_step": "Risk/Reward", "reason": "R/R floor not met: 1.8 < 2.5"}
     ],
-    "message": "2 accepted, 1 rejected — written to 2026-09-28.csv"
+    "message": "1 accepted, 1 rejected — journal updated (1 new, 0 updated); 1 earlier acceptance(s) kept"
   }
 }
 ```
@@ -713,7 +713,7 @@ Fetches morning brief, evaluates candidates through 7-step gate, writes accepted
 ### POST `/paper-trades/sync-exits`
 **Touchpoint B** — Sync exits from OHLCV (infer + apply).
 
-Fetches daily OHLCV for open journal rows, infers exit (stop/target/time), writes exit data when `apply=true`.
+Fetches daily OHLCV for open journal rows, infers exit (stop/target/time), writes exit data when `apply=true`. Rows entered today are skipped (`"entered today — exits start next session"`, not an error); for EOD entries the entry-day bar is excluded from MFE/MAE excursions. Every run appends a `workflow_runs` row (`mode="sync_exits"`).
 
 **Request Body:**
 ```json
@@ -744,6 +744,47 @@ Fetches daily OHLCV for open journal rows, infers exit (stop/target/time), write
   }
 }
 ```
+
+### GET `/journal/rejections`
+The rejection log — why candidates did not become trades (gate/sizing failures), most-recent first.
+
+**Query Parameters:**
+- `limit` (default: 200, max 1000) — Max rows to return
+
+**Response:** `ApiResponse<JournalRejectionsResponse>`
+```json
+{
+  "data": {
+    "items": [
+      {"id": 12, "date_seen": "2026-10-16", "symbol": "TSLA", "sector": "Consumer Cyclical", "action": "WATCH", "conviction": 4, "failed_step": "Conviction", "gate_verdict": "FAIL", "reason": "below conviction floor", "notes": null, "created_at": "2026-10-16T20:15:02+00:00"}
+    ],
+    "count": 1
+  }
+}
+```
+
+### GET `/runs`
+Recent workflow runs — feeds the UI runs strip (green run / gray missed / red error).
+
+**Query Parameters:**
+- `limit` (default: 14, max 200) — Max rows to return
+
+**Response:** `ApiResponse<WorkflowRunsResponse>`
+```json
+{
+  "data": {
+    "items": [
+      {"id": 7, "run_date": "2026-10-16", "ran_at": "2026-10-16T21:02:11+00:00", "mode": "sync_exits", "apply": true,
+       "accepted": null, "rejected": null, "updated": 2, "skipped": 1, "status": "ok",
+       "message": "2 exit(s) applied (1 skipped)", "details": {"applied": ["AAPL", "MSFT"], "skipped": [{"symbol": "NVDA", "reason": "exit not reached"}]}}
+    ],
+    "count": 1
+  }
+}
+```
+
+### GET `/journal/export`
+Canonical CSV export of the journal DB (chronological; 29 columns + `template,regime,entry_timing`). Returns `text/csv` with `Content-Disposition: attachment` — the Excel-friendly output; the DB remains the store.
 
 ### GET `/expectancy`
 Expectancy metrics per template/regime combination.
