@@ -1,91 +1,110 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "model": "omniroute/nvidia/nemotron-3-super-120b-a12b:free",
-  "small_model": "omniroute/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-  "agent": {
+  "agents": {
     "plan": {
       "model": "omniroute/nvidia/nemotron-3-super-120b-a12b:free"
     },
     "explore": {
       "model": "omniroute/poolside/laguna-s-2.1:free"
+    },
+    "title": {
+      "model": "omniroute/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
     }
   },
-  "provider": {
+  "providers": {
     "omniroute": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "OmniRoute",
-      "options": {
+      "package": "aisdk:@ai-sdk/openai-compatible",
+      "settings": {
         "baseURL": "http://localhost:20128/v1",
         "apiKey": "sk-0b3d8bde8d7814a0-4a1c0f-3266aa0d"
       },
       "models": {
         "nvidia/nemotron-3-super-120b-a12b:free": {
           "name": "OR-Nemotron 3 Super 120B Free",
-          "id": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
-          "tool_call": true,
-          "reasoning": true,
+          "modelID": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+          "capabilities": {
+            "tools": true,
+            "input": ["text"],
+            "output": ["text"]
+          },
           "limit": { "context": 262144, "output": 235929 }
         },
         "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": {
           "name": "OR-Nemotron Nano Omni Free",
-          "id": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-          "tool_call": true,
-          "reasoning": true,
-          "attachment": true,
+          "modelID": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+          "capabilities": {
+            "tools": true,
+            "input": ["text", "image"],
+            "output": ["text"]
+          },
           "limit": { "context": 256000, "output": 65536 }
         },
         "poolside/laguna-s-2.1:free": {
           "name": "OR-Poolside Laguna S 2.1 Free",
-          "id": "openrouter/poolside/laguna-s-2.1:free",
-          "tool_call": true,
-          "reasoning": true,
+          "modelID": "openrouter/poolside/laguna-s-2.1:free",
+          "capabilities": {
+            "tools": true,
+            "input": ["text"],
+            "output": ["text"]
+          },
           "limit": { "context": 262144, "output": 32768 }
         },
         "openrouter/free": {
           "name": "OR-OpenRouter Free",
-          "id": "openrouter/openrouter/free",
-          "tool_call": true,
-          "reasoning": true,
+          "modelID": "openrouter/openrouter/free",
+          "capabilities": {
+            "tools": true,
+            "input": ["text"],
+            "output": ["text"]
+          },
           "limit": { "context": 200000, "output": 8000 }
         }
       }
     }
   },
-  "lsp": true,
-  "plugin": [
-    "superpowers@latest",
-    "oh-my-openagent@latest",
-    "./plugins/lifecycle-hooks.js",
-    "./plugins/claude-mem.js"
-  ],
+  "plugins": [],
   "mcp": {
-    "gitnexus": {
-      "type": "local",
-      "command": [
-        "C:\\Users\\keval\\AppData\\Roaming\\npm\\gitnexus.cmd",
-        "mcp"
-      ]
-    },
-    "playwright": {
-      "type": "local",
-      "command": [
-        "npx",
-        "@playwright/mcp@latest",
-        "--output-dir",
-        ".playwright-output",
-        "--output-mode",
-        "file"
-      ],
-      "enabled": true
-    },
-    "mcp-sequentialthinking-tools": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-sequentialthinking-tools"
-      ],
-      "enabled": true
+    "servers": {
+      "gitnexus": {
+        "type": "local",
+        "command": [
+          "C:\\Users\\keval\\AppData\\Roaming\\npm\\gitnexus.cmd",
+          "mcp"
+        ],
+        "disabled": false,
+        "timeout": {
+          "catalog": 30000,
+          "execution": 30000
+        }
+      },
+      "playwright": {
+        "type": "local",
+        "command": [
+          "npx",
+          "@playwright/mcp@latest",
+          "--output-dir",
+          ".playwright-output"
+        ],
+        "disabled": false,
+        "timeout": {
+          "catalog": 30000,
+          "execution": 30000
+        }
+      },
+      "mcp-sequentialthinking-tools": {
+        "type": "local",
+        "command": [
+          "npx",
+          "-y",
+          "mcp-sequentialthinking-tools"
+        ],
+        "disabled": false,
+        "timeout": {
+          "catalog": 30000,
+          "execution": 30000
+        }
+      }
     }
   }
 }

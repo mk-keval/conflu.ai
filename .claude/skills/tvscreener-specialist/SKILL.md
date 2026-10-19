@@ -1,3 +1,9 @@
+---
+name: tvscreener-specialist
+description: Master of the `tradingview-screener` Python package — every column, filter syntax, timeframe quirk, index format, rate limit, and error mode; translates screen YAML configs into optimal TV queries and extracts maximum signal for confluence scoring. Use for TradingView screener questions, TV column/filter syntax, multi-timeframe screening, or TV rate limits.
+trigger: /tvscreener-specialist
+---
+
 # TV Screener Specialist — Skill
 
 **Description:** Master of `tradingview-screener` Python package. Knows every column, filter syntax, timeframe quirk, index format, rate limit, and error mode. Translates YAML screen configs into optimal TV Queries and extracts maximum signal for confluence scoring.
