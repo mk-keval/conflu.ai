@@ -3649,6 +3649,48 @@
           }
         }
       }
+    },
+    "/api/v1/workflow/replay": {
+      "get": {
+        "tags": [
+          "workflow"
+        ],
+        "summary": "Latest two-month replay ledger",
+        "description": "Simulated screen-template replay stored in replay_runs / replay_trades. Deliberately separate from the forward journal: replay rows never count toward expectancy or the kill rule. Returns {run, rows, summary}; run is null until `python run_paper_replay.py` has been run.",
+        "operationId": "get_replay_api_v1_workflow_replay_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "workflow"
+        ],
+        "summary": "Clear the replay ledger",
+        "description": "Deletes replay_runs / replay_trades rows. The forward journal is untouched.",
+        "operationId": "delete_replay_api_v1_workflow_replay_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4969,6 +5011,27 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Signal Params"
+          },
+          "stop_atr_mult": {
+            "type": "number",
+            "title": "Stop Atr Mult",
+            "default": 2.0
+          },
+          "target_atr_mult": {
+            "type": "number",
+            "title": "Target Atr Mult",
+            "default": 3.0
+          },
+          "max_hold_bars": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Hold Bars"
           }
         },
         "type": "object",

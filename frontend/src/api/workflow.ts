@@ -150,6 +150,90 @@ export interface RunCloseResult {
   message: string;
 }
 
+// ── Replay ledger (D-71): simulated screen replay, separate from the journal ──
+
+export interface ReplayTrade {
+  id: number;
+  run_id: number;
+  signal_date: string | null;
+  date_entered: string;
+  symbol: string;
+  template: string | null;
+  regime: string | null;
+  regime_key: string | null;
+  screen_rank: number | null;
+  screen_weight: number | null;
+  direction: string | null;
+  entry_price: number | null;
+  stop_loss: number | null;
+  target_1: number | null;
+  exit_date: string | null;
+  exit_price: number | null;
+  exit_reason: string | null;
+  realized_r: number | null;
+  pnl_usd: number | null;
+  risk_pct: number | null;
+  position_size_pct: number | null;
+  shares: number | null;
+  account_value: number | null;
+  hold_bars: number | null;
+  rvol: number | null;
+  also_signaled_by: string | null;
+  notes: string | null;
+}
+
+export interface ReplayStats {
+  trades: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
+  expectancy_r: number;
+  avg_win_r: number;
+  avg_loss_r: number;
+  profit_factor_r: number | null;
+  pnl_usd: number;
+  avg_hold_bars: number;
+}
+
+export interface ReplayRun {
+  id: number;
+  generated_at: string;
+  window_start: string;
+  window_end: string;
+  universe_count: number;
+  templates_count: number;
+  params: Record<string, number>;
+  summary: ReplayStats & {
+    templates?: Record<string, ReplayStats>;
+    regimes?: Record<string, ReplayStats>;
+    exit_reasons?: Record<string, number>;
+    total_r?: number;
+  };
+  metadata: {
+    counts?: {
+      raw_signals?: number;
+      after_regime_gate?: number;
+      after_dedupe?: number;
+      rows?: number;
+    };
+    regime_days?: Record<string, number>;
+    templates?: string[];
+    caveats?: string[];
+    [key: string]: unknown;
+  };
+}
+
+/** Latest replay payload; `run` is null until run_paper_replay.py has run. */
+export async function getReplayJournal(): Promise<{
+  run: ReplayRun | null;
+  rows: ReplayTrade[];
+  summary: ReplayStats | null;
+}> {
+  return apiGet<{ run: ReplayRun | null; rows: ReplayTrade[]; summary: ReplayStats | null }>(
+    '/api/v1/workflow/replay'
+  );
+}
+
 // ── API calls ──
 
 export async function analyzePortfolio(

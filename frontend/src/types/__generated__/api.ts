@@ -1586,6 +1586,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/workflow/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Latest two-month replay ledger
+         * @description Simulated screen-template replay stored in replay_runs / replay_trades. Deliberately separate from the forward journal: replay rows never count toward expectancy or the kill rule. Returns {run, rows, summary}; run is null until `python run_paper_replay.py` has been run.
+         */
+        get: operations["get_replay_api_v1_workflow_replay_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Clear the replay ledger
+         * @description Deletes replay_runs / replay_trades rows. The forward journal is untouched.
+         */
+        delete: operations["delete_replay_api_v1_workflow_replay_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2146,6 +2170,18 @@ export interface components {
             signal_params?: {
                 [key: string]: unknown;
             };
+            /**
+             * Stop Atr Mult
+             * @default 2
+             */
+            stop_atr_mult: number;
+            /**
+             * Target Atr Mult
+             * @default 3
+             */
+            target_atr_mult: number;
+            /** Max Hold Bars */
+            max_hold_bars?: number | null;
         };
         /** ExternalBacktestResponse */
         ExternalBacktestResponse: {
@@ -6006,6 +6042,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_replay_api_v1_workflow_replay_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    delete_replay_api_v1_workflow_replay_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
                 };
             };
         };

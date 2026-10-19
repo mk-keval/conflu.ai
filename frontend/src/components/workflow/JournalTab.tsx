@@ -18,6 +18,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   BookOpen,
   Download,
+  FlaskConical,
   Loader2,
   RefreshCw,
   XCircle,
@@ -26,10 +27,14 @@ import { cn } from '@/lib/cn';
 import {
   JOURNAL_EXPORT_URL,
   getJournalAll,
+  getReplayJournal,
   getRejections,
   getRuns,
   type JournalRejection,
   type JournalRow,
+  type ReplayRun,
+  type ReplayStats,
+  type ReplayTrade,
   type WorkflowRun,
 } from '@/api/workflow';
 import { todayKey } from './DailyRoutine';
@@ -145,7 +150,7 @@ function asNum(v: string | number | null | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function fmtPrice(v: string | null | undefined): string {
+function fmtPrice(v: string | number | null | undefined): string {
   const n = asNum(v);
   return n == null ? '—' : `$${n.toFixed(2)}`;
 }
@@ -155,10 +160,309 @@ function fmtR(v: string | null | undefined): string {
   return n == null ? '—' : `${n >= 0 ? '+' : ''}${n.toFixed(2)}R`;
 }
 
-function rClass(v: string | null | undefined): string {
+function rClass(v: string | number | null | undefined): string {
   const n = asNum(v);
   if (n == null) return 'text-text-muted';
   return n >= 0 ? 'text-green-500' : 'text-red-400';
+}
+
+// ── Replay helpers (D-71) ──
+
+export type ReplayFilter = 'all' | 'wins' | 'losses';
+
+export const REPLAY_FILTERS: Array<{ id: ReplayFilter; label: string }> = [
+  { id: 'all', label: 'All' },
+  { id: 'wins', label: 'Winners' },
+  { id: 'losses', label: 'Losers' },
+];
+
+/** Replay rows are already closed (the engine exits every trade). */
+export function filterReplayRows(
+  rows: ReplayTrade[],
+  filter: ReplayFilter
+): ReplayTrade[] {
+  if (filter === 'wins') return rows.filter((r) => (r.pnl_usd ?? 0) > 0);
+  if (filter === 'losses') return rows.filter((r) => (r.pnl_usd ?? 0) <= 0);
+  return rows;
+}
+
+function fmtMoney(v: number | string | null | undefined): string {
+  const n = asNum(v);
+  if (n == null) return '—';
+  const sign = n >= 0 ? '+' : '−';
+  return `${sign}$${Math.abs(n).toLocaleString('en-US', {
+    maximumFractionDigits: 0,
+  })}`;
+}
+
+function fmtPct(v: number | null | undefined): string {
+  return v == null ? '—' : `${(v * 100).toFixed(1)}%`;
+}
+
+function fmtPf(v: number | null | undefined): string {
+  return v == null ? '—' : v.toFixed(2);
+}
+
+function Stat({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: string;
+  className?: string;
+}) {
+  return (
+    <div className="rounded-lg border border-border/40 bg-surface/10 px-3 py-1.5">
+      <div className="text-[9px] uppercase tracking-wider text-text-muted">
+        {label}
+      </div>
+      <div className={cn('font-mono text-sm', className)}>{value}</div>
+    </div>
+  );
+}
+
+interface ReplayPanelProps {
+  run: ReplayRun | null;
+  rows: ReplayTrade[];
+  summary: ReplayStats | null;
+  isLoading: boolean;
+  isError: boolean;
+  isFetching: boolean;
+  filter: ReplayFilter;
+  onFilter: (f: ReplayFilter) => void;
+  onRefresh: () => void;
+}
+
+function ReplayPanel({
+  run,
+  rows,
+  summary,
+  isLoading,
+  isError,
+  isFetching,
+  filter,
+  onFilter,
+  onRefresh,
+}: ReplayPanelProps) {
+  const visible = useMemo(() => filterReplayRows(rows, filter), [rows, filter]);
+  const counts: Record<ReplayFilter, number> = useMemo(
+    () => ({
+      all: rows.length,
+      wins: filterReplayRows(rows, 'wins').length,
+      losses: filterReplayRows(rows, 'losses').length,
+    }),
+    [rows]
+  );
+  const shown = visible.slice(0, 750);
+
+  return (
+    <section className="rounded-xl border border-border/50 bg-surface/20 p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+          <FlaskConical className="h-4 w-4 text-accent" />
+          Replay — deployed screens over the last{' '}
+          {run?.params?.window_days ?? 60} days
+        </h2>
+        <button
+          onClick={onRefresh}
+          disabled={isFetching}
+          className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs text-text-muted transition-colors hover:text-text-primary disabled:opacity-40"
+        >
+          {isFetching ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3 w-3" />
+          )}
+          Refresh
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-accent" />
+        </div>
+      ) : isError ? (
+        <p className="py-4 text-center text-xs text-red-400">
+          Replay unavailable — is the backend running?
+        </p>
+      ) : !run || !summary ? (
+        <div className="py-4 text-center text-xs text-text-muted">
+          <p>No replay generated yet.</p>
+          <p className="mt-1">
+            From the project root:{' '}
+            <code className="rounded bg-surface/40 px-1 py-0.5 font-mono text-[11px] text-text-primary">
+              python run_paper_replay.py
+            </code>{' '}
+            — then refresh.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="mb-3 rounded-lg border border-yellow-400/30 bg-yellow-400/5 px-3 py-2 text-[11px] leading-relaxed text-yellow-200/90">
+            <span className="font-semibold">SIMULATED REPLAY</span> —{' '}
+            {run.window_start} → {run.window_end} · {run.templates_count} deployed
+            screens × {run.universe_count} symbols · entries at next open, ATR
+            stop/target exits, {String(run.params?.max_hold_bars ?? 15)}-bar cap.
+            TradingView&apos;s screener cannot be rewound, so this replays the
+            templates (not the exact live brief) and never counts toward the
+            forward scorecard.
+          </div>
+
+          <div className="mb-3 flex flex-wrap gap-2">
+            <Stat label="Trades" value={String(summary.trades)} />
+            <Stat
+              label="Winners / Losers"
+              value={`${summary.wins} W · ${summary.losses} L`}
+            />
+            <Stat
+              label="Win rate"
+              value={fmtPct(summary.win_rate)}
+              className="text-text-primary"
+            />
+            <Stat
+              label="Expectancy"
+              value={`${summary.expectancy_r >= 0 ? '+' : ''}${summary.expectancy_r.toFixed(3)}R`}
+              className={summary.expectancy_r >= 0 ? 'text-green-500' : 'text-red-400'}
+            />
+            <Stat label="Profit factor" value={fmtPf(summary.profit_factor_r)} />
+            <Stat
+              label={`P&L @ ${String(run.params?.risk_pct ?? 1)}% risk`}
+              value={fmtMoney(summary.pnl_usd)}
+              className={summary.pnl_usd >= 0 ? 'text-green-500' : 'text-red-400'}
+            />
+          </div>
+          <p className="mb-3 text-[10px] text-text-muted">
+            avg win {summary.avg_win_r >= 0 ? '+' : ''}
+            {summary.avg_win_r.toFixed(2)}R · avg loss{' '}
+            {summary.avg_loss_r.toFixed(2)}R · avg hold{' '}
+            {summary.avg_hold_bars.toFixed(1)} bars ·{' '}
+            {String(
+              (run.metadata?.counts?.raw_signals ?? 0).toLocaleString('en-US')
+            )}{' '}
+            raw signals → {run.metadata?.counts?.after_regime_gate ?? 0}{' '}
+            regime-gated → {summary.trades} entries
+          </p>
+
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            {REPLAY_FILTERS.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => onFilter(f.id)}
+                className={cn(
+                  'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                  filter === f.id
+                    ? 'border-accent/30 bg-accent/10 text-accent'
+                    : 'border-border/40 text-text-muted hover:text-text-primary'
+                )}
+              >
+                {f.label}
+                <span className="ml-1 text-[10px] opacity-70">{counts[f.id]}</span>
+              </button>
+            ))}
+            <span className="ml-auto text-[10px] text-text-muted">
+              replay ledger: replay_trades · separate from the forward journal ·
+              dates are ET
+            </span>
+          </div>
+
+          {visible.length === 0 ? (
+            <p className="py-4 text-center text-xs text-text-muted">
+              No rows match this filter.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border/30">
+                    <th className={TH}>Date</th>
+                    <th className={TH}>Symbol</th>
+                    <th className={TH}>Screen</th>
+                    <th className={TH}>Regime</th>
+                    <th className={cn(TH, 'text-right')}>Entry</th>
+                    <th className={cn(TH, 'text-right')}>Stop</th>
+                    <th className={cn(TH, 'text-right')}>Target</th>
+                    <th className={TH}>Exit</th>
+                    <th className={cn(TH, 'text-right')}>R</th>
+                    <th className={cn(TH, 'text-right')}>P&L</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shown.map((r) => (
+                    <tr
+                      key={r.id}
+                      className="border-b border-border/20 hover:bg-surface/30"
+                    >
+                      <td className={cn(TD, 'font-mono text-text-muted')}>
+                        {r.signal_date ?? '—'} → {r.date_entered}
+                      </td>
+                      <td className={cn(TD, 'font-semibold text-text-primary')}>
+                        {r.symbol}
+                        {r.direction === 'short' && (
+                          <span className="ml-1.5 text-[10px] text-red-400">
+                            SHORT
+                          </span>
+                        )}
+                      </td>
+                      <td className={TD}>
+                        <span title={r.notes ?? undefined}>{r.template ?? '—'}</span>
+                        {r.screen_rank != null && (
+                          <span className="ml-1 text-[10px] text-text-muted">
+                            #{r.screen_rank}
+                          </span>
+                        )}
+                        {r.also_signaled_by && (
+                          <span
+                            className="ml-1 text-[10px] text-text-muted"
+                            title={`also signalled by: ${r.also_signaled_by}`}
+                          >
+                            +{r.also_signaled_by.split(',').length}
+                          </span>
+                        )}
+                      </td>
+                      <td className={cn(TD, 'text-text-muted')}>{r.regime ?? '—'}</td>
+                      <td className={cn(TD, 'text-right font-mono')}>
+                        {fmtPrice(r.entry_price)}
+                      </td>
+                      <td className={cn(TD, 'text-right font-mono')}>
+                        {fmtPrice(r.stop_loss)}
+                      </td>
+                      <td className={cn(TD, 'text-right font-mono text-text-muted')}>
+                        {fmtPrice(r.target_1)}
+                      </td>
+                      <td className={cn(TD, 'text-text-muted')}>
+                        {r.exit_date ?? '—'} · {r.exit_reason ?? '—'}
+                      </td>
+                      <td className={cn(TD, 'text-right font-mono', rClass(r.realized_r))}>
+                        {r.realized_r != null
+                          ? `${r.realized_r >= 0 ? '+' : ''}${r.realized_r.toFixed(2)}R`
+                          : '—'}
+                      </td>
+                      <td
+                        className={cn(
+                          TD,
+                          'text-right font-mono',
+                          rClass(r.pnl_usd)
+                        )}
+                      >
+                        {fmtMoney(r.pnl_usd)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {visible.length > shown.length && (
+                <p className="mt-2 text-center text-[10px] text-text-muted">
+                  showing {shown.length} of {visible.length} rows — use the
+                  filters or the JSON artifact for the full list
+                </p>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
 }
 
 const RUN_STATUS_CLASS: Record<RunsStripStatus, string> = {
@@ -188,6 +492,8 @@ const TD = 'px-2 py-1.5 text-xs whitespace-nowrap';
 export function JournalTab() {
   const today = useMemo(() => todayKey(), []);
   const [filter, setFilter] = useState<JournalFilter>('all');
+  const [mode, setMode] = useState<'live' | 'replay'>('live');
+  const [replayFilter, setReplayFilter] = useState<ReplayFilter>('all');
 
   const journalQuery = useQuery({
     queryKey: ['journal-all'],
@@ -202,6 +508,12 @@ export function JournalTab() {
   const rejectionsQuery = useQuery({
     queryKey: ['journal-rejections'],
     queryFn: () => getRejections(200),
+    staleTime: 60_000,
+  });
+  const replayQuery = useQuery({
+    queryKey: ['journal-replay'],
+    queryFn: getReplayJournal,
+    enabled: mode === 'replay',
     staleTime: 60_000,
   });
 
@@ -220,6 +532,7 @@ export function JournalTab() {
     void journalQuery.refetch();
     void runsQuery.refetch();
     void rejectionsQuery.refetch();
+    void replayQuery.refetch();
   };
 
   const counts: Record<JournalFilter, number> = useMemo(
@@ -232,8 +545,52 @@ export function JournalTab() {
     [rows, today]
   );
 
+  const modeToggle = (
+    <div className="flex w-fit items-center gap-1 rounded-lg border border-border/50 bg-surface/20 p-1">
+      {(
+        [
+          { id: 'live', label: 'Live journal' },
+          { id: 'replay', label: '2-month replay' },
+        ] as const
+      ).map((m) => (
+        <button
+          key={m.id}
+          onClick={() => setMode(m.id)}
+          className={cn(
+            'rounded-md px-3 py-1 text-xs font-medium transition-colors',
+            mode === m.id
+              ? 'bg-accent/10 text-accent'
+              : 'text-text-muted hover:text-text-primary'
+          )}
+        >
+          {m.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (mode === 'replay') {
+    return (
+      <>
+        {modeToggle}
+        <ReplayPanel
+          run={replayQuery.data?.run ?? null}
+          rows={replayQuery.data?.rows ?? []}
+          summary={replayQuery.data?.summary ?? null}
+          isLoading={replayQuery.isLoading}
+          isError={replayQuery.isError}
+          isFetching={replayQuery.isFetching}
+          filter={replayFilter}
+          onFilter={setReplayFilter}
+          onRefresh={() => void replayQuery.refetch()}
+        />
+      </>
+    );
+  }
+
   return (
     <>
+      {modeToggle}
       {/* ── Runs strip ── */}
       <section className="rounded-xl border border-border/50 bg-surface/20 p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">

@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import type { JournalRow, WorkflowRun } from '@/api/workflow';
+import type { JournalRow, ReplayTrade, WorkflowRun } from '@/api/workflow';
 import {
   RUNS_STRIP_DAYS,
   buildRunsStrip,
   filterJournalRows,
+  filterReplayRows,
   shiftDateKey,
 } from '../JournalTab';
 
@@ -175,5 +176,63 @@ describe('buildRunsStrip', () => {
     // 2026-10-18 is a Sunday; 17 (Sat) and 18 (Sun) are the weekend.
     const strip = buildRunsStrip([], '2026-10-18', 3);
     expect(strip.map((c) => c.status)).toEqual(['missed', 'weekend', 'weekend']);
+  });
+});
+
+// ── filterReplayRows ──
+
+function replayRow(over: Partial<ReplayTrade> = {}): ReplayTrade {
+  return {
+    id: 1,
+    run_id: 1,
+    signal_date: '2026-10-01',
+    date_entered: '2026-10-02',
+    symbol: 'AAA',
+    template: 'bull-flag-continuation',
+    regime: 'Cautious',
+    regime_key: 'choppy',
+    screen_rank: 1,
+    screen_weight: 85,
+    direction: 'long',
+    entry_price: 100,
+    stop_loss: 95,
+    target_1: 110,
+    exit_date: '2026-10-06',
+    exit_price: 110,
+    exit_reason: 'target',
+    realized_r: 2,
+    pnl_usd: 1900,
+    risk_pct: 1,
+    position_size_pct: 5,
+    shares: 50,
+    account_value: 100000,
+    hold_bars: 3,
+    rvol: 1.2,
+    also_signaled_by: null,
+    notes: null,
+    ...over,
+  };
+}
+
+describe('filterReplayRows', () => {
+  const rows = [
+    replayRow({ id: 1, symbol: 'WIN', pnl_usd: 1900 }),
+    replayRow({ id: 2, symbol: 'LOSS', pnl_usd: -1000, realized_r: -1 }),
+    replayRow({ id: 3, symbol: 'FLAT', pnl_usd: 0, realized_r: 0 }),
+  ];
+
+  it('winners are net-positive P&L', () => {
+    expect(filterReplayRows(rows, 'wins').map((r) => r.symbol)).toEqual(['WIN']);
+  });
+
+  it('losers include scratches (net <= 0)', () => {
+    expect(filterReplayRows(rows, 'losses').map((r) => r.symbol)).toEqual([
+      'LOSS',
+      'FLAT',
+    ]);
+  });
+
+  it('all returns every row', () => {
+    expect(filterReplayRows(rows, 'all')).toHaveLength(3);
   });
 });
