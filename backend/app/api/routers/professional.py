@@ -13,6 +13,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import asyncio
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -103,7 +104,11 @@ async def get_morning_brief(
 
     try:
         service = _get_morning_brief_service()
-        brief = await service.generate_morning_brief(regime_override=regime)
+        # Add 60s timeout to prevent yfinance hangs from stalling the endpoint
+        brief = await asyncio.wait_for(
+            service.generate_morning_brief(regime_override=regime),
+            timeout=60.0,
+        )
         duration = (time.monotonic() - start) * 1000
         return ApiResponse(
             data=brief,
@@ -113,6 +118,9 @@ async def get_morning_brief(
                 timestamp=datetime.now(UTC).isoformat(),
             ),
         )
+    except asyncio.TimeoutError:
+        log.error("morning_brief_timeout", timeout_s=60)
+        raise HTTPException(status_code=504, detail="Morning brief generation timed out (60s)")
     except Exception as e:
         log.exception("morning_brief_failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Morning brief generation failed: {str(e)}")

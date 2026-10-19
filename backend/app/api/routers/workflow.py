@@ -11,6 +11,7 @@ Also exposes the enforcement endpoints for the 2-touchpoint daily routine:
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any, Literal
 
@@ -478,10 +479,14 @@ async def _execute_enforce(
     # Fetch morning brief using internal service (avoid HTTP self-call)
     try:
         service = _get_morning_brief_service()
-        brief_response = await service.generate_morning_brief()
-        brief = brief_response  # MorningBriefResponse object
-        # Convert to dict for compatibility with existing code
-        brief = brief.model_dump(mode="json")
+        # 60s timeout for morning brief (prevents yfinance hangs)
+        brief_response = await asyncio.wait_for(
+            service.generate_morning_brief(),
+            timeout=60.0,
+        )
+        brief = brief_response.model_dump(mode="json")
+    except asyncio.TimeoutError:
+        raise HTTPException(504, "Morning brief generation timed out (60s)")
     except Exception as e:
         raise HTTPException(502, f"Failed to fetch morning brief: {e}")
 
@@ -508,7 +513,11 @@ async def _execute_enforce(
             from backend.app.domain.ticker_analysis.models import TickerAnalysisRequest
             
             engine = await get_ticker_analysis_engine()
-            v_resp = await engine.analyze_async(TickerAnalysisRequest(symbol=sym, timeframe="1D"))
+            # 45s timeout per ticker analysis (prevents yfinance hangs)
+            v_resp = await asyncio.wait_for(
+                engine.analyze_async(TickerAnalysisRequest(symbol=sym, timeframe="1D")),
+                timeout=45.0,
+            )
             verdict = v_resp.model_dump(mode="json")
 
             # Build row with gate enforcement
