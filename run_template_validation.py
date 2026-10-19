@@ -29,6 +29,8 @@ from collections import Counter
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
+import pandas as pd
+
 sys.path.insert(0, ".")
 
 from backend.app.infrastructure.backtest.external_backtest import (  # noqa: E402
@@ -82,6 +84,16 @@ async def prefetch_universe(
                 await asyncio.sleep(FETCH_DELAY_SECONDS)
                 df = await fetcher.fetch_yahoo(symbol, timeframe, start, end)
                 if df is not None and not df.empty:
+                    lo, hi = pd.Timestamp(start), pd.Timestamp(end)
+                    if df.index.min() < lo or df.index.max() > hi:
+                        # Hard stop: a frame outside the window means the
+                        # fetch path leaked history and the numbers would be
+                        # invalid (found in the 2026-10-19 validation reset).
+                        raise SystemExit(
+                            f"ABORT: {symbol} {timeframe} frame spans "
+                            f"{df.index.min()}..{df.index.max()} outside window "
+                            f"{start}..{end}"
+                        )
                     data[(symbol, timeframe)] = df
                 else:
                     print(f"  [{done}/{total}] {symbol} {timeframe}: EMPTY")

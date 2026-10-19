@@ -16,8 +16,12 @@ env/
 *.swp
 *.swo
 
-# Project data
-data/
+# Project data (runtime artifacts — scoped, so source packages named
+# `data` are not accidentally swallowed; fetcher.py was untracked for
+# this reason until 2026-10-19)
+/data/
+/backend/data/
+/backend/app/data/
 *.db
 *.sqlite
 
