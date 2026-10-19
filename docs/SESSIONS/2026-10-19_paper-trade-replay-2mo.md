@@ -71,7 +71,8 @@ months is the priority. The universe should be broader than the validated 30 nam
 (42 sessions; regime mix choppy 21 / neutral 15 / strong_trend 6; SPY +0.5%, VIX 16→18):
 
 - **114 W / 257 L — win rate 30.7%, expectancy −0.203R, PF 0.63, −$99.8k hypothetical**
-  at 1% risk/trade on $100k (net of 10 bps fees + 5 bps slippage per side).
+  at 1% risk/trade on $100k. Convention: **R-multiples are gross** of costs;
+  **dollar P&L is net** of 10 bps fees + 5 bps slippage/side (≈ −0.27R net per trade).
 - Regime split: choppy 242 trades (−0.322R, PF 0.49, −$93.7k) · neutral 111 (+0.005R,
   PF 1.01) · strong_trend 18 (+0.121R, PF 1.46). Exits: stop 185 / target 67 / time 75 /
   eod 44.
@@ -118,3 +119,71 @@ Captured as the pre-registered review agenda in
 choppy/ranging menu gap, per-screen forward confirmation, gate effectiveness).
 Trigger: **30 closed forward trades or ≈ 2026-11-30**. Daily action: Workflow → Daily
 Routine → Run After-Close (one go).
+
+## Addendum 2 (same day) — Q&A findings, what-if experiments, V2 blueprint
+
+Follow-up questions after the replay was presented: *if we know the regime, how does
+the system decide whether to trade?* · *the replay took every screen trade — what about
+the gate?* · *"I thought RR was dynamic"* · *"did I mess it up with naive prompts?"*
+
+### Findings
+
+- **The regime does not govern trading — it only rotates the menu.** There is no
+  permission state (trade / sit out), no regime-based size, and no regime-based exit
+  style. Framed for the user as the **four dials**: permission, playbook, size, exits.
+  Only the playbook dial exists, and it is half-wired (choppy serves continuation
+  screens; "ranging" is unreachable).
+- **Dynamic management is described but never executed.** The Ticker Analysis layer
+  builds trail-stop / scale-out / breakeven rules (`trail_type`, `trail_activation_r`)
+  but **no execution path reads them** (verified by grep). The live exit walker
+  (`domain/workflow/exits.py`) and the backtest engine both exit at **static** levels
+  set at entry.
+- **The replay was a filter-off stress test by design.** It measured raw screens +
+  regime + exits; the live 7-check gate only *rejects* candidates and cannot fix a
+  wrong menu or capped exits. Forward is the only place the gated system is measured.
+- **Verdict on "did I mess it up?": no.** The gaps are unbuilt layers (governor,
+  dynamic exits), not damage — and the replay + experiments now give a measured
+  starting point.
+
+### What-if experiments (design learning — in-sample, not evidence)
+
+`run_replay_experiments.py` re-runs the same cached window (500 names, same as-of
+regime map) with only the hypothesis changed. Baseline reproduces the stored run
+exactly (371 trades, −0.203R gross), validating the harness. **R-multiples are gross;
+dollar P&L is net of 10 bps fees + 5 bps slippage/side.**
+
+| Variant | Trades | WR (net) | Exp R (gross) | PF (gross) | Net P&L | Net $/trade | Choppy exp R (gross) |
+|---|---|---|---|---|---|---|---|
+| baseline (deployed) | 371 | 30.7% | −0.203 | 0.63 | −$99,788 | −$269 | −0.322 |
+| wide target (4.5 ATR) | 361 | 29.1% | −0.179 | 0.68 | −$88,532 | −$245 | −0.322 |
+| choppy = full ranging menu | 534 | 36.0% | −0.123 | 0.76 | −$100,146 | −$188 | −0.168 |
+| ranging menu + wide target | 528 | 35.2% | −0.089 | 0.83 | −$81,268 | −$154 | −0.144 |
+| **choppy = mean-reversion only** | **332** | **39.8%** | **−0.015** | **0.97** | **−$26,427** | **−$80** | **−0.038** |
+
+- **The full menu swap halves the per-trade chop bleed** (choppy gross −0.322R →
+  −0.168R) **but takes 67% more trades**, so the dollar loss is unchanged (−$100.1k).
+  A less-bad average is not enough — exposure matters.
+- **Only one screen survives chop**: mean-reversion is ≈ flat in isolation
+  (−0.038R, 203 trades, WR 40.4%). The same screen showed +0.118R when it only got the
+  dedupe leftovers — the "edge" is fragile (in-sample, subset-dependent).
+- **Screen edges are regime-specific**: statistical-mean-reversion is positive on
+  neutral days (+0.162R overall in baseline) but **−0.298R on choppy days**;
+  low-vol-setup is ≈ −0.37R everywhere it traded. smr was never a choppy edge.
+- **Wider targets lower the required win rate**: net avg win +1.07R → +1.21R; neutral
+  net expectancy −0.057R → +0.031R. Choppy is unchanged (−0.322R) — exits cannot fix
+  a wrong-direction entry in a range.
+- **Break-even math (net)**: ≈44.6% required at baseline; the system delivered 30.7%
+  net. The best in-sample variant delivered 39.8% vs ≈44.1% required — closer, still
+  below.
+- **Halving risk in chop is damage control, not edge**: baseline −$99.8k → −$52.9k;
+  best variant −$26.4k → −$16.2k. R is unchanged.
+
+Artifacts: `docs/backtests/replay_whatif_20261019_211236.json` (4 variants),
+`docs/backtests/replay_whatif_20261019_214028.json` (refined), runner
+`run_replay_experiments.py`. Design proposal:
+`docs/PAPER_TRADING/V2_RISK_GOVERNOR_BLUEPRINT.md` (four dials + success criteria).
+Engine logging noise fixed (`e2f94bf`; instance logger; no behavior change).
+
+**Guardrail:** in-sample selection on one 2-month window — none of this is evidence
+and none of it changes the live system. The forward run (30 closed trades / ≈2026-11-30)
+remains the decider; these numbers only size the hypotheses for the review.

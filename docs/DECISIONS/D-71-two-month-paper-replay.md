@@ -62,9 +62,10 @@
   **500 usable S&P 500 names** and **12 deployed screens**, window
   **2026-08-20 → 2026-10-19** (42 sessions). Regime mix: choppy 21 / neutral 15 /
   strong_trend 6. Market context: SPY +0.5% (range-bound), VIX 16 → 18.
-- Result (simulated, net of 10 bps fees + 5 bps slippage per side): **114 W / 257 L —
-  win rate 30.7%, expectancy −0.203R, PF 0.63, hypothetical P&L −$99.8k at 1% risk per
-  trade on $100k**. Exit mix: stop 185 / target 67 / time 75 / end-of-window 44.
+- Result (simulated; **R-multiples are gross, dollar P&L is net of 10 bps fees +
+  5 bps slippage per side**): **114 W / 257 L — win rate 30.7%, expectancy −0.203R
+  (gross; ≈ −0.27R net), PF 0.63, hypothetical P&L −$99.8k at 1% risk per trade on
+  $100k**. Exit mix: stop 185 / target 67 / time 75 / end-of-window 44.
 - The bleed concentrated in the **choppy regime**: 242 trades, WR 26.4%,
   expectancy −0.322R, PF 0.49 (−$93.7k). Neutral: 111 trades ≈ flat (+0.005R, PF 1.01).
   Strong-trend: 18 trades, +0.121R, PF 1.46.

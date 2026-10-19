@@ -121,6 +121,19 @@ exact live brief (ranking, confluence, catalysts, gate). Replay rows never count
 toward the forward scorecard or the kill rule. Use it to inspect behavior; use
 the forward journal to judge the system.
 
+### Design review (not part of the daily ritual)
+
+- `docs/PAPER_TRADING/FORWARD_TEST_REVIEW.md` — the pre-registered agenda for the
+  review after 30 closed forward trades (exit RR ceiling + MFE, choppy/ranging
+  menu gap, per-screen confirmation, gate effectiveness). No rule changes before
+  the trigger.
+- `docs/PAPER_TRADING/V2_RISK_GOVERNOR_BLUEPRINT.md` — design proposal for the
+  missing regime→risk layer (the "four dials": permission, playbook, size,
+  exits). Not implemented; input for that review.
+- `run_replay_experiments.py` — runs counterfactual what-if variants on the same
+  replay window (e.g. choppy menu swap, wider targets). **Design learning only**
+  — hypotheses to size, never forward evidence, never a P&L promise.
+
 ### Step 5: Weekly review (Sunday, 15 minutes)
 
 Only **closed** rows count (those with a `date_closed`). Open rows are not
