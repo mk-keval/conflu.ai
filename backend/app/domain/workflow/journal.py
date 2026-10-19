@@ -129,6 +129,7 @@ def available_capital(
 set_db_path = journal_store.set_db_path
 reset_db_path = journal_store.reset_db_path
 get_db_path = journal_store.get_db_path
+market_today = journal_store.market_today
 upsert_entry = journal_store.upsert_entry
 update_exit = journal_store.update_exit
 insert_rejection = journal_store.insert_rejection
@@ -151,6 +152,7 @@ __all__ = [
     "set_db_path",
     "reset_db_path",
     "get_db_path",
+    "market_today",
     "upsert_entry",
     "update_exit",
     "insert_rejection",

@@ -34,6 +34,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Iterator
+from zoneinfo import ZoneInfo
 
 from backend.app.core.logging import get_logger
 
@@ -205,9 +206,17 @@ def _utc_now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
-def _utc_today() -> str:
-    # P2 (plan 2.1) swaps this for an ET market-date helper.
-    return datetime.now(UTC).strftime("%Y-%m-%d")
+_EASTERN = ZoneInfo("America/New_York")
+
+
+def market_today() -> str:
+    """Current ET market date (YYYY-MM-DD) — the journal's date stamp.
+
+    Entries are recorded after the close; an evening run (≥8pm ET) under UTC
+    would stamp *tomorrow* (data-audit bug R3). ``ran_at``/``created_at``
+    columns stay UTC ISO — only market dates are ET.
+    """
+    return datetime.now(_EASTERN).strftime("%Y-%m-%d")
 
 
 def _clean(value: Any) -> Any:
@@ -385,7 +394,7 @@ def record_run(
             "rejected, updated, skipped, status, message, details_json) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
-                run_date or _utc_today(), _utc_now(), str(mode), 1 if apply else 0,
+                run_date or market_today(), _utc_now(), str(mode), 1 if apply else 0,
                 accepted, rejected, updated, skipped, str(status),
                 message, details_json,
             ),
@@ -557,6 +566,7 @@ __all__ = [
     "reset_db_path",
     "ensure",
     "session",
+    "market_today",
     "fetch_rows",
     "upsert_entry",
     "update_exit",

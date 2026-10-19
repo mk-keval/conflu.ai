@@ -184,3 +184,31 @@ def test_sync_exits_applies_to_journal_db(
     # Second run: nothing open → no-op, no duplicate exits.
     assert sync_exits(tmp_path, apply=True) == 0
     assert len(journal_module.read_closed_trades()) == 1
+
+
+def test_sync_exits_skips_rows_entered_today(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Same-day guard (P2.3): today's entries can't exit today; run still logged."""
+    from paper_trade_from_brief import sync_exits
+
+    today = journal_module.market_today()
+    journal_module.upsert_entry({
+        "date_entered": today, "symbol": "TODAY", "sector": "Technology",
+        "entry_price": 100.0, "stop_loss": 95.0, "target_1": 110.0,
+        "position_size_pct": 10.0, "account_value": 100_000.0, "gate_verdict": "PASS",
+    })
+
+    def _must_not_fetch(_sym: str):
+        raise AssertionError("no OHLCV fetch for rows entered today")
+
+    monkeypatch.setattr("paper_trade_from_brief._fetch_daily_ohlcv", _must_not_fetch)
+
+    assert sync_exits(tmp_path, apply=True) == 0
+    assert not journal_module.read_rows()[0].get("date_closed")
+
+    run = journal_module.list_runs(limit=1)[0]
+    assert run["mode"] == "sync_exits"
+    assert run["apply"] == 1
+    assert run["skipped"] == 1
+    assert run["updated"] == 0

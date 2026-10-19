@@ -146,3 +146,49 @@ def test_empty_or_degenerate_returns_no_exit() -> None:
                             entry=0.0, stop=STOP).exit_date is None
     assert exits.infer_exit(_bars([("2026-09-01", 100.0, 102.0, 99.0, 101.0)]),
                             entry=ENTRY, stop=101.0).exit_date is None
+
+
+def test_eod_entry_bar_excursions_excluded() -> None:
+    """P2.4/R4: bar 0's high/low predate an EOD fill — excluded from MFE/MAE."""
+    bars = _bars([
+        ("2026-09-01", 100.0, 108.0, 96.0, 101.0),   # entry day spike/dip pre-fill
+        ("2026-09-02", 101.0, 103.0, 99.0, 102.0),   # first real hold day
+    ])
+    fill = exits.infer_exit(
+        bars, entry=ENTRY, stop=STOP, targets=[T1, T2],
+        exclude_entry_bar_excursions=True,
+    )
+    assert fill.exit_date is None
+    assert fill.mfe_r == (103.0 - ENTRY) / 5.0
+    assert fill.mae_r == (99.0 - ENTRY) / 5.0
+
+    # Default keeps the historical behavior (bar 0 included).
+    included = exits.infer_exit(bars, entry=ENTRY, stop=STOP, targets=[T1, T2])
+    assert included.mfe_r == (108.0 - ENTRY) / 5.0
+    assert included.mae_r == (96.0 - ENTRY) / 5.0
+
+
+def test_eod_exclusion_keeps_fill_bar_excursions() -> None:
+    """The flag only drops bar 0 — the fill bar's excursions still count."""
+    bars = _bars([
+        ("2026-09-01", 100.0, 102.0, 99.0, 101.0),
+        ("2026-09-02", 97.0, 98.0, 94.0, 95.0),      # stop hit
+    ])
+    fill = exits.infer_exit(
+        bars, entry=ENTRY, stop=STOP, targets=[T1, T2],
+        exclude_entry_bar_excursions=True,
+    )
+    assert fill.exit_reason == exits.EXIT_STOP
+    assert fill.exit_price == STOP
+    assert fill.bars_held == 2
+    assert fill.mae_r == (94.0 - ENTRY) / 5.0
+
+
+def test_eod_exclusion_with_only_entry_bar_has_no_excursions() -> None:
+    bars = _bars([("2026-09-01", 100.0, 108.0, 96.0, 101.0)])
+    fill = exits.infer_exit(
+        bars, entry=ENTRY, stop=STOP, targets=[T1, T2],
+        exclude_entry_bar_excursions=True,
+    )
+    assert fill.exit_date is None
+    assert fill.mfe_r is None and fill.mae_r is None

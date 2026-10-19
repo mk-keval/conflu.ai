@@ -11,10 +11,11 @@ Also exposes the enforcement endpoints for the 2-touchpoint daily routine:
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from typing import Literal
+import json
+from typing import Any, Literal
 
 from fastapi import APIRouter, Body, HTTPException, Query
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
 from backend.app.api.schemas import ApiResponse, MetaInfo
@@ -235,6 +236,113 @@ async def get_trades_dir() -> ApiResponse:
     )
 
 
+@router.get(
+    "/journal/export",
+    summary="Export the journal as CSV",
+    description="Canonical 29-col CSV (chronological) plus template/regime/entry_timing "
+                "— Excel remains an output format, never the store.",
+    response_class=PlainTextResponse,
+)
+async def export_journal() -> PlainTextResponse:
+    return PlainTextResponse(
+        journal_mod.export_csv(),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="paper_journal.csv"'},
+    )
+
+
+class JournalRejectionItem(BaseModel):
+    """One rejection-log row (why a candidate did not become a trade)."""
+    id: int
+    date_seen: str
+    symbol: str
+    sector: str | None = None
+    action: str | None = None
+    conviction: int | None = None
+    failed_step: str | None = None
+    gate_verdict: str | None = None
+    reason: str | None = None
+    notes: str | None = None
+    created_at: str | None = None
+
+
+class JournalRejectionsResponse(BaseModel):
+    """Rejection log response."""
+    items: list[JournalRejectionItem]
+    count: int
+
+
+@router.get(
+    "/journal/rejections",
+    summary="Read the rejection log",
+    description="Most-recent-first rejections from the journal DB (gate/sizing failures).",
+)
+async def get_journal_rejections(
+    limit: int = Query(200, ge=1, le=1000),
+) -> ApiResponse:
+    rows = journal_mod.list_rejections(limit)
+    return ApiResponse(
+        data=JournalRejectionsResponse(
+            items=[JournalRejectionItem(**r) for r in rows],
+            count=len(rows),
+        ),
+        meta=MetaInfo(),
+    )
+
+
+class WorkflowRunItem(BaseModel):
+    """One workflow_runs row (touchpoint execution record)."""
+    id: int
+    run_date: str
+    ran_at: str
+    mode: str
+    apply: bool = False
+    accepted: int | None = None
+    rejected: int | None = None
+    updated: int | None = None
+    skipped: int | None = None
+    status: str = "ok"
+    message: str | None = None
+    details: Any = None
+
+
+class WorkflowRunsResponse(BaseModel):
+    """Recent workflow runs response (feeds the UI runs strip)."""
+    items: list[WorkflowRunItem]
+    count: int
+
+
+@router.get(
+    "/runs",
+    summary="Recent workflow runs (UI runs strip)",
+    description="Most-recent-first run records for enforce / sync-exits / run-close.",
+)
+async def get_runs(
+    limit: int = Query(14, ge=1, le=200),
+) -> ApiResponse:
+    rows = journal_mod.list_runs(limit)
+    items: list[WorkflowRunItem] = []
+    for r in rows:
+        details = None
+        if r.get("details_json"):
+            try:
+                details = json.loads(r["details_json"])
+            except ValueError:
+                details = r["details_json"]
+        items.append(WorkflowRunItem(
+            id=r["id"], run_date=r["run_date"], ran_at=r["ran_at"],
+            mode=r["mode"], apply=bool(r.get("apply")),
+            accepted=r.get("accepted"), rejected=r.get("rejected"),
+            updated=r.get("updated"), skipped=r.get("skipped"),
+            status=r.get("status") or "ok", message=r.get("message"),
+            details=details,
+        ))
+    return ApiResponse(
+        data=WorkflowRunsResponse(items=items, count=len(items)),
+        meta=MetaInfo(),
+    )
+
+
 # ── Helper functions (ported from paper_trade_from_brief.py) ──
 
 _OVERALL_LITERALS = ("PASS", "FAIL", "CONDITIONAL")
@@ -425,15 +533,41 @@ async def enforce_paper_trades(
     # Persist to the journal DB (D-68): entry-only upsert per accepted row
     # (fresh evaluation wins; exit columns are never touched) and an
     # insert-or-ignore per rejection (one per date+symbol).
+    run_date = journal_mod.market_today()
     message = f"{len(trade_rows)} accepted, {len(rejections)} rejected"
     for rejection in rejections:
         journal_mod.insert_rejection(rejection)
+    inserted = updated = kept = 0
     if trade_rows:
         inserted = sum(journal_mod.upsert_entry(row) == "inserted" for row in trade_rows)
         updated = len(trade_rows) - inserted
         message += f" — journal updated ({inserted} new, {updated} updated)"
+        # Earlier same-day acceptances that were not re-accepted now are kept
+        # (P2.2: a re-run never deletes rows it did not accept this time).
+        accepted_symbols = {str(r.get("symbol") or "").strip().upper() for r in trade_rows}
+        kept = sum(
+            1 for r in journal_mod.read_rows()
+            if str(r.get("date_entered") or "")[:10] == run_date
+            and str(r.get("symbol") or "").strip().upper() not in accepted_symbols
+        )
+        if kept:
+            message += f"; {kept} earlier acceptance(s) kept"
     else:
         message += " — no qualifying setups today"
+
+    # Run log (P2.5): every touchpoint leaves a workflow_runs row.
+    # ``skipped`` = earlier same-day acceptances kept (not re-evaluated).
+    journal_mod.record_run(
+        "enforce", apply=True,
+        accepted=len(trade_rows), rejected=len(rejections),
+        updated=inserted + updated, skipped=kept,
+        status="partial" if any(r.get("failed_step") == "error" for r in rejections) else "ok",
+        message=message,
+        details={
+            "accepted": [str(r.get("symbol") or "") for r in trade_rows][:50],
+            "rejected": [str(r.get("symbol") or "") for r in rejections][:50],
+        },
+    )
 
     return ApiResponse(
         data=EnforceResponse(
@@ -456,7 +590,7 @@ async def _build_row(symbol: str, brief_section: dict, verdict: dict) -> tuple[d
     attached = _attached_gate(verdict)
     if not attached:
         return None, {
-            "date_seen": datetime.now(UTC).strftime("%Y-%m-%d"),
+            "date_seen": journal_mod.market_today(),
             "symbol": symbol, "sector": v.get("sector", ""),
             "action": v.get("action", ""), "conviction": v.get("conviction", 0),
             "failed_step": "gate", "gate_verdict": "FAIL",
@@ -479,7 +613,7 @@ async def _build_row(symbol: str, brief_section: dict, verdict: dict) -> tuple[d
         size = sizing_mod.compute_position_size_pct(entry, stop, overall)
     except ValueError as e:
         return None, {
-            "date_seen": datetime.now(UTC).strftime("%Y-%m-%d"),
+            "date_seen": journal_mod.market_today(),
             "symbol": symbol, "sector": sector, "action": v.get("action", ""),
             "conviction": v.get("conviction", 0), "failed_step": "sizing",
             "gate_verdict": "FAIL", "reason": f"Sizing rejected: {e}", "notes": f"entry={entry} stop={stop}",
@@ -489,7 +623,7 @@ async def _build_row(symbol: str, brief_section: dict, verdict: dict) -> tuple[d
         failed = failed_step or "gate"
         reason = next((s.note for s in steps if not s.passed and not s.conditional), "Gate failed.")
         return None, {
-            "date_seen": datetime.now(UTC).strftime("%Y-%m-%d"),
+            "date_seen": journal_mod.market_today(),
             "symbol": symbol, "sector": sector, "action": v.get("action", ""),
             "conviction": v.get("conviction", 0), "failed_step": failed,
             "gate_verdict": "FAIL", "reason": reason[:250],
@@ -526,7 +660,7 @@ async def _build_row(symbol: str, brief_section: dict, verdict: dict) -> tuple[d
     notes = " | ".join(notes_parts)
 
     trade_row = {
-        "date_entered": datetime.now(UTC).strftime("%Y-%m-%d"),
+        "date_entered": journal_mod.market_today(),
         "symbol": symbol,
         "sector": sector,
         "action": v.get("action", "ACCUMULATE"),
@@ -591,12 +725,18 @@ class SyncExitsResponse(BaseModel):
 async def sync_exits(
     request: SyncExitsRequest = Body(default=SyncExitsRequest()),
 ) -> ApiResponse[SyncExitsResponse]:
+    run_date = journal_mod.market_today()
     open_rows = journal_mod.read_open_positions()
     if not open_rows:
+        message = "No open journal rows to sync."
+        journal_mod.record_run(
+            "sync_exits", apply=request.apply, updated=0, skipped=0,
+            message=message, details={"applied": [], "skipped": []},
+        )
         return ApiResponse(
             data=SyncExitsResponse(
                 updated=0, skipped=0, items=[],
-                message="No open journal rows to sync.",
+                message=message,
             ),
             meta=MetaInfo(),
         )
@@ -607,6 +747,16 @@ async def sync_exits(
 
     for row in open_rows:
         symbol = str(row.get("symbol") or "").strip().upper()
+        # Same-day guard (P2.3): entries are stamped at the close, so today's
+        # rows cannot have a real exit yet — skip, not an error.
+        if str(row.get("date_entered") or "")[:10] >= run_date:
+            skipped += 1
+            items.append(SyncExitsResponseItem(
+                symbol=symbol or "?",
+                skipped=True,
+                skip_reason="entered today — exits start next session",
+            ))
+            continue
         if not symbol:
             skipped += 1
             items.append(SyncExitsResponseItem(symbol="?", skipped=True, skip_reason="no symbol"))
@@ -643,6 +793,11 @@ async def sync_exits(
         fill = exits_mod.infer_exit(
             bars, entry=entry, stop=stop,
             targets=targets, max_hold_days=max_hold,
+            # EOD entries fill at the close: the entry-day bar's high/low
+            # predate the position (P2.4; bug R4).
+            exclude_entry_bar_excursions=(
+                str(row.get("entry_timing") or "eod").strip().lower() == "eod"
+            ),
         )
         if not fill.exit_price or not fill.exit_date:
             skipped += 1
@@ -697,6 +852,20 @@ async def sync_exits(
     message = f"{updated} exit(s) {'applied' if request.apply else 'would be applied'} ({skipped} skipped)"
     if not request.apply and updated > 0:
         message += " — re-run with apply=true to persist"
+
+    # Run log (P2.5): every touchpoint leaves a workflow_runs row.
+    journal_mod.record_run(
+        "sync_exits", apply=request.apply,
+        updated=updated, skipped=skipped,
+        message=message,
+        details={
+            "applied": [i.symbol for i in items if i.applied][:50],
+            "skipped": [
+                {"symbol": i.symbol, "reason": i.skip_reason}
+                for i in items if i.skipped
+            ][:50],
+        },
+    )
 
     return ApiResponse(
         data=SyncExitsResponse(

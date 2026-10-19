@@ -102,6 +102,17 @@ def test_record_run_and_list_runs() -> None:
     assert '"kept"' in runs[0]["details_json"]
 
 
+def test_market_today_is_et_and_run_date_defaults_to_it() -> None:
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    expected = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+    assert js.market_today() == expected
+
+    js.record_run("sync_exits")  # no explicit run_date
+    assert js.list_runs(limit=1)[0]["run_date"] == expected
+
+
 def test_export_header_asc_order_and_roundtrip(tmp_path: Path) -> None:
     js.upsert_entry(_entry())  # 2026-10-05
     js.update_exit("2026-10-05", "AAPL", {

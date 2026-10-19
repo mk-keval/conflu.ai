@@ -16,7 +16,10 @@ stop wins, i.e. the WORSE outcome is recorded, and the fill is flagged):
 5. Time stop              — held >= max_hold_days → fill at that bar's close.
 
 Metrics (plan Sec.2E): ``mfe_r``/``mae_r`` are the max favorable / max adverse
-excursion in R units over the held bars, ending at the fill bar.
+excursion in R units over the held bars, ending at the fill bar. For EOD
+entries pass ``exclude_entry_bar_excursions=True``: bar 0 is the entry day,
+and its high/low happened *before* the close fill — counting them would
+inflate the excursions with pre-entry price action (bug R4).
 """
 
 from __future__ import annotations
@@ -69,6 +72,7 @@ def infer_exit(
     stop: float,
     targets: list[float] | None = None,
     max_hold_days: int | None = None,
+    exclude_entry_bar_excursions: bool = False,
 ) -> ExitFill:
     """Walk bars AFTER the entry bar and return the first exit that fires.
 
@@ -98,13 +102,17 @@ def infer_exit(
             continue
         _open, high, low, _close = vals
 
-        # Track excursion over the whole hold (from the first valid bar).
-        max_high = high if max_high is None else max(max_high, high)
-        min_low = low if min_low is None else min(min_low, low)
-
         # Bars before the entry bar cannot trigger an exit (entry happens at/before bar 0).
         if idx == 0 and prev_valid:
+            # EOD entry: bar 0's excursion happened before the close fill.
+            if not exclude_entry_bar_excursions:
+                max_high = high if max_high is None else max(max_high, high)
+                min_low = low if min_low is None else min(min_low, low)
             continue
+
+        # Track excursion over the hold (from the first valid post-entry bar).
+        max_high = high if max_high is None else max(max_high, high)
+        min_low = low if min_low is None else min(min_low, low)
 
         date = str(bar.get("date") or "")
         bars_held = idx + 1  # entry bar counts as the first hold day
