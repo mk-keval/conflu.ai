@@ -95,3 +95,26 @@ months is the priority. The universe should be broader than the validated 30 nam
 - Use the replay to inspect behavior and level/exit quality; use the forward journal for
   the scorecard and the kill rule (VISION.md). The pending weight review (D-70 §4) now
   has a concrete additional signal: the choppy weight set is the losing cluster.
+
+## Addendum (same day) — user decision: forward run + review backlog
+
+After the results were presented, the user accepted **Option 1**: no rule changes now —
+run the live paper loop forward (~30 closed trades / 4–6 weeks) and decide with real
+evidence. Two structural critiques were raised and confirmed against code/numbers:
+
+1. **Exit design caps winners** — best-case win ≈ +1.5R (3 ATR target / 2 ATR stop),
+   replay avg win +1.05R; break-even win rate ≈ 40–44% but the replay delivered 30.7%
+   (26.4% in choppy). The user's "1.05R is crap" read is correct in context.
+2. **Regime response gap** — "Cautious" → choppy serves continuation screens
+   (bull-flag-continuation, trend-pullback-v2, low-vol-setup; 242 trades, each ≈ −0.35R)
+   while the mean-reversion menu sits under **"ranging", which the detector can never
+   produce** (`_REGIME_LABEL_MAP` values are strong_trend/neutral/choppy/high_vol only).
+   The only positive screen, statistical-mean-reversion (+0.162R, PF 1.52, WR 44.8%),
+   traded via the neutral menu's defensive slot — the system never selected mean
+   reversion *because the tape was choppy*.
+
+Captured as the pre-registered review agenda in
+`docs/PAPER_TRADING/FORWARD_TEST_REVIEW.md` (items A–D: exit RR ceiling with MFE check,
+choppy/ranging menu gap, per-screen forward confirmation, gate effectiveness).
+Trigger: **30 closed forward trades or ≈ 2026-11-30**. Daily action: Workflow → Daily
+Routine → Run After-Close (one go).
