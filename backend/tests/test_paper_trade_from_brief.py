@@ -171,8 +171,9 @@ def test_sync_exits_applies_to_journal_db(
     })
     monkeypatch.setattr("paper_trade_from_brief._fetch_daily_ohlcv", lambda _sym: df)
 
-    rc = sync_exits(tmp_path, apply=True)  # trades_dir arg is accepted and ignored
-    assert rc == 0
+    summary = sync_exits(tmp_path, apply=True)  # trades_dir arg is accepted and ignored
+    assert summary["updated"] == 1
+    assert summary["skipped"] == 0
     closed = journal_module.read_closed_trades()
     assert len(closed) == 1
     assert closed[0]["symbol"] == "TEST"
@@ -182,7 +183,8 @@ def test_sync_exits_applies_to_journal_db(
     assert closed[0]["plan_adherence"] == "1.0"
 
     # Second run: nothing open → no-op, no duplicate exits.
-    assert sync_exits(tmp_path, apply=True) == 0
+    second = sync_exits(tmp_path, apply=True)
+    assert second["updated"] == 0
     assert len(journal_module.read_closed_trades()) == 1
 
 
@@ -204,7 +206,9 @@ def test_sync_exits_skips_rows_entered_today(
 
     monkeypatch.setattr("paper_trade_from_brief._fetch_daily_ohlcv", _must_not_fetch)
 
-    assert sync_exits(tmp_path, apply=True) == 0
+    summary = sync_exits(tmp_path, apply=True)
+    assert summary["updated"] == 0
+    assert summary["skipped"] == 1
     assert not journal_module.read_rows()[0].get("date_closed")
 
     run = journal_module.list_runs(limit=1)[0]
@@ -212,3 +216,19 @@ def test_sync_exits_skips_rows_entered_today(
     assert run["apply"] == 1
     assert run["skipped"] == 1
     assert run["updated"] == 0
+
+
+def test_sync_exits_log_run_false_suppresses_run_row(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """--run-close writes ONE combined row — nested sync must not log its own."""
+    from paper_trade_from_brief import sync_exits
+
+    today = journal_module.market_today()
+    journal_module.upsert_entry({
+        "date_entered": today, "symbol": "TODAY", "entry_price": 100.0, "stop_loss": 95.0,
+    })
+
+    summary = sync_exits(tmp_path, apply=True, log_run=False)
+    assert summary["updated"] == 0 and summary["skipped"] == 1
+    assert journal_module.list_runs(limit=5) == []

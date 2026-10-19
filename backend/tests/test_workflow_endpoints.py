@@ -9,11 +9,69 @@ explicit arguments. Journal writes land in the per-test tmp DB (conftest
 from __future__ import annotations
 
 import asyncio
+import json
 from types import SimpleNamespace
 
+import pandas as pd
 import pytest
 
 from backend.app.domain.workflow import journal as journal_mod
+
+
+def _wire_enforce_stubs(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    tickers: tuple[str, ...] = ("NEW",),
+    rows_by_symbol: dict[str, dict] | None = None,
+):
+    """Stub morning brief + engine + _build_row so enforce/run-close run offline."""
+    from backend.app.api import dependencies as deps
+    from backend.app.api.routers import workflow as wf
+
+    if rows_by_symbol is None:
+        today = journal_mod.market_today()
+        rows_by_symbol = {
+            s: {
+                "date_entered": today, "symbol": s, "sector": "Technology",
+                "entry_price": 100.0, "stop_loss": 95.0, "gate_verdict": "PASS",
+            }
+            for s in tickers
+        }
+
+    class _Brief:
+        def model_dump(self, mode: str = "json") -> dict:
+            return {"screen_sections": [
+                {"screen_name": "S",
+                 "tickers": [{"symbol": s, "conviction": 9} for s in tickers]},
+            ]}
+
+    class _Service:
+        async def generate_morning_brief(self):
+            return _Brief()
+
+    class _Engine:
+        async def analyze_async(self, _req):
+            return SimpleNamespace(model_dump=lambda mode="json": {})
+
+    async def _get_engine():
+        return _Engine()
+
+    async def _fake_build_row(sym, brief_t, verdict):
+        return dict(rows_by_symbol[sym]), None
+
+    monkeypatch.setattr(wf, "_get_morning_brief_service", lambda: _Service())
+    monkeypatch.setattr(deps, "get_ticker_analysis_engine", _get_engine)
+    monkeypatch.setattr(wf, "_build_row", _fake_build_row)
+    return wf
+
+
+def _two_bar_ohlcv() -> pd.DataFrame:
+    """Bars for an entry dated 2026-10-01: target_1 (110) hit on the next bar."""
+    return pd.DataFrame({
+        "Date": pd.to_datetime(["2026-10-01", "2026-10-02"]),
+        "Open": [100.0, 111.0], "High": [101.0, 112.0],
+        "Low": [99.0, 110.0], "Close": [100.5, 111.0],
+    })
 
 
 def test_sync_exits_same_day_guard_and_run_log(
@@ -64,41 +122,13 @@ def test_sync_exits_with_no_open_rows_still_logs_run() -> None:
 def test_enforce_logs_run_and_reports_kept_rows(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from backend.app.api import dependencies as deps
-    from backend.app.api.routers import workflow as wf
+    wf = _wire_enforce_stubs(monkeypatch, tickers=("NEW",))
 
     today = journal_mod.market_today()
     # Earlier same-day acceptance this run will not re-accept.
     journal_mod.upsert_entry({
         "date_entered": today, "symbol": "OLD", "entry_price": 50.0,
     })
-
-    class _Brief:
-        def model_dump(self, mode: str = "json") -> dict:
-            return {"screen_sections": [
-                {"screen_name": "S", "tickers": [{"symbol": "NEW", "conviction": 9}]},
-            ]}
-
-    class _Service:
-        async def generate_morning_brief(self):
-            return _Brief()
-
-    class _Engine:
-        async def analyze_async(self, _req):
-            return SimpleNamespace(model_dump=lambda mode="json": {})
-
-    async def _get_engine():
-        return _Engine()
-
-    async def _fake_build_row(sym, brief_t, verdict):
-        return {
-            "date_entered": today, "symbol": sym, "sector": "Technology",
-            "entry_price": 100.0, "stop_loss": 95.0, "gate_verdict": "PASS",
-        }, None
-
-    monkeypatch.setattr(wf, "_get_morning_brief_service", lambda: _Service())
-    monkeypatch.setattr(deps, "get_ticker_analysis_engine", _get_engine)
-    monkeypatch.setattr(wf, "_build_row", _fake_build_row)
 
     resp = asyncio.run(wf.enforce_paper_trades(wf.EnforceRequest(min_conviction=5)))
     assert [i.symbol for i in resp.data.accepted] == ["NEW"]
@@ -156,3 +186,110 @@ def test_export_endpoint_returns_csv() -> None:
     assert "entry_timing" in lines[0]
     assert "AAPL" in lines[1]
     assert resp.media_type == "text/csv"
+
+
+def test_run_close_writes_entries_then_exits_one_run_row(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """P3.4: order guarantee, single combined row, idempotent re-run."""
+    wf = _wire_enforce_stubs(monkeypatch, tickers=("NEW",))
+    journal_mod.upsert_entry({
+        "date_entered": "2026-10-01", "symbol": "OLD", "sector": "Technology",
+        "entry_price": 100.0, "stop_loss": 95.0, "target_1": 110.0,
+    })
+
+    def _fake_ohlcv(sym: str):
+        assert sym == "OLD"  # today's NEW row is guard-skipped, never fetched
+        return _two_bar_ohlcv()
+
+    monkeypatch.setattr(wf, "_fetch_daily_ohlcv", _fake_ohlcv)
+
+    resp = asyncio.run(wf.run_close(wf.RunCloseRequest(min_conviction=5)))
+    data = resp.data
+    assert [i.symbol for i in data.enforce.accepted] == ["NEW"]
+    assert data.exits.updated == 1
+
+    # Order guarantee: NEW was written by the enforce phase first, so the exit
+    # phase saw it and guard-skipped it (skipped, not an error).
+    new_item = next(i for i in data.exits.items if i.symbol == "NEW")
+    assert new_item.skipped is True
+    assert "entered today" in (new_item.skip_reason or "")
+
+    rows = {r["symbol"]: r for r in journal_mod.read_rows()}
+    assert rows["OLD"]["date_closed"] == "2026-10-02"
+    assert rows["OLD"]["exit_reason"] == "target_1"
+    assert not rows["NEW"].get("date_closed")
+
+    # Exactly ONE workflow_runs row for the combined call.
+    runs = journal_mod.list_runs(limit=10)
+    assert len(runs) == 1
+    run = runs[0]
+    assert run["mode"] == "run_close"
+    assert run["id"] == data.run_id
+    assert run["apply"] == 1
+    assert run["accepted"] == 1
+    assert run["rejected"] == 0
+    assert run["updated"] == 1   # exits applied
+    assert run["skipped"] == 1   # today's new entry kept open
+    assert run["status"] == "ok"
+    details = json.loads(run["details_json"])
+    assert details["enforce"]["accepted"] == ["NEW"]
+    assert details["exits"]["applied"] == ["OLD"]
+
+    # Idempotent re-run: journal state unchanged, one more run row only.
+    snapshot = {r["symbol"]: r["date_closed"] for r in journal_mod.read_rows()}
+    resp2 = asyncio.run(wf.run_close(wf.RunCloseRequest(min_conviction=5)))
+    assert {r["symbol"]: r["date_closed"] for r in journal_mod.read_rows()} == snapshot
+    assert resp2.data.enforce.accepted[0].symbol == "NEW"
+    assert resp2.data.exits.updated == 0
+    runs2 = journal_mod.list_runs(limit=10)
+    assert len(runs2) == 2
+    assert all(r["mode"] == "run_close" for r in runs2)
+
+
+def test_run_close_dry_exits_writes_entries_but_no_exits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    wf = _wire_enforce_stubs(monkeypatch, tickers=("NEW",))
+    journal_mod.upsert_entry({
+        "date_entered": "2026-10-01", "symbol": "OLD",
+        "entry_price": 100.0, "stop_loss": 95.0, "target_1": 110.0,
+    })
+    monkeypatch.setattr(wf, "_fetch_daily_ohlcv", lambda _sym: _two_bar_ohlcv())
+
+    resp = asyncio.run(wf.run_close(wf.RunCloseRequest(apply_exits=False)))
+    assert resp.data.exits.updated == 1  # would-be applied (preview)
+    assert "would be applied" in resp.data.exits.message
+    assert "re-run with apply=true" in resp.data.exits.message
+    assert "exits preview only" in resp.data.message
+
+    rows = {r["symbol"]: r for r in journal_mod.read_rows()}
+    assert "NEW" in rows                      # entries written
+    assert not rows["OLD"].get("date_closed")  # exits only previewed
+
+    run = journal_mod.list_runs(limit=1)[0]
+    assert run["mode"] == "run_close"
+    assert run["apply"] == 1
+    assert run["updated"] == 1  # would-be exits (preview, per message)
+
+
+def test_run_close_logs_error_row_when_enforce_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fastapi import HTTPException
+
+    from backend.app.api.routers import workflow as wf
+
+    class _Service:
+        async def generate_morning_brief(self):
+            raise RuntimeError("boom")
+
+    monkeypatch.setattr(wf, "_get_morning_brief_service", lambda: _Service())
+
+    with pytest.raises(HTTPException):
+        asyncio.run(wf.run_close(wf.RunCloseRequest()))
+
+    run = journal_mod.list_runs(limit=1)[0]
+    assert run["mode"] == "run_close"
+    assert run["status"] == "error"
+    assert "Enforce failed" in run["message"]

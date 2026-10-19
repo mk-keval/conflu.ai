@@ -462,6 +462,19 @@ class EnforceResponse(BaseModel):
 async def enforce_paper_trades(
     request: EnforceRequest = Body(default=EnforceRequest()),
 ) -> ApiResponse[EnforceResponse]:
+    """Touchpoint A endpoint — thin wrapper over the shared implementation."""
+    return ApiResponse(data=await _execute_enforce(request), meta=MetaInfo())
+
+
+async def _execute_enforce(
+    request: EnforceRequest,
+    *,
+    log_run: bool = True,
+) -> EnforceResponse:
+    """Gate enforcement → journal DB (P3.1 shared implementation).
+
+    ``log_run=False`` lets the combined run-close call write one row instead.
+    """
     # Fetch morning brief using internal service (avoid HTTP self-call)
     try:
         service = _get_morning_brief_service()
@@ -557,25 +570,23 @@ async def enforce_paper_trades(
 
     # Run log (P2.5): every touchpoint leaves a workflow_runs row.
     # ``skipped`` = earlier same-day acceptances kept (not re-evaluated).
-    journal_mod.record_run(
-        "enforce", apply=True,
-        accepted=len(trade_rows), rejected=len(rejections),
-        updated=inserted + updated, skipped=kept,
-        status="partial" if any(r.get("failed_step") == "error" for r in rejections) else "ok",
-        message=message,
-        details={
-            "accepted": [str(r.get("symbol") or "") for r in trade_rows][:50],
-            "rejected": [str(r.get("symbol") or "") for r in rejections][:50],
-        },
-    )
-
-    return ApiResponse(
-        data=EnforceResponse(
-            accepted=accepted_items,
-            rejected=rejected_items,
+    if log_run:
+        journal_mod.record_run(
+            "enforce", apply=True,
+            accepted=len(trade_rows), rejected=len(rejections),
+            updated=inserted + updated, skipped=kept,
+            status="partial" if any(r.get("failed_step") == "error" for r in rejections) else "ok",
             message=message,
-        ),
-        meta=MetaInfo(),
+            details={
+                "accepted": [str(r.get("symbol") or "") for r in trade_rows][:50],
+                "rejected": [str(r.get("symbol") or "") for r in rejections][:50],
+            },
+        )
+
+    return EnforceResponse(
+        accepted=accepted_items,
+        rejected=rejected_items,
+        message=message,
     )
 
 
@@ -725,20 +736,31 @@ class SyncExitsResponse(BaseModel):
 async def sync_exits(
     request: SyncExitsRequest = Body(default=SyncExitsRequest()),
 ) -> ApiResponse[SyncExitsResponse]:
+    """Touchpoint B endpoint — thin wrapper over the shared implementation."""
+    return ApiResponse(data=await _execute_sync_exits(request), meta=MetaInfo())
+
+
+async def _execute_sync_exits(
+    request: SyncExitsRequest,
+    *,
+    log_run: bool = True,
+) -> SyncExitsResponse:
+    """Exit inference → journal DB (P3.1 shared implementation).
+
+    ``log_run=False`` lets the combined run-close call write one row instead.
+    """
     run_date = journal_mod.market_today()
     open_rows = journal_mod.read_open_positions()
     if not open_rows:
         message = "No open journal rows to sync."
-        journal_mod.record_run(
-            "sync_exits", apply=request.apply, updated=0, skipped=0,
-            message=message, details={"applied": [], "skipped": []},
-        )
-        return ApiResponse(
-            data=SyncExitsResponse(
-                updated=0, skipped=0, items=[],
-                message=message,
-            ),
-            meta=MetaInfo(),
+        if log_run:
+            journal_mod.record_run(
+                "sync_exits", apply=request.apply, updated=0, skipped=0,
+                message=message, details={"applied": [], "skipped": []},
+            )
+        return SyncExitsResponse(
+            updated=0, skipped=0, items=[],
+            message=message,
         )
 
     updated = 0
@@ -847,29 +869,117 @@ async def sync_exits(
                 item.skip_reason = "row already closed"
                 skipped += 1
         else:
-            skipped += 1
+            # Dry-run: count as would-be applied (script parity) — the message
+            # says "would be applied", item.applied stays False.
+            updated += 1
 
     message = f"{updated} exit(s) {'applied' if request.apply else 'would be applied'} ({skipped} skipped)"
     if not request.apply and updated > 0:
         message += " — re-run with apply=true to persist"
 
     # Run log (P2.5): every touchpoint leaves a workflow_runs row.
-    journal_mod.record_run(
-        "sync_exits", apply=request.apply,
-        updated=updated, skipped=skipped,
+    if log_run:
+        journal_mod.record_run(
+            "sync_exits", apply=request.apply,
+            updated=updated, skipped=skipped,
+            message=message,
+            details={
+                "applied": [i.symbol for i in items if i.applied][:50],
+                "skipped": [
+                    {"symbol": i.symbol, "reason": i.skip_reason}
+                    for i in items if i.skipped
+                ][:50],
+            },
+        )
+
+    return SyncExitsResponse(
+        updated=updated, skipped=skipped, items=items, message=message,
+    )
+
+
+# ── One-click after-close combined run (P3) ──
+
+
+class RunCloseRequest(BaseModel):
+    """One-go after-close run: enforce (A) then sync exits (B, apply)."""
+    min_conviction: int = 5
+    only: str | None = None
+    apply_exits: bool = True
+
+
+class RunCloseResponse(BaseModel):
+    """Combined run response: one workflow_runs row, both touchpoint results."""
+    run_id: int
+    enforce: EnforceResponse
+    exits: SyncExitsResponse
+    message: str
+
+
+@router.post(
+    "/paper-trades/run-close",
+    summary="One-go after-close run — Touchpoint A then B(apply)",
+    description="Runs gate enforcement (entries) and then exit sync (exits applied) in one call, "
+                "so forgetting one of the two touchpoints is impossible. Writes a single "
+                "workflow_runs row (mode='run_close'). Entries logged today are skipped by the "
+                "exit phase ('exits start next session').",
+    response_model=ApiResponse[RunCloseResponse],
+)
+async def run_close(
+    request: RunCloseRequest = Body(default=RunCloseRequest()),
+) -> ApiResponse[RunCloseResponse]:
+    try:
+        enforce_resp = await _execute_enforce(
+            EnforceRequest(min_conviction=request.min_conviction, only=request.only),
+            log_run=False,
+        )
+    except HTTPException as exc:
+        journal_mod.record_run(
+            "run_close", apply=True, status="error",
+            message=f"Enforce failed: {exc.detail}",
+        )
+        raise
+
+    try:
+        exits_resp = await _execute_sync_exits(
+            SyncExitsRequest(apply=request.apply_exits), log_run=False,
+        )
+    except Exception as exc:  # entries are written; exits failed afterwards
+        journal_mod.record_run(
+            "run_close", apply=True, status="partial",
+            accepted=len(enforce_resp.accepted), rejected=len(enforce_resp.rejected),
+            message=f"Entries written but exits failed: {exc}",
+        )
+        raise
+
+    message = f"{enforce_resp.message} | Exits: {exits_resp.message}"
+    if not request.apply_exits:
+        message += " (exits preview only)"
+    run_id = journal_mod.record_run(
+        "run_close", apply=True,
+        accepted=len(enforce_resp.accepted), rejected=len(enforce_resp.rejected),
+        updated=exits_resp.updated, skipped=exits_resp.skipped,
         message=message,
         details={
-            "applied": [i.symbol for i in items if i.applied][:50],
-            "skipped": [
-                {"symbol": i.symbol, "reason": i.skip_reason}
-                for i in items if i.skipped
-            ][:50],
+            "enforce": {
+                "accepted": [i.symbol for i in enforce_resp.accepted][:50],
+                "rejected": [i.symbol for i in enforce_resp.rejected][:50],
+            },
+            "exits": {
+                "applied": [i.symbol for i in exits_resp.items if i.applied][:50],
+                "skipped": [
+                    {"symbol": i.symbol, "reason": i.skip_reason}
+                    for i in exits_resp.items if i.skipped
+                ][:50],
+            },
         },
     )
 
     return ApiResponse(
-        data=SyncExitsResponse(
-            updated=updated, skipped=skipped, items=items, message=message,
+        data=RunCloseResponse(
+            run_id=run_id,
+            enforce=enforce_resp,
+            exits=exits_resp,
+            message=message,
         ),
         meta=MetaInfo(),
     )
