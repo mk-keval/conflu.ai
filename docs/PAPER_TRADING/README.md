@@ -99,6 +99,28 @@ missed (gray) and failed (red) days at a glance. You can still run the
 individual touchpoints (gate only / exits dry-run / exits apply) from the
 "Manual steps" sections in Daily Routine.
 
+### Optional: inspect the last 2 months as a simulation (Journal → Replay)
+
+The forward journal only knows what happened after you started running it. To
+sanity-check the deployed screens against recent history:
+
+```bash
+python run_paper_replay.py
+```
+
+That replays the deployed `config/regime_screens.yaml` screens over the current
+S&P 500 for the last 60 days — regime computed as of each signal day, next-open
+entries, 2 ATR stop / 3 ATR target / 15-bar cap, fees + slippage included — and
+stores the result in **separate** `replay_runs` / `replay_trades` tables. The
+Journal tab's **2-month replay** toggle shows every winner/loser, win rate,
+expectancy and hypothetical P&L at 1% risk per trade.
+
+This is **simulated screen/template evidence, not forward evidence**:
+TradingView's screener cannot be rewound, so the replay does not reproduce the
+exact live brief (ranking, confluence, catalysts, gate). Replay rows never count
+toward the forward scorecard or the kill rule. Use it to inspect behavior; use
+the forward journal to judge the system.
+
 ### Step 5: Weekly review (Sunday, 15 minutes)
 
 Only **closed** rows count (those with a `date_closed`). Open rows are not
