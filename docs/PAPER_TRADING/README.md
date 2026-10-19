@@ -4,13 +4,27 @@ This is your **operating manual** for paper trading with conflu.ai. Follow it ev
 
 ---
 
-## The Daily Ritual (15-20 minutes, market open + 1 hour)
+## The Daily Ritual (1 click after the close — morning brief optional)
 
-### Step 1: Generate today's candidate list (1 minute)
+**Default rhythm:** once the market has closed, open **Workflow → Daily
+Routine** and press **"Run After-Close (one go)"**. That single call runs the
+7-step gate on today's candidates (new entries), records every rejection, and
+syncs + applies exits for the open book (D-68). Then glance at **Workflow →
+Journal** — trades table, runs strip, rejections, Export CSV.
+
+The journal of record is **SQLite** (`data/paper_trades.db`) — there is no
+spreadsheet to maintain. Steps 1–2 below are the optional morning preview;
+Steps 3–4 explain exactly what the one-go run does under the hood; Step 5 is
+the weekly review.
+
+### Step 1 (optional): Preview today's candidate list (1 minute)
 
 ```bash
 python backend/scripts/paper_trade_from_brief.py --min-conviction 5
 ```
+
+*(preview only — nothing lands in the journal until you run `--run-close`
+/`--apply` or press the one-go button.)*
 
 This will:
 - Print the macro context (VIX, sector leaders/laggers, risk regime)
@@ -42,43 +56,48 @@ Look at the top 5 candidates. For each, ask:
 
 If yes to all 4, it's a candidate. If no to any, skip.
 
-### Step 3: Record each paper trade in a CSV (5 minutes per trade)
+### Step 3: Enforce the gate + record entries (1 click, after the close)
 
-Create a file at `docs/paper_trades/YYYY-MM-DD.csv` with one row per trade:
+Press **"Run After-Close (one go)"** in **Workflow → Daily Routine**. It calls
+`POST /api/v1/workflow/paper-trades/run-close`, which:
 
-```csv
-date_entered,symbol,sector,action,entry_price,stop_loss,target_1,target_2,position_size_pct,confluence_count,signal_at_entry,notes
-2026-09-01,OKTA,Technology,BUY,170,160,200,215,5,3,"sector_RS+15.6%_+insider_cluster+post_earnings","Post-earnings drift on OKTA, market-leading sector RS, 3/5 catalysts. Stop below 50d SMA."
-2026-09-01,FTNT,Technology,BUY,168,160,185,200,6,3,"post_earnings+insider_ownership_17%+sector_RS_tracking","Held back, watching for confirmation."
-```
+1. Fetches the Morning Brief + each candidate's verdict, runs the 7-step gate,
+   sizes the survivors (CONDITIONAL → 0.5×), and **upserts each accepted trade
+   into the journal of record** (`data/paper_trades.db`; key
+   `(date_entered, symbol)` — same-day re-runs keep the row).
+2. Appends every rejected candidate to the **rejections** table with its
+   `gate_failed_step` + reason — nothing is silently dropped.
 
-### Step 4: Close the loop - record the exit (5 minutes at close)
+Entries land at end-of-day (`entry_timing='eod'`). Missed days stay **honest
+gaps** — no backfill, no invented rows.
 
-**This step is mandatory.** Without it the system cannot be measured: no exits
-means no win rate, no expectancy, no average R. The 2026-09 bypass-path cohort
-(31 rows) was voided precisely because this step was never performed.
+### Step 4: The exits close the loop themselves (0 minutes)
 
-When a position ends, fill in the outcome columns **on its existing row** - do
-NOT open a row in tomorrow's file:
+The same one-go call runs the exit sync (Touchpoint B): it walks daily OHLCV
+from the entry date forward and fills the exit columns when a stop / target /
+time-stop triggers — conservative priority (a gap through the stop fills at
+the open, T2 before T1, etc.):
 
-| Column | Value |
-|---|---|
-| `date_closed` | `YYYY-MM-DD` |
-| `exit_price` | actual exit price |
-| `exit_reason` | `stop` / `target_1` / `target_2` / `trail` / `time_stop` / `thesis_break` / `manual` |
-| `shares` | shares actually taken |
-| `realized_r` | `(exit_price - entry_price) / (entry_price - stop_loss)` - signed |
-| `pnl_usd` | optional - dollar result |
-| `mfe_r` | optional - best unrealized R reached (did we exit too early?) |
-| `mae_r` | optional - worst unrealized R (was the stop too wide?) |
-| `plan_adherence` | `followed` / `partial` / `broke` - did you run the plan? |
+`date_closed`, `exit_price`, `exit_reason`, `realized_r`, `pnl_usd`, `mfe_r`,
+`mae_r`, `plan_adherence`.
 
-A position that is still open **stays open**. Never duplicate it into a new
-day's file - that is what made the previous cohort unmeasurable.
+Two rules you should know:
 
-`plan_adherence` is a **process** metric, not a success metric. You can be 100%
-adherent to a bad plan and still lose. Profitability is measured by `realized_r`
-and expectancy.
+- **Same-day guard:** a position entered today is skipped — exits start the
+  next session. This is not day-trading; entries fill at the close.
+- **The entry bar can't stop you out:** because entries fill at the close
+  (`entry_timing='eod'`), the entry day's own intraday range is excluded from
+  exit checks.
+
+`plan_adherence` is a **process** metric (did the system execute the plan?),
+not a success metric — profitability is measured by `realized_r` and
+expectancy.
+
+Errors are honest, not silent: every run writes a row to the `workflow_runs`
+log (`ok` / `partial` / `error`) and the runs strip in the Journal tab shows
+missed (gray) and failed (red) days at a glance. You can still run the
+individual touchpoints (gate only / exits dry-run / exits apply) from the
+"Manual steps" sections in Daily Routine.
 
 ### Step 5: Weekly review (Sunday, 15 minutes)
 
@@ -91,7 +110,7 @@ evidence yet.
 4. Compute **profit factor**: `sum(winning realized_r) / abs(sum(losing realized_r))`
 5. Look at the **losing trades**: was the catalyst signal wrong, or was the execution wrong? Check `mae_r` - did it go green first and then stop you out?
 6. Look at the **winning trades**: check `mfe_r` - did you leave R on the table?
-7. Review `REJECTIONS.csv`: were the rejected candidates actually the losers? If the gate rejects winners, the gate is wrong.
+7. Review the **rejections log** (Journal tab): were the rejected candidates actually the losers? If the gate rejects winners, the gate is wrong.
 8. **Kill criteria** - if after 30+ closed trades expectancy <= 0, the system is not working. Change it or stop. Do not "give it more time" without a reason.
 
 **Minimum sample:** do not draw pattern-level conclusions below ~30 closed
@@ -139,11 +158,14 @@ Track these metrics weekly:
 ## File layout
 
 ```
+data/
+└── paper_trades.db            # THE journal of record (SQLite, D-68): trades + rejections + runs
+
 docs/
 ├── PAPER_TRADING/             # this workflow doc + future updates
-├── paper_trades/              # per-day candidate/outcome CSVs (one per trading day)
-│   ├── TEMPLATE.csv           # the 21-column schema (12 entry + 9 exit-capture)
-│   ├── REJECTIONS.csv         # every candidate the gate rejected, and which step
+├── paper_trades/              # LEGACY CSVs - import source + archive (byte-identical, D-68)
+│   ├── TEMPLATE.csv           # canonical header (D-51 schema)
+│   ├── REJECTIONS.csv         # legacy rejections (imported once; new rejects live in the DB)
 │   └── archive/               # voided cohorts (see archive/README.md)
 ├── SESSIONS/
 │   └── morning_brief/         # daily JSON output from the morning brief
@@ -155,32 +177,35 @@ docs/
 
 ## First day checklist (today)
 
-- [ ] Run the morning brief generator script (writes the **candidate** CSV)
-- [ ] **Pick 1-2 that match your conviction** - do NOT keep everything the script wrote. Run each through the 7-step gate, drop the rest, and log the rejects in `REJECTIONS.csv`
+- [ ] (Optional morning) Preview the candidates: `python backend/scripts/paper_trade_from_brief.py --min-conviction 5` - then pick what you'd actually trade
+- [ ] After the close: press **"Run After-Close (one go)"** in Workflow → Daily Routine - the gate enforces (entries + rejections) and exits sync
+- [ ] Check **Workflow → Journal**: trades table, rejections, runs strip (green = ran, red = error)
 - [ ] Set alerts in your broker at the entry/stop/target prices (paper account)
-- [ ] End of day: **record the exit** on any position that closed (Step 4). An open position stays open.
 
 That's it. The rest is discipline.
 
 ---
 
-## The script (preferred path)
+## The script (CLI twin of the one-go button)
 
-`backend/scripts/paper_trade_from_brief.py` — fetches the same data as the UI's Morning Brief page and writes the CSV automatically.
+`backend/scripts/paper_trade_from_brief.py` — fetches the same data as the UI's Morning Brief page, runs the 7-step gate, and writes to the journal of record.
 
 ```bash
-# Write all candidates (conviction >= 5) to today's CSV
-python backend/scripts/paper_trade_from_brief.py
+# One-go after-close run: gate enforcement + exits applied (same as the UI button)
+python backend/scripts/paper_trade_from_brief.py --run-close
 
-# Write only specific tickers
-python backend/scripts/paper_trade_from_brief.py --only HRMY,SLDE,DOCU
+# Gate enforcement only (entries + rejections), no exit sync
+python backend/scripts/paper_trade_from_brief.py --apply
+
+# Exit sync only - dry-run preview by default; add --apply to write
+python backend/scripts/paper_trade_from_brief.py --sync-exits
 
 # Higher conviction bar (only the strongest setups)
-python backend/scripts/paper_trade_from_brief.py --min-conviction 7
+python backend/scripts/paper_trade_from_brief.py --run-close --min-conviction 7
 ```
 
-Output: `docs/paper_trades/YYYY-MM-DD.csv` - a **candidate list**, not a trade list.
+Output: rows upserted into `data/paper_trades.db` (key `(date_entered, symbol)`); rejected candidates are logged with their failed gate step. Without `--apply`/`--run-close` the script is a **preview** - nothing is written.
 
-> **KNOWN GAP (2026-09-16).** The script writes *every* candidate above the conviction floor. It does **not** run the validation gate, size by conviction, or record a rejection. Do not treat its output as validated. Until the gate is enforced in this path, apply Step 2 by hand and log the rejects to `docs/paper_trades/REJECTIONS.csv`. Source: [evidence audit](../SESSIONS/2026-09-16_paper-trade-evidence-audit.md).
+> **Historical gap (2026-09-16), now closed.** The script used to write *every* candidate above the conviction floor without running the gate. Enforcement + rejection logging now run in this path, and each run is logged to `workflow_runs`. Source: [evidence audit](../SESSIONS/2026-09-16_paper-trade-evidence-audit.md).
 
-The old `daily_morning_ritual.py` script is **deprecated** as of 2026-09-03 — it called `/api/v1/screen/tv` directly with filter names that no longer exist in the schema. The new script uses the same `/api/v1/professional/morning-brief` endpoint as the UI, so what you see in the app and what you get in the CSV are guaranteed to match.
+The old `daily_morning_ritual.py` script is **deprecated** as of 2026-09-03 — it called `/api/v1/screen/tv` directly with filter names that no longer exist in the schema. The new script uses the same `/api/v1/professional/morning-brief` endpoint as the UI, so what you see in the app and what lands in the journal are guaranteed to match.

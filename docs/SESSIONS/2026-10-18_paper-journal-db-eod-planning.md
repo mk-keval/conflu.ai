@@ -1,4 +1,4 @@
-# Session Log: 2026-10-18 — Paper Journal → SQLite + One-Click EOD Combined Run (Planning + P1)
+# Session Log: 2026-10-18 — Paper Journal → SQLite + One-Click EOD Combined Run (Planning + P1–P4)
 
 **Date:** 2026-10-18
 **Branch:** `fix/technical-tab-empty`
@@ -116,6 +116,26 @@ Verification: full backend suite **855 passed** (P2 baseline 851 + 4), same 4 pr
 
 **Commit note:** same surgical staging as P1/P2 — the `workflow.py` worktree diff carries the user's 3 timeout hunks (import line + 2 `asyncio.wait_for`), which stay unstaged.
 
+## P4 implemented (same session, continued)
+
+**Slice P4 — UI — is done.** Hydration live, Journal tab live, one-go button live.
+
+What landed:
+
+1. **Hydration fix (R1)** — `hydrateFromJournal()` had zero call sites; it now runs on app mount + window focus (`App.tsx`) and after every touchpoint action (enforce / sync-exits apply / run-close). Expectancy Meter, Open Positions Tracker and Skill Score finally populate from the journal.
+2. **API helpers** (`api/workflow.ts`) — `getJournalAll()`, `getRuns()`, `getRejections()`, `runClose()` (per-call timeout **300 s**, R12) + `JOURNAL_EXPORT_URL`; typed `JournalRow` (string cells — CSV parity), `WorkflowRun`, `JournalRejection`, `RunCloseResult`.
+3. **`JournalTab.tsx`** (new; registered after Dashboard, icon BookOpen) — runs strip (last 14 days: green ok / red error·partial / gray missed / faint weekend), trades table with Today / Open / Closed / All chips (client-side; Today = entered **or** closed today), collapsed rejections, Export CSV. Pure helpers `filterJournalRows` / `buildRunsStrip` / `shiftDateKey` exported for tests.
+4. **`DailyRoutine.tsx`** — primary **"Run After-Close (one go)"** button with stepped progress ("Running gate enforcement…" → "Syncing exits…", time-hinted at 10 s) and an inline summary (accepted / rejected / exits applied / skipped); on success it completes **both** touchpoints and hydrates the store. Individual A/B actions moved under per-step "Manual steps" collapsibles (behavior unchanged).
+5. **Void writer retired** — `PaperTradeLogger.tsx` deleted; `ExecutionEngine`'s "Log Paper Trade" prop/button removed; `TickerAnalysisPage` no longer mounts the modal; `AdherenceDashboard` comment updated. The backend journal is the single record path; deprecated store actions untouched.
+
+Docs: `docs/ARCHITECTURE.md` (workflow tree + touchpoint flow + one-go run block + design bullet), `docs/PAPER_TRADING/README.md` (rhythm now one-button EOD; CSV demoted to import/export).
+
+Tests: frontend **134 passed / 11 files** — new `journalTab.test.ts` (12), new `workflowStore.hydration.test.ts` (2, mocked api: row→PaperTrade mapping + failure keeps local state), `dailyRoutine.test.ts` +2 (stepped progress). `tsc --noEmit` clean; `npm run build` green (11.4 s).
+
+**Commit note:** all frontend files are P4's own — the user's uncommitted frontend edits (package.json/lock, vite/tailwind config, Backtest/OptimizationForm) untouched. No backend changes in P4.
+
 ## Next steps
 
-- P4 — UI hydration fix, Journal tab (runs strip / trades / rejections / export), one-go button, retire the void writer.
+- All four slices (P1–P4) implemented and committed on `fix/technical-tab-empty` (not yet pushed).
+- Smoke-test in the browser: Workflow → Daily Routine → "Run After-Close (one go)" → Journal tab (runs strip / trades / rejections / Export CSV); dashboards should populate from `data/paper_trades.db`.
+- Legacy index files (`docs/index.md`, `docs/DECISIONS/index.md`, `INDEX.md`) still carry the user's mixed docs batch — deliberately uncommitted.

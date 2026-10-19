@@ -51,11 +51,12 @@ backend/
 │           ├── channels.py # PriceChannel & IndicatorChannel data providers
 │           └── handler.py # /ws/stream endpoint with auth + reconnection
 ├── domain/
-│   └── workflow/          # Workflow validation gate & paper-trade journal (D-53, D-56, D-64)
+│   └── workflow/          # Workflow validation gate & paper-trade journal (D-53, D-56, D-64, D-68)
 │       ├── __init__.py
 │       ├── gate.py        # 7-step gate evaluator (build_gate_input, evaluate_gate)
 │       ├── exits.py       # Self-closing exit inference (infer_exit, Sec.2E)
-│       ├── journal.py     # Paper-trade CSV reader (29-col D-51 schema)
+│       ├── journal_store.py # SQLite journal of record (data/paper_trades.db, WAL; D-68)
+│       ├── journal.py     # Journal read API + single-writer re-exports (29-col D-51 schema)
 │       ├── sizing.py      # Risk-based position sizing with CONDITIONAL halving
 │       └── verification.py # Expectancy tracking per template/regime (D-64, Sec.2E)
 ├── tests/
@@ -268,8 +269,9 @@ TOUCHPOINT A — Morning Gate Enforcement (POST /api/v1/workflow/paper-trades/en
         7. Conviction — 0-10 from final verdict
      c. Re-evaluate Portfolio Fit against live journal (real open positions)
      d. Compute position size (risk-based, CONDITIONAL → 0.5×)
-     e. PASS/CONDITIONAL → write to today's CSV (D-51 29-col schema)
-     f. FAIL → write to REJECTIONS.csv with failed_step + reason
+     e. PASS/CONDITIONAL → upsert into the journal of record (SQLite, D-68;
+        entry-only key (date_entered, symbol); same-day re-runs keep the row)
+     f. FAIL → append to the rejections table with failed_step + reason
   3. Returns accepted/rejected lists with gate verdicts
 
 TOUCHPOINT B — Exit Sync from OHLCV (POST /api/v1/workflow/paper-trades/sync-exits)
@@ -282,7 +284,16 @@ TOUCHPOINT B — Exit Sync from OHLCV (POST /api/v1/workflow/paper-trades/sync-e
      d. Target 1 hit → fill at target_1
      e. Time stop (max_hold_days) → fill at close
   4. Compute realized_r, pnl_usd, mfe_r, mae_r, plan_adherence
-  5. apply=true → patch CSV with exit data; apply=false → dry-run preview
+  5. apply=true → update the journal row's exit columns (guard: date_closed
+     IS NULL; same-day guard: entries entered today are skipped — exits start
+     next session because EOD entries fill at the close); apply=false →
+     dry-run preview (counts would-be exits as updated)
+
+ONE-GO AFTER-CLOSE RUN (POST /api/v1/workflow/paper-trades/run-close, D-68)
+  A then B in a single call (enforce → sync-exits applied) → one workflow_runs
+  row (mode='run_close', status ok/partial/error) → surfaced in the UI: Daily
+  Routine's "Run After-Close (one go)" button + the Journal tab's runs strip.
+  Individual endpoints remain for manual/dry-run use.
 
 EXPECTANCY TRACKING (Sec.2E Verification) — verification.py
   → compute_expectancy_per_template_regime()
@@ -301,6 +312,7 @@ EXPECTANCY TRACKING (Sec.2E Verification) — verification.py
 - **Live everywhere; no overnight batch**: Charts, indicators (`GET /data/indicators/{symbol}`), ticker analysis, regime detection, sector rotation, and Morning Brief all fetch **live on-demand** from TradingView / Yahoo Finance. Indicators are computed on-the-fly with pandas-ta — **no precomputed indicator warehouse**.
 - **Confluence scoring from TV data only**: No OHLCV needed for initial ranking — uses TV columns directly
 - **DuckDB is optional, non-load-bearing**: Historical OHLCV in DuckDB (ADR-001) is used ONLY by on-demand backtest/risk. It is never on the discovery/screening/analysis path. If DuckDB data is missing or stale, all core features still work. The `indicator_values` table / IndicatorCache is **retired** (D-23).
+- **Journal of record is SQLite (D-68)**: `data/paper_trades.db` (stdlib sqlite3, WAL) holds paper trades, rejections and the run log; the legacy CSVs stay byte-identical and CSV remains an import/export format only. DuckDB is untouched by this.
 - **Multi-TF via client-side intersection**: TV only supports single-TF queries, so multi-TF = multiple queries + intersect
 - **ATR-based entry/SL/targets**: Available directly from TV — no local computation needed for screening
 - **26 TV filters** across trend, momentum, volume, volatility, pattern, and fundamental categories
