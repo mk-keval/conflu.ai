@@ -2821,15 +2821,15 @@ wheels = [
 
 [[package]]
 name = "tradingview-screener"
-version = "3.2.1"
+version = "3.2.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pandas" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f1/ec/3866844b321e95c28b87894f6fd6ae4d5778141f1b2980e25bf280c1a683/tradingview_screener-3.2.1.tar.gz", hash = "sha256:5144ecd8ccb7559e9e1a38365fd8c8a625758bc4dd3788863b5d8a1284732854", size = 99963, upload-time = "2026-06-20T23:01:09.498Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/70/11/65006f34f66abc6f2c6dc7b04d70abbd6f609a677a7ca408c6fde5b09398/tradingview_screener-3.2.2.tar.gz", hash = "sha256:cf0407c64cf10fec5b5e7454b8d1dc5a19f8c9adb111b68a5671a35afe50e4ca", size = 101550, upload-time = "2026-09-14T16:38:11.276Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d9/56/6864a2ab4c70cf1c1aaf5e88576b8dbdf010c2398c1b04a1e6945e3e5dd3/tradingview_screener-3.2.1-py3-none-any.whl", hash = "sha256:93e4b9844dc8977408794891dce69078838a01f2efc2cb75d04a37e1a0faffb3", size = 22199, upload-time = "2026-06-20T23:01:07.729Z" },
+    { url = "https://files.pythonhosted.org/packages/78/f9/4a19f4eb7fc69dd4e41f8855761854bde511c1342124815af8815fc08e11/tradingview_screener-3.2.2-py3-none-any.whl", hash = "sha256:e2e46332c1c4102ea2eb986538b0e3a901731804b5084be091c9af317fb2d9f6", size = 22330, upload-time = "2026-09-14T16:38:09.921Z" },
 ]
 
 [[package]]
