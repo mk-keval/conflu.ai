@@ -172,7 +172,7 @@ export function BacktestForm() {
                 'flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors',
                 form.position_sizing === opt.value
                   ? 'bg-accent text-white'
-                  : 'border-dark-500 text-dark-200 hover:bg-dark-600 border'
+                  : 'bg-dark-800 border-dark-500 text-dark-200 hover:bg-dark-600 border'
               )}
             >
               {opt.label}
