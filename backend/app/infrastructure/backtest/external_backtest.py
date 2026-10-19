@@ -417,7 +417,7 @@ class ExternalBacktestEngine:
         try:
             rules = self._resolve_filter_rules(config, skipped)
             if not rules:
-                log.warning(f"No evaluable technical filters for {config.symbol}")
+                self._log.warning(f"No evaluable technical filters for {config.symbol}")
                 return None, skipped
 
             base_tf = self._norm_timeframe(config.timeframe)
@@ -442,7 +442,7 @@ class ExternalBacktestEngine:
                     if view is None:
                         for rule in tf_rules:
                             skipped.append(f"{rule.indicator}|{tf} (no intraday data available)")
-                        log.warning(
+                        self._log.warning(
                             f"Intraday data unavailable for {config.symbol} — "
                             f"{tf} rules cannot be evaluated"
                         )
@@ -450,7 +450,7 @@ class ExternalBacktestEngine:
                 else:
                     for rule in tf_rules:
                         skipped.append(f"{rule.indicator} ({tf} not supported in local backtest)")
-                    log.warning(f"Unsupported rule timeframe {tf} for {config.symbol}")
+                    self._log.warning(f"Unsupported rule timeframe {tf} for {config.symbol}")
                     return None, skipped
 
                 rule_mask = self._evaluate_filters_frame(view, tf_rules, skipped)
@@ -458,13 +458,13 @@ class ExternalBacktestEngine:
                     return None, skipped
                 mask &= rule_mask
 
-            log.info(
+            self._log.info(
                 f"Signals for {config.symbol}: {int(mask.sum())} entry bars, "
                 f"{len(skipped)} skipped filters"
             )
             return mask, skipped
         except Exception as e:
-            log.error(f"Signal generation failed for {config.symbol}: {e}")
+            self._log.error(f"Signal generation failed for {config.symbol}: {e}")
             return None, skipped
 
     def _evaluate_filters_frame(
@@ -484,7 +484,7 @@ class ExternalBacktestEngine:
                 mask &= self._eval_one_rule(frame, rule, skipped)
             return mask
         except Exception as e:
-            log.warning(f"Pandas filter evaluation failed: {e}")
+            self._log.warning(f"Pandas filter evaluation failed: {e}")
             return None
 
     def _eval_one_rule(self, frame: pd.DataFrame, rule, skipped: list[str]) -> pd.Series:
@@ -545,7 +545,7 @@ class ExternalBacktestEngine:
         try:
             import pandas_ta as ta
         except ImportError:
-            log.warning("pandas_ta not available")
+            self._log.warning("pandas_ta not available")
             return df
         
         result = df.copy()
