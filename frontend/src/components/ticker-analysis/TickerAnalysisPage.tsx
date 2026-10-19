@@ -58,8 +58,6 @@ import { EducationTooltip } from '@/components/professional/EducationTooltip';
 import { TermLink } from '@/components/learn/TermLink';
 import { ValidationGate } from '@/components/workflow/ValidationGate';
 import { ExecutionEngine } from '@/components/workflow/ExecutionEngine';
-import { PaperTradeLogger } from '@/components/workflow/PaperTradeLogger';
-import type { ExecutionPlan } from '@/workflow/execution';
 import type { ExecutionSetup } from '@/types/workflow';
 
 /** Inline info icon opening a Trade Plan concept tooltip (entry from education.json tradePlan section). */
@@ -2430,8 +2428,6 @@ export function TickerAnalysisPage() {
   const [explain, setExplain] = useState(true);
   const [gateOpen, setGateOpen] = useState(false);
   const [execOpen, setExecOpen] = useState(false);
-  const [loggerOpen, setLoggerOpen] = useState(false);
-  const [loggerPlan, setLoggerPlan] = useState<ExecutionPlan | null>(null);
 
   // If we have a route param, use it. Otherwise from search params.
   const symbol = routeSymbol ?? searchParams.get('symbol') ?? '';
@@ -2775,21 +2771,8 @@ export function TickerAnalysisPage() {
         open={execOpen}
         onClose={() => setExecOpen(false)}
         setup={execSetup}
-        onLogPaperTrade={(plan) => {
-          setLoggerPlan(plan);
-          setLoggerOpen(true);
-        }}
       />
 
-      {/* Paper Trade Logger modal — record + score adherence (Phase 1, Sprint 5) */}
-      {loggerPlan && (
-        <PaperTradeLogger
-          open={loggerOpen}
-          onClose={() => setLoggerOpen(false)}
-          setup={execSetup}
-          plan={loggerPlan}
-        />
-      )}
     </div>
   );
 }

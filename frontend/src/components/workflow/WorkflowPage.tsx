@@ -21,6 +21,7 @@ import {
   PieChart,
   CalendarCheck2,
   Target,
+  BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { formatPrice } from '@/lib/format';
@@ -29,12 +30,14 @@ import { DailyRoutine } from './DailyRoutine';
 import { AdherenceDashboard } from './AdherenceDashboard';
 import { ExpectancyMeter } from './ExpectancyMeter';
 import { OpenPositionsTracker } from './OpenPositionsTracker';
+import { JournalTab } from './JournalTab';
 
-type TabId = 'market' | 'dashboard' | 'routine' | 'watchlist' | 'portfolio' | 'adherence';
+type TabId = 'market' | 'dashboard' | 'routine' | 'watchlist' | 'portfolio' | 'adherence' | 'journal';
 
 const TABS: { id: TabId; label: string; icon: typeof Gauge }[] = [
   { id: 'market', label: 'Market Context', icon: Gauge },
   { id: 'dashboard', label: 'Dashboard', icon: Target },
+  { id: 'journal', label: 'Journal', icon: BookOpen },
   { id: 'routine', label: 'Daily Routine', icon: CalendarCheck2 },
   { id: 'watchlist', label: 'Watchlist', icon: Search },
   { id: 'portfolio', label: 'Portfolio', icon: PieChart },
@@ -704,6 +707,9 @@ function WorkflowContent() {
                 </section>
               </>
             )}
+
+            {/* ── Tab: Journal (SQLite of record — D-68) ── */}
+            {activeTab === 'journal' && <JournalTab />}
 
             {/* ── Tab: Skill Score (Adherence Dashboard) ── */}
             {activeTab === 'adherence' && <AdherenceDashboard />}

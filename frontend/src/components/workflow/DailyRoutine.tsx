@@ -17,10 +17,12 @@ import {
   PlayCircle,
   Upload,
   Loader2,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useWorkflowStore } from '@/store/workflowStore';
 import api from '@/api/client';
+import { runClose, type RunCloseResult } from '@/api/workflow';
 import type { DailyRoutine } from '@/types/workflow';
 
 /** Local date key ("YYYY-MM-DD") for "today" — single helper so the basis is easy to change. */
@@ -65,6 +67,20 @@ export function formatStepTime(iso: string | null): string | null {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+/** One-go run hint: before this elapsed time we're in the gate (enforce) phase. */
+export const RUN_CLOSE_GATE_HINT_MS = 10_000;
+
+/**
+ * Stepped progress text for the one-go after-close run. The combined endpoint
+ * does both touchpoints in a single call, so the phases are time-hinted:
+ * gate enforcement (brief + per-ticker gates) runs first, then the exit sync.
+ */
+export function runCloseProgressText(elapsedMs: number): string {
+  return elapsedMs < RUN_CLOSE_GATE_HINT_MS
+    ? 'Running gate enforcement…'
+    : 'Syncing exits…';
+}
+
 const STEP_ICONS: Record<number, typeof ClipboardList> = {
   1: CalendarCheck2,
   2: CheckCircle2,
@@ -82,6 +98,7 @@ export function DailyRoutine() {
 
   const steps = useMemo(() => routineStepList(routine), [routine]);
   const completeStep = useWorkflowStore((s) => s.completeRoutineStep);
+  const hydrate = useWorkflowStore((s) => s.hydrateFromJournal);
 
   // API loading states
   const [enforceLoading, setEnforceLoading] = useState(false);
@@ -105,6 +122,45 @@ export function DailyRoutine() {
     }>;
   } | null>(null);
 
+  // One-go after-close run (D-68 P4): enforce → exits in a single call.
+  const [runClosePhase, setRunClosePhase] = useState<
+    'idle' | 'running' | 'done' | 'error'
+  >('idle');
+  const [runCloseElapsed, setRunCloseElapsed] = useState(0);
+  const [runCloseResult, setRunCloseResult] = useState<RunCloseResult | null>(null);
+  const [runCloseError, setRunCloseError] = useState<string | null>(null);
+
+  // Tick the elapsed timer while the one-go run is in flight (stepped text).
+  useEffect(() => {
+    if (runClosePhase !== 'running') return;
+    const started = Date.now();
+    const timer = window.setInterval(
+      () => setRunCloseElapsed(Date.now() - started),
+      1000
+    );
+    return () => window.clearInterval(timer);
+  }, [runClosePhase]);
+
+  const handleRunClose = async () => {
+    setRunClosePhase('running');
+    setRunCloseElapsed(0);
+    setRunCloseResult(null);
+    setRunCloseError(null);
+    try {
+      const res = await runClose({ min_conviction: 5, apply_exits: true });
+      setRunCloseResult(res);
+      setRunClosePhase('done');
+      // One button completes the whole after-close routine.
+      completeStep(date, 1);
+      completeStep(date, 2);
+      void hydrate();
+    } catch (e: any) {
+      // The api client rejects with { code, message } objects (see client.ts).
+      setRunCloseError(e?.message || 'Unknown error');
+      setRunClosePhase('error');
+    }
+  };
+
   const handleRunGate = async () => {
     setEnforceLoading(true);
     setEnforceResult(null);
@@ -117,6 +173,7 @@ export function DailyRoutine() {
         rejected: res.data.rejected?.length ?? 0,
         message: res.data.message ?? '',
       });
+      void hydrate();
     } catch (e: any) {
       const msg = e?.response?.data?.error?.message
         || e?.response?.data?.message
@@ -148,6 +205,7 @@ export function DailyRoutine() {
           applied: item.applied ?? false,
         })),
       });
+      if (apply) void hydrate();
     } catch (e: any) {
       const msg = e?.response?.data?.error?.message
         || e?.response?.data?.message
@@ -188,11 +246,105 @@ export function DailyRoutine() {
         </span>
       </div>
 
-      <p className="mb-4 text-xs text-text-muted">
-        {date} - Two touchpoints, ~12 min total. Touchpoint A (pre-market ~10
-        min): run the brief script, review gates. Touchpoint B (after-close ~2
-        min): sync exits, review fills, set plan adherence.
+      <p className="mb-3 text-xs text-text-muted">
+        {date} - Default rhythm: press{' '}
+        <span className="font-medium text-text-primary">
+          Run After-Close (one go)
+        </span>{' '}
+        once after the close — it runs gate enforcement (entries) then applies
+        exits in one call. Pre-market enforcement is optional; the individual
+        touchpoints live under &quot;Manual steps&quot; in each step below.
       </p>
+
+      {/* One-go after-close run (D-68 P4): one call = enforce + exits applied */}
+      <div className="mb-4 rounded-lg border border-accent/30 bg-accent/5 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="flex items-center gap-1.5 text-sm font-medium text-text-primary">
+              <Sparkles className="h-4 w-4 text-accent" />
+              After-Close (one go)
+            </p>
+            <p className="text-[11px] text-text-muted">
+              Gate enforcement → exits applied → one run row. Entries logged
+              today are skipped by the exit phase (exits start next session).
+            </p>
+          </div>
+          <button
+            onClick={handleRunClose}
+            disabled={runClosePhase === 'running'}
+            className="btn-primary gap-1.5 px-4 py-2 text-sm"
+          >
+            {runClosePhase === 'running' ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {runCloseProgressText(runCloseElapsed)}
+              </>
+            ) : (
+              <>
+                <PlayCircle className="h-4 w-4" />
+                Run After-Close (one go)
+              </>
+            )}
+          </button>
+        </div>
+
+        {runClosePhase === 'done' && runCloseResult && (
+          <div className="mt-2 border-t border-accent/20 pt-2">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+              <span
+                className={
+                  runCloseResult.enforce.accepted.length > 0
+                    ? 'text-green-500'
+                    : 'text-text-muted'
+                }
+              >
+                ✓ {runCloseResult.enforce.accepted.length} accepted
+              </span>
+              <span
+                className={
+                  runCloseResult.enforce.rejected.length > 0
+                    ? 'text-red-400'
+                    : 'text-text-muted'
+                }
+              >
+                ✗ {runCloseResult.enforce.rejected.length} rejected
+              </span>
+              <span
+                className={
+                  runCloseResult.exits.updated > 0
+                    ? 'text-green-500'
+                    : 'text-text-muted'
+                }
+              >
+                ⇢ {runCloseResult.exits.updated} exit(s) applied
+              </span>
+              <span
+                className={
+                  runCloseResult.exits.skipped > 0
+                    ? 'text-yellow-400'
+                    : 'text-text-muted'
+                }
+              >
+                ⊘ {runCloseResult.exits.skipped} skipped
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] text-text-muted">
+              {runCloseResult.message}
+            </p>
+            <p className="mt-1 text-[11px] text-green-500">
+              Both touchpoints marked done — see the Journal tab for the run
+              row, trades and rejections.
+            </p>
+          </div>
+        )}
+        {runClosePhase === 'error' && (
+          <p className="mt-2 border-t border-accent/20 pt-2 text-xs text-red-400">
+            Run failed: {runCloseError}. A run row with status
+            &quot;error&quot;/&quot;partial&quot; is still written when possible
+            — check the backend log.
+          </p>
+        )}
+      </div>
 
       {/* Step list */}
       <ol className="space-y-2">
@@ -270,49 +422,56 @@ export function DailyRoutine() {
                       </li>
                     ))}
                   </ul>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={handleRunGate}
-                      disabled={enforceLoading}
-                      className="btn-primary gap-1.5 px-3 py-2 text-sm"
-                    >
-                      {enforceLoading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Running gate...
-                        </>
-                      ) : (
-                        <>
-                          <PlayCircle className="h-4 w-4" />
-                          Run Gate Enforcement
-                        </>
+                  <details className="rounded-md border border-border/30 bg-surface/10 px-3 py-2">
+                    <summary className="cursor-pointer text-xs font-medium text-accent">
+                      Manual steps — run gate enforcement only (pre-market)
+                    </summary>
+                    <div className="mt-2 space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={handleRunGate}
+                          disabled={enforceLoading}
+                          className="btn-primary gap-1.5 px-3 py-2 text-sm"
+                        >
+                          {enforceLoading ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Running gate...
+                            </>
+                          ) : (
+                            <>
+                              <PlayCircle className="h-4 w-4" />
+                              Run Gate Enforcement
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => completeStep(date, 1)}
+                          disabled={!enforceResult}
+                          className="btn-secondary gap-1.5 px-3 py-2 text-sm"
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                          Mark Pre-Market Done
+                        </button>
+                      </div>
+                      {enforceResult && (
+                        <div className="text-xs text-text-secondary space-y-1">
+                          <span className={enforceResult.accepted > 0 ? 'text-green-500' : 'text-text-muted'}>
+                            ✓ {enforceResult.accepted} accepted
+                          </span>
+                          <span className={enforceResult.rejected > 0 ? 'text-red-400' : 'text-text-muted'}>
+                            ✗ {enforceResult.rejected} rejected
+                          </span>
+                          <span>{enforceResult.message}</span>
+                        </div>
                       )}
-                    </button>
-                    <button
-                      onClick={() => completeStep(date, 1)}
-                      disabled={!enforceResult}
-                      className="btn-secondary gap-1.5 px-3 py-2 text-sm"
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                      Mark Pre-Market Done
-                    </button>
-                  </div>
-                  {enforceResult && (
-                    <div className="text-xs text-text-secondary space-y-1">
-                      <span className={enforceResult.accepted > 0 ? 'text-green-500' : 'text-text-muted'}>
-                        ✓ {enforceResult.accepted} accepted
-                      </span>
-                      <span className={enforceResult.rejected > 0 ? 'text-red-400' : 'text-text-muted'}>
-                        ✗ {enforceResult.rejected} rejected
-                      </span>
-                      <span>{enforceResult.message}</span>
+                      {!enforceResult && !enforceLoading && (
+                        <span className="text-[11px] text-text-muted">
+                          Run gate enforcement first, then mark complete
+                        </span>
+                      )}
                     </div>
-                  )}
-                  {!enforceResult && !enforceLoading && (
-                    <span className="text-[11px] text-text-muted">
-                      Run gate enforcement first, then mark complete
-                    </span>
-                  )}
+                  </details>
                 </div>
               )}
 
@@ -330,82 +489,89 @@ export function DailyRoutine() {
                       </li>
                     ))}
                   </ul>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => handleSyncExits(false)}
-                      disabled={syncDryRunLoading}
-                      className="btn-secondary gap-1.5 px-3 py-2 text-sm"
-                    >
-                      {syncDryRunLoading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Dry run...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="h-4 w-4" />
-                          Sync Exits (Dry Run)
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => handleSyncExits(true)}
-                      disabled={syncLoading || !syncResult}
-                      className="btn-primary gap-1.5 px-3 py-2 text-sm"
-                    >
-                      {syncLoading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Applying...
-                        </>
-                      ) : (
-                        <>
+                  <details className="rounded-md border border-border/30 bg-surface/10 px-3 py-2">
+                    <summary className="cursor-pointer text-xs font-medium text-accent">
+                      Manual steps — review + apply exits separately
+                    </summary>
+                    <div className="mt-2 space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => handleSyncExits(false)}
+                          disabled={syncDryRunLoading}
+                          className="btn-secondary gap-1.5 px-3 py-2 text-sm"
+                        >
+                          {syncDryRunLoading ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Dry run...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="h-4 w-4" />
+                              Sync Exits (Dry Run)
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleSyncExits(true)}
+                          disabled={syncLoading || !syncResult}
+                          className="btn-primary gap-1.5 px-3 py-2 text-sm"
+                        >
+                          {syncLoading ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Applying...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="h-4 w-4" />
+                              Sync Exits (Apply)
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => completeStep(date, 2)}
+                          disabled={!syncResult || !syncResult.applied}
+                          className="btn-secondary gap-1.5 px-3 py-2 text-sm"
+                        >
                           <CheckCircle2 className="h-4 w-4" />
-                          Sync Exits (Apply)
-                        </>
+                          Mark After-Close Done
+                        </button>
+                      </div>
+                      {syncResult && (
+                        <div className="text-xs text-text-secondary space-y-1 max-h-40 overflow-y-auto">
+                          <span className={syncResult.updated > 0 ? 'text-green-500' : 'text-text-muted'}>
+                            ✓ {syncResult.updated} exit(s) {syncResult.applied ? 'applied' : 'would apply'}
+                          </span>
+                          <span className={syncResult.skipped > 0 ? 'text-yellow-400' : 'text-text-muted'}>
+                            ⊘ {syncResult.skipped} skipped
+                          </span>
+                          <span>{syncResult.message}</span>
+                          {syncResult.items.length > 0 && (
+                            <details className="mt-1">
+                              <summary className="text-accent cursor-pointer">Show details</summary>
+                              <ul className="mt-1 space-y-1 text-[10px]">
+                                {syncResult.items.slice(0, 10).map((item, i) => (
+                                  <li key={i} className="flex gap-2">
+                                    <span className="font-mono">{item.symbol}</span>
+                                    <span>{item.exit_reason}</span>
+                                    <span className={item.realized_r != null && item.realized_r >= 0 ? 'text-green-500' : 'text-red-400'}>
+                                      {item.realized_r == null ? '—' : `${item.realized_r >= 0 ? '+' : ''}${item.realized_r.toFixed(2)}R`}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </details>
+                          )}
+                        </div>
                       )}
-                    </button>
-                    <button
-                      onClick={() => completeStep(date, 2)}
-                      disabled={!syncResult || !syncResult.applied}
-                      className="btn-secondary gap-1.5 px-3 py-2 text-sm"
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                      Mark After-Close Done
-                    </button>
-                  </div>
-                  {syncResult && (
-                    <div className="text-xs text-text-secondary space-y-1 max-h-40 overflow-y-auto">
-                      <span className={syncResult.updated > 0 ? 'text-green-500' : 'text-text-muted'}>
-                        ✓ {syncResult.updated} exit(s) {syncResult.applied ? 'applied' : 'would apply'}
-                      </span>
-                      <span className={syncResult.skipped > 0 ? 'text-yellow-400' : 'text-text-muted'}>
-                        ⊘ {syncResult.skipped} skipped
-                      </span>
-                      <span>{syncResult.message}</span>
-                      {syncResult.items.length > 0 && (
-                        <details className="mt-1">
-                          <summary className="text-accent cursor-pointer">Show details</summary>
-                          <ul className="mt-1 space-y-1 text-[10px]">
-                            {syncResult.items.slice(0, 10).map((item, i) => (
-                              <li key={i} className="flex gap-2">
-                                <span className="font-mono">{item.symbol}</span>
-                                <span>{item.exit_reason}</span>
-                                <span className={item.realized_r != null && item.realized_r >= 0 ? 'text-green-500' : 'text-red-400'}>
-                                  {item.realized_r == null ? '—' : `${item.realized_r >= 0 ? '+' : ''}${item.realized_r.toFixed(2)}R`}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        </details>
+                      {!syncResult && !syncLoading && !syncDryRunLoading && (
+                        <span className="text-[11px] text-text-muted">
+                          Run sync-exits dry run first, then apply, then mark complete
+                        </span>
                       )}
                     </div>
-                  )}
-                  {!syncResult && !syncLoading && !syncDryRunLoading && (
-                    <span className="text-[11px] text-text-muted">
-                      Run sync-exits dry run first, then apply, then mark complete
-                    </span>
-                  )}
+                  </details>
                 </div>
               )}
 

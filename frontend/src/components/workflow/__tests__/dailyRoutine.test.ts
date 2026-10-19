@@ -6,6 +6,8 @@ import {
   todayKey,
   TOUCHPOINT_A_ACTIONS,
   TOUCHPOINT_B_ACTIONS,
+  runCloseProgressText,
+  RUN_CLOSE_GATE_HINT_MS,
 } from '../DailyRoutine';
 
 describe('todayKey', () => {
@@ -63,5 +65,19 @@ describe('formatStepTime', () => {
 
   it('returns null for invalid timestamps', () => {
     expect(formatStepTime('not-a-date')).toBeNull();
+  });
+});
+
+describe('runCloseProgressText (one-go after-close run)', () => {
+  it('shows the gate phase before the hint threshold', () => {
+    expect(runCloseProgressText(0)).toBe('Running gate enforcement…');
+    expect(runCloseProgressText(RUN_CLOSE_GATE_HINT_MS - 1)).toBe(
+      'Running gate enforcement…'
+    );
+  });
+
+  it('switches to the exits phase at/after the hint threshold', () => {
+    expect(runCloseProgressText(RUN_CLOSE_GATE_HINT_MS)).toBe('Syncing exits…');
+    expect(runCloseProgressText(180_000)).toBe('Syncing exits…');
   });
 });

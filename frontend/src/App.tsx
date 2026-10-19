@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppShell } from './components/layout/AppShell';
 import { ScreenerPage } from './components/screener';
@@ -23,6 +24,7 @@ import {
 } from './components/professional';
 import { LearnPage } from './components/learn/LearnPage';
 import { useProModeStore } from './store/professional';
+import { useWorkflowStore } from './store/workflowStore';
 
 function HomeRedirect() {
   const proModeEnabled = useProModeStore((s) => s.enabled);
@@ -30,6 +32,16 @@ function HomeRedirect() {
 }
 
 export function App() {
+  // Hydrate the paper-trade journal from the backend on mount + window focus
+  // (D-68 P4 / R1): the dashboards (Expectancy, Open Positions, Skill Score)
+  // read store.paperTrades, which was never hydrated from the SQLite journal.
+  useEffect(() => {
+    const hydrate = () => void useWorkflowStore.getState().hydrateFromJournal();
+    hydrate();
+    window.addEventListener('focus', hydrate);
+    return () => window.removeEventListener('focus', hydrate);
+  }, []);
+
   return (
     <Routes>
       <Route element={<AppShell />}>

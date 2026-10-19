@@ -17,13 +17,11 @@ import {
   PlayCircle,
   X,
   AlertTriangle,
-  ClipboardList,
 } from 'lucide-react';
 import { calculatePositionSize } from '@/api/professional';
 import {
   buildExecutionPlan,
   convictionToLevel,
-  type ExecutionPlan,
 } from '@/workflow/execution';
 import type { ExecutionSetup } from '@/types/workflow';
 import { TermLink } from '@/components/learn/TermLink';
@@ -33,9 +31,6 @@ export interface ExecutionEngineProps {
   onClose: () => void;
   /** Pre-filled from the ticker verdict/trade-plan (derived on the ticker page). */
   setup: ExecutionSetup;
-  /** Optional — when provided, a "Log Paper Trade" action appears once a plan is
-   *  sized so the user can record + score it (Sprint 5). */
-  onLogPaperTrade?: (plan: ExecutionPlan) => void;
 }
 
 const DEFAULT_ACCOUNT_EQUITY = 25_000;
@@ -44,7 +39,6 @@ export function ExecutionEngine({
   open,
   onClose,
   setup,
-  onLogPaperTrade,
 }: ExecutionEngineProps) {
   const [accountEquity, setAccountEquity] = useState(
     setup.accountEquity > 0 ? setup.accountEquity : DEFAULT_ACCOUNT_EQUITY
@@ -308,15 +302,6 @@ export function ExecutionEngine({
 
         {/* Actions */}
         <div className="mt-4 flex items-center gap-3">
-          {plan && onLogPaperTrade && (
-            <button
-              onClick={() => onLogPaperTrade(plan)}
-              className="btn-primary gap-1.5 px-4 py-2 text-sm"
-            >
-              <ClipboardList className="h-4 w-4" />
-              Log Paper Trade
-            </button>
-          )}
           <button
             onClick={onClose}
             className="px-3 py-2 text-sm text-text-muted transition-colors hover:text-text-primary"

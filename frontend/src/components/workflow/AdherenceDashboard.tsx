@@ -12,7 +12,7 @@
  * Pure, browser-free CSV logic lives in `workflow/adherenceExport.ts` so it is
  * unit-testable. This component is a thin read-only view: it derives everything
  * from `useWorkflowStore` + `useAdherence` and writes nothing (this tab is the
- * *scoreboard*; recording happens in the PaperTradeLogger).
+ * *scoreboard*; recording happens in the backend journal — D-68).
  */
 
 import { useMemo } from 'react';
