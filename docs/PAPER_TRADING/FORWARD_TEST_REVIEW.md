@@ -24,6 +24,12 @@ hypotheses to check against forward (real, gated) data at the review.
   - MFE ≫ realized R → exits leave money on the table → consider trailing stop, partial
     scale-out at target, wider target in trend regimes.
   - MFE ≈ realized R → entries are the constraint → raise selectivity instead.
+- Wiring gap (verified 2026-10-19, code): the Ticker Analysis layer **builds** a dynamic
+  trade-management plan (trail stops, scale in/out, breakeven rules — `trail_type` /
+  `trail_activation_r`), but **no execution path consumes it**: the live exit walker
+  (`domain/workflow/exits.py`: stop → T1/T2 → time stop, full exit, stop checked first)
+  and the backtest engine both exit at static levels set at entry. "Dynamic management"
+  is currently advisory output, not behavior — wiring it is a candidate review fix.
 
 ## B. Regime response gap — "choppy" serves continuation screens; "ranging" is unreachable
 
