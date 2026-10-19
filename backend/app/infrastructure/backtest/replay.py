@@ -371,6 +371,13 @@ def _group_summary(rows: list[dict[str, Any]], key: str) -> dict[str, dict[str, 
 
 
 def _basic_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Aggregate replay rows.
+
+    Convention: ``wins`` / ``losses`` / ``win_rate`` classify by **net** dollar P&L
+    (``pnl_usd``, after fees + slippage), while ``expectancy_r`` / ``avg_win_r`` /
+    ``avg_loss_r`` / ``profit_factor_r`` use the engine's **gross** R-multiples.
+    Net R per trade is ``pnl_usd / (account_value * risk_pct / 100)``.
+    """
     n = len(rows)
     if n == 0:
         return {
