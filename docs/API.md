@@ -745,6 +745,43 @@ Fetches daily OHLCV for open journal rows, infers exit (stop/target/time), write
 }
 ```
 
+### POST `/paper-trades/run-close`
+**One-go after-close run** — Touchpoint A (enforce) then Touchpoint B (sync exits, applied) in a single call. This is the button to press after the close: it is impossible to forget half of the routine.
+
+Runs gate enforcement first (same behavior as `/paper-trades/enforce`), then syncs exits with `apply=true` by default. Entries logged by the enforce phase today are seen by the exit phase and skipped (`"entered today — exits start next session"` — skip, not error). Writes **one** `workflow_runs` row (`mode="run_close"`): `accepted`/`rejected` = entry phase counts, `updated`/`skipped` = exit phase counts.
+
+**Request Body:**
+```json
+{
+  "min_conviction": 5,
+  "only": "AAPL,MSFT",   // optional comma-separated symbols
+  "apply_exits": true    // false = preview exits only (entries still written)
+}
+```
+
+**Response:** `ApiResponse<RunCloseResponse>`
+```json
+{
+  "data": {
+    "run_id": 42,
+    "enforce": {
+      "accepted": [{"symbol": "AAPL", "gate_verdict": "PASS", "entry_price": 228.5, "stop_loss": 222.1, "position_size_pct": 2.1, "target_1": 241.0, "target_2": 253.5}],
+      "rejected": [],
+      "message": "1 accepted, 0 rejected — journal updated (1 new, 0 updated)"
+    },
+    "exits": {
+      "updated": 1,
+      "skipped": 1,
+      "items": [{"symbol": "MSFT", "exit_date": "2026-10-16", "exit_price": 512.0, "exit_reason": "target_1", "realized_r": 2.1, "pnl_usd": 840.0, "mfe_r": 2.3, "mae_r": -0.4, "plan_adherence": 1.0, "applied": true}],
+      "message": "1 exit(s) applied (1 skipped)"
+    },
+    "message": "1 accepted, 0 rejected — journal updated (1 new, 0 updated) | Exits: 1 exit(s) applied (1 skipped)"
+  }
+}
+```
+
+On failure the combined run still leaves a row: `status="error"` when the enforce phase fails (nothing written), `status="partial"` when entries were written but the exit phase failed afterwards. With `apply_exits=false` the row still logs the writes that happened (entries) and appends `"(exits preview only)"` to the message.
+
 ### GET `/journal/rejections`
 The rejection log — why candidates did not become trades (gate/sizing failures), most-recent first.
 

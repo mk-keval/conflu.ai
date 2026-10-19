@@ -99,7 +99,23 @@ Verification: full backend suite **851 passed** (baseline 841 + 10), same 4 pre-
 
 **Commit note:** same surgical staging as P1 — `workflow.py`'s import hunk mixes my changes with the user's uncommitted `import asyncio`; the two `asyncio.wait_for` timeout hunks are also the user's and stay unstaged. The script (`backend/scripts/`) remains gitignored/untracked.
 
+## P3 implemented (same session, continued)
+
+**Slice P3 — one-click combined run — is done.** `POST /workflow/paper-trades/run-close` + `--run-close` CLI.
+
+What landed:
+
+1. **Shared implementations (3.1)** — `enforce_paper_trades` and `sync_exits` endpoint bodies extracted into `_execute_enforce(request, *, log_run=True)` / `_execute_sync_exits(request, *, log_run=True)`; the endpoints are now thin wrappers. `log_run=False` lets a caller write one combined row instead of per-touchpoint rows.
+2. **`POST /workflow/paper-trades/run-close` (3.2)** — body `{min_conviction=5, only=None, apply_exits=true}`: enforce (entries) → sync (exits applied) → **one** `workflow_runs` row (`mode="run_close"`; `accepted`/`rejected` = entry phase, `updated`/`skipped` = exit phase, `apply=1`, combined message, per-symbol details nested under `enforce`/`exits`). Response nests both touchpoint payloads plus `run_id`. Failure honesty: enforce failure → `status="error"` row + re-raise (nothing written); entries written but exit phase failed → `status="partial"` row + re-raise.
+3. **CLI `--run-close` (3.3)** — implies `--apply`; same ordering; `sync_exits()` now returns a summary dict and takes `log_run` (suppresses its own row) so the script also writes one combined row. The no-candidates path still runs the exit half — empty-book days must still be able to close old positions.
+4. **Bug fix found while wiring tests** — router dry-run counted would-be exits as `skipped`, so the message always read "0 exit(s) would be applied". Now counts them as `updated` (script parity; `applied=false` on the item, "would be applied" in the message, `re-run with apply=true to persist` hint).
+
+Tests: **+4** — `test_workflow_endpoints.py`: run-close order guarantee (today's new entry visible to — and guard-skipped by — the exit phase proves enforce ran first), exactly one run row with correct counts/details parsed from `details_json`, idempotent re-run (journal state unchanged, one more run row), dry-exits variant (entries written, exits only previewed), enforce-failure → error row; `test_paper_trade_from_brief.py`: `log_run=False` suppression + dict-return assertions.
+
+Verification: full backend suite **855 passed** (P2 baseline 851 + 4), same 4 pre-existing `test_regime_selector` failures only (missing `config/screens/short-squeeze.yaml`).
+
+**Commit note:** same surgical staging as P1/P2 — the `workflow.py` worktree diff carries the user's 3 timeout hunks (import line + 2 `asyncio.wait_for`), which stay unstaged.
+
 ## Next steps
 
-- P3 — `POST /workflow/paper-trades/run-close` (single run row; nested calls `log_run=False`) + `--run-close` CLI.
 - P4 — UI hydration fix, Journal tab (runs strip / trades / rejections / export), one-go button, retire the void writer.
