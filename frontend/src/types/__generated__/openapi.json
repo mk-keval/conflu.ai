@@ -844,6 +844,353 @@
         }
       }
     },
+    "/api/v1/filter-sweep/presets": {
+      "get": {
+        "tags": [
+          "filter-sweep"
+        ],
+        "summary": "List available preset sweep configurations",
+        "description": "Returns list of available preset filter sweep configurations.",
+        "operationId": "list_presets_api_v1_filter_sweep_presets_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response List Presets Api V1 Filter Sweep Presets Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/filter-sweep/params": {
+      "get": {
+        "tags": [
+          "filter-sweep"
+        ],
+        "summary": "List available filter parameters for sweeping",
+        "description": "Returns all available filter parameters that can be swept.",
+        "operationId": "list_filter_params_api_v1_filter_sweep_params_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response List Filter Params Api V1 Filter Sweep Params Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/filter-sweep/run": {
+      "post": {
+        "tags": [
+          "filter-sweep"
+        ],
+        "summary": "Run a custom filter parameter sweep",
+        "description": "Run a filter parameter sweep with custom configuration.",
+        "operationId": "run_custom_sweep_api_v1_filter_sweep_run_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FilterSweepConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Run Custom Sweep Api V1 Filter Sweep Run Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/filter-sweep/run-preset/{preset_name}": {
+      "post": {
+        "tags": [
+          "filter-sweep"
+        ],
+        "summary": "Run a preset filter sweep",
+        "description": "Run a predefined filter sweep configuration by name.",
+        "operationId": "run_preset_sweep_endpoint_api_v1_filter_sweep_run_preset__preset_name__post",
+        "parameters": [
+          {
+            "name": "preset_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Preset Name"
+            }
+          },
+          {
+            "name": "symbols",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Symbols"
+            }
+          },
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start Date"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End Date"
+            }
+          },
+          {
+            "name": "optimization_metric",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Optimization Metric"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Run Preset Sweep Endpoint Api V1 Filter Sweep Run Preset  Preset Name  Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/filter-sweep/status/{sweep_id}": {
+      "get": {
+        "tags": [
+          "filter-sweep"
+        ],
+        "summary": "Get sweep progress status",
+        "description": "Get the current progress status of a running sweep.",
+        "operationId": "get_sweep_status_api_v1_filter_sweep_status__sweep_id__get",
+        "parameters": [
+          {
+            "name": "sweep_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sweep Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Get Sweep Status Api V1 Filter Sweep Status  Sweep Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/filter-sweep/result/{sweep_id}": {
+      "get": {
+        "tags": [
+          "filter-sweep"
+        ],
+        "summary": "Get filter sweep results",
+        "description": "Retrieve the results of a completed filter sweep.",
+        "operationId": "get_sweep_results_api_v1_filter_sweep_result__sweep_id__get",
+        "parameters": [
+          {
+            "name": "sweep_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sweep Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Get Sweep Results Api V1 Filter Sweep Result  Sweep Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/filter-sweep/list": {
+      "get": {
+        "tags": [
+          "filter-sweep"
+        ],
+        "summary": "List all completed sweeps",
+        "description": "List all completed filter sweeps with summary info.",
+        "operationId": "list_sweeps_api_v1_filter_sweep_list_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response List Sweeps Api V1 Filter Sweep List Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/filter-sweep/{sweep_id}": {
+      "delete": {
+        "tags": [
+          "filter-sweep"
+        ],
+        "summary": "Delete sweep results",
+        "description": "Delete sweep results from memory.",
+        "operationId": "delete_sweep_api_v1_filter_sweep__sweep_id__delete",
+        "parameters": [
+          {
+            "name": "sweep_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sweep Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Delete Sweep Api V1 Filter Sweep  Sweep Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/portfolio/analyze": {
       "post": {
         "tags": [
@@ -2658,6 +3005,48 @@
         }
       }
     },
+    "/api/v1/screen/tv/backtest/external": {
+      "post": {
+        "tags": [
+          "tv-screener"
+        ],
+        "summary": "Run External Backtest",
+        "description": "Run a single backtest using a template and Yahoo Finance data (no vectorbt).\n\nUses the ExternalBacktestEngine which fetches data from Yahoo Finance,\ncomputes indicators with pandas_ta, and runs simulation with pure pandas/numpy.",
+        "operationId": "run_external_backtest_api_v1_screen_tv_backtest_external_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExternalBacktestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalBacktestResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/refresh-data": {
       "post": {
         "tags": [
@@ -2713,7 +3102,7 @@
           "workflow"
         ],
         "summary": "Read all journal rows",
-        "description": "Returns all rows from the paper-trade journal CSV files (both open and closed).",
+        "description": "Returns all rows from the paper-trade journal DB (both open and closed).",
         "operationId": "get_journal_api_v1_workflow_journal_get",
         "parameters": [
           {
@@ -2876,13 +3265,127 @@
         }
       }
     },
+    "/api/v1/workflow/journal/export": {
+      "get": {
+        "tags": [
+          "workflow"
+        ],
+        "summary": "Export the journal as CSV",
+        "description": "Canonical 29-col CSV (chronological) plus template/regime/entry_timing \u2014 Excel remains an output format, never the store.",
+        "operationId": "export_journal_api_v1_workflow_journal_export_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow/journal/rejections": {
+      "get": {
+        "tags": [
+          "workflow"
+        ],
+        "summary": "Read the rejection log",
+        "description": "Most-recent-first rejections from the journal DB (gate/sizing failures).",
+        "operationId": "get_journal_rejections_api_v1_workflow_journal_rejections_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 200,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow/runs": {
+      "get": {
+        "tags": [
+          "workflow"
+        ],
+        "summary": "Recent workflow runs (UI runs strip)",
+        "description": "Most-recent-first run records for enforce / sync-exits / run-close.",
+        "operationId": "get_runs_api_v1_workflow_runs_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 14,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/workflow/paper-trades/enforce": {
       "post": {
         "tags": [
           "workflow"
         ],
         "summary": "Touchpoint A \u2014 Run gate enforcement and write paper trades",
-        "description": "Fetches morning brief, evaluates candidates through the 7-step gate, and writes accepted trades to today's CSV (like --apply).",
+        "description": "Fetches morning brief, evaluates candidates through the 7-step gate, and writes accepted trades to the journal DB (like --apply).",
         "operationId": "enforce_paper_trades_api_v1_workflow_paper_trades_enforce_post",
         "requestBody": {
           "content": {
@@ -2926,7 +3429,7 @@
           "workflow"
         ],
         "summary": "Touchpoint B \u2014 Sync exits from OHLCV (infer + apply)",
-        "description": "Fetches daily OHLCV for open journal rows, infers exit (stop/target/time), and when apply=true writes exit data + plan_adherence to the CSV.",
+        "description": "Fetches daily OHLCV for open journal rows, infers exit (stop/target/time), and when apply=true writes exit data + plan_adherence to the journal DB.",
         "operationId": "sync_exits_api_v1_workflow_paper_trades_sync_exits_post",
         "requestBody": {
           "content": {
@@ -2947,6 +3450,189 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiResponse_SyncExitsResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow/paper-trades/run-close": {
+      "post": {
+        "tags": [
+          "workflow"
+        ],
+        "summary": "One-go after-close run \u2014 Touchpoint A then B(apply)",
+        "description": "Runs gate enforcement (entries) and then exit sync (exits applied) in one call, so forgetting one of the two touchpoints is impossible. Writes a single workflow_runs row (mode='run_close'). Entries logged today are skipped by the exit phase ('exits start next session').",
+        "operationId": "run_close_api_v1_workflow_paper_trades_run_close_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunCloseRequest",
+                "default": {
+                  "min_conviction": 5,
+                  "apply_exits": true
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RunCloseResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow/expectancy": {
+      "get": {
+        "tags": [
+          "workflow"
+        ],
+        "summary": "Get expectancy metrics per template/regime",
+        "description": "Returns rolling expectancy, win rate, profit factor for each template/regime combination. Elite badge requires n>=30 and expectancy>0.",
+        "operationId": "get_expectancy_api_v1_workflow_expectancy_get",
+        "parameters": [
+          {
+            "name": "min_trades",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Minimum trades for elite status",
+              "default": 30,
+              "title": "Min Trades"
+            },
+            "description": "Minimum trades for elite status"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ExpectancyResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow/expectancy/elite": {
+      "get": {
+        "tags": [
+          "workflow"
+        ],
+        "summary": "Get only elite template/regime combinations",
+        "description": "Returns only combinations with n>=30 trades and positive expectancy.",
+        "operationId": "get_elite_expectancy_api_v1_workflow_expectancy_elite_get",
+        "parameters": [
+          {
+            "name": "min_trades",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Minimum trades for elite status",
+              "default": 30,
+              "title": "Min Trades"
+            },
+            "description": "Minimum trades for elite status"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ExpectancyResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow/expectancy/rolling": {
+      "post": {
+        "tags": [
+          "workflow"
+        ],
+        "summary": "Get rolling expectancy for a symbol/template/regime",
+        "description": "Computes rolling expectancy over the last N trades for a specific filter.",
+        "operationId": "get_rolling_expectancy_api_v1_workflow_expectancy_rolling_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RollingExpectancyRequest",
+                "default": {
+                  "window": 30
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Union_RollingExpectancyResponse__NoneType__"
                 }
               }
             }
@@ -3265,6 +3951,22 @@
         ],
         "title": "ApiResponse[EnforceResponse]"
       },
+      "ApiResponse_ExpectancyResponse_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ExpectancyResponse"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ApiResponse[ExpectancyResponse]"
+      },
       "ApiResponse_MarketRegimeResponse_": {
         "properties": {
           "data": {
@@ -3312,6 +4014,22 @@
           "meta"
         ],
         "title": "ApiResponse[PositionSizeResponse]"
+      },
+      "ApiResponse_RunCloseResponse_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RunCloseResponse"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ApiResponse[RunCloseResponse]"
       },
       "ApiResponse_SectorRotationResponse_": {
         "properties": {
@@ -3376,6 +4094,29 @@
           "meta"
         ],
         "title": "ApiResponse[TickerAnalysisResponse]"
+      },
+      "ApiResponse_Union_RollingExpectancyResponse__NoneType__": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RollingExpectancyResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ApiResponse[Union[RollingExpectancyResponse, NoneType]]"
       },
       "ApiResponse_Union_SectorDetail__NoneType__": {
         "properties": {
@@ -4055,6 +4796,526 @@
         ],
         "title": "EnforceResponseItem"
       },
+      "ExpectancyItem": {
+        "properties": {
+          "template": {
+            "type": "string",
+            "title": "Template"
+          },
+          "regime": {
+            "type": "string",
+            "title": "Regime"
+          },
+          "n_trades": {
+            "type": "integer",
+            "title": "N Trades"
+          },
+          "win_rate": {
+            "type": "number",
+            "title": "Win Rate"
+          },
+          "expectancy_r": {
+            "type": "number",
+            "title": "Expectancy R"
+          },
+          "profit_factor": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profit Factor"
+          },
+          "avg_r": {
+            "type": "number",
+            "title": "Avg R"
+          },
+          "avg_win_r": {
+            "type": "number",
+            "title": "Avg Win R"
+          },
+          "avg_loss_r": {
+            "type": "number",
+            "title": "Avg Loss R"
+          },
+          "max_win_r": {
+            "type": "number",
+            "title": "Max Win R"
+          },
+          "max_loss_r": {
+            "type": "number",
+            "title": "Max Loss R"
+          },
+          "total_r": {
+            "type": "number",
+            "title": "Total R"
+          },
+          "is_elite": {
+            "type": "boolean",
+            "title": "Is Elite"
+          },
+          "elite_min_trades": {
+            "type": "integer",
+            "title": "Elite Min Trades"
+          }
+        },
+        "type": "object",
+        "required": [
+          "template",
+          "regime",
+          "n_trades",
+          "win_rate",
+          "expectancy_r",
+          "profit_factor",
+          "avg_r",
+          "avg_win_r",
+          "avg_loss_r",
+          "max_win_r",
+          "max_loss_r",
+          "total_r",
+          "is_elite",
+          "elite_min_trades"
+        ],
+        "title": "ExpectancyItem",
+        "description": "Expectancy metrics for a template/regime combination."
+      },
+      "ExpectancyResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ExpectancyItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "elite_count": {
+            "type": "integer",
+            "title": "Elite Count"
+          },
+          "total_combinations": {
+            "type": "integer",
+            "title": "Total Combinations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "elite_count",
+          "total_combinations"
+        ],
+        "title": "ExpectancyResponse",
+        "description": "All template/regime expectancy metrics."
+      },
+      "ExternalBacktestRequest": {
+        "properties": {
+          "template": {
+            "type": "string",
+            "title": "Template"
+          },
+          "symbols": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Symbols"
+          },
+          "start": {
+            "type": "string",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "title": "End"
+          },
+          "timeframe": {
+            "type": "string",
+            "title": "Timeframe",
+            "default": "1D"
+          },
+          "initial_cash": {
+            "type": "number",
+            "title": "Initial Cash",
+            "default": 100000
+          },
+          "fees_bps": {
+            "type": "number",
+            "title": "Fees Bps",
+            "default": 10.0
+          },
+          "slippage_bps": {
+            "type": "number",
+            "title": "Slippage Bps",
+            "default": 5.0
+          },
+          "position_sizing": {
+            "type": "string",
+            "enum": [
+              "fixed",
+              "atr",
+              "kelly"
+            ],
+            "title": "Position Sizing",
+            "default": "fixed"
+          },
+          "sizing_params": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Sizing Params"
+          },
+          "signal_params": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Signal Params"
+          }
+        },
+        "type": "object",
+        "required": [
+          "template",
+          "symbols",
+          "start",
+          "end"
+        ],
+        "title": "ExternalBacktestRequest",
+        "description": "Request for a single backtest using a template and Yahoo Finance data."
+      },
+      "ExternalBacktestResponse": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "template": {
+            "type": "string",
+            "title": "Template"
+          },
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "timeframe": {
+            "type": "string",
+            "title": "Timeframe"
+          },
+          "metrics": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Metrics"
+          },
+          "trades": {
+            "items": {
+              "$ref": "#/components/schemas/ExternalBacktestTrade"
+            },
+            "type": "array",
+            "title": "Trades"
+          },
+          "equity_curve": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Equity Curve"
+          },
+          "duration_ms": {
+            "type": "number",
+            "title": "Duration Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "template",
+          "symbol",
+          "timeframe",
+          "metrics",
+          "trades",
+          "equity_curve",
+          "duration_ms"
+        ],
+        "title": "ExternalBacktestResponse"
+      },
+      "ExternalBacktestTrade": {
+        "properties": {
+          "trade_id": {
+            "type": "integer",
+            "title": "Trade Id"
+          },
+          "entry_date": {
+            "type": "string",
+            "title": "Entry Date"
+          },
+          "exit_date": {
+            "type": "string",
+            "title": "Exit Date"
+          },
+          "entry_price": {
+            "type": "number",
+            "title": "Entry Price"
+          },
+          "exit_price": {
+            "type": "number",
+            "title": "Exit Price"
+          },
+          "units": {
+            "type": "number",
+            "title": "Units"
+          },
+          "pnl": {
+            "type": "number",
+            "title": "Pnl"
+          },
+          "return_pct": {
+            "type": "number",
+            "title": "Return Pct"
+          },
+          "hold_days": {
+            "type": "integer",
+            "title": "Hold Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "trade_id",
+          "entry_date",
+          "exit_date",
+          "entry_price",
+          "exit_price",
+          "units",
+          "pnl",
+          "return_pct",
+          "hold_days"
+        ],
+        "title": "ExternalBacktestTrade"
+      },
+      "FilterParamRange": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "param_type": {
+            "type": "string",
+            "enum": [
+              "int",
+              "float",
+              "categorical"
+            ],
+            "title": "Param Type"
+          },
+          "low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low"
+          },
+          "high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "High"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          },
+          "choices": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Choices"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "display_name",
+          "param_type"
+        ],
+        "title": "FilterParamRange",
+        "description": "Defines a parameter range for sweeping."
+      },
+      "FilterSweepConfig": {
+        "properties": {
+          "sweep_id": {
+            "type": "string",
+            "title": "Sweep Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "screen_name": {
+            "type": "string",
+            "title": "Screen Name"
+          },
+          "param_grid": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/FilterParamRange"
+            },
+            "type": "object",
+            "title": "Param Grid"
+          },
+          "symbols": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Symbols"
+          },
+          "timeframe": {
+            "type": "string",
+            "title": "Timeframe",
+            "default": "1D"
+          },
+          "start_date": {
+            "type": "string",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "initial_cash": {
+            "type": "number",
+            "title": "Initial Cash",
+            "default": 100000.0
+          },
+          "fees_bps": {
+            "type": "number",
+            "title": "Fees Bps",
+            "default": 10.0
+          },
+          "slippage_bps": {
+            "type": "number",
+            "title": "Slippage Bps",
+            "default": 5.0
+          },
+          "position_sizing": {
+            "type": "string",
+            "enum": [
+              "fixed",
+              "atr",
+              "kelly"
+            ],
+            "title": "Position Sizing",
+            "default": "fixed"
+          },
+          "sizing_params": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Sizing Params"
+          },
+          "optimization_metric": {
+            "type": "string",
+            "enum": [
+              "sharpe",
+              "sortino",
+              "calmar",
+              "win_rate",
+              "profit_factor",
+              "expectancy"
+            ],
+            "title": "Optimization Metric",
+            "default": "expectancy"
+          },
+          "min_trades": {
+            "type": "integer",
+            "title": "Min Trades",
+            "default": 10
+          },
+          "max_combinations": {
+            "type": "integer",
+            "title": "Max Combinations",
+            "default": 5000
+          },
+          "parallel_jobs": {
+            "type": "integer",
+            "title": "Parallel Jobs",
+            "default": 1
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "screen_name",
+          "start_date"
+        ],
+        "title": "FilterSweepConfig",
+        "description": "Configuration for a filter parameter sweep."
+      },
       "FundamentalAnalysis": {
         "properties": {
           "score": {
@@ -4241,37 +5502,48 @@
             ],
             "title": "Overall"
           },
-          "steps": {
+          "stepResults": {
             "items": {
               "$ref": "#/components/schemas/GateStepResult"
             },
             "type": "array",
-            "title": "Steps"
+            "title": "Stepresults"
           },
-          "conviction_score": {
+          "convictionScore": {
             "type": "integer",
-            "title": "Conviction Score"
+            "title": "Convictionscore",
+            "default": 0
           },
-          "data_gaps": {
+          "dataGaps": {
             "items": {
               "type": "string"
             },
             "type": "array",
-            "title": "Data Gaps"
+            "title": "Datagaps"
           },
-          "evaluated_at": {
+          "evaluatedAt": {
             "type": "string",
-            "title": "Evaluated At"
+            "title": "Evaluatedat",
+            "default": ""
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "symbol": {
+            "type": "string",
+            "title": "Symbol",
+            "default": ""
+          },
+          "createdAt": {
+            "type": "string",
+            "title": "Createdat"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "overall",
-          "steps",
-          "conviction_score",
-          "data_gaps",
-          "evaluated_at"
+          "overall"
         ],
         "title": "GateResult",
         "description": "Advisory workflow assessment, distinct from strategy validation."
@@ -4302,15 +5574,15 @@
           },
           "note": {
             "type": "string",
-            "title": "Note"
+            "title": "Note",
+            "default": ""
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "name",
-          "passed",
-          "note"
+          "passed"
         ],
         "title": "GateStepResult",
         "description": "One workflow check; conditional never means approved."
@@ -5068,6 +6340,123 @@
         "title": "RiskPositionSizeRequest",
         "description": "POST /api/v1/risk/position-size request body."
       },
+      "RollingExpectancyRequest": {
+        "properties": {
+          "symbol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol"
+          },
+          "template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template"
+          },
+          "regime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regime"
+          },
+          "window": {
+            "type": "integer",
+            "title": "Window",
+            "default": 30
+          }
+        },
+        "type": "object",
+        "title": "RollingExpectancyRequest"
+      },
+      "RollingExpectancyResponse": {
+        "properties": {
+          "symbol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol"
+          },
+          "template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template"
+          },
+          "regime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regime"
+          },
+          "window": {
+            "type": "integer",
+            "title": "Window"
+          },
+          "win_rate": {
+            "type": "number",
+            "title": "Win Rate"
+          },
+          "expectancy_r": {
+            "type": "number",
+            "title": "Expectancy R"
+          },
+          "profit_factor": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profit Factor"
+          },
+          "total_r": {
+            "type": "number",
+            "title": "Total R"
+          }
+        },
+        "type": "object",
+        "required": [
+          "window",
+          "win_rate",
+          "expectancy_r",
+          "profit_factor",
+          "total_r"
+        ],
+        "title": "RollingExpectancyResponse"
+      },
       "RotationHistoryPoint": {
         "properties": {
           "date": {
@@ -5089,6 +6478,61 @@
         ],
         "title": "RotationHistoryPoint",
         "description": "Single point in rotation history."
+      },
+      "RunCloseRequest": {
+        "properties": {
+          "min_conviction": {
+            "type": "integer",
+            "title": "Min Conviction",
+            "default": 5
+          },
+          "only": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Only"
+          },
+          "apply_exits": {
+            "type": "boolean",
+            "title": "Apply Exits",
+            "default": true
+          }
+        },
+        "type": "object",
+        "title": "RunCloseRequest",
+        "description": "One-go after-close run: enforce (A) then sync exits (B, apply)."
+      },
+      "RunCloseResponse": {
+        "properties": {
+          "run_id": {
+            "type": "integer",
+            "title": "Run Id"
+          },
+          "enforce": {
+            "$ref": "#/components/schemas/EnforceResponse"
+          },
+          "exits": {
+            "$ref": "#/components/schemas/SyncExitsResponse"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "enforce",
+          "exits",
+          "message"
+        ],
+        "title": "RunCloseResponse",
+        "description": "Combined run response: one workflow_runs row, both touchpoint results."
       },
       "ScoredTickerResponse": {
         "properties": {

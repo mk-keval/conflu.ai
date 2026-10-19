@@ -356,6 +356,166 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/filter-sweep/presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List available preset sweep configurations
+         * @description Returns list of available preset filter sweep configurations.
+         */
+        get: operations["list_presets_api_v1_filter_sweep_presets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/filter-sweep/params": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List available filter parameters for sweeping
+         * @description Returns all available filter parameters that can be swept.
+         */
+        get: operations["list_filter_params_api_v1_filter_sweep_params_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/filter-sweep/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a custom filter parameter sweep
+         * @description Run a filter parameter sweep with custom configuration.
+         */
+        post: operations["run_custom_sweep_api_v1_filter_sweep_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/filter-sweep/run-preset/{preset_name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a preset filter sweep
+         * @description Run a predefined filter sweep configuration by name.
+         */
+        post: operations["run_preset_sweep_endpoint_api_v1_filter_sweep_run_preset__preset_name__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/filter-sweep/status/{sweep_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get sweep progress status
+         * @description Get the current progress status of a running sweep.
+         */
+        get: operations["get_sweep_status_api_v1_filter_sweep_status__sweep_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/filter-sweep/result/{sweep_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get filter sweep results
+         * @description Retrieve the results of a completed filter sweep.
+         */
+        get: operations["get_sweep_results_api_v1_filter_sweep_result__sweep_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/filter-sweep/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List all completed sweeps
+         * @description List all completed filter sweeps with summary info.
+         */
+        get: operations["list_sweeps_api_v1_filter_sweep_list_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/filter-sweep/{sweep_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete sweep results
+         * @description Delete sweep results from memory.
+         */
+        delete: operations["delete_sweep_api_v1_filter_sweep__sweep_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/portfolio/analyze": {
         parameters: {
             query?: never;
@@ -1099,6 +1259,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/screen/tv/backtest/external": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run External Backtest
+         * @description Run a single backtest using a template and Yahoo Finance data (no vectorbt).
+         *
+         *     Uses the ExternalBacktestEngine which fetches data from Yahoo Finance,
+         *     computes indicators with pandas_ta, and runs simulation with pure pandas/numpy.
+         */
+        post: operations["run_external_backtest_api_v1_screen_tv_backtest_external_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/refresh-data": {
         parameters: {
             query?: never;
@@ -1132,7 +1315,7 @@ export interface paths {
         };
         /**
          * Read all journal rows
-         * @description Returns all rows from the paper-trade journal CSV files (both open and closed).
+         * @description Returns all rows from the paper-trade journal DB (both open and closed).
          */
         get: operations["get_journal_api_v1_workflow_journal_get"];
         put?: never;
@@ -1223,6 +1406,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/workflow/journal/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the journal as CSV
+         * @description Canonical 29-col CSV (chronological) plus template/regime/entry_timing — Excel remains an output format, never the store.
+         */
+        get: operations["export_journal_api_v1_workflow_journal_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflow/journal/rejections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the rejection log
+         * @description Most-recent-first rejections from the journal DB (gate/sizing failures).
+         */
+        get: operations["get_journal_rejections_api_v1_workflow_journal_rejections_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflow/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recent workflow runs (UI runs strip)
+         * @description Most-recent-first run records for enforce / sync-exits / run-close.
+         */
+        get: operations["get_runs_api_v1_workflow_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/workflow/paper-trades/enforce": {
         parameters: {
             query?: never;
@@ -1234,7 +1477,7 @@ export interface paths {
         put?: never;
         /**
          * Touchpoint A — Run gate enforcement and write paper trades
-         * @description Fetches morning brief, evaluates candidates through the 7-step gate, and writes accepted trades to today's CSV (like --apply).
+         * @description Fetches morning brief, evaluates candidates through the 7-step gate, and writes accepted trades to the journal DB (like --apply).
          */
         post: operations["enforce_paper_trades_api_v1_workflow_paper_trades_enforce_post"];
         delete?: never;
@@ -1254,9 +1497,89 @@ export interface paths {
         put?: never;
         /**
          * Touchpoint B — Sync exits from OHLCV (infer + apply)
-         * @description Fetches daily OHLCV for open journal rows, infers exit (stop/target/time), and when apply=true writes exit data + plan_adherence to the CSV.
+         * @description Fetches daily OHLCV for open journal rows, infers exit (stop/target/time), and when apply=true writes exit data + plan_adherence to the journal DB.
          */
         post: operations["sync_exits_api_v1_workflow_paper_trades_sync_exits_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflow/paper-trades/run-close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One-go after-close run — Touchpoint A then B(apply)
+         * @description Runs gate enforcement (entries) and then exit sync (exits applied) in one call, so forgetting one of the two touchpoints is impossible. Writes a single workflow_runs row (mode='run_close'). Entries logged today are skipped by the exit phase ('exits start next session').
+         */
+        post: operations["run_close_api_v1_workflow_paper_trades_run_close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflow/expectancy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get expectancy metrics per template/regime
+         * @description Returns rolling expectancy, win rate, profit factor for each template/regime combination. Elite badge requires n>=30 and expectancy>0.
+         */
+        get: operations["get_expectancy_api_v1_workflow_expectancy_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflow/expectancy/elite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get only elite template/regime combinations
+         * @description Returns only combinations with n>=30 trades and positive expectancy.
+         */
+        get: operations["get_elite_expectancy_api_v1_workflow_expectancy_elite_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflow/expectancy/rolling": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get rolling expectancy for a symbol/template/regime
+         * @description Computes rolling expectancy over the last N trades for a specific filter.
+         */
+        post: operations["get_rolling_expectancy_api_v1_workflow_expectancy_rolling_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1406,6 +1729,11 @@ export interface components {
             data: components["schemas"]["EnforceResponse"];
             meta: components["schemas"]["MetaInfo"];
         };
+        /** ApiResponse[ExpectancyResponse] */
+        ApiResponse_ExpectancyResponse_: {
+            data: components["schemas"]["ExpectancyResponse"];
+            meta: components["schemas"]["MetaInfo"];
+        };
         /** ApiResponse[MarketRegimeResponse] */
         ApiResponse_MarketRegimeResponse_: {
             data: components["schemas"]["MarketRegimeResponse"];
@@ -1419,6 +1747,11 @@ export interface components {
         /** ApiResponse[PositionSizeResponse] */
         ApiResponse_PositionSizeResponse_: {
             data: components["schemas"]["PositionSizeResponse"];
+            meta: components["schemas"]["MetaInfo"];
+        };
+        /** ApiResponse[RunCloseResponse] */
+        ApiResponse_RunCloseResponse_: {
+            data: components["schemas"]["RunCloseResponse"];
             meta: components["schemas"]["MetaInfo"];
         };
         /** ApiResponse[SectorRotationResponse] */
@@ -1439,6 +1772,11 @@ export interface components {
         /** ApiResponse[TickerAnalysisResponse] */
         ApiResponse_TickerAnalysisResponse_: {
             data: components["schemas"]["TickerAnalysisResponse"];
+            meta: components["schemas"]["MetaInfo"];
+        };
+        /** ApiResponse[Union[RollingExpectancyResponse, NoneType]] */
+        ApiResponse_Union_RollingExpectancyResponse__NoneType__: {
+            data: components["schemas"]["RollingExpectancyResponse"] | null;
             meta: components["schemas"]["MetaInfo"];
         };
         /** ApiResponse[Union[SectorDetail, NoneType]] */
@@ -1716,6 +2054,254 @@ export interface components {
             reason?: string | null;
         };
         /**
+         * ExpectancyItem
+         * @description Expectancy metrics for a template/regime combination.
+         */
+        ExpectancyItem: {
+            /** Template */
+            template: string;
+            /** Regime */
+            regime: string;
+            /** N Trades */
+            n_trades: number;
+            /** Win Rate */
+            win_rate: number;
+            /** Expectancy R */
+            expectancy_r: number;
+            /** Profit Factor */
+            profit_factor: number | null;
+            /** Avg R */
+            avg_r: number;
+            /** Avg Win R */
+            avg_win_r: number;
+            /** Avg Loss R */
+            avg_loss_r: number;
+            /** Max Win R */
+            max_win_r: number;
+            /** Max Loss R */
+            max_loss_r: number;
+            /** Total R */
+            total_r: number;
+            /** Is Elite */
+            is_elite: boolean;
+            /** Elite Min Trades */
+            elite_min_trades: number;
+        };
+        /**
+         * ExpectancyResponse
+         * @description All template/regime expectancy metrics.
+         */
+        ExpectancyResponse: {
+            /** Items */
+            items: components["schemas"]["ExpectancyItem"][];
+            /** Elite Count */
+            elite_count: number;
+            /** Total Combinations */
+            total_combinations: number;
+        };
+        /**
+         * ExternalBacktestRequest
+         * @description Request for a single backtest using a template and Yahoo Finance data.
+         */
+        ExternalBacktestRequest: {
+            /** Template */
+            template: string;
+            /** Symbols */
+            symbols: string[];
+            /** Start */
+            start: string;
+            /** End */
+            end: string;
+            /**
+             * Timeframe
+             * @default 1D
+             */
+            timeframe: string;
+            /**
+             * Initial Cash
+             * @default 100000
+             */
+            initial_cash: number;
+            /**
+             * Fees Bps
+             * @default 10
+             */
+            fees_bps: number;
+            /**
+             * Slippage Bps
+             * @default 5
+             */
+            slippage_bps: number;
+            /**
+             * Position Sizing
+             * @default fixed
+             * @enum {string}
+             */
+            position_sizing: "fixed" | "atr" | "kelly";
+            /** Sizing Params */
+            sizing_params?: {
+                [key: string]: unknown;
+            };
+            /** Signal Params */
+            signal_params?: {
+                [key: string]: unknown;
+            };
+        };
+        /** ExternalBacktestResponse */
+        ExternalBacktestResponse: {
+            /** Run Id */
+            run_id: string;
+            /** Template */
+            template: string;
+            /** Symbol */
+            symbol: string;
+            /** Timeframe */
+            timeframe: string;
+            /** Metrics */
+            metrics: {
+                [key: string]: number;
+            };
+            /** Trades */
+            trades: components["schemas"]["ExternalBacktestTrade"][];
+            /** Equity Curve */
+            equity_curve: {
+                [key: string]: unknown;
+            }[];
+            /** Duration Ms */
+            duration_ms: number;
+        };
+        /** ExternalBacktestTrade */
+        ExternalBacktestTrade: {
+            /** Trade Id */
+            trade_id: number;
+            /** Entry Date */
+            entry_date: string;
+            /** Exit Date */
+            exit_date: string;
+            /** Entry Price */
+            entry_price: number;
+            /** Exit Price */
+            exit_price: number;
+            /** Units */
+            units: number;
+            /** Pnl */
+            pnl: number;
+            /** Return Pct */
+            return_pct: number;
+            /** Hold Days */
+            hold_days: number;
+        };
+        /**
+         * FilterParamRange
+         * @description Defines a parameter range for sweeping.
+         */
+        FilterParamRange: {
+            /** Name */
+            name: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Param Type
+             * @enum {string}
+             */
+            param_type: "int" | "float" | "categorical";
+            /** Low */
+            low?: number | null;
+            /** High */
+            high?: number | null;
+            /** Step */
+            step?: number | null;
+            /** Choices */
+            choices?: string[] | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /**
+         * FilterSweepConfig
+         * @description Configuration for a filter parameter sweep.
+         */
+        FilterSweepConfig: {
+            /** Sweep Id */
+            sweep_id?: string;
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Screen Name */
+            screen_name: string;
+            /** Param Grid */
+            param_grid?: {
+                [key: string]: components["schemas"]["FilterParamRange"];
+            };
+            /** Symbols */
+            symbols?: string[];
+            /**
+             * Timeframe
+             * @default 1D
+             */
+            timeframe: string;
+            /** Start Date */
+            start_date: string;
+            /** End Date */
+            end_date?: string | null;
+            /**
+             * Initial Cash
+             * @default 100000
+             */
+            initial_cash: number;
+            /**
+             * Fees Bps
+             * @default 10
+             */
+            fees_bps: number;
+            /**
+             * Slippage Bps
+             * @default 5
+             */
+            slippage_bps: number;
+            /**
+             * Position Sizing
+             * @default fixed
+             * @enum {string}
+             */
+            position_sizing: "fixed" | "atr" | "kelly";
+            /** Sizing Params */
+            sizing_params?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Optimization Metric
+             * @default expectancy
+             * @enum {string}
+             */
+            optimization_metric: "sharpe" | "sortino" | "calmar" | "win_rate" | "profit_factor" | "expectancy";
+            /**
+             * Min Trades
+             * @default 10
+             */
+            min_trades: number;
+            /**
+             * Max Combinations
+             * @default 5000
+             */
+            max_combinations: number;
+            /**
+             * Parallel Jobs
+             * @default 1
+             */
+            parallel_jobs: number;
+            /** Created At */
+            created_at?: string;
+            /** Tags */
+            tags?: string[];
+        };
+        /**
          * FundamentalAnalysis
          * @description Fundamental metrics and quality assessment.
          */
@@ -1779,14 +2365,29 @@ export interface components {
              * @enum {string}
              */
             overall: "PASS" | "FAIL" | "CONDITIONAL";
-            /** Steps */
-            steps: components["schemas"]["GateStepResult"][];
-            /** Conviction Score */
-            conviction_score: number;
-            /** Data Gaps */
-            data_gaps: string[];
-            /** Evaluated At */
-            evaluated_at: string;
+            /** Stepresults */
+            stepResults?: components["schemas"]["GateStepResult"][];
+            /**
+             * Convictionscore
+             * @default 0
+             */
+            convictionScore: number;
+            /** Datagaps */
+            dataGaps?: string[];
+            /**
+             * Evaluatedat
+             * @default
+             */
+            evaluatedAt: string;
+            /** Id */
+            id?: string;
+            /**
+             * Symbol
+             * @default
+             */
+            symbol: string;
+            /** Createdat */
+            createdAt?: string;
         };
         /**
          * GateStepResult
@@ -1805,7 +2406,10 @@ export interface components {
              * @default false
              */
             conditional: boolean;
-            /** Note */
+            /**
+             * Note
+             * @default
+             */
             note: string;
         };
         /** HTTPValidationError */
@@ -2211,6 +2815,39 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** RollingExpectancyRequest */
+        RollingExpectancyRequest: {
+            /** Symbol */
+            symbol?: string | null;
+            /** Template */
+            template?: string | null;
+            /** Regime */
+            regime?: string | null;
+            /**
+             * Window
+             * @default 30
+             */
+            window: number;
+        };
+        /** RollingExpectancyResponse */
+        RollingExpectancyResponse: {
+            /** Symbol */
+            symbol?: string | null;
+            /** Template */
+            template?: string | null;
+            /** Regime */
+            regime?: string | null;
+            /** Window */
+            window: number;
+            /** Win Rate */
+            win_rate: number;
+            /** Expectancy R */
+            expectancy_r: number;
+            /** Profit Factor */
+            profit_factor: number | null;
+            /** Total R */
+            total_r: number;
+        };
         /**
          * RotationHistoryPoint
          * @description Single point in rotation history.
@@ -2222,6 +2859,36 @@ export interface components {
             sector_rankings: {
                 [key: string]: number;
             };
+        };
+        /**
+         * RunCloseRequest
+         * @description One-go after-close run: enforce (A) then sync exits (B, apply).
+         */
+        RunCloseRequest: {
+            /**
+             * Min Conviction
+             * @default 5
+             */
+            min_conviction: number;
+            /** Only */
+            only?: string | null;
+            /**
+             * Apply Exits
+             * @default true
+             */
+            apply_exits: boolean;
+        };
+        /**
+         * RunCloseResponse
+         * @description Combined run response: one workflow_runs row, both touchpoint results.
+         */
+        RunCloseResponse: {
+            /** Run Id */
+            run_id: number;
+            enforce: components["schemas"]["EnforceResponse"];
+            exits: components["schemas"]["SyncExitsResponse"];
+            /** Message */
+            message: string;
         };
         /** ScoredTickerResponse */
         ScoredTickerResponse: {
@@ -3517,6 +4184,228 @@ export interface operations {
             };
         };
     };
+    list_presets_api_v1_filter_sweep_presets_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    list_filter_params_api_v1_filter_sweep_params_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    run_custom_sweep_api_v1_filter_sweep_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FilterSweepConfig"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_preset_sweep_endpoint_api_v1_filter_sweep_run_preset__preset_name__post: {
+        parameters: {
+            query?: {
+                symbols?: string[] | null;
+                start_date?: string | null;
+                end_date?: string | null;
+                optimization_metric?: string | null;
+            };
+            header?: never;
+            path: {
+                preset_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_sweep_status_api_v1_filter_sweep_status__sweep_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sweep_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_sweep_results_api_v1_filter_sweep_result__sweep_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sweep_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_sweeps_api_v1_filter_sweep_list_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    delete_sweep_api_v1_filter_sweep__sweep_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sweep_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     analyze_portfolio_api_v1_portfolio_analyze_post: {
         parameters: {
             query?: never;
@@ -4655,6 +5544,39 @@ export interface operations {
             };
         };
     };
+    run_external_backtest_api_v1_screen_tv_backtest_external_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExternalBacktestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExternalBacktestResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     refresh_data_api_v1_admin_refresh_data_post: {
         parameters: {
             query?: never;
@@ -4810,6 +5732,88 @@ export interface operations {
             };
         };
     };
+    export_journal_api_v1_workflow_journal_export_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+        };
+    };
+    get_journal_rejections_api_v1_workflow_journal_rejections_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_runs_api_v1_workflow_runs_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     enforce_paper_trades_api_v1_workflow_paper_trades_enforce_post: {
         parameters: {
             query?: never;
@@ -4863,6 +5867,136 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_SyncExitsResponse_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_close_api_v1_workflow_paper_trades_run_close_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RunCloseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RunCloseResponse_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_expectancy_api_v1_workflow_expectancy_get: {
+        parameters: {
+            query?: {
+                /** @description Minimum trades for elite status */
+                min_trades?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ExpectancyResponse_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_elite_expectancy_api_v1_workflow_expectancy_elite_get: {
+        parameters: {
+            query?: {
+                /** @description Minimum trades for elite status */
+                min_trades?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ExpectancyResponse_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_rolling_expectancy_api_v1_workflow_expectancy_rolling_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RollingExpectancyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_Union_RollingExpectancyResponse__NoneType__"];
                 };
             };
             /** @description Validation Error */
