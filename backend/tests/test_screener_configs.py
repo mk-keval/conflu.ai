@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
+import yaml
 
 from backend.app.infrastructure.screener.configs import (
     FilterRule,
@@ -109,6 +112,32 @@ class TestScreenTemplates:
     def test_missing_template_raises(self) -> None:
         with pytest.raises(FileNotFoundError):
             load_screen_template("nonexistent_template")
+
+
+class TestRegimeScreensConfig:
+    """Guard: every template referenced by config/regime_screens.yaml must load.
+
+    The short-squeeze deletion (D-61) left stale references behind once already;
+    this test makes that class of drift fail loudly instead of rotting silently.
+    """
+
+    def test_regime_map_templates_all_load(self) -> None:
+        config_path = Path(__file__).resolve().parents[2] / "config" / "regime_screens.yaml"
+        data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+
+        failures: list[str] = []
+        for regime, entries in (data.get("regimes") or {}).items():
+            for entry in entries or []:
+                name = entry.get("name")
+                if not name:
+                    failures.append(f"{regime}: entry missing 'name'")
+                    continue
+                try:
+                    load_screen_template(name)
+                except Exception as exc:  # noqa: BLE001 — collect every failure
+                    failures.append(f"{regime}: {name}: {exc}")
+
+        assert not failures, f"regime_screens.yaml references unloadable templates: {failures}"
 
 
 

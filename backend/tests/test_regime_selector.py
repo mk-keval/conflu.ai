@@ -41,7 +41,7 @@ class TestConfigDrivenSelection:
         _install_config(monkeypatch, {
             "neutral": [
                 {"name": "52week-breakout", "weight": 90},
-                {"name": "short-squeeze", "weight": 85},
+                {"name": "vcp-breakout", "weight": 85},
                 {"name": "volume-trend-accumulation", "weight": 80},
                 {"name": "bull-flag-continuation", "weight": 75},
                 {"role": "defensive", "name": "statistical-mean-reversion", "weight": 60},
@@ -55,7 +55,7 @@ class TestConfigDrivenSelection:
         names = [s.name for s in screens]
         # Top-2 primaries by weight + defensive secondary replacing slot 3
         assert names[0] == _display("52week-breakout")
-        assert names[1] == _display("short-squeeze")
+        assert names[1] == _display("vcp-breakout")
         assert names[2] == _display("statistical-mean-reversion")
         assert all(isinstance(s, ScreenConfig) for s in screens)
 
@@ -65,7 +65,7 @@ class TestConfigDrivenSelection:
             "choppy": [
                 {"name": "bull-flag-continuation", "weight": 85},
                 {"role": "defensive", "name": "low-vol-setup", "weight": 70},
-                {"name": "short-squeeze", "weight": 65},
+                {"name": "vcp-breakout", "weight": 65},
             ],
         })
 
@@ -73,7 +73,7 @@ class TestConfigDrivenSelection:
         names = [s.name for s in screens]
         assert names == [
             _display("bull-flag-continuation"),
-            _display("short-squeeze"),
+            _display("vcp-breakout"),
             _display("low-vol-setup"),
         ]
 
@@ -130,7 +130,7 @@ class TestConfigFallbacks:
                 "garbage-string",
                 {"no_name_field": True, "weight": 99},
                 {"name": "  ", "weight": 98},  # blank name
-                {"name": "short-squeeze", "weight": "not-a-number"},  # bad weight -> 0.0
+                {"name": "vcp-breakout", "weight": "not-a-number"},  # bad weight -> 0.0
                 {"name": "52week-breakout", "weight": 90},
                 {"role": "defensive", "name": "statistical-mean-reversion", "weight": 60},
             ],
@@ -148,7 +148,7 @@ class TestConfigFallbacks:
             "neutral": [
                 {"name": "does-not-exist", "weight": 95},
                 {"name": "52week-breakout", "weight": 90},
-                {"name": "short-squeeze", "weight": 85},
+                {"name": "vcp-breakout", "weight": 85},
                 {"name": "bull-flag-continuation", "weight": 75},
                 {"role": "defensive", "name": "statistical-mean-reversion", "weight": 60},
             ],
@@ -158,7 +158,7 @@ class TestConfigFallbacks:
         names = [s.name for s in screens]
         assert len(names) == 3
         assert set(names) == {
-            _display(x) for x in ("52week-breakout", "short-squeeze", "statistical-mean-reversion")
+            _display(x) for x in ("52week-breakout", "vcp-breakout", "statistical-mean-reversion")
         }
 
 
@@ -169,7 +169,7 @@ class TestResponseContractUnchanged:
         _install_config(monkeypatch, {
             "neutral": [
                 {"name": "52week-breakout", "weight": 90},
-                {"name": "short-squeeze", "weight": 85},
+                {"name": "vcp-breakout", "weight": 85},
                 {"role": "defensive", "name": "statistical-mean-reversion", "weight": 60},
             ],
         })
