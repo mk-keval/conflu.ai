@@ -34,6 +34,14 @@ class BacktestConfig:
     position_sizing: Literal["fixed", "atr", "kelly"] = "fixed"
     sizing_params: dict = field(default_factory=dict)
     signal_params: dict = field(default_factory=dict)
+    # Preferred over signal_params: full rule objects keep per-rule operator,
+    # timeframe, and duplicate indicators intact. Populate from ScreenConfig.filters.
+    signal_filters: list = field(default_factory=list)
+    direction: Literal["long", "short"] = "long"
+    stop_atr_mult: float = 2.0
+    target_atr_mult: float = 3.0
+    max_hold_bars: Optional[int] = None
+    exit_on_signal: bool = False
 
 
 @dataclass
@@ -65,6 +73,87 @@ class BacktestResult:
     trades: list[dict] = field(default_factory=list)
     equity_curve: list[dict] = field(default_factory=list)
     error: Optional[str] = None
+    # Validation-reset additions (2026-10-19): R-based stats + data-quality notes
+    expectancy_r: float = 0.0
+    avg_win_r: float = 0.0
+    avg_loss_r: float = 0.0
+    avg_hold_bars: float = 0.0
+    exit_reason_counts: dict = field(default_factory=dict)
+    time_in_market_pct: float = 0.0
+    skipped_filters: list[str] = field(default_factory=list)
+
+
+@dataclass
+class _EvalRule:
+    """Lightweight filter rule wrapper (legacy signal_params path)."""
+
+    indicator: str
+    params: dict = field(default_factory=dict)
+    operator: str = "gt"
+    timeframe: str = "1D"
+    negate: bool = False
+
+
+def _rule_num(params: dict, default: float, *keys: str) -> float:
+    """Read a numeric rule parameter, accepting both 'threshold' and 'value' styles."""
+    for key in (keys or ("threshold", "value")):
+        if key in params:
+            try:
+                return float(params[key])
+            except (TypeError, ValueError):
+                continue
+    return default
+
+
+# Declarative evaluator table: indicator -> (required columns, builder(columns, params)).
+# Covers every technical rule used by config/screens/*.yaml (audited 2026-10-19).
+_SIMPLE_FILTER_RULES: dict[str, tuple[tuple[str, ...], object]] = {
+    "price_above_vwap": (("close", "VWAP"), lambda c, p: c[0] > c[1]),
+    "price_below_vwap": (("close", "VWAP"), lambda c, p: c[0] < c[1]),
+    "price_above_bb_upper": (("close", "BB.upper"), lambda c, p: c[0] > c[1]),
+    "price_below_bb_lower": (("close", "BB.lower"), lambda c, p: c[0] < c[1]),
+    "ema_stack_bullish": (("EMA20", "EMA50", "EMA200"), lambda c, p: (c[0] > c[1]) & (c[1] > c[2])),
+    "ema_stack_bearish": (("EMA20", "EMA50", "EMA200"), lambda c, p: (c[0] < c[1]) & (c[1] < c[2])),
+    "rsi_oversold": (("RSI",), lambda c, p: c[0] < _rule_num(p, 30)),
+    "rsi_overbought": (("RSI",), lambda c, p: c[0] > _rule_num(p, 70)),
+    "rsi_gt": (("RSI",), lambda c, p: c[0] > _rule_num(p, 50)),
+    "rsi_lt": (("RSI",), lambda c, p: c[0] < _rule_num(p, 50)),
+    "rsi_in_range": (("RSI",), lambda c, p: (c[0] > _rule_num(p, 40, "min")) & (c[0] < _rule_num(p, 80, "max"))),
+    "rsi_in_range_max": (("RSI",), lambda c, p: (c[0] > _rule_num(p, 40, "min")) & (c[0] < _rule_num(p, 80, "max"))),
+    "rsi_macd_bullish": (("RSI", "MACD.macd", "MACD.signal"), lambda c, p: (c[0] > 50) & (c[1] > c[2])),
+    "macd_bullish": (("MACD.macd", "MACD.signal"), lambda c, p: c[0] > c[1]),
+    "macd_bearish": (("MACD.macd", "MACD.signal"), lambda c, p: c[0] < c[1]),
+    "macd_hist_rising": (("MACD.hist",), lambda c, p: c[0] > 0),
+    "adx_trending": (("ADX",), lambda c, p: c[0] > _rule_num(p, 25)),
+    "adx_rising": (("ADX",), lambda c, p: c[0] > _rule_num(p, 25)),
+    "atr_pct_below": (("ATR", "close"), lambda c, p: (c[0] / c[1]) < _rule_num(p, 0.03)),
+    "inside_bar": (("ATR", "close"), lambda c, p: (c[0] / c[1]) < _rule_num(p, 0.03, "max_atr_pct")),
+    "bb_squeeze": (("BB.upper", "BB.lower"), lambda c, p: (c[0] / c[1]) < _rule_num(p, 1.10)),
+    "bb_squeeze_tight": (("BB.upper", "BB.lower"), lambda c, p: (c[0] / c[1]) < _rule_num(p, 1.05)),
+    "rvol_high": (("relative_volume_10d_calc",), lambda c, p: c[0] > _rule_num(p, 1.5)),
+    "rvol_low": (("relative_volume_10d_calc",), lambda c, p: c[0] < _rule_num(p, 0.7)),
+    "volume_spike": (("relative_volume_10d_calc",), lambda c, p: c[0] > _rule_num(p, 2.0)),
+    "volume_gt": (("volume",), lambda c, p: c[0] > _rule_num(p, 0)),
+    "avg_volume_gt": (("average_volume_10d_calc",), lambda c, p: c[0] > _rule_num(p, 500000)),
+    "close_above": (("close",), lambda c, p: c[0] > _rule_num(p, 0)),
+    "price_near_52w_high": (
+        ("close", "price_52_week_high"),
+        lambda c, p: c[0] > c[1] * (1 - _rule_num(p, 5, "pct_within", "pct") / 100),
+    ),
+    "price_above_52w_low": (
+        ("close", "price_52_week_low"),
+        lambda c, p: c[0] > c[1] * (1 + _rule_num(p, 30, "pct_above", "pct") / 100),
+    ),
+    "obv_rising": (
+        ("close", "SMA20", "relative_volume_10d_calc"),
+        lambda c, p: (c[0] > c[1]) & (c[2] > _rule_num(p, 1.0, "min_rvol")),
+    ),
+    "obv_falling": (
+        ("close", "SMA20", "relative_volume_10d_calc"),
+        lambda c, p: (c[0] < c[1]) & (c[2] > _rule_num(p, 1.0, "min_rvol")),
+    ),
+    "cci_oversold": (("CCI20",), lambda c, p: c[0] < _rule_num(p, -100)),
+}
 
 
 class ExternalBacktestEngine:
@@ -160,9 +249,13 @@ class ExternalBacktestEngine:
                 error="No data available",
             )
 
-        entries, exits = self._generate_signals(df, config)
+        df_ind = self._compute_indicators(df)
 
-        if entries is None or exits is None:
+        entries, skipped_filters = await self._generate_signals(
+            df, config, df_with_indicators=df_ind
+        )
+
+        if entries is None:
             return BacktestResult(
                 symbol=config.symbol,
                 timeframe=config.timeframe,
@@ -188,11 +281,13 @@ class ExternalBacktestEngine:
                 max_consecutive_wins=0,
                 max_consecutive_losses=0,
                 error="Signal generation failed",
+                skipped_filters=skipped_filters,
             )
 
-        size_df = self._compute_position_sizes(df, entries, exits, config)
+        size_df = self._compute_position_sizes(df_ind, entries, config)
 
-        result = self._run_simulation(df, entries, exits, size_df, config)
+        result = self._run_simulation(df_ind, entries, size_df, config)
+        result.skipped_filters = skipped_filters
 
         self._log.info(
             f"Backtest complete for {config.symbol}: "
@@ -203,322 +298,247 @@ class ExternalBacktestEngine:
 
         return result
 
-    def _generate_signals(
+    # Indicators that cannot be evaluated from OHLCV alone. Rules using them
+    # are recorded in result.skipped_filters and excluded from the mask —
+    # recorded deviations, never silent passes (2026-10-19 validation reset).
+    _NOT_APPLIED_INDICATORS = {
+        "market_cap_gt",
+        "exchange_in",
+        "country_in",
+        "eps_positive",
+        "pe_max",
+        "analyst_rating_in",
+        "sector_in",
+        "dividend_yield_gt",
+        "rs_rank_min",
+    }
+    # Fundamental-category rules that ARE evaluable from price/volume alone.
+    _LOCALLY_EVALUABLE = {"close_above", "volume_gt"}
+    _TF_ALIASES = {"1d": "1D", "d": "1D", "day": "1D", "4h": "4h", "240": "4h", "1h": "1h", "60": "1h"}
+
+    def _norm_timeframe(self, tf: Optional[str]) -> str:
+        key = str(tf or "1D").strip().lower()
+        return self._TF_ALIASES.get(key, str(tf or "1D"))
+
+    def _resolve_filter_rules(self, config: BacktestConfig, skipped: list[str]) -> list:
+        """Return evaluable rules; record every rule that is dropped.
+
+        Preferred path: ``config.signal_filters`` — full rule objects that keep
+        per-rule operator, timeframe, and duplicate indicators intact.
+        Legacy path: ``config.signal_params`` (indicator -> params dict) is
+        wrapped into single-timeframe rules for backward compatibility.
+        """
+        rules: list = []
+        if config.signal_filters:
+            for rule in config.signal_filters:
+                indicator = getattr(rule, "indicator", None)
+                if not indicator:
+                    continue
+                category = getattr(rule, "category", "") or ""
+                if (
+                    indicator in self._NOT_APPLIED_INDICATORS
+                    or (category == "fundamental" and indicator not in self._LOCALLY_EVALUABLE)
+                ):
+                    skipped.append(f"{indicator} (not available offline)")
+                    continue
+                rules.append(rule)
+            return rules
+
+        for indicator, params in (config.signal_params or {}).items():
+            if indicator in self._NOT_APPLIED_INDICATORS:
+                skipped.append(f"{indicator} (not available offline)")
+                continue
+            rules.append(
+                _EvalRule(indicator=indicator, params=dict(params or {}), timeframe=config.timeframe)
+            )
+        return rules
+
+    async def _build_intraday_view(
+        self,
+        config: BacktestConfig,
+        tf: str,
+        daily_index: pd.Index,
+    ) -> Optional[pd.DataFrame]:
+        """Build a daily-indexed frame of intraday values aligned as-of each day.
+
+        Fetches 1h bars and (for ``tf == "4h"``) resamples them to 4h buckets,
+        computes indicators per intraday bar, then takes the last completed
+        intraday bar per calendar day and forward-fills onto the daily index.
+        Returns None when no usable intraday history exists.
+        """
+        intraday = await self.fetcher.fetch_yahoo(  # type: ignore[union-attr]
+            config.symbol, "1h", config.start_date, config.end_date
+        )
+        if intraday is None or intraday.empty or len(intraday) < 30:
+            return None
+
+        if tf == "4h":
+            intraday = (
+                intraday.resample("4h")
+                .agg({"Open": "first", "High": "max", "Low": "min", "Close": "last", "Volume": "sum"})
+                .dropna(subset=["Close"])
+            )
+            if intraday.empty:
+                return None
+
+        with_indicators = self._compute_indicators(intraday)
+
+        days = [pd.Timestamp(ts).date() for ts in with_indicators.index]
+        last_per_day = with_indicators.groupby(days).last()
+
+        daily_dates = [pd.Timestamp(ts).date() for ts in daily_index]
+        view = pd.DataFrame(index=daily_index)
+        for col in last_per_day.columns:
+            aligned = last_per_day[col].reindex(daily_dates, method="ffill")
+            view[col] = aligned.to_numpy()
+        view = view.rename(
+            columns={"Open": "open", "High": "high", "Low": "low", "Close": "close", "Volume": "volume"}
+        )
+        return view
+
+    async def _generate_signals(
         self,
         df: pd.DataFrame,
         config: BacktestConfig,
-    ) -> tuple[Optional[pd.Series], Optional[pd.Series]]:
-        """Generate entry/exit signals by evaluating screen filters at each bar using pandas directly.
-        
-        Only uses technical indicators computable from OHLCV data.
-        Fundamental filters (market_cap, eps, pe, etc.) are skipped since 
-        Yahoo Finance OHLCV doesn't provide fundamental data.
+        df_with_indicators: Optional[pd.DataFrame] = None,
+    ) -> tuple[Optional[pd.Series], list[str]]:
+        """Generate entry signals by evaluating the full filter rules.
+
+        Returns ``(entries, skipped)``. ``entries`` is None when the symbol
+        cannot be evaluated at all (e.g. a 4h rule with no intraday data) —
+        callers must exclude it, never treat it as "no signal".
+
+        Honesty rules (2026-10-19 validation reset):
+        - per-rule timeframes are honored (4h rules are evaluated on 4h bars)
+        - unknown indicators / missing columns are recorded in ``skipped``
+          and treated as NOT matched — never as silent passes
         """
-        # Fundamental filter names to skip - not available in Yahoo OHLCV
-        FUNDAMENTAL_FILTERS = {
-            'market_cap_gt', 'market_cap_lt', 'exchange_in', 'country_in',
-            'eps_positive', 'pe_max', 'analyst_rating_in', 'dividend_yield_gt',
-            'close_above', 'close_below', 'volume_gt', 'volume_lt',
-            'avg_volume_gt', 'avg_volume_lt',
-        }
-        
+        skipped: list[str] = []
         try:
-            from backend.app.infrastructure.screener.configs import FilterRule
-            
-            # Filter out fundamental filters - only use technical ones available in Yahoo OHLCV
-            filters = []
-            for indicator, params in config.signal_params.items():
-                if indicator in FUNDAMENTAL_FILTERS:
-                    log.debug(f"Skipping fundamental filter: {indicator}")
-                    continue
-                filters.append(FilterRule(
-                    category="technical",
-                    indicator=indicator,
-                    params=params,
-                    operator="gt",
-                    timeframe=config.timeframe,
-                ))
-            
-            if not filters:
-                log.warning(f"No technical filters available for {config.symbol}")
-                return None, None
-            
-            # Compute indicators for the full dataframe
-            df_with_indicators = self._compute_indicators(df)
-            
-            df_with_indicators = df_with_indicators.copy()
-            df_with_indicators['symbol'] = config.symbol
-            
-            entries = pd.Series(False, index=df.index)
-            exits = pd.Series(False, index=df.index)
-            
-            # Evaluate filters at each timestamp using pandas directly
-            for i, timestamp in enumerate(df.index):
-                snapshot = df_with_indicators[df_with_indicators.index <= timestamp].copy()
-                if snapshot.empty:
-                    continue
-                
-                latest_data = snapshot.groupby('symbol').last()
-                if latest_data.empty:
-                    continue
-                
-                # Rename columns to lowercase for consistency
-                latest_data = latest_data.rename(columns={
-                    'Open': 'open', 'High': 'high', 'Low': 'low', 'Close': 'close',
-                    'Volume': 'volume', 'EMA20': 'EMA20', 'EMA50': 'EMA50', 'EMA200': 'EMA200',
-                    'MACD.macd': 'MACD.macd', 'MACD.signal': 'MACD.signal', 'MACD.hist': 'MACD.hist',
-                    'RSI': 'RSI', 'RSI2': 'RSI2', 'ADX': 'ADX', 'ATR': 'ATR',
-                    'BB.upper': 'BB.upper', 'BB.basis': 'BB.basis', 'BB.lower': 'BB.lower',
-                    'VWAP': 'VWAP', 'OBV': 'OBV', 'average_volume_10d_calc': 'average_volume_10d_calc',
-                    'relative_volume_10d_calc': 'relative_volume_10d_calc',
-                    'price_52_week_high': 'price_52_week_high', 'price_52_week_low': 'price_52_week_low',
-                    'CCI20': 'CCI20', 'Stoch.K': 'Stoch.K', 'Stoch.D': 'Stoch.D',
-                    'VWAP': 'VWAP', 'OBV': 'OBV', 'price': 'price', 'change': 'change',
-                    'price_52_week_high': 'price_52_week_high', 'price_52_week_low': 'price_52_week_low',
-                })
-                
-                # Evaluate filters using pandas directly (more robust than TV screener local eval)
-                try:
-                    mask = self._evaluate_filters_pandas(latest_data, filters)
-                    if mask is not None:
-                        matched = mask[mask].index.tolist()
-                        for sym in matched:
-                            if sym == config.symbol:
-                                entries.iloc[i] = True
-                except Exception as e:
-                    log.warning(f"Filter eval failed at {timestamp}: {e}")
-                    continue
-            
-            exits = entries.shift(-5).fillna(False)
-            
-            return entries, exits
-            
-        except Exception as e:
-            log.error(f"Signal generation failed: {e}")
-            return None, None
-    
-    def _evaluate_filters_pandas(
-        self,
-        latest_data: pd.DataFrame,
-        filters: list,
-    ) -> Optional[pd.Series]:
-        """Evaluate filters using pandas operations directly (more robust than TV screener local eval)."""
-        try:
-            mask = pd.Series(True, index=latest_data.index)
-            
-            for f in filters:
-                indicator = f.indicator
-                params = f.params
-                op = f.operator
-                
-                if indicator == 'price_above_ema':
-                    period = params.get('period', 50)
-                    col = f'EMA{period}'
-                    if col in latest_data.columns:
-                        mask &= (latest_data['close'] > latest_data[col])
-                elif indicator == 'price_below_ema':
-                    period = params.get('period', 50)
-                    col = f'EMA{period}'
-                    if col in latest_data.columns:
-                        mask &= (latest_data['close'] < latest_data[col])
-                elif indicator == 'price_above_vwap':
-                    if 'VWAP' in latest_data.columns:
-                        mask &= (latest_data['close'] > latest_data['VWAP'])
-                elif indicator == 'price_below_vwap':
-                    if 'VWAP' in latest_data.columns:
-                        mask &= (latest_data['close'] < latest_data['VWAP'])
-                elif indicator == 'ema_stack_bullish':
-                    if all(c in latest_data.columns for c in ['EMA20', 'EMA50', 'EMA200']):
-                        mask &= (latest_data['EMA20'] > latest_data['EMA50']) & (latest_data['EMA50'] > latest_data['EMA200'])
-                elif indicator == 'ema_stack_bearish':
-                    if all(c in latest_data.columns for c in ['EMA20', 'EMA50', 'EMA200']):
-                        mask &= (latest_data['EMA20'] < latest_data['EMA50']) & (latest_data['EMA50'] < latest_data['EMA200'])
-                elif indicator == 'rsi_oversold':
-                    threshold = params.get('threshold', 30)
-                    if 'RSI' in latest_data.columns:
-                        mask &= (latest_data['RSI'] < threshold)
-                elif indicator == 'rsi_overbought':
-                    threshold = params.get('threshold', 70)
-                    if 'RSI' in latest_data.columns:
-                        mask &= (latest_data['RSI'] > threshold)
-                elif indicator == 'rsi_gt':
-                    threshold = params.get('threshold', 50)
-                    if 'RSI' in latest_data.columns:
-                        mask &= (latest_data['RSI'] > threshold)
-                elif indicator == 'rsi_lt':
-                    threshold = params.get('threshold', 50)
-                    if 'RSI' in latest_data.columns:
-                        mask &= (latest_data['RSI'] < threshold)
-                elif indicator == 'rsi_in_range':
-                    min_val = params.get('min', 40)
-                    max_val = params.get('max', 80)
-                    if 'RSI' in latest_data.columns:
-                        mask &= (latest_data['RSI'] > min_val) & (latest_data['RSI'] < max_val)
-                elif indicator == 'rsi_in_range_max':
-                    min_val = params.get('min', 40)
-                    max_val = params.get('max', 80)
-                    if 'RSI' in latest_data.columns:
-                        mask &= (latest_data['RSI'] > min_val) & (latest_data['RSI'] < max_val)
-                elif indicator == 'macd_bullish':
-                    if all(c in latest_data.columns for c in ['MACD.macd', 'MACD.signal']):
-                        mask &= (latest_data['MACD.macd'] > latest_data['MACD.signal'])
-                elif indicator == 'macd_bearish':
-                    if all(c in latest_data.columns for c in ['MACD.macd', 'MACD.signal']):
-                        mask &= (latest_data['MACD.macd'] < latest_data['MACD.signal'])
-                elif indicator == 'macd_cross_above':
-                    if all(c in latest_data.columns for c in ['MACD.macd', 'MACD.signal']):
-                        macd = latest_data['MACD.macd']
-                        signal = latest_data['MACD.signal']
-                        mask &= (macd > signal) & (macd.shift(1) <= signal.shift(1))
-                elif indicator == 'macd_cross_below':
-                    if all(c in latest_data.columns for c in ['MACD.macd', 'MACD.signal']):
-                        macd = latest_data['MACD.macd']
-                        signal = latest_data['MACD.signal']
-                        mask &= (macd < signal) & (macd.shift(1) >= signal.shift(1))
-                elif indicator == 'macd_hist_rising':
-                    if 'MACD.hist' in latest_data.columns:
-                        mask &= (latest_data['MACD.hist'] > 0)
-                elif indicator == 'adx_trending':
-                    threshold = params.get('threshold', 25)
-                    if 'ADX' in latest_data.columns:
-                        mask &= (latest_data['ADX'] > threshold)
-                elif indicator == 'bb_squeeze':
-                    threshold = params.get('threshold', 1.10)
-                    if all(c in latest_data.columns for c in ['BB.upper', 'BB.lower']):
-                        mask &= (latest_data['BB.upper'] / latest_data['BB.lower'] < threshold)
-                elif indicator == 'bb_squeeze_tight':
-                    threshold = params.get('threshold', 1.05)
-                    if all(c in latest_data.columns for c in ['BB.upper', 'BB.lower']):
-                        mask &= (latest_data['BB.upper'] / latest_data['BB.lower'] < threshold)
-                elif indicator == 'atr_pct_below':
-                    threshold = params.get('threshold', 0.03)
-                    if 'ATR' in latest_data.columns:
-                        mask &= (latest_data['ATR'] / latest_data['close'] < threshold)
-                elif indicator == 'rvol_high':
-                    threshold = params.get('threshold', 1.5)
-                    if 'relative_volume_10d_calc' in latest_data.columns:
-                        mask &= (latest_data['relative_volume_10d_calc'] > threshold)
-                elif indicator == 'rvol_low':
-                    threshold = params.get('threshold', 0.7)
-                    if 'relative_volume_10d_calc' in latest_data.columns:
-                        mask &= (latest_data['relative_volume_10d_calc'] < threshold)
-                elif indicator == 'avg_volume_gt':
-                    threshold = params.get('threshold', 500000)
-                    if 'average_volume_10d_calc' in latest_data.columns:
-                        mask &= (latest_data['average_volume_10d_calc'] > threshold)
-                elif indicator == 'price_above_ema':
-                    period = params.get('period', 50)
-                    col = f'EMA{period}'
-                    if col in latest_data.columns:
-                        mask &= (latest_data['close'] > latest_data[col])
-                elif indicator == 'price_below_ema':
-                    period = params.get('period', 50)
-                    col = f'EMA{period}'
-                    if col in latest_data.columns:
-                        mask &= (latest_data['close'] < latest_data[col])
-                elif indicator == 'price_above_vwap':
-                    if 'VWAP' in latest_data.columns:
-                        mask &= (latest_data['close'] > latest_data['VWAP'])
-                elif indicator == 'price_below_vwap':
-                    if 'VWAP' in latest_data.columns:
-                        mask &= (latest_data['close'] < latest_data['VWAP'])
-                elif indicator == 'price_near_52w_high':
-                    pct = params.get('pct_within', 5) / 100
-                    if 'price_52_week_high' in latest_data.columns:
-                        mask &= (latest_data['close'] > latest_data['price_52_week_high'] * (1 - pct))
-                elif indicator == 'price_above_52w_low':
-                    pct = params.get('pct_above', 30) / 100
-                    if 'price_52_week_low' in latest_data.columns:
-                        mask &= (latest_data['close'] > latest_data['price_52_week_low'] * (1 + pct))
-                elif indicator == 'price_near_ema':
-                    period = params.get('period', 20)
-                    pct = params.get('pct_within', 2) / 100
-                    col = f'EMA{period}'
-                    if col in latest_data.columns:
-                        mask &= (latest_data['close'] > latest_data[col] * (1 - pct)) & \
-                                (latest_data['close'] < latest_data[col] * (1 + pct))
-                elif indicator == 'obv_rising':
-                    min_rvol = params.get('min_rvol', 1.0)
-                    if all(c in latest_data.columns for c in ['close', 'SMA20', 'relative_volume_10d_calc']):
-                        mask &= (latest_data['close'] > latest_data['SMA20']) & \
-                                (latest_data['relative_volume_10d_calc'] > min_rvol)
-                elif indicator == 'obv_falling':
-                    min_rvol = params.get('min_rvol', 1.0)
-                    if all(c in latest_data.columns for c in ['close', 'SMA20', 'relative_volume_10d_calc']):
-                        mask &= (latest_data['close'] < latest_data['SMA20']) & \
-                                (latest_data['relative_volume_10d_calc'] > min_rvol)
-                elif indicator == 'volume_spike':
-                    threshold = params.get('threshold', 2.0)
-                    if 'relative_volume_10d_calc' in latest_data.columns:
-                        mask &= (latest_data['relative_volume_10d_calc'] > threshold)
-                elif indicator == 'price_above_vwap':
-                    if 'VWAP' in latest_data.columns:
-                        mask &= (latest_data['close'] > latest_data['VWAP'])
-                elif indicator == 'price_below_vwap':
-                    if 'VWAP' in latest_data.columns:
-                        mask &= (latest_data['close'] < latest_data['VWAP'])
-                elif indicator == 'price_above_bb_upper':
-                    if 'BB.upper' in latest_data.columns:
-                        mask &= (latest_data['close'] > latest_data['BB.upper'])
-                elif indicator == 'price_below_bb_lower':
-                    if 'BB.lower' in latest_data.columns:
-                        mask &= (latest_data['close'] < latest_data['BB.lower'])
-                elif indicator == 'rsi_in_range':
-                    min_val = params.get('min', 40)
-                    max_val = params.get('max', 80)
-                    if 'RSI' in latest_data.columns:
-                        mask &= (latest_data['RSI'] > min_val) & (latest_data['RSI'] < max_val)
-                elif indicator == 'rsi_in_range_max':
-                    min_val = params.get('min', 40)
-                    max_val = params.get('max', 80)
-                    if 'RSI' in latest_data.columns:
-                        mask &= (latest_data['RSI'] > min_val) & (latest_data['RSI'] < max_val)
-                elif indicator == 'macd_bullish':
-                    if all(c in latest_data.columns for c in ['MACD.macd', 'MACD.signal']):
-                        mask &= (latest_data['MACD.macd'] > latest_data['MACD.signal'])
-                elif indicator == 'macd_bearish':
-                    if all(c in latest_data.columns for c in ['MACD.macd', 'MACD.signal']):
-                        mask &= (latest_data['MACD.macd'] < latest_data['MACD.signal'])
-                elif indicator == 'macd_cross_above':
-                    if all(c in latest_data.columns for c in ['MACD.macd', 'MACD.signal']):
-                        macd = latest_data['MACD.macd']
-                        signal = latest_data['MACD.signal']
-                        mask &= (macd > signal) & (macd.shift(1) <= signal.shift(1))
-                elif indicator == 'macd_cross_below':
-                    if all(c in latest_data.columns for c in ['MACD.macd', 'MACD.signal']):
-                        macd = latest_data['MACD.macd']
-                        signal = latest_data['MACD.signal']
-                        mask &= (macd < signal) & (macd.shift(1) >= signal.shift(1))
-                elif indicator == 'macd_hist_rising':
-                    if 'MACD.hist' in latest_data.columns:
-                        mask &= (latest_data['MACD.hist'] > 0)
-                elif indicator == 'adx_rising':
-                    threshold = params.get('threshold', 25)
-                    if 'ADX' in latest_data.columns:
-                        mask &= (latest_data['ADX'] > threshold)
-                elif indicator == 'inside_bar':
-                    max_atr_pct = params.get('max_atr_pct', 0.03)
-                    if 'ATR' in latest_data.columns:
-                        mask &= (latest_data['ATR'] / latest_data['close'] < max_atr_pct)
-                elif indicator == 'rs_rank_min':
-                    threshold = params.get('value', 90)
-                    if 'relative_strength_rank' in latest_data.columns:
-                        mask &= (latest_data['relative_strength_rank'] >= threshold)
-                elif indicator == 'rsi_macd_bullish':
-                    if all(c in latest_data.columns for c in ['RSI', 'MACD.macd', 'MACD.signal']):
-                        mask &= (latest_data['RSI'] > 50) & (latest_data['MACD.macd'] > latest_data['MACD.signal'])
-                elif indicator == 'cci_oversold':
-                    threshold = params.get('threshold', -100)
-                    if 'CCI20' in latest_data.columns:
-                        mask &= (latest_data['CCI20'] < threshold)
+            rules = self._resolve_filter_rules(config, skipped)
+            if not rules:
+                log.warning(f"No evaluable technical filters for {config.symbol}")
+                return None, skipped
+
+            base_tf = self._norm_timeframe(config.timeframe)
+            df_with_indicators = (
+                df_with_indicators if df_with_indicators is not None else self._compute_indicators(df)
+            )
+            daily_view = df_with_indicators.rename(
+                columns={"Open": "open", "High": "high", "Low": "low", "Close": "close", "Volume": "volume"}
+            )
+
+            rules_by_tf: dict[str, list] = {}
+            for rule in rules:
+                tf = self._norm_timeframe(getattr(rule, "timeframe", None) or base_tf)
+                rules_by_tf.setdefault(tf, []).append(rule)
+
+            mask = pd.Series(True, index=df.index)
+            for tf, tf_rules in rules_by_tf.items():
+                if tf == base_tf:
+                    view = daily_view
+                elif tf in ("4h", "1h") and base_tf == "1D":
+                    view = await self._build_intraday_view(config, tf, df.index)
+                    if view is None:
+                        for rule in tf_rules:
+                            skipped.append(f"{rule.indicator}|{tf} (no intraday data available)")
+                        log.warning(
+                            f"Intraday data unavailable for {config.symbol} — "
+                            f"{tf} rules cannot be evaluated"
+                        )
+                        return None, skipped
                 else:
-                    log.debug(f"Unknown filter indicator: {indicator}")
-                    continue
-            
+                    for rule in tf_rules:
+                        skipped.append(f"{rule.indicator} ({tf} not supported in local backtest)")
+                    log.warning(f"Unsupported rule timeframe {tf} for {config.symbol}")
+                    return None, skipped
+
+                rule_mask = self._evaluate_filters_frame(view, tf_rules, skipped)
+                if rule_mask is None:
+                    return None, skipped
+                mask &= rule_mask
+
+            log.info(
+                f"Signals for {config.symbol}: {int(mask.sum())} entry bars, "
+                f"{len(skipped)} skipped filters"
+            )
+            return mask, skipped
+        except Exception as e:
+            log.error(f"Signal generation failed for {config.symbol}: {e}")
+            return None, skipped
+
+    def _evaluate_filters_frame(
+        self,
+        frame: pd.DataFrame,
+        rules: list,
+        skipped: list[str],
+    ) -> Optional[pd.Series]:
+        """Evaluate every rule against a frame and AND the results.
+
+        Unknown indicators and missing columns are recorded in ``skipped``
+        and evaluate to False so a broken rule can never manufacture entries.
+        """
+        try:
+            mask = pd.Series(True, index=frame.index)
+            for rule in rules:
+                mask &= self._eval_one_rule(frame, rule, skipped)
             return mask
         except Exception as e:
             log.warning(f"Pandas filter evaluation failed: {e}")
             return None
+
+    def _eval_one_rule(self, frame: pd.DataFrame, rule, skipped: list[str]) -> pd.Series:
+        indicator = getattr(rule, "indicator", "") or ""
+        params = getattr(rule, "params", None) or {}
+        index = frame.index
+        no_match = pd.Series(False, index=index)
+
+        if getattr(rule, "negate", False):
+            skipped.append(f"{indicator} (negate unsupported in local backtest)")
+            return no_match
+
+        def need(*cols: str) -> Optional[list[pd.Series]]:
+            missing = [c for c in cols if c not in frame.columns]
+            if missing:
+                skipped.append(f"{indicator} (missing column: {', '.join(missing)})")
+                return None
+            return [frame[c] for c in cols]
+
+        # Dynamic-column rules
+        if indicator in ("price_above_ema", "price_below_ema", "price_near_ema"):
+            default_period = 20 if indicator == "price_near_ema" else 50
+            period = int(params.get("period", default_period))
+            cols = need(f"EMA{period}", "close")
+            if cols is None:
+                return no_match
+            ema, close = cols
+            if indicator == "price_above_ema":
+                return (close > ema).astype(bool)
+            if indicator == "price_below_ema":
+                return (close < ema).astype(bool)
+            pct = _rule_num(params, 2, "pct_within", "pct") / 100
+            return ((close > ema * (1 - pct)) & (close < ema * (1 + pct))).astype(bool)
+
+        if indicator in ("macd_cross_above", "macd_cross_below"):
+            cols = need("MACD.macd", "MACD.signal")
+            if cols is None:
+                return no_match
+            macd, signal = cols
+            above = (macd > signal).astype(bool)
+            prev_above = above.shift(1).fillna(False).astype(bool)
+            if indicator == "macd_cross_above":
+                return (above & ~prev_above).astype(bool)
+            return ((~above) & prev_above).astype(bool)
+
+        spec = _SIMPLE_FILTER_RULES.get(indicator)
+        if spec is not None:
+            cols = need(*spec[0])
+            if cols is None:
+                return no_match
+            return spec[1](cols, params).astype(bool)
+
+        skipped.append(f"{indicator} (unknown indicator — treated as NOT matched)")
+        return no_match
 
     def _compute_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Compute technical indicators for the dataframe."""
@@ -534,7 +554,7 @@ class ExternalBacktestEngine:
         low = df['Low']
         volume = df['Volume']
         
-        for period in [20, 50, 200]:
+        for period in [20, 50, 150, 200]:
             result[f'EMA{period}'] = ta.ema(close, length=period)
         
         macd = ta.macd(close, fast=12, slow=26, signal=9)
@@ -589,7 +609,6 @@ class ExternalBacktestEngine:
         self,
         df: pd.DataFrame,
         entries: pd.Series,
-        exits: pd.Series,
         config: BacktestConfig,
     ) -> pd.DataFrame:
         """Compute position sizes based on config."""
@@ -639,169 +658,224 @@ class ExternalBacktestEngine:
         self,
         df: pd.DataFrame,
         entries: pd.Series,
-        exits: pd.Series,
         size_df: pd.DataFrame,
         config: BacktestConfig,
     ) -> BacktestResult:
-        """Run the backtest simulation."""
+        """Run the backtest simulation.
+
+        Model (2026-10-19 validation reset — replaces the look-ahead
+        ``entries.shift(-N)`` exit hack that never modeled stops or targets):
+
+        - Signals observed at bar t execute at bar t+1's open (never the same
+          bar — no look-ahead).
+        - Stops/targets come from ATR at the signal bar:
+          stop = entry ± stop_atr_mult*ATR, target = entry ± target_atr_mult*ATR.
+          When both are touched in the same bar, the stop is assumed first.
+        - Optional exits: signal drop (``exit_on_signal``) and time cap
+          (``max_hold_bars``); open positions close at the last bar (``eod``).
+        - ``r_multiple`` = directional return per unit of initial stop risk.
+        """
         n_bars = len(df)
-        symbols = [config.symbol]
-        
+        direction = 1 if config.direction == "long" else -1
+        fees_rate = config.fees_bps / 10_000.0
+        slip = config.slippage_bps / 10_000.0
+
+        close = df["Close"].to_numpy(dtype=float)
+        high = df["High"].to_numpy(dtype=float)
+        low = df["Low"].to_numpy(dtype=float)
+        open_ = df["Open"].to_numpy(dtype=float) if "Open" in df.columns else close.copy()
+        atr = df["ATR"].to_numpy(dtype=float) if "ATR" in df.columns else np.full(n_bars, np.nan)
+        sizes = (
+            size_df["size"].to_numpy(dtype=float)
+            if size_df is not None and "size" in size_df.columns
+            else np.zeros(n_bars)
+        )
+        entry_signals = entries.to_numpy(dtype=bool)
+
         cash = float(config.initial_cash)
-        positions = {config.symbol: 0.0}
-        entry_prices = {config.symbol: 0.0}
-        entry_indices = {config.symbol: -1}
-        
         equity = np.zeros(n_bars)
-        trades = []
-        trade_id = 0
-        
-        fees = config.fees_bps / 10000.0
-        slippage = config.slippage_bps / 10000.0
-        
+        trades: list[dict] = []
+        bars_in_market = 0
+
+        in_position = False
+        pending_signal_idx: Optional[int] = None
+        units = 0.0
+        entry_idx = -1
+        entry_raw = 0.0
+        entry_fill = 0.0
+        stop_price = 0.0
+        target_price = 0.0
+
+        def _date(i: int) -> str:
+            ts = df.index[i]
+            return str(ts.date()) if hasattr(ts, "date") else str(ts)
+
         for i in range(n_bars):
-            date = df.index[i]
-            close_price = df['Close'].iloc[i]
-            high_price = df['High'].iloc[i]
-            low_price = df['Low'].iloc[i]
-            
-            # Process exits first
-            if exits.iloc[i] and positions[config.symbol] > 0:
-                entry_price = entry_prices[config.symbol]
-                units = positions[config.symbol]
-                
-                exit_price = close_price * (1 - slippage)
-                entry_price_adj = entry_price * (1 + slippage)
-                
-                gross_pnl = units * (exit_price - entry_price_adj)
-                trade_value = units * exit_price
-                total_fees = trade_value * fees * 2
-                net_pnl = gross_pnl - total_fees
-                
-                trades.append({
-                    'trade_id': trade_id,
-                    'entry_date': str(df.index[entry_indices[config.symbol]].date()),
-                    'exit_date': str(date.date()),
-                    'entry_price': float(entry_price),
-                    'exit_price': float(exit_price),
-                    'units': float(units),
-                    'pnl': float(net_pnl),
-                    'fees': float(total_fees),
-                    'return_pct': float(net_pnl / (units * entry_price_adj)),
-                    'hold_days': i - entry_indices[config.symbol],
-                })
-                trade_id += 1
-                
-                cash += units * exit_price - total_fees
-                positions[config.symbol] = 0.0
-                entry_prices[config.symbol] = 0.0
-                entry_indices[config.symbol] = -1
-            
-            # Process entries
-            if entries.iloc[i] and positions[config.symbol] == 0:
-                size_units = size_df['size'].iloc[i]
-                if size_units > 0:
-                    entry_price = close_price * (1 + slippage)
-                    cost = size_units * entry_price
-                    
+            # 1) Manage an open position (checked from the bar after entry fill)
+            if in_position:
+                bars_held = i - entry_idx
+                exit_raw: Optional[float] = None
+                exit_reason = ""
+
+                if direction == 1:
+                    if low[i] <= stop_price:
+                        exit_raw, exit_reason = stop_price, "stop"
+                    elif high[i] >= target_price:
+                        exit_raw, exit_reason = target_price, "target"
+                else:
+                    if high[i] >= stop_price:
+                        exit_raw, exit_reason = stop_price, "stop"
+                    elif low[i] <= target_price:
+                        exit_raw, exit_reason = target_price, "target"
+
+                if exit_raw is None and config.exit_on_signal and i > entry_idx and not entry_signals[i]:
+                    exit_raw, exit_reason = close[i], "signal"
+                if (
+                    exit_raw is None
+                    and config.max_hold_bars is not None
+                    and bars_held >= config.max_hold_bars
+                ):
+                    exit_raw, exit_reason = close[i], "time"
+                if exit_raw is None and i == n_bars - 1:
+                    exit_raw, exit_reason = close[i], "eod"
+
+                if exit_raw is not None:
+                    exit_fill = exit_raw * (1 - direction * slip)
+                    gross = direction * units * (exit_fill - entry_fill)
+                    fees = (units * entry_fill + units * exit_fill) * fees_rate
+                    pnl = gross - fees
+                    stop_dist = abs(entry_raw - stop_price)
+                    r_multiple = direction * (exit_raw - entry_raw) / stop_dist if stop_dist > 0 else 0.0
+                    cash += direction * units * exit_fill - fees
+
+                    trades.append(
+                        {
+                            "trade_id": len(trades),
+                            "entry_date": _date(entry_idx),
+                            "exit_date": _date(i),
+                            "entry_price": float(entry_raw),
+                            "exit_price": float(exit_raw),
+                            "exit_reason": exit_reason,
+                            "units": float(units),
+                            "pnl": float(pnl),
+                            "fees": float(fees),
+                            "return_pct": float(pnl / (units * entry_fill)) if units * entry_fill > 0 else 0.0,
+                            "hold_days": bars_held,
+                            "hold_bars": bars_held,
+                            "r_multiple": float(r_multiple),
+                        }
+                    )
+                    in_position = False
+                    units = 0.0
+                    entry_idx = -1
+
+            # 2) Execute a pending entry at this bar's open
+            if not in_position and pending_signal_idx is not None:
+                sig = pending_signal_idx
+                pending_signal_idx = None
+                a = atr[sig]
+                if np.isfinite(a) and a > 0 and sizes[sig] > 0:
+                    entry_units = float(sizes[sig])
+                    entry_price_raw = float(open_[i])
+                    fill = entry_price_raw * (1 + direction * slip)
+                    cost = entry_units * fill
                     if cost <= cash:
-                        positions[config.symbol] = size_units
-                        entry_prices[config.symbol] = close_price
-                        entry_indices[config.symbol] = i
-                        cash -= cost
-            
-            # Compute equity
-            position_value = positions[config.symbol] * close_price
-            equity[i] = cash + position_value
-        
-        total_return = 0
-        annualized_return = 0
-        sharpe = 0
-        sortino = 0
-        max_drawdown = 0
-        max_drawdown_pct = 0
-        win_rate = 0
-        profit_factor = 0
-        expectancy = 0
-        total_trades = 0
-        winning_trades = 0
-        losing_trades = 0
-        avg_win = 0
-        avg_loss = 0
-        avg_hold_days = 0
-        max_consecutive_wins = 0
-        max_consecutive_losses = 0
-        equity_curve = []
-        cagr = 0
-        
+                        units = entry_units
+                        entry_idx = i
+                        entry_raw = entry_price_raw
+                        entry_fill = fill
+                        stop_price = entry_raw - direction * config.stop_atr_mult * a
+                        target_price = entry_raw + direction * config.target_atr_mult * a
+                        cash -= direction * units * entry_fill
+                        in_position = True
+
+            # 3) Record today's signal for tomorrow's open (never same bar)
+            if entry_signals[i] and not in_position:
+                pending_signal_idx = i
+
+            equity[i] = cash + direction * units * close[i] if in_position else cash
+            if in_position:
+                bars_in_market += 1
+
+        # ---- portfolio stats ----
+        total_return = (equity[-1] / config.initial_cash) - 1.0 if config.initial_cash else 0.0
+        cagr = 0.0
+        if config.initial_cash and n_bars > 0 and equity[-1] > 0:
+            years = n_bars / 252.0
+            if years > 0:
+                cagr = (equity[-1] / config.initial_cash) ** (1.0 / years) - 1.0
+
+        sharpe = 0.0
+        sortino = 0.0
+        returns = pd.Series(equity).pct_change().dropna()
+        if len(returns) > 1 and returns.std() > 0:
+            sharpe = float(np.sqrt(252) * returns.mean() / returns.std())
+        downside = returns[returns < 0]
+        if len(downside) > 0 and downside.std() > 0:
+            sortino = float(np.sqrt(252) * returns.mean() / downside.std())
+
+        running_max = np.maximum.accumulate(equity)
+        drawdown = np.divide(
+            equity - running_max, running_max, out=np.zeros_like(equity), where=running_max > 0
+        )
+        max_dd = float(np.min(drawdown)) if n_bars else 0.0
+
+        win_rate = profit_factor = expectancy = avg_win = avg_loss = 0.0
+        total_trades = winning_trades = losing_trades = 0
+        avg_hold_days = avg_hold_bars = 0.0
+        expectancy_r = avg_win_r = avg_loss_r = 0.0
+        max_consecutive_wins = max_consecutive_losses = 0
+        exit_reason_counts: dict[str, int] = {}
+
         if trades:
             trades_df = pd.DataFrame(trades)
-            pnls = trades_df['pnl'].values
+            pnls = trades_df["pnl"].to_numpy(dtype=float)
+            r_multiples = trades_df["r_multiple"].to_numpy(dtype=float)
             winning = pnls[pnls > 0]
             losing = pnls[pnls < 0]
-            
-            total_return = (equity[-1] / config.initial_cash) - 1.0
-            returns = pd.Series(equity).pct_change().dropna()
-            
-            sharpe = 0
-            if returns.std() > 0:
-                sharpe = np.sqrt(252) * returns.mean() / returns.std()
-            
-            sortino = 0
-            downside = returns[returns < 0]
-            if len(downside) > 0 and downside.std() > 0:
-                sortino = np.sqrt(252) * returns.mean() / downside.std()
-            
-            running_max = np.maximum.accumulate(equity)
-            drawdown = (equity - running_max) / running_max
-            max_dd = float(np.min(drawdown))
-            max_drawdown = max_dd
-            max_drawdown_pct = max_dd * 100
-            
-            cagr = (equity[-1] / config.initial_cash) ** (252 / len(equity)) - 1
-            
+            wins_r = r_multiples[r_multiples > 0]
+            losses_r = r_multiples[r_multiples < 0]
+
             total_trades = len(trades)
-            winning_trades = len(winning)
-            losing_trades = len(losing)
-            win_rate = winning_trades / total_trades if total_trades > 0 else 0
-            
-            avg_win = float(np.mean(winning)) if len(winning) > 0 else 0
-            avg_loss = float(np.mean(losing)) if len(losing) > 0 else 0
-            
+            winning_trades = int(len(winning))
+            losing_trades = int(len(losing))
+            win_rate = winning_trades / total_trades if total_trades else 0.0
+            avg_win = float(np.mean(winning)) if len(winning) else 0.0
+            avg_loss = float(np.mean(losing)) if len(losing) else 0.0
             gross_profit = float(np.sum(winning))
             gross_loss = float(abs(np.sum(losing)))
-            profit_factor = gross_profit / gross_loss if gross_loss > 0 else 0
-            
-            expectancy = win_rate * avg_win - (1 - win_rate) * avg_loss
-            
+            profit_factor = gross_profit / gross_loss if gross_loss > 0 else 0.0
+            expectancy = float(np.mean(pnls))
+            expectancy_r = float(np.mean(r_multiples))
+            avg_win_r = float(np.mean(wins_r)) if len(wins_r) else 0.0
+            avg_loss_r = float(np.mean(losses_r)) if len(losses_r) else 0.0
+
             pnl_signs = np.sign(pnls)
             max_consecutive_wins = self._max_consecutive(pnl_signs, 1)
             max_consecutive_losses = self._max_consecutive(pnl_signs, -1)
-            
-            avg_hold_days = float(np.mean([t['hold_days'] for t in trades]))
-            
-            equity_curve = [
-                {'date': str(df.index[i].date()), 'equity': float(equity[i])}
-                for i in range(0, n_bars, max(1, n_bars // 200))
-            ]
-            
-            cagr = (equity[-1] / config.initial_cash) ** (252 / len(equity)) - 1
-        
-        max_drawdown_pct = max_drawdown * 100
-        
+            avg_hold_days = float(np.mean([t["hold_days"] for t in trades]))
+            avg_hold_bars = avg_hold_days
+            for t in trades:
+                exit_reason_counts[t["exit_reason"]] = exit_reason_counts.get(t["exit_reason"], 0) + 1
+
+        equity_curve = [
+            {"date": _date(i), "equity": float(equity[i])}
+            for i in range(0, n_bars, max(1, n_bars // 200))
+        ]
+
         return BacktestResult(
             symbol=config.symbol,
-            timeframe="1D",
-            start_date=str(df.index[0].date()),
-            end_date=str(df.index[-1].date()),
+            timeframe=config.timeframe,
+            start_date=_date(0),
+            end_date=_date(n_bars - 1),
             initial_cash=config.initial_cash,
-            final_equity=equity[-1],
+            final_equity=float(equity[-1]) if n_bars else float(config.initial_cash),
             total_return=total_return,
             annualized_return=cagr,
             sharpe_ratio=sharpe,
             sortino_ratio=sortino,
-            max_drawdown=max_drawdown,
-            max_drawdown_pct=max_drawdown_pct,
+            max_drawdown=max_dd,
+            max_drawdown_pct=max_dd * 100,
             win_rate=win_rate,
             profit_factor=profit_factor,
             expectancy=expectancy,
@@ -815,6 +889,12 @@ class ExternalBacktestEngine:
             max_consecutive_losses=max_consecutive_losses,
             trades=trades,
             equity_curve=equity_curve,
+            expectancy_r=expectancy_r,
+            avg_win_r=avg_win_r,
+            avg_loss_r=avg_loss_r,
+            avg_hold_bars=avg_hold_bars,
+            exit_reason_counts=exit_reason_counts,
+            time_in_market_pct=bars_in_market / n_bars if n_bars else 0.0,
         )
 
     @staticmethod
@@ -850,6 +930,12 @@ async def run_multi_backtest(
             timeframe=timeframe,
             start_date=start_date,
             end_date=end_date,
+            signal_filters=screen_config.get("signal_filters", []),
+            direction=screen_config.get("direction", "long"),
+            stop_atr_mult=screen_config.get("stop_atr_mult", 2.0),
+            target_atr_mult=screen_config.get("target_atr_mult", 3.0),
+            max_hold_bars=screen_config.get("max_hold_bars"),
+            signal_params=screen_config.get("signal_params", {}),
         )
         result = await engine.run_backtest(config)
         results[symbol] = result

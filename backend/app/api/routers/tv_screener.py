@@ -347,6 +347,9 @@ class ExternalBacktestRequest(BaseModel):
     position_sizing: Literal["fixed", "atr", "kelly"] = "fixed"
     sizing_params: dict[str, Any] = Field(default_factory=dict)
     signal_params: dict[str, Any] = Field(default_factory=dict)
+    stop_atr_mult: float = 2.0
+    target_atr_mult: float = 3.0
+    max_hold_bars: int | None = None
 
 
 class ExternalBacktestTrade(BaseModel):
@@ -384,11 +387,10 @@ async def run_external_backtest(request: ExternalBacktestRequest) -> ExternalBac
     from backend.app.infrastructure.screener.configs import load_screen_template
     
     try:
-        # Load template to get signal_params
+        # Load template: pass FULL filter rules so per-rule operator,
+        # timeframe, and duplicate indicators survive (validation reset,
+        # 2026-10-19 — the old dict collapsed them and dropped timeframes).
         template = load_screen_template(request.template)
-        signal_params: dict[str, Any] = {}
-        for f in template.filters:
-            signal_params[f.indicator] = f.params
         
         config = BacktestConfig(
             symbol=request.symbols[0],  # Primary symbol
@@ -400,7 +402,11 @@ async def run_external_backtest(request: ExternalBacktestRequest) -> ExternalBac
             slippage_bps=request.slippage_bps,
             position_sizing=request.position_sizing,
             sizing_params=request.sizing_params,
-            signal_params=signal_params,
+            signal_filters=list(template.filters),
+            direction=getattr(template, "direction", "long"),
+            stop_atr_mult=request.stop_atr_mult,
+            target_atr_mult=request.target_atr_mult,
+            max_hold_bars=request.max_hold_bars,
         )
         
         fetcher = OHLCVFetcher()
