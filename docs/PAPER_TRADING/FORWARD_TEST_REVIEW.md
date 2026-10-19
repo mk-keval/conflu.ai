@@ -6,6 +6,15 @@ with real evidence (user decision after the 2-month replay, D-71).
 **Trigger:** 30 closed forward trades **or** 6 weeks (≈ 2026-11-30), whichever first.
 **Status:** OPEN — awaiting trigger
 
+**Audit addendum (2026-10-19):** the read-only pipeline audit
+(`docs/PAPER_TRADING/PIPELINE_AUDIT.md`) found that the live path differs from the replay
+in ways that affect items A–D: T1 in the current open rows sits ~8–11R away, the gate
+measures R/R to the last target while exits pay T1, the live exit loop has no time stop
+(`max_hold_days` is never persisted), screen/confluence/sector attribution is not
+recorded, and the sector-exposure cap is consequently dead. The measurement fixes are
+safe before the sample; the exit/target fixes are review decisions (changing them
+restarts the sample).
+
 ## Why this file exists
 
 The 2-month replay (371 trades, 114 W / 257 L, −0.203R gross, PF 0.63) flagged two
@@ -64,6 +73,10 @@ Artifacts: `docs/backtests/replay_whatif_20261019_211236.json`,
   (`domain/workflow/exits.py`: stop → T1/T2 → time stop, full exit, stop checked first)
   and the backtest engine both exit at static levels set at entry. "Dynamic management"
   is currently advisory output, not behavior — wiring it is a candidate review fix.
+- Audit addition (2026-10-19): the live path is worse than the replay here. T1 in the
+  current open rows sits **8–11R** away (NTNX +8.2R, WBD +10.9R, NVDA +8.1R), the gate
+  checks R/R to the *last* target, and the plan's 20–60-day time stop is never stored in
+  the journal — so the live exit loop has no time stop. See audit F3/F5.
 
 ## B. Regime response gap — "choppy" serves continuation screens; "ranging" is unreachable
 
@@ -117,11 +130,20 @@ Replay worst → best (expectancy R / trades):
 Forward: build the same table from real journal trades before re-weighting / retiring
 any screen.
 
+**Blocked until audit F1 is fixed:** live rows currently store `template = NULL` and
+`confluence_count = 0` (the API reads both from the verdict, not the brief ticker; the
+CLI does not write `template` at all). Without that fix this table cannot be built.
+
 ## D. Gate effectiveness
 
 The replay has no gate (it entered every signal). Forward, measure the rejection rate
 and whether rejected candidates would actually have won or lost. If the gate adds no
 edge, improve it rather than trusting it.
+
+Audit note (2026-10-19): there is no forward data yet — `rejections` and `workflow_runs`
+are both empty. Also, the sector-exposure step cannot reject anything because sector is
+never stored (audit F2), and the 2.5:1 floor is measured to the last target rather than
+the exit target (audit F5). Both must be fixed before this item can be judged.
 
 ## Guardrails
 
@@ -131,6 +153,9 @@ edge, improve it rather than trusting it.
 
 ## Related artifacts
 
+- `docs/PAPER_TRADING/PIPELINE_AUDIT.md` — read-only audit (2026-10-19) of the live
+  screener → gate → exit pipeline; root causes and prioritized fixes mapped to the four
+  dials (F1–F10).
 - `docs/PAPER_TRADING/V2_RISK_GOVERNOR_BLUEPRINT.md` — four-dials design proposal
   (permission / playbook / size / exits), with success criteria and guardrails.
 - `run_replay_experiments.py` — what-if runner (design learning only).

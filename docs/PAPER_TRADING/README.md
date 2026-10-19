@@ -89,6 +89,12 @@ Two rules you should know:
   (`entry_timing='eod'`), the entry day's own intraday range is excluded from
   exit checks.
 
+> **Known gap (audit 2026-10-19):** the trade plan computes a 20–60-day time stop, but
+> `max_hold_days` is not stored in the journal, so the live exit loop currently applies
+> **stop and target only**. T1 in the live rows can also sit far above entry (8–11R in
+> the current open book) because targets are the highest structural levels, not the
+> nearest resistance. See `docs/PAPER_TRADING/PIPELINE_AUDIT.md` F3/F5.
+
 `plan_adherence` is a **process** metric (did the system execute the plan?),
 not a success metric — profitability is measured by `realized_r` and
 expectancy.
@@ -123,6 +129,9 @@ the forward journal to judge the system.
 
 ### Design review (not part of the daily ritual)
 
+- `docs/PAPER_TRADING/PIPELINE_AUDIT.md` — read-only audit (2026-10-19) of the live
+  screener → gate → exit path: root causes, evidence, and prioritized fixes mapped to
+  the four dials. Read this before changing rules.
 - `docs/PAPER_TRADING/FORWARD_TEST_REVIEW.md` — the pre-registered agenda for the
   review after 30 closed forward trades (exit RR ceiling + MFE, choppy/ranging
   menu gap, per-screen confirmation, gate effectiveness). No rule changes before

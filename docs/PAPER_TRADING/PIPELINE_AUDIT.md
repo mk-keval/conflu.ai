@@ -1,0 +1,269 @@
+# Pipeline Audit — Screener → Gate → Exit
+
+**Date:** 2026-10-19
+**Type:** Read-only audit of the deployed decision pipeline (code + config + journal). No
+code or DB changes were made.
+**Scope:** regime detection → screen selection → morning brief → gate enforcement →
+sizing → journal → exit sync.
+**Method:** traced the live code paths, read the deployed regime/screen config, and
+inspected `data/paper_trades.db` (read-only queries). Cross-checked against the replay /
+what-if artifacts from the same date.
+**Code state:** branch `fix/technical-tab-empty`, HEAD `8001ea5` (all committed).
+
+---
+
+## TL;DR
+
+The pipeline is genuinely wired end-to-end — the gate is **not** decorative. But the
+system that is actually running is materially weaker than the system described in the
+docs/config, for five reasons:
+
+1. **Choppy days run trend screens.** The mean-reversion screens are effectively
+   benched: `ranging` is unreachable, and the `choppy` menu is
+   bull-flag + trend-pullback + low-vol — exactly the combination the 2-month replay
+   measured as the worst. This is a *design* gap, not a bug.
+2. **The R/R gate is measured to the furthest target, while exits pay the first
+   target.** The 2.5:1 floor is therefore non-binding, and the first target in the live
+   book is **~8–11R away**. A plan can pass the gate and still be unreachable.
+3. **The live exit loop has no time stop.** The verdict computes `max_hold_days`
+   (20/30/60), the journal has no such column, and the exit walker receives `None`.
+   Trades can stay open indefinitely if neither the stop nor a distant target hits.
+4. **Four bookkeeping fields are broken** (template/screen, confluence, sector,
+   max_hold). This disables the sector-exposure cap and makes the per-screen forward
+   table (review item C) impossible.
+5. **There is no regime permission, no cross-screen ranking, and no per-day entry
+   cap.** The book is filled in screen order until the 8-position cap.
+
+**Consequence for the forward test:** it can measure the *deployed* system, but not the
+replay system, and not per screen. The measurement plumbing should be fixed before the
+sample starts (no trading-decision changes). The exit/target defects are the first
+review decisions, because they define what counts as a win.
+
+---
+
+## 1. What the pipeline actually does
+
+| Step | Where | Actual behavior |
+|---|---|---|
+| Regime | `infrastructure/market/regime.py` | Composite 0–100 → 6 labels (`Exuberance … Crisis`), pure score thresholds (no hysteresis). |
+| Label → key | `professional/morning_brief.py:59-66` | Only **4 keys** are ever produced: `strong_trend`, `neutral`, `choppy`, `high_vol`. **`ranging` is never emitted.** |
+| Screen selection | `professional/regime_selector.py:296-329` | Top-3 primaries by weight; the weakest slot is replaced by the highest-weight `defensive`. |
+| Choppy menu | `config/regime_screens.yaml:44-49` | `bull-flag-continuation` (85), `trend-pullback-v2` (80), `low-vol-setup` (65, defensive). |
+| Ranging menu | `config/regime_screens.yaml:51-55` | `statistical-mean-reversion`, `mean-reversion`, … — **dead code** (no label maps here). |
+| Screens | `infrastructure/screener/tv_engine.py` | TV discovery (≤500 matches) → elite enrichment → confluence score, sorted **descending within a screen** (`:188`) → top 500. |
+| Brief | `professional/morning_brief.py:184-244` | Takes the **top 9 per screen**, de-duplicates across sections, adds a 4th **sector-rotation** section (top 3 holdings of the leading sector ETF, scored by a bespoke yfinance function). |
+| Candidate filter | `api/routers/workflow.py:494-503` | Every brief ticker with `conviction >= min_conviction` (default **5**). The brief's conviction is a **3-level** elite signal: high=8, medium=5, low=3 → default 5 passes “medium” and therefore almost everything not “low”. |
+| Per-candidate work | `workflow.py:510-548` | Full ticker analysis (45 s timeout each), gate evaluation, sizing, upsert. **No cross-screen rank, no daily cap, no regime check.** |
+| Gate | `domain/workflow/gate.py` | 7 steps: liquidity, structure, positioning, catalyst, R/R, portfolio fit, conviction. Hard FAIL rejects; CONDITIONAL is **accepted at half size**. |
+| Gate caps | `gate.py:45-47` | `MAX_OPEN_POSITIONS = 8`; duplicate-symbol rule; `SECTOR_EXPOSURE_LIMIT_PCT = 30` (by planned size). |
+| R/R floor | `gate.py:302-396` | PASS at ≥2.5, CONDITIONAL at ≥2.0 **if r1 ≥ 1.0**. Measured on the **reported** R/R (to the last target), not T1. |
+| Sizing | `domain/workflow/sizing.py` | `size% = 1% risk / stop distance`, hard cap 25%, floor 0.5%; CONDITIONAL → ×0.5. |
+| Journal | `domain/workflow/journal_store.py` | SQLite `data/paper_trades.db`; entries, rejections, runs. |
+| Exits | `domain/workflow/exits.py` | Stop first (gap-aware), then **T2**, then **T1**, then time stop *if `max_hold_days` is supplied*. Full exit — no scaling, no trail. |
+| Exit sync | `workflow.py:802-833` | Reads `target_1/2` and `max_hold_days` from the journal row. |
+
+The replay mirrors the screen mix (`backtest/replay.py:110-187`) but not the gate, the
+brief ranking, the 4th sector screen, the structural targets, or the live exit rules.
+It uses ATR stop 2.0 / target 3.0 / **15-bar max hold**.
+
+---
+
+## 2. Findings
+
+### P0 — Measurement integrity (fix before the forward sample; no decision change)
+
+#### F1. No screen attribution in live rows
+- **Evidence:** `workflow.py:662-668` reads `confluence_score` and `screen_name` from
+  the **verdict** (`v`), not from the brief ticker; the verdict has neither field
+  (`AnalysisVerdict` has `extra="forbid"` and no such keys). The CLI path
+  (`backend/scripts/paper_trade_from_brief.py:348-370`) does not write `template` at
+  all. All 3 open rows have `template = NULL`, `confluence_count = 0`.
+- **Impact:** review item C (per-screen forward confirmation) cannot be built. The
+  journal cannot say which screen produced a winner.
+- **Class:** bug — pure bookkeeping.
+- **Fix sketch:** pass the brief ticker through `_build_row` and store
+  `screen_name`/`confluence_score` (and the regime used) on every row and rejection.
+
+#### F2. Sector is never stored → the 30% sector cap is dead
+- **Evidence:** `_build_row` takes `sector = v.get("sector", "")`
+  (`workflow.py:624`), but `AnalysisVerdict` has **no sector field** (it is on
+  `TickerAnalysisResponse`, one level up). All 3 open rows have `sector = NULL`.
+  `evaluate_portfolio_fit` compares journal sectors to the candidate sector
+  (`gate.py:452-465`); with `None` vs `""` nothing ever matches.
+- **Impact:** five correlated names can enter as “different sectors”; the one
+  portfolio-level concentration control that exists does nothing.
+- **Class:** bug (also a real risk-control gap).
+- **Fix sketch:** populate sector from the analysis **response**, persist it, and add
+  a regression test that two same-sector entries trip the cap.
+
+#### F3. `max_hold_days` is never persisted
+- **Evidence:** the plan computes it (`synthesis.py:1801-1807`: 20/30/60 days), but
+  the `paper_trades` schema has no such column (`journal_store.py` schema), no writer
+  stores it, and `workflow.py:808` reads a missing key → `None`. `exits.infer_exit`
+  therefore has no time stop.
+- **Impact:** the live exit rules differ from the documented plan and from the replay;
+  trades with distant targets can remain open forever, so the 30-closed-trade trigger
+  may never arrive and `mfe_r` is never recorded for them.
+- **Class:** bug (execution/measurement).
+- **Fix sketch:** add the column + migration, write it at entry, read it in both exit
+  paths. Wiring it changes outcomes — decide explicitly (see §3).
+
+#### F4. No forward run has been logged yet
+- **Evidence:** `workflow_runs = 0`, `rejections = 0`; 3 open rows from 2026-10-05/06.
+  Those rows carry values inconsistent with the current plan geometry (e.g. planned
+  R/R 55.2, 134.5, 8.06 with targets 20–83% away) — they predate the current
+  instrumentation and are not a clean forward sample.
+- **Impact:** the forward clock has not visibly started in the journal of record.
+- **Class:** operations.
+- **Fix sketch:** decide explicitly whether to keep the 3 rows as “legacy/out-of-sample”
+  or archive them; then run the daily after-close button and confirm a `workflow_runs`
+  row appears.
+
+### P1 — Behavior defects (review decisions; do not change mid-sample)
+
+#### F5. Target geometry: the first target is ~8–11R away; the gate’s R/R metric is not what the exit pays
+- **Evidence:** live targets come from `synthesis._get_structural_targets_long`
+  (`synthesis.py:81-153`): it keeps the **highest 3** structural levels within
+  `1.5 × price`, including swing highs from the full 2-year window. `risk_reward` is
+  computed to the **last** target (`_geometric_rr_long`, `:156-171`), and the gate
+  checks that number (`gate.py:302-396`). The exit walker pays the **first** target it
+  touches (`exits.py:120-137`). Stored open rows:
+  - NTNX: entry 67.74, stop 65.92, **T1 82.89 (+8.2R)**, planned R/R 55.2
+  - WBD: entry 29.87, stop 27.60, **T1 54.62 (+10.9R)**, planned R/R 134.5
+  - NVDA: entry 220.45, stop 207.89, **T1 390.24 (+8.1R)**, planned R/R 8.06
+- **Impact:** the 2.5:1 gate is trivially satisfied by a far target; the plan that is
+  actually executable (T1) is 8–11R away. Most trades should be expected to stop out
+  or sit open. This is the live analogue of the “1.05R winners” problem — but in the
+  opposite direction.
+- **Class:** design (target selection) + bug (decision metric ≠ exit metric).
+- **Fix sketch:** choose the nearest meaningful resistance as T1 (cap at a sane swing
+  distance, e.g. 2–4R); compute the gate R/R on the level the exit will pay; optionally
+  scale out at T1 and let a runner go to T2/trail. One coherent hierarchy.
+
+#### F6. Choppy serves continuation; mean reversion is benched; `ranging` is unreachable
+- **Evidence:** `morning_brief.py:59-66` (4 keys only), `regime_screens.yaml:44-55`,
+  `regime_selector.py:296-329`. The choppy menu is bull-flag / trend-pullback /
+  low-vol. `mean-reversion` appears **only** under `ranging`; `statistical-mean-reversion`
+  only as a neutral defensive and loses the choppy defensive slot to low-vol (65 > 60).
+- **Impact:** the replay put 242 of 371 trades (65%) and **94% of the dollar loss** in
+  choppy sessions; every deployed choppy screen lost ≈ −0.35R. The what-ifs show a
+  mean-reversion-only chop menu is ≈ flat gross (−0.015R) — not a profit machine, but
+  the correct battlefield. The live config does the opposite.
+- **Class:** design (playbook).
+- **Fix sketch:** rebuild the choppy menu around the only chop-flat screen; make
+  `ranging` reachable (or delete it); re-tune weights to the corrected validation,
+  not the superseded D-61 stats (already flagged in `regime_screens.yaml:15-22`).
+
+#### F7. No permission, no cross-screen rank, no daily cap
+- **Evidence:** enforce has no regime input (`workflow.py:471-600`); candidates are
+  every brief ticker above the coarse conviction floor, in section order; only the
+  8-position book cap limits entries. `min_conviction=5` passes “medium”.
+- **Impact:** on a bad day the system can still fill the book; the ranking that exists
+  (confluence, within screen) is discarded at the decision step; the 4th sector section
+  is included regardless of regime.
+- **Class:** design (permission + selection).
+- **Fix sketch:** a permission state (normal/reduced/stand-aside) driven by regime;
+  a cross-screen ranking (confluence + RS + catalyst) with top-N/day; a daily entry
+  cap; gate the sector section on regime.
+
+#### F8. The 4th “sector rotation” screen is unvalidated and bypasses the templates
+- **Evidence:** `morning_brief.py:207-230`, `_score_holding_sync` (`:458-515`). It buys
+  the leading sector ETF’s top holdings at market with a 2–8% stop and 2R/3R targets,
+  using its own scoring; it is not in the replay and not in the template validation.
+- **Impact:** up to 3 live candidates/day come from a strategy with no backtest and no
+  forward attribution (F1 makes it unmeasurable).
+- **Class:** design (selection) + measurement.
+- **Fix sketch:** tag it (F1), then either validate it or remove it from the decision
+  path until it earns a slot.
+
+#### F9. Regime label has no hysteresis or transition handling
+- **Evidence:** `regime.py:350-362` maps the composite score to a label by fixed
+  thresholds (50/65); no previous-state smoothing in the module.
+- **Impact:** a score oscillating around 65 flips the menu day to day; the book can
+  accumulate a mix of regime playbooks with no coherent thesis.
+- **Class:** design (permission).
+- **Fix sketch:** require 2–3 consecutive days (or a buffer band) before changing
+  state; treat transitions as “reduce/stand aside”, not “switch menu”.
+
+#### F10. Portfolio risk is only a count and a (dead) sector cap
+- **Evidence:** `gate.py:45-47`, `sizing.py:29-32`. No portfolio heat (sum of open
+  risk), no daily/weekly loss limit, no correlation beyond the sector string, no
+  regime-based size multiplier.
+- **Impact:** 8 positions × 1% = up to 8% account risk if stops are hit together;
+  correlated positions can stack (F2).
+- **Class:** design (size).
+- **Fix sketch:** heat cap (e.g. 3–4% open risk), daily loss limit, sector/correlation
+  cap that actually works, regime size multiplier (1.0 / 0.5 / 0).
+
+---
+
+## 3. What this means for the forward test
+
+1. **Do not change the strategy before the trigger** — the guardrail in
+   `FORWARD_TEST_REVIEW.md` still holds.
+2. **Do fix the measurement plumbing first** (F1–F3): screen, confluence, sector,
+   max_hold. These record decisions the system already makes; they do not change which
+   trades are taken. Without them, review items A (MFE) and C (per-screen) cannot be
+   answered, and the sector cap stays dead.
+3. **Decide on the 3 legacy rows** (F4): keep them explicitly out-of-sample or archive
+   them. Do not let them contaminate the 30-trade scorecard.
+4. **Decide on the two exit defects before the sample starts** (F3/F5): wiring the
+   time stop and making the R/R metric match the exit target *will* change results.
+   But without them the sample measures a system whose plans are largely unexecutable.
+   My recommendation: treat “execution matches the documented plan” (time stop +
+   coherent target hierarchy) as v0.1 of the forward system, start the sample after it,
+   and freeze everything else.
+5. **Then run the one-click after-close daily** and verify a `workflow_runs` row each
+   day. If a run is missed, leave the gap (no backfill).
+
+Until (2)–(4) are decided, the forward journal can still accumulate — but label it
+“pre-instrumentation” and do not use it for the kill rule.
+
+---
+
+## 4. Prioritized fix list, mapped to the four dials
+
+| Priority | Fix | Dial | Behavior change? |
+|---|---|---|---|
+| P0 | Store screen/template, confluence, regime on every row + rejection (F1) | measurement | no |
+| P0 | Persist sector; make the 30% sector cap real; add test (F2) | size | only if cap binds |
+| P0 | Persist `max_hold_days`; wire it into exit sync + CLI (F3) | exit | **yes** |
+| P0 | Decide legacy 3 rows; start logging runs (F4) | ops | no |
+| P1 | Coherent target hierarchy: T1 = nearest meaningful level; gate R/R on the exit level; scale-out/trail as one design (F5) | exit | **yes** |
+| P1 | Rebuild choppy menu; make `ranging` reachable or delete; re-weight to corrected validation (F6) | playbook | **yes** |
+| P1 | Permission state + cross-screen ranking + daily entry cap (F7) | permission | **yes** |
+| P1 | Tag/validate/remove the sector-rotation 4th screen (F8) | selection | **yes** |
+| P2 | Regime hysteresis / transition state (F9) | permission | **yes** |
+| P2 | Portfolio heat + daily loss limit + real correlation cap (F10) | size | **yes** |
+
+P0 items are safe to do before the sample. P1/P2 are review decisions; doing them
+mid-sample restarts the sample.
+
+---
+
+## 5. Not verified / open questions
+
+- Whether the **frontend** “Run After-Close” button times out on a full brief (~30
+  candidates × up to 45 s each). The candidate count is unbounded by design; if the UI
+  request times out, runs may be missed. Worth observing on the first live run.
+- Whether `max_hold_days` was ever intended to be stored (README claims time-stop
+  exits; the schema disagrees). Needs a decision, not just a patch.
+- Whether the 3 legacy rows came from an older builder; their planned R/R values are
+  not reproducible from their stored targets. Treat them as legacy.
+- The sector-rotation scorer’s actual edge is unknown (never backtested or forward-tagged).
+
+---
+
+## Appendix — journal evidence (read-only)
+
+```
+paper_trades: 3 open, 0 closed
+  NTNX  2026-10-05  entry 67.74  stop 65.92  T1 82.89  T2 83.36  RR 55.22  CONDITIONAL  sector NULL  template NULL
+  WBD   2026-10-05  entry 29.87  stop 27.60  T1 54.62  T2 —      RR 134.50 CONDITIONAL  sector NULL  template NULL
+  NVDA  2026-10-06  entry 220.45 stop 207.89 T1 390.24 T2 —      RR 8.06   CONDITIONAL  sector NULL  template NULL
+rejections: 0
+workflow_runs: 0
+```
+
+Code references are line numbers at HEAD `8001ea5`. No files were modified by this
+audit except this report and the two doc links noted in the commit.
