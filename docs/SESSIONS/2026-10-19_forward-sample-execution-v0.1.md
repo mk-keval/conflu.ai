@@ -38,7 +38,9 @@ rows from the scorecard. Targets and the R/R gate stay untouched for review item
   touched UI tests pass (18 tests).
 - Live DB migrated successfully; new columns verified.
 - NTNX/WBD/NVDA flagged `exclude_from_stats=1`; they remain open and visible.
-- `rejections = 0`, `workflow_runs = 0` before the first daily run.
+- First daily run completed 2026-10-19 (run id 1): **1 accepted (PM)**, 4 rejected,
+  0 exits. PM stored `sector=Consumer Defensive`, `template=Sector Rotation Holdings`,
+  `regime=Neutral`, `confluence_count=4`, `max_hold_days=30`; T1 ≈7.2R.
 - Target selection, R:R gate, screen menus, regime permission, sizing and entry ranking
   were not changed.
 
@@ -50,9 +52,9 @@ that date. This is the only approved behavior change in execution v0.1.
 
 ## Next
 
-1. User presses **Workflow → Daily Routine → Run After-Close (one go)** after the close.
-2. Confirm a `workflow_runs` row appears and entries now show `template`, `sector`,
-   `regime`, `max_hold_days`.
+1. Repeat the one-go after-close run each trading day; do not backfill missed days.
+2. Confirm each run writes exactly one `workflow_runs` row and new entries show
+   `template`, `sector`, `regime`, `max_hold_days`.
 3. Do not change targets/R:R or screens until the trigger (30 closed forward trades or
    ~6 weeks from the first run).
 4. At the trigger: run `FORWARD_TEST_REVIEW.md` items A–D; use only

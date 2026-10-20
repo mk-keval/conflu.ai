@@ -137,9 +137,9 @@ It uses ATR stop 2.0 / target 3.0 / **15-bar max hold**.
 - **Fix sketch:** decide explicitly whether to keep the 3 rows as “legacy/out-of-sample”
   or archive them; then run the daily after-close button and confirm a `workflow_runs`
   row appears.
-- **Status (2026-10-19): PARTIAL.** The 3 rows are flagged `exclude_from_stats=1`
-  (visible/open; skipped by expectancy and rolling metrics). `workflow_runs` will stay
-  at 0 until the first daily run; that run starts the sample clock.
+- **Status (2026-10-19): APPLIED.** The 3 rows are flagged `exclude_from_stats=1`
+  (visible/open; skipped by expectancy and rolling metrics). `workflow_runs` now has its
+  first row: run id 1, 1 accepted (PM), 4 rejected, 0 exits. The sample clock is running.
 
 ### P1 — Behavior defects (review decisions; do not change mid-sample)
 
@@ -268,7 +268,8 @@ P0 items are done. P1/P2 are review decisions; doing them mid-sample restarts th
 
 - Whether the **frontend** “Run After-Close” button times out on a full brief (~30
   candidates × up to 45 s each). The candidate count is unbounded by design; if the UI
-  request times out, runs may be missed. Worth observing on the first live run.
+  request times out, runs may be missed. The first run (2026-10-19, run id 1)
+  completed via the same endpoint without a timeout.
 - Whether `max_hold_days` was ever intended to be stored — **resolved 2026-10-19**:
   yes, it is stored and executed as calendar days (execution v0.1). The target
   hierarchy/R:R metric remains the open decision (F5).
@@ -281,12 +282,21 @@ P0 items are done. P1/P2 are review decisions; doing them mid-sample restarts th
 ## Appendix — journal evidence (read-only)
 
 ```
+Audit-time snapshot (2026-10-19, before execution v0.1):
 paper_trades: 3 open, 0 closed  (all 3 now exclude_from_stats=1)
   NTNX  2026-10-05  entry 67.74  stop 65.92  T1 82.89  T2 83.36  RR 55.22  CONDITIONAL  sector NULL  template NULL
   WBD   2026-10-05  entry 29.87  stop 27.60  T1 54.62  T2 —      RR 134.50 CONDITIONAL  sector NULL  template NULL
   NVDA  2026-10-06  entry 220.45 stop 207.89 T1 390.24 T2 —      RR 8.06   CONDITIONAL  sector NULL  template NULL
 rejections: 0
 workflow_runs: 0
+
+Post-run state (2026-10-19, run id 1):
+paper_trades: 4 open, 0 closed  (3 legacy excluded + PM)
+  PM    2026-10-19  entry 185.97 stop 183.19 T1 205.99 T2 297.73 CONDITIONAL 12.5%
+         sector Consumer Defensive  template Sector Rotation Holdings  regime Neutral
+         confluence 4  max_hold_days 30  T1 ≈7.2R
+rejections: 4  (PG/WMT conviction; SG/XERS no entry geometry)
+workflow_runs: 1
 
 Schema after execution v0.1:
   paper_trades: + max_hold_days INTEGER, + exclude_from_stats INTEGER DEFAULT 0
@@ -315,5 +325,8 @@ the R/R gate untouched.
 Not changed: target selection, R:R gate semantics, screen menus, regime permission,
 sizing, entry ranking. Those are review items A–D.
 
-**Sample clock:** starts on the first `run_close` after these changes. Do not backfill
-missed days. The 3 legacy rows do not count toward the 30 closed trades.
+**Sample clock:** started on the first `run_close` (2026-10-19, run id 1: 1 accepted,
+4 rejected, 0 exits). Do not backfill
+missed days. The 3 legacy rows do not count toward the 30 closed trades. The first live
+entry (PM) has T1 ≈7.2R and T2 ≈40R — the target-geometry gap (F5) is present in the
+sample by design and is review item A.

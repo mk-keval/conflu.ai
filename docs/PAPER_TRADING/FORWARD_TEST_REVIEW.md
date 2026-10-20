@@ -5,7 +5,18 @@
 with real evidence (user decision after the 2-month replay, D-71).
 **Trigger:** 30 closed forward trades **or** 6 weeks from the first `run_close`
 (≈ 2026-11-30 if the sample starts 2026-10-19), whichever first.
-**Status:** READY — execution v0.1 applied; the clock starts on the first daily run.
+**Status:** LIVE — sample started 2026-10-19 (run id 1; PM accepted, 4 rejected,
+0 closed scored trades). The clock runs to 30 closed scored trades or ≈2026-11-30.
+
+**First run (2026-10-19, run id 1):** 1 accepted — **PM** (Sector Rotation
+Holdings, Neutral, CONDITIONAL 12.5%, T1 ≈7.2R, 30-day time stop); 4 rejected —
+PG/WMT on conviction, SG/XERS with no entry geometry; 0 exits (the 3 legacy rows +
+today's PM are correctly skipped). This is the first forward evidence, not a verdict.
+
+**What to watch from run 1:** PM is from the unvalidated *Sector Rotation Holdings*
+screen (F8) and its T1 is ≈7.2R (F5). SG/XERS reached sizing with no entry
+geometry (entry 0) and were honestly rejected; check whether the 52-Week Breakout
+screen should emit an entry zone. Do not change either mid-sample.
 
 **Audit addendum (2026-10-19):** the read-only pipeline audit
 (`docs/PAPER_TRADING/PIPELINE_AUDIT.md`) found that the live path differs from the replay

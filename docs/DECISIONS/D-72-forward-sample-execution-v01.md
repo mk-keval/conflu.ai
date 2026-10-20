@@ -1,7 +1,7 @@
 # D-72: Forward-Sample Execution v0.1 — Measurement Integrity + Calendar-Day Time Stop
 
 **Date:** 2026-10-19
-**Status:** Accepted — implemented; the forward sample starts on the first `run_close`
+**Status:** Accepted — implemented; sample started 2026-10-19 (run id 1; PM accepted)
 **Branch:** `fix/technical-tab-empty`
 **Related:** D-68 (SQLite journal), D-70 (honest validation), D-71 (two-month replay),
 `docs/PAPER_TRADING/PIPELINE_AUDIT.md`
@@ -60,14 +60,17 @@ item A.
   attribution + sector-cap tests). Frontend typecheck passes; the expectancy and journal
   tests pass (18 tests across the touched UI paths).
 - Live DB migration verified: new columns exist; the 3 legacy rows show
-  `exclude_from_stats = 1`; `rejections` and `workflow_runs` remain empty until the
-  first daily run.
+  `exclude_from_stats = 1`. The first daily run completed on 2026-10-19 (run id 1):
+  1 accepted (PM), 4 rejected, 0 exits; `workflow_runs` now has its first row.
+  PM stored sector `Consumer Defensive`, template `Sector Rotation Holdings`, regime
+  `Neutral`, confluence 4, and `max_hold_days = 30`.
 - No change was made to targets, R:R gate logic, screen weights, or sizing.
 
 ## Consequences
 
 - The forward sample can now be evaluated per screen/sector/regime, and review items A
-  (MFE) and C (per-screen) become answerable.
+  (MFE) and C (per-screen) become answerable. The first live entry (PM, Sector Rotation
+  Holdings) has T1 ≈7.2R, so the unchanged target geometry is represented in the sample.
 - The time stop is a real behavior change: open trades now close at the plan's calendar
   cutoff even if no target/stop is hit. This is why execution v0.1 is frozen before the
   first run.

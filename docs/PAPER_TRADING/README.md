@@ -12,6 +12,9 @@ Routine** and press **"Run After-Close (one go)"**. That single call runs the
 syncs + applies exits for the open book (D-68). Then glance at **Workflow →
 Journal** — trades table, runs strip, rejections, Export CSV.
 
+**Sample live since 2026-10-19** (run id 1; PM accepted, 4 rejected, 0 exits).
+The clock runs to 30 closed scored trades or ≈2026-11-30.
+
 The journal of record is **SQLite** (`data/paper_trades.db`) — there is no
 spreadsheet to maintain. Steps 1–2 below are the optional morning preview;
 Steps 3–4 explain exactly what the one-go run does under the hood; Step 5 is
@@ -71,7 +74,8 @@ Press **"Run After-Close (one go)"** in **Workflow → Daily Routine**. It calls
 Entries land at end-of-day (`entry_timing='eod'`). Missed days stay **honest
 gaps** — no backfill, no invented rows. Rejections now carry the `template` and
 market `regime`, and entries carry screen/confluence/sector plus the plan's
-`max_hold_days`. **The first successful one-go run starts the forward clock.**
+`max_hold_days`. **The first successful one-go run (2026-10-19, run id 1) started
+the forward clock.**
 
 ### Step 4: The exits close the loop themselves (0 minutes)
 
