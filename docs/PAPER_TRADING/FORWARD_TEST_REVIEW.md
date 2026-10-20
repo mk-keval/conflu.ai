@@ -18,6 +18,10 @@ screen (F8) and its T1 is ≈7.2R (F5). SG/XERS reached sizing with no entry
 geometry (entry 0) and were honestly rejected; check whether the 52-Week Breakout
 screen should emit an entry zone. Do not change either mid-sample.
 
+**Open book after run 1:** 4 positions — NTNX/WBD/NVDA (legacy, excluded from
+stats) and PM; 40.4% gross. The legacy rows have no time stop and still occupy 3
+of the 8 open-position slots. They are not scored, but they are part of the book.
+
 **Audit addendum (2026-10-19):** the read-only pipeline audit
 (`docs/PAPER_TRADING/PIPELINE_AUDIT.md`) found that the live path differs from the replay
 in ways that affect items A–D: T1 in the current open rows sits ~8–11R away, the gate
