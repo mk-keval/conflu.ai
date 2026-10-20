@@ -700,6 +700,10 @@ export function JournalTab() {
               <tbody>
                 {filtered.map((r) => {
                   const closed = !!dayOf(r.date_closed);
+                  const excluded =
+                    r.exclude_from_stats === '1' ||
+                    r.exclude_from_stats === 1 ||
+                    r.exclude_from_stats === true;
                   return (
                     <tr
                       key={`${r.date_entered}-${r.symbol}`}
@@ -710,6 +714,14 @@ export function JournalTab() {
                       </td>
                       <td className={cn(TD, 'font-semibold text-text-primary')}>
                         {r.symbol ?? '—'}
+                        {excluded && (
+                          <span
+                            title="Pre-instrumentation row — visible, but excluded from the forward scorecard"
+                            className="ml-1.5 rounded-full border border-border/60 px-1.5 py-0.5 text-[9px] font-normal uppercase tracking-wide text-text-muted"
+                          >
+                            out-of-sample
+                          </span>
+                        )}
                         {r.action && (
                           <span className="ml-1.5 text-[10px] text-text-muted">
                             {r.action}
@@ -807,6 +819,9 @@ export function JournalTab() {
                   <span className="text-yellow-400">
                     {rej.failed_step ?? rej.gate_verdict ?? 'FAIL'}
                   </span>
+                  {rej.template && (
+                    <span className="text-text-muted">[{rej.template}]</span>
+                  )}
                   <span className="text-text-muted">{rej.reason}</span>
                 </li>
               ))}

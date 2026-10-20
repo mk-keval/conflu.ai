@@ -10,6 +10,14 @@ inspected `data/paper_trades.db` (read-only queries). Cross-checked against the 
 what-if artifacts from the same date.
 **Code state:** branch `fix/technical-tab-empty`, HEAD `8001ea5` (all committed).
 
+> **Update — execution v0.1 applied (2026-10-19):** the user approved the recommended
+> pre-sample option. F1 (screen/confluence/regime attribution), F2 (sector persistence +
+> real 30% cap), F3 (persist and execute the plan's calendar-day time stop), and the
+> legacy-row exclusion in F4 are now implemented. F5 (target hierarchy / R:R measured on
+> the exit target) was **not** changed — it stays review item A. The 3 pre-instrumentation
+> rows (NTNX/WBD/NVDA) are flagged `exclude_from_stats=1` but remain open and visible.
+> See §6 for the change list.
+
 ---
 
 ## TL;DR
@@ -83,6 +91,9 @@ It uses ATR stop 2.0 / target 3.0 / **15-bar max hold**.
 - **Class:** bug — pure bookkeeping.
 - **Fix sketch:** pass the brief ticker through `_build_row` and store
   `screen_name`/`confluence_score` (and the regime used) on every row and rejection.
+- **Status (2026-10-19): FIXED.** Both the router and CLI now take screen/confluence
+  from the brief ticker and store the market regime from the brief. Rejections carry
+  `template`/`regime` columns. A regression test covers the router path.
 
 #### F2. Sector is never stored → the 30% sector cap is dead
 - **Evidence:** `_build_row` takes `sector = v.get("sector", "")`
@@ -95,6 +106,9 @@ It uses ATR stop 2.0 / target 3.0 / **15-bar max hold**.
 - **Class:** bug (also a real risk-control gap).
 - **Fix sketch:** populate sector from the analysis **response**, persist it, and add
   a regression test that two same-sector entries trip the cap.
+- **Status (2026-10-19): FIXED.** `_build_row` reads the response sector in both paths;
+  the sector check uses the unhalved risk-based size (upper bound). Tests cover the
+  router cap and the CLI cap.
 
 #### F3. `max_hold_days` is never persisted
 - **Evidence:** the plan computes it (`synthesis.py:1801-1807`: 20/30/60 days), but
@@ -107,6 +121,11 @@ It uses ATR stop 2.0 / target 3.0 / **15-bar max hold**.
 - **Class:** bug (execution/measurement).
 - **Fix sketch:** add the column + migration, write it at entry, read it in both exit
   paths. Wiring it changes outcomes — decide explicitly (see §3).
+- **Status (2026-10-19): FIXED (execution v0.1).** `max_hold_days` is stored at entry
+  and both exit paths now execute it. The plan's value is **calendar days**; the exit
+  walker counts trading bars, so a `hold_limit_bars` helper converts the cutoff to the
+  first session on/after the calendar date. Existing rows have no value (the 3 legacy
+  rows are excluded from stats). This is the one approved behavior change.
 
 #### F4. No forward run has been logged yet
 - **Evidence:** `workflow_runs = 0`, `rejections = 0`; 3 open rows from 2026-10-05/06.
@@ -118,6 +137,9 @@ It uses ATR stop 2.0 / target 3.0 / **15-bar max hold**.
 - **Fix sketch:** decide explicitly whether to keep the 3 rows as “legacy/out-of-sample”
   or archive them; then run the daily after-close button and confirm a `workflow_runs`
   row appears.
+- **Status (2026-10-19): PARTIAL.** The 3 rows are flagged `exclude_from_stats=1`
+  (visible/open; skipped by expectancy and rolling metrics). `workflow_runs` will stay
+  at 0 until the first daily run; that run starts the sample clock.
 
 ### P1 — Behavior defects (review decisions; do not change mid-sample)
 
@@ -139,6 +161,8 @@ It uses ATR stop 2.0 / target 3.0 / **15-bar max hold**.
 - **Fix sketch:** choose the nearest meaningful resistance as T1 (cap at a sane swing
   distance, e.g. 2–4R); compute the gate R/R on the level the exit will pay; optionally
   scale out at T1 and let a runner go to T2/trail. One coherent hierarchy.
+- **Status (2026-10-19): OPEN — review item A.** Explicitly deferred; the sample will
+  measure the current targets/R:R gate. Do not change mid-sample.
 
 #### F6. Choppy serves continuation; mean reversion is benched; `ranging` is unreachable
 - **Evidence:** `morning_brief.py:59-66` (4 keys only), `regime_screens.yaml:44-55`,
@@ -201,20 +225,20 @@ It uses ATR stop 2.0 / target 3.0 / **15-bar max hold**.
 
 1. **Do not change the strategy before the trigger** — the guardrail in
    `FORWARD_TEST_REVIEW.md` still holds.
-2. **Do fix the measurement plumbing first** (F1–F3): screen, confluence, sector,
-   max_hold. These record decisions the system already makes; they do not change which
-   trades are taken. Without them, review items A (MFE) and C (per-screen) cannot be
-   answered, and the sector cap stays dead.
-3. **Decide on the 3 legacy rows** (F4): keep them explicitly out-of-sample or archive
-   them. Do not let them contaminate the 30-trade scorecard.
-4. **Decide on the two exit defects before the sample starts** (F3/F5): wiring the
-   time stop and making the R/R metric match the exit target *will* change results.
-   But without them the sample measures a system whose plans are largely unexecutable.
-   My recommendation: treat “execution matches the documented plan” (time stop +
-   coherent target hierarchy) as v0.1 of the forward system, start the sample after it,
-   and freeze everything else.
+2. **Measurement plumbing is now fixed** (F1–F3, execution v0.1): screen, confluence,
+   sector, regime and `max_hold_days` are recorded on entries (and screen/regime on
+   rejections). The sector cap is real. These record decisions the system already makes;
+   they do not change which trades are taken. Review items A (MFE) and C (per-screen)
+   are now answerable.
+3. **The 3 legacy rows are explicitly out-of-sample** (F4): flagged
+   `exclude_from_stats=1`; they stay open and visible but never enter expectancy,
+   rolling metrics or the 30-trade scorecard.
+4. **The approved exit change is the time stop only** (F3): it now executes the plan's
+   calendar-day limit. The target hierarchy and R/R metric (F5) were deliberately left
+   untouched — they are the first review decision, not a pre-sample change.
 5. **Then run the one-click after-close daily** and verify a `workflow_runs` row each
-   day. If a run is missed, leave the gap (no backfill).
+   day. The first run is the sample start. If a run is missed, leave the gap (no
+   backfill).
 
 Until (2)–(4) are decided, the forward journal can still accumulate — but label it
 “pre-instrumentation” and do not use it for the kill rule.
@@ -223,21 +247,20 @@ Until (2)–(4) are decided, the forward journal can still accumulate — but la
 
 ## 4. Prioritized fix list, mapped to the four dials
 
-| Priority | Fix | Dial | Behavior change? |
-|---|---|---|---|
-| P0 | Store screen/template, confluence, regime on every row + rejection (F1) | measurement | no |
-| P0 | Persist sector; make the 30% sector cap real; add test (F2) | size | only if cap binds |
-| P0 | Persist `max_hold_days`; wire it into exit sync + CLI (F3) | exit | **yes** |
-| P0 | Decide legacy 3 rows; start logging runs (F4) | ops | no |
-| P1 | Coherent target hierarchy: T1 = nearest meaningful level; gate R/R on the exit level; scale-out/trail as one design (F5) | exit | **yes** |
-| P1 | Rebuild choppy menu; make `ranging` reachable or delete; re-weight to corrected validation (F6) | playbook | **yes** |
-| P1 | Permission state + cross-screen ranking + daily entry cap (F7) | permission | **yes** |
-| P1 | Tag/validate/remove the sector-rotation 4th screen (F8) | selection | **yes** |
-| P2 | Regime hysteresis / transition state (F9) | permission | **yes** |
-| P2 | Portfolio heat + daily loss limit + real correlation cap (F10) | size | **yes** |
+| Priority | Fix | Dial | Behavior change? | Status (2026-10-19) |
+|---|---|---|---|---|
+| P0 | Store screen/template, confluence, regime on every row + rejection (F1) | measurement | no | **Applied** |
+| P0 | Persist sector; make the 30% sector cap real; add test (F2) | size | only if cap binds | **Applied** |
+| P0 | Persist `max_hold_days`; wire it into exit sync + CLI (F3) | exit | **yes** | **Applied** (calendar-day) |
+| P0 | Decide legacy 3 rows; start logging runs (F4) | ops | no | **Applied** (legacy flagged; first run pending) |
+| P1 | Coherent target hierarchy: T1 = nearest meaningful level; gate R/R on the exit level; scale-out/trail as one design (F5) | exit | **yes** | **Open — review A** |
+| P1 | Rebuild choppy menu; make `ranging` reachable or delete; re-weight to corrected validation (F6) | playbook | **yes** | Open — review B |
+| P1 | Permission state + cross-screen ranking + daily entry cap (F7) | permission | **yes** | Open — review B |
+| P1 | Tag/validate/remove the sector-rotation 4th screen (F8) | selection | **yes** | Open — review C/D |
+| P2 | Regime hysteresis / transition state (F9) | permission | **yes** | Open |
+| P2 | Portfolio heat + daily loss limit + real correlation cap (F10) | size | **yes** | Open |
 
-P0 items are safe to do before the sample. P1/P2 are review decisions; doing them
-mid-sample restarts the sample.
+P0 items are done. P1/P2 are review decisions; doing them mid-sample restarts the sample.
 
 ---
 
@@ -246,8 +269,9 @@ mid-sample restarts the sample.
 - Whether the **frontend** “Run After-Close” button times out on a full brief (~30
   candidates × up to 45 s each). The candidate count is unbounded by design; if the UI
   request times out, runs may be missed. Worth observing on the first live run.
-- Whether `max_hold_days` was ever intended to be stored (README claims time-stop
-  exits; the schema disagrees). Needs a decision, not just a patch.
+- Whether `max_hold_days` was ever intended to be stored — **resolved 2026-10-19**:
+  yes, it is stored and executed as calendar days (execution v0.1). The target
+  hierarchy/R:R metric remains the open decision (F5).
 - Whether the 3 legacy rows came from an older builder; their planned R/R values are
   not reproducible from their stored targets. Treat them as legacy.
 - The sector-rotation scorer’s actual edge is unknown (never backtested or forward-tagged).
@@ -257,13 +281,39 @@ mid-sample restarts the sample.
 ## Appendix — journal evidence (read-only)
 
 ```
-paper_trades: 3 open, 0 closed
+paper_trades: 3 open, 0 closed  (all 3 now exclude_from_stats=1)
   NTNX  2026-10-05  entry 67.74  stop 65.92  T1 82.89  T2 83.36  RR 55.22  CONDITIONAL  sector NULL  template NULL
   WBD   2026-10-05  entry 29.87  stop 27.60  T1 54.62  T2 —      RR 134.50 CONDITIONAL  sector NULL  template NULL
   NVDA  2026-10-06  entry 220.45 stop 207.89 T1 390.24 T2 —      RR 8.06   CONDITIONAL  sector NULL  template NULL
 rejections: 0
 workflow_runs: 0
+
+Schema after execution v0.1:
+  paper_trades: + max_hold_days INTEGER, + exclude_from_stats INTEGER DEFAULT 0
+  rejections:   + template TEXT, + regime TEXT
 ```
 
-Code references are line numbers at HEAD `8001ea5`. No files were modified by this
-audit except this report and the two doc links noted in the commit.
+Code references are line numbers at HEAD `8001ea5` (before the v0.1 changes). No files
+were modified by this audit except this report and the two doc links noted in the commit.
+
+---
+
+## 6. Execution v0.1 — applied changes (2026-10-19)
+
+User decision: **measurement + time stop**, then start the forward sample. Targets and
+the R/R gate untouched.
+
+| Area | Change | Files |
+|---|---|---|
+| Attribution | Router + CLI take `screen_name`/`confluence_score` from the brief ticker; store market `regime`; rejections store `template`/`regime` | `api/routers/workflow.py`, `scripts/paper_trade_from_brief.py`, `journal_store.py` |
+| Sector | Read from the analysis **response**; persist on entries; sector check uses the unhalved risk-based size | same |
+| Time stop | Persist `max_hold_days`; `exits.hold_limit_bars` converts calendar days to the first session on/after the cutoff; both exit paths execute it | `journal_store.py`, `exits.py`, router/CLI |
+| Legacy rows | `exclude_from_stats=1` for NTNX/WBD/NVDA; expectancy + rolling metrics filter them | `journal_store.py`, `verification.py` |
+| Migration | Idempotent `ALTER TABLE` for existing DBs (trades + rejections) | `journal_store.py` |
+| Tests | Attribution (router + CLI), sector cap (router + CLI), time-stop conversion, exclusion filter, schema round-trip | `backend/tests/` (51 focused tests pass; frontend typecheck + touched UI tests pass) |
+
+Not changed: target selection, R:R gate semantics, screen menus, regime permission,
+sizing, entry ranking. Those are review items A–D.
+
+**Sample clock:** starts on the first `run_close` after these changes. Do not backfill
+missed days. The 3 legacy rows do not count toward the 30 closed trades.

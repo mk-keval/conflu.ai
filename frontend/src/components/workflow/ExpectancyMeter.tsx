@@ -40,6 +40,7 @@ export function calculateExpectancy(
     .filter(
       (t): t is PaperTrade & { realizedR: number } =>
         t.status === 'closed' &&
+        !t.excludeFromStats &&
         typeof t.realizedR === 'number' &&
         isFinite(t.realizedR)
     )

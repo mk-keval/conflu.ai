@@ -56,7 +56,7 @@ def _wire_enforce_stubs(
     async def _get_engine():
         return _Engine()
 
-    async def _fake_build_row(sym, brief_t, verdict):
+    async def _fake_build_row(sym, brief_t, verdict, market_regime=""):
         return dict(rows_by_symbol[sym]), None
 
     monkeypatch.setattr(wf, "_get_morning_brief_service", lambda: _Service())
@@ -293,3 +293,99 @@ def test_run_close_logs_error_row_when_enforce_fails(
     assert run["mode"] == "run_close"
     assert run["status"] == "error"
     assert "Enforce failed" in run["message"]
+
+
+def _build_verdict(*, sector: str = "Technology", max_hold: int = 30) -> dict:
+    return {
+        "sector": sector,
+        "verdict": {
+            "action": "BUY",
+            "conviction": 8,
+            "gate": {
+                "overall": "PASS",
+                "conviction_score": 8,
+                "data_gaps": [],
+                "evaluated_at": "2026-10-19T00:00:00",
+                "steps": [{
+                    "name": "Portfolio Fit", "passed": False,
+                    "conditional": True, "note": "synthesis path",
+                }],
+            },
+            "entry_zone_low": 100.0,
+            "entry_zone_high": 102.0,
+            "stop_loss": 95.0,
+            "targets": [110.0, 120.0],
+            "risk_reward": 2.0,
+            "position_size_pct": 0.0,
+            "buy_triggers": ["EMA cross"],
+            "trade_plan": {"max_hold_days": max_hold},
+        },
+    }
+
+
+def test_build_row_attribution_comes_from_brief_and_response() -> None:
+    """Audit F1/F2: screen/confluence from the brief, sector from the response."""
+    from backend.app.api.routers import workflow as wf
+
+    brief_t = {"screen_name": "trend-pullback", "confluence_score": 83}
+    row, rejection = asyncio.run(
+        wf._build_row("TEST", brief_t, _build_verdict(), market_regime="neutral")
+    )
+    assert rejection is None and row is not None
+    assert row["template"] == "trend-pullback"
+    assert row["sector"] == "Technology"
+    assert row["regime"] == "neutral"
+    assert row["max_hold_days"] == 30
+    assert row["confluence_count"] == 4
+
+
+def test_build_row_sector_cap_uses_response_sector(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Audit F2: once sector is populated, the 30% cap actually fires."""
+    from backend.app.api.routers import workflow as wf
+
+    monkeypatch.setattr(
+        journal_mod, "read_open_positions",
+        lambda *a, **k: [{
+            "symbol": "OTHER", "sector": "Technology",
+            "position_size_pct": "28.0",
+        }],
+    )
+    row, rejection = asyncio.run(
+        wf._build_row(
+            "TEST",
+            {"screen_name": "trend-pullback", "confluence_score": 83},
+            _build_verdict(),
+            market_regime="neutral",
+        )
+    )
+    assert row is None
+    assert rejection is not None
+    assert rejection["failed_step"] == "Portfolio Fit"
+    assert rejection["template"] == "trend-pullback"
+    assert rejection["regime"] == "neutral"
+
+
+def test_closed_trades_endpoint_excludes_legacy_rows() -> None:
+    """The closed-trades summary (win rate/expectancy) is the scored sample only."""
+    from backend.app.api.routers import workflow as wf
+
+    for symbol, realized_r, excluded in (("KEEP", 1.0, False), ("LEGACY", -3.0, True)):
+        journal_mod.upsert_entry({
+            "date_entered": "2026-10-05", "symbol": symbol,
+            "sector": "Technology", "entry_price": 100.0, "stop_loss": 95.0,
+            "position_size_pct": 10.0, "template": "trend-pullback",
+            "regime": "neutral", "gate_verdict": "PASS",
+        })
+        journal_mod.update_exit("2026-10-05", symbol, {
+            "date_closed": "2026-10-09", "exit_price": 100.0 + 5.0 * realized_r,
+            "exit_reason": "target_1", "realized_r": realized_r,
+        })
+        if excluded:
+            journal_mod.set_exclude_from_stats("2026-10-05", symbol, True)
+
+    resp = asyncio.run(wf.get_closed_trades())
+    assert resp.data.count == 1
+    assert [t.symbol for t in resp.data.trades] == ["KEEP"]
+    assert resp.data.expectancy_r == 1.0

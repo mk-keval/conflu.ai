@@ -14,6 +14,8 @@ stop wins, i.e. the WORSE outcome is recorded, and the fill is flagged):
 3. Target 2 reached       — ``high >= target_2``  → fill at ``target_2``.
 4. Target 1 reached       — ``high >= target_1``  → fill at ``target_1``.
 5. Time stop              — held >= max_hold_days → fill at that bar's close.
+                            ``max_hold_days`` is a BAR count here; for a plan's
+                            calendar-day stop, convert with ``hold_limit_bars``.
 
 Metrics (plan Sec.2E): ``mfe_r``/``mae_r`` are the max favorable / max adverse
 excursion in R units over the held bars, ending at the fill bar. For EOD
@@ -25,6 +27,7 @@ inflate the excursions with pre-entry price action (bug R4).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date, timedelta
 from typing import Any
 
 EXIT_STOP = "stop"
@@ -63,6 +66,45 @@ def _bar_values(bar: dict[str, Any]) -> tuple[float, float, float, float] | None
         )
     except (KeyError, TypeError, ValueError):
         return None
+
+
+def hold_limit_bars(
+    bars: list[dict[str, Any]],
+    entry_date: str | None,
+    max_hold_days: int | None,
+) -> int | None:
+    """Convert a plan's calendar-day time stop into ``infer_exit``'s bar count.
+
+    The plan says "20/30/60 calendar days"; ``infer_exit`` counts trading bars.
+    This returns the bar number of the first session on/after the calendar
+    cutoff, so the time stop fires on the intended date rather than 20 trading
+    days later. Falls back to the raw day count when dates are unusable.
+    """
+    if max_hold_days is None:
+        return None
+    try:
+        days = int(max_hold_days)
+    except (TypeError, ValueError):
+        return None
+    if days <= 0:
+        return 2
+    try:
+        start = date.fromisoformat(str(entry_date or "")[:10])
+    except ValueError:
+        return max(days, 2)
+
+    cutoff = start + timedelta(days=days)
+    before = 0
+    for bar in bars:
+        try:
+            bar_date = date.fromisoformat(str(bar.get("date") or "")[:10])
+        except ValueError:
+            return max(days, 2)
+        if bar_date < cutoff:
+            before += 1
+    # infer_exit's bar 0 is the entry bar (never fills); the first bar at/after
+    # the cutoff is index ``before`` → bars_held = before + 1.
+    return max(before + 1, 2)
 
 
 def infer_exit(
@@ -169,4 +211,4 @@ def as_bars(ohlcv_rows: list[Any]) -> list[dict[str, Any]]:
 
 
 __all__ = ["EXIT_STOP", "EXIT_TARGET_1", "EXIT_TARGET_2", "EXIT_TIME",
-           "ExitFill", "infer_exit", "as_bars"]
+           "ExitFill", "infer_exit", "as_bars", "hold_limit_bars"]

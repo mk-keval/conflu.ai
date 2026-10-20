@@ -57,12 +57,14 @@ EXIT_COLUMNS = [
     "date_closed", "exit_price", "exit_reason", "realized_r", "pnl_usd",
     "mfe_r", "mae_r", "plan_adherence",
 ]
-EXTRA_COLUMNS = ["template", "regime", "entry_timing"]
+EXTRA_COLUMNS = ["template", "regime", "entry_timing", "max_hold_days"]
+# Operational flags: fetched with rows but never overwritten by an entry upsert.
+META_COLUMNS = ["exclude_from_stats"]
 ENTRY_DB_COLUMNS = ENTRY_COLUMNS + EXTRA_COLUMNS
-FETCH_COLUMNS = ENTRY_DB_COLUMNS + EXIT_COLUMNS
+FETCH_COLUMNS = ENTRY_DB_COLUMNS + EXIT_COLUMNS + META_COLUMNS
 REJECTION_COLUMNS = [
     "date_seen", "symbol", "sector", "action", "conviction",
-    "failed_step", "gate_verdict", "reason", "notes",
+    "failed_step", "gate_verdict", "reason", "notes", "template", "regime",
 ]
 RUN_MODES = ("enforce", "sync_exits", "run_close", "import")
 
@@ -71,7 +73,7 @@ _FLOAT_COLUMNS = {
     "account_value", "shares", "entry_low", "entry_high", "risk_reward_planned",
     "exit_price", "realized_r", "pnl_usd", "mfe_r", "mae_r", "plan_adherence",
 }
-_INT_COLUMNS = {"confluence_count", "conviction"}
+_INT_COLUMNS = {"confluence_count", "conviction", "max_hold_days", "exclude_from_stats"}
 _EMPTY_CELLS = {"", "-", "NA", "nan"}
 
 _DDL = """
@@ -88,8 +90,10 @@ CREATE TABLE IF NOT EXISTS paper_trades (
   gate_version TEXT, notes TEXT,
   template TEXT, regime TEXT,
   entry_timing TEXT NOT NULL DEFAULT 'eod',
+  max_hold_days INTEGER,
   date_closed TEXT, exit_price REAL, exit_reason TEXT,
   realized_r REAL, pnl_usd REAL, mfe_r REAL, mae_r REAL, plan_adherence REAL,
+  exclude_from_stats INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ux_paper_trades_day_symbol
@@ -99,6 +103,7 @@ CREATE TABLE IF NOT EXISTS rejections (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   date_seen TEXT NOT NULL, symbol TEXT NOT NULL, sector TEXT, action TEXT,
   conviction INTEGER, failed_step TEXT, gate_verdict TEXT, reason TEXT, notes TEXT,
+  template TEXT, regime TEXT,
   created_at TEXT NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ux_rejections_day_symbol
@@ -115,6 +120,26 @@ CREATE TABLE IF NOT EXISTS workflow_runs (
   message TEXT, details_json TEXT
 );
 """
+
+
+def _migrate(con: sqlite3.Connection) -> None:
+    """Add columns introduced after a DB was first created (idempotent)."""
+    additions = {
+        "paper_trades": {
+            "template": "TEXT",
+            "regime": "TEXT",
+            "entry_timing": "TEXT NOT NULL DEFAULT 'eod'",
+            "max_hold_days": "INTEGER",
+            "exclude_from_stats": "INTEGER NOT NULL DEFAULT 0",
+        },
+        "rejections": {"template": "TEXT", "regime": "TEXT"},
+    }
+    for table, columns in additions.items():
+        existing = {row[1] for row in con.execute(f"PRAGMA table_info({table})")}
+        for name, decl in columns.items():
+            if name not in existing:
+                con.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+
 
 # ── Path resolution / initialization ──
 
@@ -172,6 +197,7 @@ def ensure() -> None:
             log.warning("journal.wal_unavailable", error=str(exc))
         con.execute("PRAGMA busy_timeout=5000")
         con.executescript(_DDL)
+        _migrate(con)
         con.commit()
     finally:
         con.close()
@@ -346,6 +372,26 @@ def update_exit(date_entered: Any, symbol: Any, updates: dict[str, Any]) -> bool
             f"UPDATE paper_trades SET {', '.join(f'{c} = ?' for c in payload)}, "
             "updated_at = ? WHERE date_entered = ? AND symbol = ? AND date_closed IS NULL",
             [*payload.values(), _utc_now(), de, sym],
+        )
+        return cur.rowcount > 0
+
+
+def set_exclude_from_stats(date_entered: Any, symbol: Any, excluded: bool = True) -> bool:
+    """Mark one row in/out of the forward-sample statistics.
+
+    The row stays visible in the journal and in the open book; only the
+    expectancy/scorecard queries skip it. Used for the three pre-instrumentation
+    legacy rows.
+    """
+    de = _clean(date_entered)
+    sym = _clean(symbol)
+    if not de or not sym:
+        return False
+    with session() as con:
+        cur = con.execute(
+            "UPDATE paper_trades SET exclude_from_stats = ?, updated_at = ? "
+            "WHERE date_entered = ? AND symbol = ?",
+            (1 if excluded else 0, _utc_now(), de, sym),
         )
         return cur.rowcount > 0
 

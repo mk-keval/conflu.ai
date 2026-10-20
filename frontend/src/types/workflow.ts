@@ -113,6 +113,8 @@ export interface PaperTrade {
   gateVerdict?: 'PASS' | 'FAIL' | 'CONDITIONAL';
   /** Plan adherence score (0-1) for closed trades (from sync-exits). */
   planAdherence?: number;
+  /** True for pre-instrumentation rows that must not enter the forward scorecard. */
+  excludeFromStats?: boolean;
   openedAt: string;
   closedAt: string | null;
 }

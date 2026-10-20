@@ -108,6 +108,30 @@ def test_time_stop_fills_at_close() -> None:
     assert fill.exit_reason == exits.EXIT_TIME
 
 
+def test_calendar_time_stop_fires_on_cutoff_session() -> None:
+    """A 3-calendar-day plan exits on the first session at/after day 3."""
+    bars = _bars([
+        ("2026-09-01", 100.0, 101.0, 99.0, 100.5),   # entry
+        ("2026-09-02", 100.5, 101.0, 99.5, 100.8),
+        ("2026-09-03", 100.8, 101.0, 99.8, 100.9),
+        ("2026-09-04", 100.9, 101.0, 99.9, 101.0),   # cutoff: entry + 3 days
+        ("2026-09-08", 101.0, 102.0, 100.0, 101.5),
+    ])
+    assert exits.hold_limit_bars(bars, "2026-09-01", 3) == 4
+    fill = exits.infer_exit(
+        bars, entry=ENTRY, stop=STOP, targets=[],
+        max_hold_days=exits.hold_limit_bars(bars, "2026-09-01", 3),
+    )
+    assert fill.exit_reason == exits.EXIT_TIME
+    assert fill.exit_date == "2026-09-04"
+    assert fill.bars_held == 4
+
+
+def test_hold_limit_bars_falls_back_without_dates() -> None:
+    bars = _bars([("2026-09-01", 100.0, 101.0, 99.0, 100.0)])
+    assert exits.hold_limit_bars(bars, None, 20) == 20
+
+
 def test_invalid_bars_skipped() -> None:
     bars = [
         {"date": "2026-09-01", "open": 100.0, "high": 102.0, "low": 99.0, "close": 101.0},

@@ -3,17 +3,22 @@
 **Created:** 2026-10-19
 **Decision:** Option 1 — no rule changes now; run the live paper loop forward and decide
 with real evidence (user decision after the 2-month replay, D-71).
-**Trigger:** 30 closed forward trades **or** 6 weeks (≈ 2026-11-30), whichever first.
-**Status:** OPEN — awaiting trigger
+**Trigger:** 30 closed forward trades **or** 6 weeks from the first `run_close`
+(≈ 2026-11-30 if the sample starts 2026-10-19), whichever first.
+**Status:** READY — execution v0.1 applied; the clock starts on the first daily run.
 
 **Audit addendum (2026-10-19):** the read-only pipeline audit
 (`docs/PAPER_TRADING/PIPELINE_AUDIT.md`) found that the live path differs from the replay
 in ways that affect items A–D: T1 in the current open rows sits ~8–11R away, the gate
-measures R/R to the last target while exits pay T1, the live exit loop has no time stop
-(`max_hold_days` is never persisted), screen/confluence/sector attribution is not
-recorded, and the sector-exposure cap is consequently dead. The measurement fixes are
-safe before the sample; the exit/target fixes are review decisions (changing them
-restarts the sample).
+measures R/R to the last target while exits pay T1, the live exit loop had no time stop
+(`max_hold_days` was never persisted), screen/confluence/sector attribution was not
+recorded, and the sector-exposure cap was consequently dead.
+
+**Execution v0.1 applied (2026-10-19):** the user approved measurement + the documented
+time stop before starting. Screen/confluence/regime now land on every entry and
+rejection, sector is stored and the 30% cap is real, `max_hold_days` is persisted and
+executed as calendar days, and the 3 legacy rows are flagged out-of-sample. **Targets and
+the R/R gate are unchanged** — item A is still the first review decision.
 
 ## Why this file exists
 
@@ -74,9 +79,11 @@ Artifacts: `docs/backtests/replay_whatif_20261019_211236.json`,
   and the backtest engine both exit at static levels set at entry. "Dynamic management"
   is currently advisory output, not behavior — wiring it is a candidate review fix.
 - Audit addition (2026-10-19): the live path is worse than the replay here. T1 in the
-  current open rows sits **8–11R** away (NTNX +8.2R, WBD +10.9R, NVDA +8.1R), the gate
-  checks R/R to the *last* target, and the plan's 20–60-day time stop is never stored in
-  the journal — so the live exit loop has no time stop. See audit F3/F5.
+  current open rows sits **8–11R** away (NTNX +8.2R, WBD +10.9R, NVDA +8.1R), and the
+  gate checks R/R to the *last* target. **Time stop: fixed in execution v0.1** —
+  `max_hold_days` is now stored and executed as calendar days, so trades can no longer
+  sit open forever. **Target hierarchy / R:R metric: unchanged** (item A below); the
+  legacy 3 rows do not enter the scorecard. See audit F3/F5.
 
 ## B. Regime response gap — "choppy" serves continuation screens; "ranging" is unreachable
 
@@ -130,9 +137,9 @@ Replay worst → best (expectancy R / trades):
 Forward: build the same table from real journal trades before re-weighting / retiring
 any screen.
 
-**Blocked until audit F1 is fixed:** live rows currently store `template = NULL` and
-`confluence_count = 0` (the API reads both from the verdict, not the brief ticker; the
-CLI does not write `template` at all). Without that fix this table cannot be built.
+**Unblocked 2026-10-19 (execution v0.1):** live entries now store `template` and
+`confluence_count` from the brief ticker (and `regime` from the brief); rejections store
+`template`/`regime`. The forward table can now be built as soon as closed trades exist.
 
 ## D. Gate effectiveness
 
@@ -141,15 +148,22 @@ and whether rejected candidates would actually have won or lost. If the gate add
 edge, improve it rather than trusting it.
 
 Audit note (2026-10-19): there is no forward data yet — `rejections` and `workflow_runs`
-are both empty. Also, the sector-exposure step cannot reject anything because sector is
-never stored (audit F2), and the 2.5:1 floor is measured to the last target rather than
-the exit target (audit F5). Both must be fixed before this item can be judged.
+are both empty. **Fixed in execution v0.1:** the sector-exposure step now has real sector
+data and can reject; rejections are tagged with `template`/`regime` for per-screen
+analysis. **Still open:** the 2.5:1 floor is measured to the last target rather than the
+exit target (audit F5, item A), so gate effectiveness must be read alongside the target
+hierarchy decision.
 
 ## Guardrails
 
-- No changes to screens, weights, exits or the gate before the trigger.
+- **Execution v0.1 is frozen from the first run** (measurement fixes + calendar-day time
+  stop only). No changes to screens, weights, targets, R:R gate or sizing before the
+  trigger.
+- The 3 legacy rows (NTNX/WBD/NVDA) are flagged `exclude_from_stats=1`; they are visible
+  and open but never count toward the 30 closed trades, expectancy or the kill rule.
 - The replay ledger stays simulation-only; the forward journal + VISION.md kill rule
   (expectancy ≤ 0 after 30+ closed trades → stop) remains the decider.
+- Do not backfill missed days. A missed run is an honest gap.
 
 ## Related artifacts
 

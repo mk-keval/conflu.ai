@@ -189,6 +189,10 @@ export const useWorkflowStore = create<WorkflowStore>()(
               stopLoss: row.stop_loss ?? undefined,
               gateVerdict: row.gate_verdict as 'PASS' | 'FAIL' | 'CONDITIONAL' | undefined,
               planAdherence: row.plan_adherence ?? undefined,
+              excludeFromStats:
+                row.exclude_from_stats === '1' ||
+                row.exclude_from_stats === 1 ||
+                row.exclude_from_stats === true,
               openedAt: row.date_entered ?? new Date().toISOString(),
               closedAt: null,
             })),
@@ -207,6 +211,10 @@ export const useWorkflowStore = create<WorkflowStore>()(
               stopLoss: row.stop_loss ?? undefined,
               gateVerdict: row.gate_verdict as 'PASS' | 'FAIL' | 'CONDITIONAL' | undefined,
               planAdherence: row.plan_adherence ?? undefined,
+              excludeFromStats:
+                row.exclude_from_stats === '1' ||
+                row.exclude_from_stats === 1 ||
+                row.exclude_from_stats === true,
               openedAt: row.date_entered ?? new Date().toISOString(),
               closedAt: row.date_closed ?? new Date().toISOString(),
             })),

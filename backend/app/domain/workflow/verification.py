@@ -67,6 +67,13 @@ def _normalize_regime(name: str) -> str:
     return (name or "Unknown").strip() or "Unknown"
 
 
+def in_forward_sample(row: dict[str, Any]) -> bool:
+    """False for rows explicitly excluded from the forward scorecard."""
+    return str(row.get("exclude_from_stats") or "0").strip().lower() not in {
+        "1", "true", "yes",
+    }
+
+
 def compute_expectancy_per_template_regime(
     trades_dir: Path | str | None = None,
     min_trades: int = ELITE_MIN_TRADES,
@@ -80,7 +87,10 @@ def compute_expectancy_per_template_regime(
     Returns:
         Dict keyed by "template|regime" with ExpectancyMetrics
     """
-    rows = journal_mod.read_closed_trades(trades_dir)
+    rows = [
+        r for r in journal_mod.read_closed_trades(trades_dir)
+        if in_forward_sample(r)
+    ]
     
     # Group by template + regime
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -189,7 +199,10 @@ def compute_rolling_expectancy(
     
     Returns dict with rolling metrics or None if insufficient data.
     """
-    rows = journal_mod.read_closed_trades(trades_dir)
+    rows = [
+        r for r in journal_mod.read_closed_trades(trades_dir)
+        if in_forward_sample(r)
+    ]
     
     # Filter rows
     filtered = rows

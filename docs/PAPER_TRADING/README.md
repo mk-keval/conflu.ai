@@ -69,7 +69,9 @@ Press **"Run After-Close (one go)"** in **Workflow → Daily Routine**. It calls
    `gate_failed_step` + reason — nothing is silently dropped.
 
 Entries land at end-of-day (`entry_timing='eod'`). Missed days stay **honest
-gaps** — no backfill, no invented rows.
+gaps** — no backfill, no invented rows. Rejections now carry the `template` and
+market `regime`, and entries carry screen/confluence/sector plus the plan's
+`max_hold_days`. **The first successful one-go run starts the forward clock.**
 
 ### Step 4: The exits close the loop themselves (0 minutes)
 
@@ -89,11 +91,16 @@ Two rules you should know:
   (`entry_timing='eod'`), the entry day's own intraday range is excluded from
   exit checks.
 
-> **Known gap (audit 2026-10-19):** the trade plan computes a 20–60-day time stop, but
-> `max_hold_days` is not stored in the journal, so the live exit loop currently applies
-> **stop and target only**. T1 in the live rows can also sit far above entry (8–11R in
-> the current open book) because targets are the highest structural levels, not the
-> nearest resistance. See `docs/PAPER_TRADING/PIPELINE_AUDIT.md` F3/F5.
+> **Time stop (audit 2026-10-19, fixed in execution v0.1):** the trade plan's
+> 20–60-*calendar-day* limit is now stored in the journal and applied by the exit sync
+> (converted to the first session on/after the cutoff). **Still open (review item A):**
+> T1 can sit far above entry (8–11R in the legacy open book) because targets are the
+> highest structural levels, not the nearest resistance; the gate's R/R is measured to
+> the last target. Targets/R:R are deliberately unchanged during this sample. See
+> `docs/PAPER_TRADING/PIPELINE_AUDIT.md` F3/F5.
+>
+> The 3 pre-instrumentation rows (NTNX/WBD/NVDA) are flagged `exclude_from_stats=1`:
+> they remain visible/open but do not count toward the 30-trade scorecard or expectancy.
 
 `plan_adherence` is a **process** metric (did the system execute the plan?),
 not a success metric — profitability is measured by `realized_r` and
@@ -145,8 +152,9 @@ the forward journal to judge the system.
 
 ### Step 5: Weekly review (Sunday, 15 minutes)
 
-Only **closed** rows count (those with a `date_closed`). Open rows are not
-evidence yet.
+Only **closed** rows count (those with a `date_closed`), and rows flagged
+`exclude_from_stats=1` are skipped (the 3 legacy pre-instrumentation rows). Open rows are
+not evidence yet.
 
 1. Count: how many trades won, lost, still open?
 2. Compute win rate: wins / (wins + losses)

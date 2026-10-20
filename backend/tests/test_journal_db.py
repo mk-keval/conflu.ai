@@ -15,7 +15,7 @@ import pytest
 
 from backend.app.domain.workflow import journal_store as js
 
-CANONICAL_HEADER = js.ENTRY_COLUMNS + js.EXIT_COLUMNS + ["template", "regime", "entry_timing"]
+CANONICAL_HEADER = js.ENTRY_COLUMNS + js.EXIT_COLUMNS + js.EXTRA_COLUMNS
 
 
 def _entry(**over: object) -> dict[str, object]:
@@ -77,16 +77,37 @@ def test_update_exit_guards() -> None:
     assert js.update_exit("2026-10-05", "AAPL", {"exit_price": 1.0}) is False
 
 
+def test_entry_metadata_and_exclusion_roundtrip() -> None:
+    """Attribution/time-stop columns persist; the exclusion flag survives re-upsert."""
+    js.upsert_entry(_entry(template="trend-pullback", regime="neutral", max_hold_days=30))
+    row = js.fetch_rows()[0]
+    assert row["template"] == "trend-pullback"
+    assert row["regime"] == "neutral"
+    assert row["max_hold_days"] == "30"
+    assert row["exclude_from_stats"] == "0"
+
+    assert js.set_exclude_from_stats("2026-10-05", "AAPL", True) is True
+    assert js.fetch_rows()[0]["exclude_from_stats"] == "1"
+    # A same-day re-evaluation must not reset the operational flag.
+    assert js.upsert_entry(_entry(entry_price=211.0, max_hold_days=30)) == "updated"
+    row = js.fetch_rows()[0]
+    assert row["exclude_from_stats"] == "1"
+    assert row["max_hold_days"] == "30"
+
+
 def test_rejection_dedupe() -> None:
     rej = {
         "date_seen": "2026-10-05", "symbol": "TSLA", "conviction": 6,
         "failed_step": "Risk/Reward", "gate_verdict": "FAIL", "reason": "rr too low",
+        "template": "trend-pullback", "regime": "neutral",
     }
     assert js.insert_rejection(rej) is True
     assert js.insert_rejection(rej) is False  # INSERT OR IGNORE
     assert js.insert_rejection({"symbol": "TSLA"}) is False  # missing date_seen
     listed = js.list_rejections()
     assert len(listed) == 1 and listed[0]["symbol"] == "TSLA" and listed[0]["conviction"] == 6
+    assert listed[0]["template"] == "trend-pullback"
+    assert listed[0]["regime"] == "neutral"
 
 
 def test_record_run_and_list_runs() -> None:

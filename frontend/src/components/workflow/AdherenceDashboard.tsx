@@ -81,7 +81,12 @@ export function AdherenceDashboard() {
   const closedTrades = useMemo(
     () =>
       paperTrades
-        .filter((t) => t.status === 'closed' && t.closedAt != null)
+        .filter(
+          (t) =>
+            t.status === 'closed' &&
+            t.closedAt != null &&
+            !t.excludeFromStats
+        )
         .slice()
         .sort((a, b) =>
           a.closedAt! < b.closedAt! ? 1 : a.closedAt! > b.closedAt! ? -1 : 0

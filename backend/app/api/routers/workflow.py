@@ -172,7 +172,10 @@ async def get_open_positions() -> ApiResponse:
     description="Returns rows with a date_closed (the measurable sample for expectancy).",
 )
 async def get_closed_trades() -> ApiResponse:
-    rows = read_closed_trades()
+    rows = [
+        r for r in read_closed_trades()
+        if verification_mod.in_forward_sample(r)
+    ]
     wins = 0
     total_r = 0.0
     gross_profit = 0.0
@@ -241,7 +244,7 @@ async def get_trades_dir() -> ApiResponse:
 @router.get(
     "/journal/export",
     summary="Export the journal as CSV",
-    description="Canonical 29-col CSV (chronological) plus template/regime/entry_timing "
+    description="Canonical 29-col CSV (chronological) plus template/regime/entry_timing/max_hold_days "
                 "— Excel remains an output format, never the store.",
     response_class=PlainTextResponse,
 )
@@ -265,6 +268,8 @@ class JournalRejectionItem(BaseModel):
     gate_verdict: str | None = None
     reason: str | None = None
     notes: str | None = None
+    template: str | None = None
+    regime: str | None = None
     created_at: str | None = None
 
 
@@ -522,7 +527,10 @@ async def _execute_enforce(
             verdict = v_resp.model_dump(mode="json")
 
             # Build row with gate enforcement
-            trade_row, rejection = await _build_row(sym, brief_t, verdict)
+            trade_row, rejection = await _build_row(
+                sym, brief_t, verdict,
+                market_regime=str(brief.get("regime") or ""),
+            )
 
             if rejection is not None:
                 rejected_items.append(EnforceResponseItem(
@@ -601,55 +609,72 @@ async def _execute_enforce(
 
 
 # Build row helper (adapted from paper_trade_from_brief.py)
-async def _build_row(symbol: str, brief_section: dict, verdict: dict) -> tuple[dict | None, dict | None]:
-    """Build a trade row or rejection dict from verdict + gate."""
+async def _build_row(
+    symbol: str,
+    brief_section: dict,
+    verdict: dict,
+    market_regime: str = "",
+) -> tuple[dict | None, dict | None]:
+    """Build a trade row or rejection dict from verdict + gate.
+
+    Attribution comes from the morning-brief ticker (screen + confluence) and
+    the analysis response (sector), never from the verdict body where those
+    fields do not exist.
+    """
     v = verdict.get("verdict") or {}
-    tech = verdict.get("technical") or {}
     tp = v.get("trade_plan") or {}
+
+    sector = str(
+        verdict.get("sector") or brief_section.get("sector") or "Unknown"
+    ).strip() or "Unknown"
+    template_name = str(brief_section.get("screen_name") or "").strip()
+    regime_name = str(market_regime or "").strip()
+    max_hold_days = tp.get("max_hold_days")
+
+    def _rejection(step: str, reason: str, notes: str = "") -> dict:
+        return {
+            "date_seen": journal_mod.market_today(),
+            "symbol": symbol, "sector": sector,
+            "action": v.get("action", ""), "conviction": v.get("conviction", 0),
+            "failed_step": step, "gate_verdict": "FAIL",
+            "reason": reason, "notes": notes,
+            "template": template_name, "regime": regime_name,
+        }
 
     # Extract gate
     attached = _attached_gate(verdict)
     if not attached:
-        return None, {
-            "date_seen": journal_mod.market_today(),
-            "symbol": symbol, "sector": v.get("sector", ""),
-            "action": v.get("action", ""), "conviction": v.get("conviction", 0),
-            "failed_step": "gate", "gate_verdict": "FAIL",
-            "reason": "No gate attached to verdict", "notes": "",
-        }
+        return None, _rejection("gate", "No gate attached to verdict")
 
-    # Re-evaluate Portfolio Fit against journal
+    # Re-evaluate Portfolio Fit against journal. Use the unhalved risk-based
+    # size as the upper bound (CONDITIONAL halves it later) so the sector cap
+    # is never understated.
     entry = v.get("entry_zone_low") or v.get("entry_zone_high") or 0
     stop = v.get("stop_loss") or 0
-    sector = v.get("sector", "")
-    size_pct = v.get("position_size_pct", 0)
+    try:
+        size_for_fit = sizing_mod.compute_position_size_pct(entry, stop, None)
+    except ValueError:
+        size_for_fit = 0.0
     steps, overall = _reevaluate_portfolio_fit(
-        attached, symbol=symbol, stop_loss=stop, sector=sector, position_size_pct=size_pct,
+        attached, symbol=symbol, stop_loss=stop, sector=sector,
+        position_size_pct=size_for_fit,
     )
-    failed_step, conditional_step = next((s.name for s in steps if not s.passed and not s.conditional), None), \
-                                    next((s.name for s in steps if s.conditional), None)
+    failed_step, conditional_step = _first_unpassed_step(steps)
 
-    # Compute size
+    # Compute final size
     try:
         size = sizing_mod.compute_position_size_pct(entry, stop, overall)
     except ValueError as e:
-        return None, {
-            "date_seen": journal_mod.market_today(),
-            "symbol": symbol, "sector": sector, "action": v.get("action", ""),
-            "conviction": v.get("conviction", 0), "failed_step": "sizing",
-            "gate_verdict": "FAIL", "reason": f"Sizing rejected: {e}", "notes": f"entry={entry} stop={stop}",
-        }
+        return None, _rejection(
+            "sizing", f"Sizing rejected: {e}", f"entry={entry} stop={stop}",
+        )
 
     if overall == "FAIL":
         failed = failed_step or "gate"
         reason = next((s.note for s in steps if not s.passed and not s.conditional), "Gate failed.")
-        return None, {
-            "date_seen": journal_mod.market_today(),
-            "symbol": symbol, "sector": sector, "action": v.get("action", ""),
-            "conviction": v.get("conviction", 0), "failed_step": failed,
-            "gate_verdict": "FAIL", "reason": reason[:250],
-            "notes": f"entry={entry} stop={stop} size_pct={size}",
-        }
+        return None, _rejection(
+            failed, reason[:250], f"entry={entry} stop={stop} size_pct={size}",
+        )
 
     # Accepted row
     targets = v.get("targets") or []
@@ -659,16 +684,12 @@ async def _build_row(symbol: str, brief_section: dict, verdict: dict) -> tuple[d
     account_value = journal_mod.available_capital()
     shares = round((size / 100.0 * account_value) / entry, 2) if entry else ""
 
-    confluence_raw = brief_section.get("confluence_score", 0) if (brief_section := v) else 0
-    confluence_norm = round((confluence_raw or 0) / 20) if confluence_raw else 0
+    confluence_raw = brief_section.get("confluence_score", 0) or 0
+    confluence_norm = round(confluence_raw / 20) if confluence_raw else 0
 
     triggers = v.get("buy_triggers") or []
     red_flags = v.get("key_red_flags") or []
-    # Get template/screen name from brief section
-    template_name = brief_section.get("screen_name", "") if brief_section else ""
-    # Get regime from verdict (tv_data embedded in verdict)
-    regime_name = (verdict.get("technical") or {}).get("regime", "") if isinstance(verdict.get("technical"), dict) else ""
-    signal = ";".join(triggers[:2]) if triggers else brief_section.get("screen_name", "") if (brief_section := v) else ""
+    signal = ";".join(triggers[:2]) if triggers else template_name
     notes_parts = []
     if triggers:
         notes_parts.append("Triggers: " + "; ".join(triggers[:2]))
@@ -688,8 +709,8 @@ async def _build_row(symbol: str, brief_section: dict, verdict: dict) -> tuple[d
         "entry_type": "initial",
         "entry_price": entry,
         "stop_loss": stop,
-        "target_1": t1 if (t1 := round(targets[0], 2) if len(targets) >= 1 else "") else "",
-        "target_2": t2 if (t2 := round(targets[1], 2) if len(targets) >= 2 else "") else "",
+        "target_1": t1,
+        "target_2": t2,
         "position_size_pct": size,
         "account_value": round(account_value, 2),
         "shares": shares,
@@ -704,6 +725,7 @@ async def _build_row(symbol: str, brief_section: dict, verdict: dict) -> tuple[d
         "notes": notes[:500],
         "template": template_name,
         "regime": regime_name,
+        "max_hold_days": max_hold_days,
     }
     return trade_row, None
 
@@ -822,9 +844,13 @@ async def _execute_sync_exits(
                 "open": b["Open"], "high": b["High"],
                 "low": b["Low"], "close": b["Close"],
             })
+        # The plan states calendar days; infer_exit counts trading bars.
+        max_hold_bars = exits_mod.hold_limit_bars(
+            bars, row.get("date_entered"), max_hold,
+        )
         fill = exits_mod.infer_exit(
             bars, entry=entry, stop=stop,
-            targets=targets, max_hold_days=max_hold,
+            targets=targets, max_hold_days=max_hold_bars,
             # EOD entries fill at the close: the entry-day bar's high/low
             # predate the position (P2.4; bug R4).
             exclude_entry_bar_excursions=(

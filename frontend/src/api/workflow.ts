@@ -75,6 +75,9 @@ export interface JournalRow {
   template: string | null;
   regime: string | null;
   entry_timing: string | null;
+  max_hold_days?: string | null;
+  /** '1' for the 3 pre-instrumentation rows excluded from the forward scorecard. */
+  exclude_from_stats?: string | number | boolean | null;
 }
 
 export interface WorkflowRun {
@@ -103,6 +106,8 @@ export interface JournalRejection {
   gate_verdict: string | null;
   reason: string | null;
   notes: string | null;
+  template?: string | null;
+  regime?: string | null;
   created_at: string;
 }
 

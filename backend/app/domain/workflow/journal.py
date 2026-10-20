@@ -132,6 +132,7 @@ get_db_path = journal_store.get_db_path
 market_today = journal_store.market_today
 upsert_entry = journal_store.upsert_entry
 update_exit = journal_store.update_exit
+set_exclude_from_stats = journal_store.set_exclude_from_stats
 insert_rejection = journal_store.insert_rejection
 record_run = journal_store.record_run
 list_runs = journal_store.list_runs
@@ -155,6 +156,7 @@ __all__ = [
     "market_today",
     "upsert_entry",
     "update_exit",
+    "set_exclude_from_stats",
     "insert_rejection",
     "record_run",
     "list_runs",

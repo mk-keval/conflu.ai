@@ -114,12 +114,14 @@ def test_pass_with_empty_journal_writes_full_size_row(monkeypatch: pytest.Monkey
 
 def test_hard_fail_produces_rejection_row(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(journal_module, "read_open_positions", lambda *a, **k: [])
-    row, rejection = build_row("TEST", BRIEF, _verdict(gate=GATE_FAIL))
+    row, rejection = build_row("TEST", BRIEF, _verdict(gate=GATE_FAIL), market_regime="choppy")
     assert row is None
     assert rejection is not None
     assert rejection["gate_verdict"] == "FAIL"
     assert rejection["failed_step"] == "Risk/Reward"
     assert "ceiling" in rejection["reason"]
+    assert rejection["template"] == "s"
+    assert rejection["regime"] == "choppy"
 
 
 def test_blank_stop_loss_always_rejects(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -139,6 +141,19 @@ def test_conditional_gate_halves_size_and_records_step(monkeypatch: pytest.Monke
     assert row["gate_failed_step"] == "Risk/Reward"
     # Base size 20.0 (5% stop distance from 100→95) halved to 10.0.
     assert row["position_size_pct"] == 10.0
+
+
+def test_attribution_and_time_stop_are_persisted(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Screen, market regime and the plan's calendar-day stop reach the journal."""
+    monkeypatch.setattr(journal_module, "read_open_positions", lambda *a, **k: [])
+    verdict = _verdict(gate=GATE_PASS)
+    verdict["verdict"]["trade_plan"] = {"max_hold_days": 30}
+    row, rejection = build_row("TEST", BRIEF, verdict, market_regime="neutral")
+    assert rejection is None and row is not None
+    assert row["template"] == "s"
+    assert row["regime"] == "neutral"
+    assert row["max_hold_days"] == 30
+    assert row["confluence_count"] == 4
 
 
 def test_sector_exposure_ceiling_rejects(monkeypatch: pytest.MonkeyPatch) -> None:
