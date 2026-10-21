@@ -139,13 +139,22 @@ def _days_until(report_date_iso: str) -> int | None:
     return (report_date - today).days
 
 
-def get_binary_risk(symbol: str, window_days: int = 5) -> tuple[bool, Optional[str]]:
+def get_binary_risk(
+    symbol: str,
+    window_days: int = 5,
+    *,
+    allow_yfinance: bool = True,
+) -> tuple[bool, Optional[str]]:
     """Return (binary_risk, earnings_date) for the given symbol.
 
     Resolution order:
       1. Manual override (JSON file) — wins if present
-      2. yfinance (cached) — fallback
+      2. yfinance (cached) — fallback, unless ``allow_yfinance=False``
       3. None — safe default (False, None)
+
+    ``allow_yfinance=False`` is used by batch screener paths: it keeps the
+    lookup in-process instead of making one Yahoo request per ticker. The
+    deep ticker-analysis path keeps the default fallback.
 
     binary_risk is True if the symbol reports earnings in the next
     `window_days` calendar days.
@@ -166,6 +175,9 @@ def get_binary_risk(symbol: str, window_days: int = 5) -> tuple[bool, Optional[s
         # so yfinance can still flag if its date is different (the override
         # may have been added because yfinance was wrong but for a different date)
         break
+
+    if not allow_yfinance:
+        return False, None
 
     # 2. yfinance
     rd = _fetch_yfinance_earnings(symbol)

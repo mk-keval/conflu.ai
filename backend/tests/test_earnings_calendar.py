@@ -221,3 +221,40 @@ class TestGetBinaryRisk:
         finally:
             path.unlink()
             earnings_filter.clear_cache()
+
+    def test_manual_only_skips_yfinance_fallback(self):
+        with patch.object(
+            earnings_filter,
+            "_fetch_yfinance_earnings",
+            side_effect=AssertionError("screener path must not call yfinance"),
+        ):
+            binary_risk, earnings_date = earnings_filter.get_binary_risk(
+                "ZZZZ", allow_yfinance=False
+            )
+        assert binary_risk is False
+        assert earnings_date is None
+
+    def test_manual_only_still_reads_manual_calendar(self):
+        report_date = (_dt.date.today() + _dt.timedelta(days=2)).isoformat()
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(
+                [{"ticker": "AAPL", "report_date": report_date, "session": "after-close"}],
+                f,
+            )
+            path = Path(f.name)
+        try:
+            with patch.object(earnings_filter, "_CALENDAR_PATH", path):
+                earnings_filter.clear_cache()
+                with patch.object(
+                    earnings_filter,
+                    "_fetch_yfinance_earnings",
+                    side_effect=AssertionError("screener path must not call yfinance"),
+                ):
+                    binary_risk, earnings_date = earnings_filter.get_binary_risk(
+                        "AAPL", allow_yfinance=False
+                    )
+                assert binary_risk is True
+                assert earnings_date == report_date
+        finally:
+            path.unlink()
+            earnings_filter.clear_cache()

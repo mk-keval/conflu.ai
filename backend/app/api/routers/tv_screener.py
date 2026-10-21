@@ -143,7 +143,11 @@ def _build_scored_response(
             tv_data=r.get("tv_data") or {},
         )
         # D-44: G14 (Gap 1) — attach binary_risk + earnings_date.
-        binary_risk, earnings_date = get_binary_risk(r["symbol"], window_days=5)
+        # Batch path: manual calendar only. A per-ticker yfinance fallback here
+        # costs ~0.2s per row (500 rows ≈ 100s) and rate-limits Yahoo.
+        binary_risk, earnings_date = get_binary_risk(
+            r["symbol"], window_days=5, allow_yfinance=False
+        )
 
         # D-47 PR 1: attach catalyst signals if enriched
         cat_dict = None

@@ -286,7 +286,8 @@ function ScreenerContent() {
     queryFn: async () => {
       setIsRunning(true);
       try {
-        const response = await fetchScreenTV(selectedConfig, 500);
+        // Top 100 is enough for the table; export still requests the full 500.
+        const response = await fetchScreenTV(selectedConfig, 100);
         return response;
       } finally {
         setIsRunning(false);
