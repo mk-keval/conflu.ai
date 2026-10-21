@@ -330,3 +330,51 @@ sizing, entry ranking. Those are review items A–D.
 missed days. The 3 legacy rows do not count toward the 30 closed trades. The first live
 entry (PM) has T1 ≈7.2R and T2 ≈40R — the target-geometry gap (F5) is present in the
 sample by design and is review item A.
+
+**Superseded by D-73 (2026-10-21):** the sample clock above is void. The first four
+entries were after-close phantom fills and the clock restarts at the first actual T+1
+fill.
+
+---
+
+## 7. Execution correction — pending orders / T+1 fills (2026-10-21, D-73)
+
+The first check of the live journal against actual session OHLC found four impossible
+fills. The signal is produced **after** the close; `_build_row` stored `entry_zone_low`
+as `entry_price` and `upsert_entry` wrote it immediately, so there was no fill event and
+no timing check.
+
+| Row | Signal | Booked | Session low | Session close | What was wrong |
+|---|---|---|---|---|---|
+| PM | 2026-10-19 | 185.97 | 199.35 | — | price never traded near the entry |
+| AMGN | 2026-10-20 | 406.02 | 425.11 | — | price never traded near the entry |
+| CCK | 2026-10-20 | 112.46 | 106.09 | 114.17 | same-day fill after the signal (look-ahead) |
+| MMM | 2026-10-20 | 168.80 | 162.13 | 171.37 | same-day fill after the signal (look-ahead) |
+
+CCK/MMM closed inside their zones, but the system could not have bought them: the signal
+did not exist until after the session. Every same-day fill is look-ahead by construction.
+
+### What changed
+
+| Area | Change | Files |
+|---|---|---|
+| Order state | `pending_orders` table (one active order per symbol); accepted after-close signals are queued, not booked | `journal_store.py` |
+| Fill timing | only bars strictly after `signal_date` and up to the run date; limit at open/limit, MOO inside `entry_high`, cancel through stop / above cap, 3-session expiry | `pending.py`, `pending_service.py` |
+| Same-session exits | fill bar low ≤ stop → close at stop (−1R); targets on the fill bar ignored (conservative intrabar order) | `pending.py` |
+| Book impact | pending orders reserve capital, a slot, sector exposure and the symbol; fills re-size shares capped by planned notional **and** planned dollar risk | `journal.py`, `pending.py`, router/CLI |
+| Invalid rows | PM/AMGN/CCK/MMM `voided=1`, `exclude_from_stats=1`, evidence in `void_reason`; visible, not positions, not scored | `scripts/void_invalid_forward_entries.py` |
+| Visibility | `/pending-orders`, pending panel + `void` badge in the Journal tab; CSV export/import preserves the void flag | router, `JournalTab.tsx`, `journal_store.py` |
+| CLI parity | fill → pending enforce → exits; `--fill-pending`, `--order-type`, `--expiry-sessions` | `paper_trade_from_brief.py` |
+
+**Not changed:** targets, R:R gate, screens, regime permission, sizing formula. Pending
+orders are a measurement correction, not a strategy change.
+
+**Verification:** pure fill-rule tests (same-day bar ignored, limit/MOO, gap-through-stop,
+expiry, share cap, same-session stop); store tests (active-order uniqueness, void
+visibility/exclusion, capital reservation, export round-trip); endpoint tests (T+1 fill,
+signal-day ignored, expiry, same-session stop, `/journal/open`); frontend typecheck +
+JournalTab tests.
+
+**Live state after the correction:** 4 voided rows retained; 3 legacy rows still
+open/excluded; 0 pending; 0 valid forward fills. The next after-close run creates pending
+orders; the first possible fill is the next session. The forward clock starts there.

@@ -17,6 +17,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   BookOpen,
+  Clock3,
   Download,
   FlaskConical,
   Loader2,
@@ -27,11 +28,13 @@ import { cn } from '@/lib/cn';
 import {
   JOURNAL_EXPORT_URL,
   getJournalAll,
+  getPendingOrders,
   getReplayJournal,
   getRejections,
   getRuns,
   type JournalRejection,
   type JournalRow,
+  type PendingOrder,
   type ReplayRun,
   type ReplayStats,
   type ReplayTrade,
@@ -164,6 +167,17 @@ function rClass(v: string | number | null | undefined): string {
   const n = asNum(v);
   if (n == null) return 'text-text-muted';
   return n >= 0 ? 'text-green-500' : 'text-red-400';
+}
+
+function isFlagged(v: string | number | boolean | null | undefined): boolean {
+  return v === 1 || v === '1' || v === true;
+}
+
+function pendingPrice(order: PendingOrder): string {
+  if (order.order_type === 'moo') {
+    return order.entry_high == null ? 'next open' : `≤ ${fmtPrice(order.entry_high)}`;
+  }
+  return fmtPrice(order.limit_price);
 }
 
 // ── Replay helpers (D-71) ──
@@ -510,6 +524,11 @@ export function JournalTab() {
     queryFn: () => getRejections(200),
     staleTime: 60_000,
   });
+  const pendingQuery = useQuery({
+    queryKey: ['pending-orders'],
+    queryFn: () => getPendingOrders(50),
+    staleTime: 30_000,
+  });
   const replayQuery = useQuery({
     queryKey: ['journal-replay'],
     queryFn: getReplayJournal,
@@ -527,11 +546,13 @@ export function JournalTab() {
     [runsQuery.data, today]
   );
   const rejections = rejectionsQuery.data?.items ?? [];
+  const pending = pendingQuery.data?.items ?? [];
 
   const refetchAll = () => {
     void journalQuery.refetch();
     void runsQuery.refetch();
     void rejectionsQuery.refetch();
+    void pendingQuery.refetch();
     void replayQuery.refetch();
   };
 
@@ -601,10 +622,16 @@ export function JournalTab() {
           <div className="flex items-center gap-2">
             <button
               onClick={refetchAll}
-              disabled={journalQuery.isFetching || runsQuery.isFetching}
+              disabled={
+                journalQuery.isFetching ||
+                runsQuery.isFetching ||
+                pendingQuery.isFetching
+              }
               className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs text-text-muted transition-colors hover:text-text-primary disabled:opacity-40"
             >
-              {journalQuery.isFetching || runsQuery.isFetching ? (
+              {journalQuery.isFetching ||
+              runsQuery.isFetching ||
+              pendingQuery.isFetching ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
               ) : (
                 <RefreshCw className="h-3 w-3" />
@@ -648,6 +675,97 @@ export function JournalTab() {
         )}
       </section>
 
+      {/* ── Pending orders (D-73) ── */}
+      <section className="rounded-xl border border-border/50 bg-surface/20 p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+            <Clock3 className="h-4 w-4 text-accent" />
+            Pending orders — waiting for the next session
+            <span className="text-xs font-normal text-text-muted">
+              ({pending.length})
+            </span>
+          </h2>
+          <span className="text-[10px] text-text-muted">
+            signal after close → fill from actual T+1 bars · 3-session expiry
+          </span>
+        </div>
+
+        {pendingQuery.isLoading ? (
+          <div className="flex items-center justify-center py-6">
+            <Loader2 className="h-5 w-5 animate-spin text-accent" />
+          </div>
+        ) : pending.length === 0 ? (
+          <p className="py-3 text-center text-xs text-text-muted">
+            No pending orders. Accepted signals appear here after the
+            after-close run; they never fill from the signal day.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border/30">
+                  <th className={TH}>Signal</th>
+                  <th className={TH}>Symbol</th>
+                  <th className={TH}>Order</th>
+                  <th className={cn(TH, 'text-right')}>Limit / Cap</th>
+                  <th className={cn(TH, 'text-right')}>Stop</th>
+                  <th className={cn(TH, 'text-right')}>T1 / T2</th>
+                  <th className={cn(TH, 'text-right')}>Size %</th>
+                  <th className={TH}>Expires</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pending.map((o) => (
+                  <tr
+                    key={o.id}
+                    className="border-b border-border/20 hover:bg-surface/30"
+                  >
+                    <td className={cn(TD, 'font-mono text-text-muted')}>
+                      {o.signal_date}
+                    </td>
+                    <td className={cn(TD, 'font-semibold text-text-primary')}>
+                      {o.symbol}
+                      {o.action && (
+                        <span className="ml-1.5 text-[10px] text-text-muted">
+                          {o.action}
+                        </span>
+                      )}
+                    </td>
+                    <td className={TD}>
+                      <span className="rounded-full border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium uppercase text-accent">
+                        {o.order_type}
+                      </span>
+                    </td>
+                    <td className={cn(TD, 'text-right font-mono')}>
+                      {pendingPrice(o)}
+                    </td>
+                    <td className={cn(TD, 'text-right font-mono')}>
+                      {fmtPrice(o.stop_loss)}
+                    </td>
+                    <td
+                      className={cn(TD, 'text-right font-mono text-text-muted')}
+                    >
+                      {fmtPrice(o.target_1)} / {fmtPrice(o.target_2)}
+                    </td>
+                    <td className={cn(TD, 'text-right font-mono')}>
+                      {asNum(o.position_size_pct)?.toFixed(1) ?? '—'}
+                    </td>
+                    <td className={cn(TD, 'text-text-muted')}>
+                      {o.expires_after_sessions ?? 3} sessions
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {pendingQuery.isError && (
+          <p className="mt-2 text-xs text-red-400">
+            Pending orders unavailable — is the backend running?
+          </p>
+        )}
+      </section>
+
       {/* ── Trades table ── */}
       <section className="rounded-xl border border-border/50 bg-surface/20 p-4">
         <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -678,7 +796,7 @@ export function JournalTab() {
         ) : filtered.length === 0 ? (
           <p className="py-4 text-center text-xs text-text-muted">
             {rows.length === 0
-              ? 'No trades in the journal yet — press "Run After-Close (one go)" in Daily Routine.'
+              ? 'No fills yet — accepted signals appear under Pending orders and fill only from the next session.'
               : 'No rows match this filter.'}
           </p>
         ) : (
@@ -700,21 +818,33 @@ export function JournalTab() {
               <tbody>
                 {filtered.map((r) => {
                   const closed = !!dayOf(r.date_closed);
-                  const excluded =
-                    r.exclude_from_stats === '1' ||
-                    r.exclude_from_stats === 1 ||
-                    r.exclude_from_stats === true;
+                  const voided = isFlagged(r.voided);
+                  const excluded = isFlagged(r.exclude_from_stats);
                   return (
                     <tr
                       key={`${r.date_entered}-${r.symbol}`}
-                      className="border-b border-border/20 hover:bg-surface/30"
+                      className={cn(
+                        'border-b border-border/20 hover:bg-surface/30',
+                        voided && 'opacity-60'
+                      )}
                     >
                       <td className={cn(TD, 'font-mono text-text-muted')}>
                         {r.date_entered ?? '—'}
                       </td>
                       <td className={cn(TD, 'font-semibold text-text-primary')}>
                         {r.symbol ?? '—'}
-                        {excluded && (
+                        {voided && (
+                          <span
+                            title={
+                              r.void_reason ??
+                              'Recorded fill never traded — kept for the audit trail'
+                            }
+                            className="ml-1.5 rounded-full border border-red-400/40 px-1.5 py-0.5 text-[9px] font-normal uppercase tracking-wide text-red-400"
+                          >
+                            void
+                          </span>
+                        )}
+                        {excluded && !voided && (
                           <span
                             title="Pre-instrumentation row — visible, but excluded from the forward scorecard"
                             className="ml-1.5 rounded-full border border-border/60 px-1.5 py-0.5 text-[9px] font-normal uppercase tracking-wide text-text-muted"
@@ -758,7 +888,14 @@ export function JournalTab() {
                         {asNum(r.position_size_pct)?.toFixed(1) ?? '—'}
                       </td>
                       <td className={TD}>
-                        {closed ? (
+                        {voided ? (
+                          <span
+                            className="text-red-400"
+                            title={r.void_reason ?? undefined}
+                          >
+                            voided · excluded
+                          </span>
+                        ) : closed ? (
                           <span className="text-text-muted">
                             closed · {r.exit_reason ?? '—'}
                           </span>
@@ -773,7 +910,7 @@ export function JournalTab() {
                           rClass(r.realized_r)
                         )}
                       >
-                        {closed ? fmtR(r.realized_r) : '—'}
+                        {closed && !voided ? fmtR(r.realized_r) : '—'}
                       </td>
                     </tr>
                   );

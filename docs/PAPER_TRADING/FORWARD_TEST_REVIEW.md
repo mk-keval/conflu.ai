@@ -3,24 +3,56 @@
 **Created:** 2026-10-19
 **Decision:** Option 1 — no rule changes now; run the live paper loop forward and decide
 with real evidence (user decision after the 2-month replay, D-71).
-**Trigger:** 30 closed forward trades **or** 6 weeks from the first `run_close`
-(≈ 2026-11-30 if the sample starts 2026-10-19), whichever first.
-**Status:** LIVE — sample started 2026-10-19 (run id 1; PM accepted, 4 rejected,
-0 closed scored trades). The clock runs to 30 closed scored trades or ≈2026-11-30.
+**Trigger:** 30 closed forward trades **or** 6 weeks from the first *actual fill* under
+D-73 (≈ 2026-12-03 if the first fill lands 2026-10-22), whichever first.
+**Status:** RESET (2026-10-21) — execution correction D-73. The 2026-10-19/20 rows are
+voided (visible, not positions, not scored). No valid forward trades yet; the sample
+clock restarts at the first actual T+1 fill.
 
-**First run (2026-10-19, run id 1):** 1 accepted — **PM** (Sector Rotation
-Holdings, Neutral, CONDITIONAL 12.5%, T1 ≈7.2R, 30-day time stop); 4 rejected —
-PG/WMT on conviction, SG/XERS with no entry geometry; 0 exits (the 3 legacy rows +
-today's PM are correctly skipped). This is the first forward evidence, not a verdict.
+## Execution correction (2026-10-21) — the first four entries were phantom fills
 
-**What to watch from run 1:** PM is from the unvalidated *Sector Rotation Holdings*
-screen (F8) and its T1 is ≈7.2R (F5). SG/XERS reached sizing with no entry
-geometry (entry 0) and were honestly rejected; check whether the 52-Week Breakout
-screen should emit an entry zone. Do not change either mid-sample.
+The after-close pipeline booked entries at prices that never traded that session:
 
-**Open book after run 1:** 4 positions — NTNX/WBD/NVDA (legacy, excluded from
-stats) and PM; 40.4% gross. The legacy rows have no time stop and still occupy 3
-of the 8 open-position slots. They are not scored, but they are part of the book.
+| Row | Signal | Booked | Session low | Verdict |
+|---|---|---|---|---|
+| PM | 2026-10-19 | 185.97 | 199.35 | void |
+| AMGN | 2026-10-20 | 406.02 | 425.11 | void |
+| CCK | 2026-10-20 | 112.46 | 106.09 | void (after-close look-ahead) |
+| MMM | 2026-10-20 | 168.80 | 162.13 | void (after-close look-ahead) |
+
+CCK/MMM did close inside their zones, but the signal existed only after the close, so a
+same-day fill is look-ahead either way. The four rows are kept for the audit trail with
+`voided=1`; they are not positions, do not consume slots/capital, and never enter the
+scorecard.
+
+D-73 replaces same-day booking with pending orders: a signal after close becomes a
+pending limit (default) or MOO order, and it can fill only from an actual bar *after* the
+signal date. Unfilled orders expire after 3 sessions. A fill bar that trades through the
+stop closes the trade at −1R the same day; same-day targets are ignored (conservative
+intrabar order). Sizing, targets, R:R gate and screens are unchanged.
+
+**Sample clock:** starts at the first actual fill (T+1 after an after-close signal), not
+at run 1. Until then, the scorecard has zero valid trades. Do not backfill missed days.
+
+**Pre-correction history (invalidated, kept for audit):** run 1 (2026-10-19) "accepted"
+PM (Sector Rotation Holdings, Neutral, CONDITIONAL 12.5%, T1 ≈7.2R, 30-day time stop) and
+rejected PG/WMT (conviction) and SG/XERS (no entry geometry). Those four entries never
+filled at a tradeable price; the structural questions they raised (Sector Rotation is
+unvalidated, T1 ≈7.2R, breakout screens can emit no entry zone) remain valid review
+topics — do not change them mid-sample.
+
+**Open book after the correction:** NTNX/WBD/NVDA only (legacy, excluded from stats,
+no time stop, still occupying 3 of 8 slots). The four voided rows are not in the book.
+
+**New execution diagnostics to watch (not rule changes):**
+- **Fill rate** — filled orders ÷ orders created. A low rate means the desired entry
+  zones are too deep for the actual pullbacks.
+- **Expiry vs cancel** — expired (never touched) vs cancelled (gapped through the stop
+  or opened above the MOO cap). They mean different things about the setup.
+- **Same-session stop rate** — fills that stop out on the fill bar. This is the
+  conservative intrabar assumption; a high rate is a warning about entry timing.
+- **Phantom-fill count must stay zero** — every journal entry's `date_entered` must be
+  strictly after its pending order's `signal_date`.
 
 **Audit addendum (2026-10-19):** the read-only pipeline audit
 (`docs/PAPER_TRADING/PIPELINE_AUDIT.md`) found that the live path differs from the replay

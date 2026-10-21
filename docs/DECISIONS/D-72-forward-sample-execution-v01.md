@@ -1,7 +1,10 @@
 # D-72: Forward-Sample Execution v0.1 — Measurement Integrity + Calendar-Day Time Stop
 
 **Date:** 2026-10-19
-**Status:** Accepted — implemented; sample started 2026-10-19 (run id 1; PM accepted)
+**Status:** Accepted — implemented; sample started 2026-10-19 (run id 1; PM accepted).
+**Execution timing superseded by D-73 (2026-10-21):** the PM/AMGN/CCK/MMM entries were
+after-close phantom fills, are voided, and the sample clock restarts at the first actual
+T+1 fill. The measurement fields from this decision remain in force.
 **Branch:** `fix/technical-tab-empty`
 **Related:** D-68 (SQLite journal), D-70 (honest validation), D-71 (two-month replay),
 `docs/PAPER_TRADING/PIPELINE_AUDIT.md`

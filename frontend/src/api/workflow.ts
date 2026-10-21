@@ -78,6 +78,37 @@ export interface JournalRow {
   max_hold_days?: string | null;
   /** '1' for the 3 pre-instrumentation rows excluded from the forward scorecard. */
   exclude_from_stats?: string | number | boolean | null;
+  /** '1' when the recorded fill never traded (phantom fill) — visible, not a position. */
+  voided?: string | number | boolean | null;
+  void_reason?: string | null;
+}
+
+/** An after-close order waiting for (or resolved by) a T+1 fill. */
+export interface PendingOrder {
+  id: number;
+  signal_date: string;
+  symbol: string;
+  sector: string | null;
+  action: string | null;
+  order_type: 'limit' | 'moo' | string;
+  limit_price: number | null;
+  entry_low: number | null;
+  entry_high: number | null;
+  stop_loss: number | null;
+  target_1: number | null;
+  target_2: number | null;
+  position_size_pct: number | null;
+  account_value: number | null;
+  shares: number | null;
+  gate_verdict: string | null;
+  template: string | null;
+  regime: string | null;
+  notes: string | null;
+  status: 'pending' | 'filled' | 'expired' | 'cancelled' | string;
+  status_date: string | null;
+  status_reason: string | null;
+  expires_after_sessions: number | null;
+  created_at: string | null;
 }
 
 export interface WorkflowRun {
@@ -122,6 +153,28 @@ export interface EnforceResultItem {
   rejected?: boolean;
   failed_step?: string | null;
   reason?: string | null;
+  order_type?: 'limit' | 'moo' | string | null;
+  limit_price?: number | null;
+  order_status?: string | null;
+  expires_after_sessions?: number | null;
+}
+
+/** An order that filled from an actual next-session bar (D-73). */
+export interface PendingFillResult {
+  symbol: string;
+  order_id: number;
+  fill_date: string | null;
+  fill_price: number | null;
+  same_day_stop: boolean;
+  note: string | null;
+}
+
+/** An order that closed without a fill. */
+export interface ClosedOrderResult {
+  symbol: string;
+  order_id: number;
+  status: string;
+  note: string | null;
 }
 
 export interface SyncExitsResultItem {
@@ -145,6 +198,9 @@ export interface RunCloseResult {
     accepted: EnforceResultItem[];
     rejected: EnforceResultItem[];
     message: string;
+    pending?: PendingOrder[];
+    fills?: PendingFillResult[];
+    closed_orders?: ClosedOrderResult[];
   };
   exits: {
     updated: number;
@@ -261,6 +317,16 @@ export async function getRuns(
 ): Promise<{ items: WorkflowRun[]; count: number }> {
   return apiGet<{ items: WorkflowRun[]; count: number }>(
     `/api/v1/workflow/runs?limit=${limit}`
+  );
+}
+
+/** After-close orders waiting for a T+1 fill (or their history). */
+export async function getPendingOrders(
+  limit = 50,
+  status: 'pending' | 'filled' | 'expired' | 'cancelled' | 'all' = 'pending'
+): Promise<{ items: PendingOrder[]; count: number }> {
+  return apiGet<{ items: PendingOrder[]; count: number }>(
+    `/api/v1/workflow/pending-orders?status=${status}&limit=${limit}`
   );
 }
 

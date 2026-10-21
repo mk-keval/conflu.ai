@@ -5,7 +5,10 @@ default, ``CONFLU_CORE_PAPER_JOURNAL_PATH``). Three tables:
 
 - ``paper_trades``   — one row per (date_entered, symbol); entry and exit
                        columns are separate so an exit sync never collides
-                       with an entry re-run.
+                       with an entry re-run. ``voided`` rows stay visible but
+                       are not positions and never enter the scorecard.
+- ``pending_orders`` — after-close orders waiting for an actual next-session
+                       fill (D-73); one active order per symbol.
 - ``rejections``     — gate rejections (one per date_seen + symbol).
 - ``workflow_runs``  — one row per touchpoint run (enforce / sync_exits /
                        run_close / import).
@@ -59,9 +62,20 @@ EXIT_COLUMNS = [
 ]
 EXTRA_COLUMNS = ["template", "regime", "entry_timing", "max_hold_days"]
 # Operational flags: fetched with rows but never overwritten by an entry upsert.
-META_COLUMNS = ["exclude_from_stats"]
+META_COLUMNS = ["exclude_from_stats", "voided", "void_reason"]
 ENTRY_DB_COLUMNS = ENTRY_COLUMNS + EXTRA_COLUMNS
 FETCH_COLUMNS = ENTRY_DB_COLUMNS + EXIT_COLUMNS + META_COLUMNS
+PENDING_COLUMNS = [
+    "signal_date", "symbol", "sector", "action", "order_type", "limit_price",
+    "entry_low", "entry_high", "stop_loss", "target_1", "target_2",
+    "position_size_pct", "account_value", "shares", "confluence_count",
+    "signal_at_entry", "gate_verdict", "gate_failed_step",
+    "risk_reward_planned", "gate_version", "notes", "template", "regime",
+    "max_hold_days", "expires_after_sessions", "status", "status_date",
+    "status_reason",
+]
+PENDING_STATUSES = ("pending", "filled", "expired", "cancelled")
+ORDER_TYPES = ("limit", "moo")
 REJECTION_COLUMNS = [
     "date_seen", "symbol", "sector", "action", "conviction",
     "failed_step", "gate_verdict", "reason", "notes", "template", "regime",
@@ -72,8 +86,12 @@ _FLOAT_COLUMNS = {
     "entry_price", "stop_loss", "target_1", "target_2", "position_size_pct",
     "account_value", "shares", "entry_low", "entry_high", "risk_reward_planned",
     "exit_price", "realized_r", "pnl_usd", "mfe_r", "mae_r", "plan_adherence",
+    "limit_price",
 }
-_INT_COLUMNS = {"confluence_count", "conviction", "max_hold_days", "exclude_from_stats"}
+_INT_COLUMNS = {
+    "confluence_count", "conviction", "max_hold_days", "exclude_from_stats",
+    "voided", "expires_after_sessions",
+}
 _EMPTY_CELLS = {"", "-", "NA", "nan"}
 
 _DDL = """
@@ -94,10 +112,35 @@ CREATE TABLE IF NOT EXISTS paper_trades (
   date_closed TEXT, exit_price REAL, exit_reason TEXT,
   realized_r REAL, pnl_usd REAL, mfe_r REAL, mae_r REAL, plan_adherence REAL,
   exclude_from_stats INTEGER NOT NULL DEFAULT 0,
+  voided INTEGER NOT NULL DEFAULT 0,
+  void_reason TEXT,
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ux_paper_trades_day_symbol
   ON paper_trades(date_entered, symbol);
+
+CREATE TABLE IF NOT EXISTS pending_orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  signal_date TEXT NOT NULL,
+  symbol TEXT NOT NULL,
+  sector TEXT, action TEXT,
+  order_type TEXT NOT NULL DEFAULT 'limit',
+  limit_price REAL, entry_low REAL, entry_high REAL,
+  stop_loss REAL, target_1 REAL, target_2 REAL,
+  position_size_pct REAL, account_value REAL, shares REAL,
+  confluence_count INTEGER, signal_at_entry TEXT,
+  gate_verdict TEXT, gate_failed_step TEXT,
+  risk_reward_planned REAL, gate_version TEXT, notes TEXT,
+  template TEXT, regime TEXT, max_hold_days INTEGER,
+  expires_after_sessions INTEGER NOT NULL DEFAULT 3,
+  status TEXT NOT NULL DEFAULT 'pending',
+  status_date TEXT, status_reason TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_pending_orders_active_symbol
+  ON pending_orders(symbol) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS ix_pending_orders_status
+  ON pending_orders(status);
 
 CREATE TABLE IF NOT EXISTS rejections (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -131,6 +174,8 @@ def _migrate(con: sqlite3.Connection) -> None:
             "entry_timing": "TEXT NOT NULL DEFAULT 'eod'",
             "max_hold_days": "INTEGER",
             "exclude_from_stats": "INTEGER NOT NULL DEFAULT 0",
+            "voided": "INTEGER NOT NULL DEFAULT 0",
+            "void_reason": "TEXT",
         },
         "rejections": {"template": "TEXT", "regime": "TEXT"},
     }
@@ -396,6 +441,145 @@ def set_exclude_from_stats(date_entered: Any, symbol: Any, excluded: bool = True
         return cur.rowcount > 0
 
 
+def void_trade(date_entered: Any, symbol: Any, reason: str) -> bool:
+    """Void one journal row: visible, but not a position and never scored.
+
+    Used for rows whose recorded fill never traded (the 2026-10-19/20 phantom
+    fills). The row is kept for the audit trail; ``read_open_positions`` and the
+    scorecard both ignore it. Idempotent.
+    """
+    de = _clean(date_entered)
+    sym = _clean(symbol)
+    if not de or not sym:
+        return False
+    with session() as con:
+        cur = con.execute(
+            "UPDATE paper_trades SET voided = 1, void_reason = ?, "
+            "exclude_from_stats = 1, updated_at = ? "
+            "WHERE date_entered = ? AND symbol = ?",
+            (str(reason or "voided")[:500], _utc_now(), de, sym),
+        )
+        return cur.rowcount > 0
+
+
+# ── Pending orders (D-73) ──
+
+
+def insert_pending_order(
+    row: dict[str, Any],
+    *,
+    order_type: str = "limit",
+    limit_price: float | None = None,
+    expires_after_sessions: int = 3,
+) -> int | None:
+    """Create one after-close pending order. Returns its id, or None if blocked.
+
+    ``row`` is a normal entry row (``date_entered`` is the signal date). A limit
+    order defaults to ``entry_low`` — the bottom of the desired zone. A MOO
+    order fills only at the next open inside ``entry_high`` (no chase).
+
+    One active order per symbol: the partial unique index turns a duplicate into
+    ``None`` instead of raising, so a re-run is idempotent.
+    """
+    norm = _norm_row(row)
+    signal_date = _clean(norm.get("signal_date") or norm.get("date_entered"))
+    symbol = _clean(norm.get("symbol"))
+    if not signal_date or not symbol:
+        raise ValueError("insert_pending_order requires a signal date and symbol")
+
+    order_type = str(order_type or norm.get("order_type") or "limit").strip().lower()
+    if order_type not in ORDER_TYPES:
+        raise ValueError(f"Unknown order_type {order_type!r}; expected one of {ORDER_TYPES}")
+
+    values = {c: _coerce(c, norm.get(c)) for c in PENDING_COLUMNS}
+    values["signal_date"] = str(signal_date)[:10]
+    values["symbol"] = str(symbol).strip().upper()
+    values["order_type"] = order_type
+
+    if limit_price is None:
+        limit_price = values.get("limit_price")
+    if limit_price is None and order_type == "limit":
+        limit_price = values.get("entry_low") or _coerce("limit_price", norm.get("entry_price"))
+    values["limit_price"] = _coerce("limit_price", limit_price)
+
+    stop = values.get("stop_loss")
+    if not stop:
+        raise ValueError("pending order requires stop_loss")
+    if order_type == "limit":
+        if not values["limit_price"] or values["limit_price"] <= stop:
+            raise ValueError("limit order requires limit_price above stop_loss")
+    else:
+        values["limit_price"] = None
+        if not (values.get("entry_high") or values.get("entry_low")):
+            raise ValueError("MOO order requires an entry zone (entry_high)")
+
+    try:
+        expires = int(expires_after_sessions)
+    except (TypeError, ValueError):
+        expires = 3
+    values["expires_after_sessions"] = max(1, expires)
+    values["shares"] = None
+    values["status"] = "pending"
+    values["status_date"] = None
+    values["status_reason"] = None
+
+    cols = [*PENDING_COLUMNS, "created_at", "updated_at"]
+    now = _utc_now()
+    try:
+        with session() as con:
+            cur = con.execute(
+                f"INSERT INTO pending_orders ({', '.join(cols)}) "
+                f"VALUES ({', '.join('?' * len(cols))})",
+                [*[values[c] for c in PENDING_COLUMNS], now, now],
+            )
+            return int(cur.lastrowid or 0)
+    except sqlite3.IntegrityError:
+        return None  # an active order already exists for this symbol
+
+
+def list_pending_orders(
+    status: str | None = "pending", limit: int = 200
+) -> list[dict[str, Any]]:
+    """Pending-order rows, most recent first. ``status='all'`` returns history."""
+    where, params = "", []
+    if status and str(status).lower() != "all":
+        status = str(status).lower()
+        if status not in PENDING_STATUSES:
+            raise ValueError(f"Unknown pending status {status!r}")
+        where, params = " WHERE status = ?", [status]
+    cols = ["id", *PENDING_COLUMNS, "created_at", "updated_at"]
+    with session() as con:
+        cur = con.execute(
+            f"SELECT {', '.join(cols)} FROM pending_orders{where} "
+            "ORDER BY id DESC LIMIT ?",
+            (*params, max(1, int(limit))),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+def update_pending_order(
+    order_id: int,
+    *,
+    status: str,
+    status_date: str,
+    status_reason: str | None = None,
+) -> bool:
+    """Move one active order to filled/expired/cancelled.
+
+    Guarded by ``status = 'pending'`` so a re-run never rewrites history.
+    """
+    status = str(status).lower()
+    if status not in PENDING_STATUSES or status == "pending":
+        raise ValueError(f"Invalid terminal pending status {status!r}")
+    with session() as con:
+        cur = con.execute(
+            "UPDATE pending_orders SET status = ?, status_date = ?, "
+            "status_reason = ?, updated_at = ? WHERE id = ? AND status = 'pending'",
+            (status, str(status_date)[:10], status_reason, _utc_now(), int(order_id)),
+        )
+        return cur.rowcount > 0
+
+
 def insert_rejection(rejection: dict[str, Any]) -> bool:
     """One rejection per (date_seen, symbol) — re-runs don't duplicate."""
     norm = _norm_row(rejection)
@@ -475,8 +659,8 @@ def list_rejections(limit: int = 200) -> list[dict[str, Any]]:
 
 
 def export_csv() -> str:
-    """Canonical CSV export: 29-col order + template/regime/entry_timing appended."""
-    header = [*ENTRY_COLUMNS, *EXIT_COLUMNS, *EXTRA_COLUMNS]
+    """Canonical CSV export: journal columns plus voided/void_reason audit flags."""
+    header = [*ENTRY_COLUMNS, *EXIT_COLUMNS, *EXTRA_COLUMNS, "voided", "void_reason"]
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(header)
@@ -495,7 +679,7 @@ def import_csv_dir(csv_dir: Path | str | None = None) -> dict[str, int]:
     root = Path(csv_dir or DEFAULT_CSV_DIR)
     summary = {
         "files": 0, "rows": 0, "inserted": 0, "updated": 0,
-        "collapsed": 0, "exit_updates": 0, "rejections": 0,
+        "collapsed": 0, "exit_updates": 0, "rejections": 0, "voided": 0,
     }
     if not root.is_dir():
         return summary
@@ -534,6 +718,12 @@ def import_csv_dir(csv_dir: Path | str | None = None) -> dict[str, int]:
         }
         if exit_updates and update_exit(norm.get("date_entered"), norm.get("symbol"), exit_updates):
             summary["exit_updates"] += 1
+        if str(norm.get("voided") or "0").strip().lower() in {"1", "true", "yes"}:
+            if void_trade(
+                norm.get("date_entered"), norm.get("symbol"),
+                str(norm.get("void_reason") or "voided (imported)"),
+            ):
+                summary["voided"] += 1
 
     rej_path = root / "REJECTIONS.csv"
     if rej_path.exists():
@@ -616,6 +806,11 @@ __all__ = [
     "fetch_rows",
     "upsert_entry",
     "update_exit",
+    "set_exclude_from_stats",
+    "void_trade",
+    "insert_pending_order",
+    "list_pending_orders",
+    "update_pending_order",
     "insert_rejection",
     "record_run",
     "list_runs",

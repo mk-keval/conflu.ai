@@ -28,6 +28,8 @@ import backend.app.domain.ticker_analysis  # noqa: F401
 from backend.app.domain.workflow import exits as exits_mod
 from backend.app.domain.workflow import gate as gate_mod
 from backend.app.domain.workflow import journal as journal_mod
+from backend.app.domain.workflow import pending as pending_mod
+from backend.app.domain.workflow import pending_service
 from backend.app.domain.workflow import replay_store
 from backend.app.domain.workflow import sizing as sizing_mod
 from backend.app.domain.workflow import verification as verification_mod
@@ -94,7 +96,38 @@ class JournalRow(BaseModel):
     mfe_r: float | None = None
     mae_r: float | None = None
     plan_adherence: float | None = None
+    exclude_from_stats: int | None = None
+    voided: int | None = None
+    void_reason: str | None = None
     _file: str | None = None
+
+
+class PendingOrderItem(BaseModel):
+    """One after-close order waiting for (or resolved by) a next-session fill."""
+    id: int
+    signal_date: str
+    symbol: str
+    sector: str | None = None
+    action: str | None = None
+    order_type: str = "limit"
+    limit_price: float | None = None
+    entry_low: float | None = None
+    entry_high: float | None = None
+    stop_loss: float | None = None
+    target_1: float | None = None
+    target_2: float | None = None
+    position_size_pct: float | None = None
+    account_value: float | None = None
+    shares: float | None = None
+    gate_verdict: str | None = None
+    template: str | None = None
+    regime: str | None = None
+    notes: str | None = None
+    status: str = "pending"
+    status_date: str | None = None
+    status_reason: str | None = None
+    expires_after_sessions: int | None = None
+    created_at: str | None = None
 
 
 class JournalResponse(BaseModel):
@@ -109,6 +142,14 @@ class OpenPositionsResponse(BaseModel):
     count: int
     total_size_pct: float
     sector_exposure: dict[str, float]
+    pending_orders: list[PendingOrderItem] = []
+    pending_count: int = 0
+
+
+class PendingOrdersResponse(BaseModel):
+    """Pending orders (active by default, history with status=all)."""
+    items: list[PendingOrderItem]
+    count: int
 
 
 class ClosedTradesResponse(BaseModel):
@@ -146,12 +187,32 @@ async def get_journal(
 
 
 @router.get(
+    "/pending-orders",
+    summary="Read pending after-close orders",
+    description="After-close orders waiting for a T+1 fill. status=pending (default) "
+                "or all for the filled/expired history.",
+)
+async def get_pending_orders(
+    status: str = Query("pending", pattern="^(pending|filled|expired|cancelled|all)$"),
+    limit: int = Query(200, ge=1, le=1000),
+) -> ApiResponse:
+    rows = journal_mod.list_pending_orders(status, limit)
+    items = [PendingOrderItem(**r) for r in rows]
+    return ApiResponse(
+        data=PendingOrdersResponse(items=items, count=len(items)),
+        meta=MetaInfo(),
+    )
+
+
+@router.get(
     "/journal/open",
     summary="Read open positions",
-    description="Returns rows with no date_closed (the current open book).",
+    description="Returns rows with no date_closed (the current open book), plus active "
+                "pending orders — signals that have not filled yet.",
 )
 async def get_open_positions() -> ApiResponse:
     rows = read_open_positions()
+    pending_rows = journal_mod.list_pending_orders("pending", limit=200)
     total_size = sum(
         float(r.get("position_size_pct") or 0.0) for r in rows
     )
@@ -161,6 +222,8 @@ async def get_open_positions() -> ApiResponse:
             count=len(rows),
             total_size_pct=round(total_size, 2),
             sector_exposure=sector_exposure(),
+            pending_orders=[PendingOrderItem(**r) for r in pending_rows],
+            pending_count=len(pending_rows),
         ),
         meta=MetaInfo(),
     )
@@ -397,11 +460,17 @@ def _reevaluate_portfolio_fit(
     position_size_pct: float | None,
 ) -> tuple[list[gate_mod.GateStepResult], str]:
     steps = list(attached.steps)
-    open_positions = journal_mod.read_open_positions()
+    # Active pending orders reserve a slot and sector exposure exactly like an
+    # open position: a signal must not duplicate a symbol that is already
+    # waiting to fill, nor stack the same sector past the cap.
+    open_positions = (
+        journal_mod.read_open_positions()
+        + journal_mod.read_pending_positions()
+    )
     if not open_positions:
         journal_step = gate_mod.GateStepResult(
             name="Portfolio Fit", passed=True,
-            note="No open positions in the paper journal — book is verified clear; no count/sector conflicts.",
+            note="No open positions or pending orders in the paper journal — book is verified clear; no count/sector conflicts.",
         )
     else:
         journal_step = gate_mod.evaluate_portfolio_fit(
@@ -438,6 +507,8 @@ def _first_unpassed_step(
 class EnforceRequest(BaseModel):
     min_conviction: int = 5
     only: str | None = None  # comma-separated symbols
+    order_type: Literal["limit", "moo"] = "limit"
+    expires_after_sessions: int = 3
 
 
 class EnforceResponseItem(BaseModel):
@@ -451,19 +522,45 @@ class EnforceResponseItem(BaseModel):
     rejected: bool = False
     failed_step: str | None = None
     reason: str | None = None
+    order_type: str | None = None
+    limit_price: float | None = None
+    order_status: str | None = None
+    expires_after_sessions: int | None = None
+
+
+class PendingFillItem(BaseModel):
+    """One order that filled from an actual next-session bar."""
+    symbol: str
+    order_id: int
+    fill_date: str | None = None
+    fill_price: float | None = None
+    same_day_stop: bool = False
+    note: str | None = None
+
+
+class PendingOrderEventItem(BaseModel):
+    """One order closed without a fill (expired/cancelled/error)."""
+    symbol: str
+    order_id: int
+    status: str
+    note: str | None = None
 
 
 class EnforceResponse(BaseModel):
     accepted: list[EnforceResponseItem]
     rejected: list[EnforceResponseItem]
     message: str
+    pending: list[PendingOrderItem] = []
+    fills: list[PendingFillItem] = []
+    closed_orders: list[PendingOrderEventItem] = []
 
 
 @router.post(
     "/paper-trades/enforce",
-    summary="Touchpoint A — Run gate enforcement and write paper trades",
-    description="Fetches morning brief, evaluates candidates through the 7-step gate, "
-                "and writes accepted trades to the journal DB (like --apply).",
+    summary="Touchpoint A — Run gate enforcement and queue after-close orders",
+    description="Fills eligible pending orders from actual bars, fetches the morning brief, "
+                "evaluates candidates through the 7-step gate, and queues accepted signals as "
+                "pending orders. Orders fill on the next session (T+1), never the signal day.",
     response_model=ApiResponse[EnforceResponse],
 )
 async def enforce_paper_trades(
@@ -478,11 +575,50 @@ async def _execute_enforce(
     *,
     log_run: bool = True,
 ) -> EnforceResponse:
-    """Gate enforcement → journal DB (P3.1 shared implementation).
+    """Fill eligible pending orders, then queue today's gate accepts.
+
+    Order of operations is the execution contract (D-73):
+
+    1. process orders created after a *prior* close (actual bars only);
+    2. evaluate today's after-close signals through the gate;
+    3. write them as **pending** orders — never as same-day fills.
 
     ``log_run=False`` lets the combined run-close call write one row instead.
     """
-    # Fetch morning brief using internal service (avoid HTTP self-call)
+    run_date = journal_mod.market_today()
+
+    # 1) Actual next-session fills. The signal date is strictly before the
+    # fill date by construction, so a same-day bar can never fill a new signal.
+    pending_results = pending_service.process_pending_orders(
+        today=run_date, bars_provider=_fetch_daily_ohlcv,
+    )
+    fills = [
+        PendingFillItem(
+            symbol=r.symbol, order_id=r.order_id,
+            fill_date=r.fill_date,
+            fill_price=round(r.fill_price, 2) if r.fill_price is not None else None,
+            same_day_stop=r.same_day_stop, note=r.note,
+        )
+        for r in pending_results if r.status == pending_mod.FILLED
+    ]
+    closed_orders = [
+        PendingOrderEventItem(
+            symbol=r.symbol, order_id=r.order_id,
+            status=r.status, note=r.note,
+        )
+        for r in pending_results
+        if r.status in (pending_mod.EXPIRED, pending_mod.CANCELLED, "error")
+    ]
+
+    # A re-run on the same signal date must not re-evaluate (and reject) the
+    # orders it already queued: they stay accepted, and the run is idempotent.
+    same_day_orders = {
+        str(o.get("symbol") or "").strip().upper(): o
+        for o in journal_mod.list_pending_orders("pending", limit=1000)
+        if str(o.get("signal_date") or "")[:10] == run_date
+    }
+
+    # 2) Fetch morning brief using internal service (avoid HTTP self-call)
     try:
         service = _get_morning_brief_service()
         # 60s timeout for morning brief (prevents yfinance hangs)
@@ -491,10 +627,10 @@ async def _execute_enforce(
             timeout=60.0,
         )
         brief = brief_response.model_dump(mode="json")
-    except asyncio.TimeoutError:
-        raise HTTPException(504, "Morning brief generation timed out (60s)")
+    except TimeoutError as exc:
+        raise HTTPException(504, "Morning brief generation timed out (60s)") from exc
     except Exception as e:
-        raise HTTPException(502, f"Failed to fetch morning brief: {e}")
+        raise HTTPException(502, f"Failed to fetch morning brief: {e}") from e
 
     # Collect candidates
     candidates: list[tuple[str, dict]] = []
@@ -507,17 +643,49 @@ async def _execute_enforce(
         wanted = {s.strip().upper() for s in request.only.split(",")}
         candidates = [(s, t) for s, t in candidates if s in wanted]
 
-    trade_rows = []
     rejections = []
     accepted_items = []
     rejected_items = []
+    pending_items: list[PendingOrderItem] = []
+    already_queued = 0
+
+    def _order_rejection(sym: str, brief_t: dict, trade_row: dict, reason: str) -> dict:
+        return {
+            "date_seen": run_date, "symbol": sym,
+            "sector": trade_row.get("sector"),
+            "action": trade_row.get("action"),
+            "conviction": brief_t.get("conviction", 0),
+            "failed_step": "order", "gate_verdict": "FAIL",
+            "reason": reason[:250], "notes": "",
+            "template": trade_row.get("template"),
+            "regime": trade_row.get("regime"),
+        }
 
     for sym, brief_t in candidates:
+        existing = same_day_orders.get(str(sym).strip().upper())
+        if existing is not None:
+            # Already queued by an earlier run today — accept, do not duplicate.
+            already_queued += 1
+            accepted_items.append(EnforceResponseItem(
+                symbol=sym,
+                gate_verdict=str(existing.get("gate_verdict") or "PASS"),
+                entry_price=existing.get("entry_low"),
+                stop_loss=existing.get("stop_loss"),
+                position_size_pct=existing.get("position_size_pct"),
+                target_1=existing.get("target_1"),
+                target_2=existing.get("target_2"),
+                order_type=existing.get("order_type"),
+                limit_price=existing.get("limit_price"),
+                order_status="pending",
+                expires_after_sessions=existing.get("expires_after_sessions"),
+            ))
+            pending_items.append(PendingOrderItem(**existing))
+            continue
         try:
             # Fetch verdict using internal service (avoid HTTP self-call)
             from backend.app.api.dependencies import get_ticker_analysis_engine
             from backend.app.domain.ticker_analysis.models import TickerAnalysisRequest
-            
+
             engine = await get_ticker_analysis_engine()
             # 45s timeout per ticker analysis (prevents yfinance hangs)
             v_resp = await asyncio.wait_for(
@@ -544,7 +712,32 @@ async def _execute_enforce(
             if trade_row is None:
                 continue
 
-            trade_rows.append(trade_row)
+            # Queue the order immediately: the next candidate's portfolio fit
+            # must see this symbol as reserved (slot, sector and capital).
+            try:
+                pending_id = pending_service.create_pending_order(
+                    trade_row,
+                    order_type=request.order_type,
+                    expires_after_sessions=request.expires_after_sessions,
+                )
+            except ValueError as exc:
+                reason = f"Order rejected: {exc}"
+                rejected_items.append(EnforceResponseItem(
+                    symbol=sym, gate_verdict="FAIL", rejected=True,
+                    failed_step="order", reason=reason,
+                ))
+                rejections.append(_order_rejection(sym, brief_t, trade_row, reason))
+                continue
+
+            if pending_id is None:
+                reason = "An active pending order already exists for this symbol"
+                rejected_items.append(EnforceResponseItem(
+                    symbol=sym, gate_verdict=trade_row.get("gate_verdict", "FAIL"),
+                    rejected=True, failed_step="order", reason=reason,
+                ))
+                rejections.append(_order_rejection(sym, brief_t, trade_row, reason))
+                continue
+
             accepted_items.append(EnforceResponseItem(
                 symbol=sym,
                 gate_verdict=trade_row["gate_verdict"],
@@ -553,6 +746,38 @@ async def _execute_enforce(
                 position_size_pct=trade_row.get("position_size_pct"),
                 target_1=trade_row.get("target_1"),
                 target_2=trade_row.get("target_2"),
+                order_type=request.order_type,
+                limit_price=(
+                    trade_row.get("entry_low")
+                    if request.order_type == pending_mod.ORDER_LIMIT else None
+                ),
+                order_status="pending",
+                expires_after_sessions=request.expires_after_sessions,
+            ))
+            pending_items.append(PendingOrderItem(
+                id=pending_id,
+                signal_date=run_date,
+                symbol=sym,
+                sector=trade_row.get("sector"),
+                action=trade_row.get("action"),
+                order_type=request.order_type,
+                limit_price=(
+                    trade_row.get("entry_low")
+                    if request.order_type == pending_mod.ORDER_LIMIT else None
+                ),
+                entry_low=trade_row.get("entry_low"),
+                entry_high=trade_row.get("entry_high"),
+                stop_loss=trade_row.get("stop_loss"),
+                target_1=trade_row.get("target_1"),
+                target_2=trade_row.get("target_2"),
+                position_size_pct=trade_row.get("position_size_pct"),
+                account_value=trade_row.get("account_value"),
+                gate_verdict=trade_row.get("gate_verdict"),
+                template=trade_row.get("template"),
+                regime=trade_row.get("regime"),
+                notes=trade_row.get("notes"),
+                status="pending",
+                expires_after_sessions=request.expires_after_sessions,
             ))
 
         except Exception as e:
@@ -561,42 +786,62 @@ async def _execute_enforce(
                 failed_step="error", reason=str(e),
             ))
 
-    # Persist to the journal DB (D-68): entry-only upsert per accepted row
-    # (fresh evaluation wins; exit columns are never touched) and an
-    # insert-or-ignore per rejection (one per date+symbol).
-    run_date = journal_mod.market_today()
-    message = f"{len(trade_rows)} accepted, {len(rejections)} rejected"
+    # 3) Persist the rejection log (one per date+symbol).
     for rejection in rejections:
         journal_mod.insert_rejection(rejection)
-    inserted = updated = kept = 0
-    if trade_rows:
-        inserted = sum(journal_mod.upsert_entry(row) == "inserted" for row in trade_rows)
-        updated = len(trade_rows) - inserted
-        message += f" — journal updated ({inserted} new, {updated} updated)"
-        # Earlier same-day acceptances that were not re-accepted now are kept
-        # (P2.2: a re-run never deletes rows it did not accept this time).
-        accepted_symbols = {str(r.get("symbol") or "").strip().upper() for r in trade_rows}
-        kept = sum(
-            1 for r in journal_mod.read_rows()
-            if str(r.get("date_entered") or "")[:10] == run_date
-            and str(r.get("symbol") or "").strip().upper() not in accepted_symbols
-        )
-        if kept:
-            message += f"; {kept} earlier acceptance(s) kept"
-    else:
-        message += " — no qualifying setups today"
+
+    created_count = len(pending_items) - already_queued
+    message = f"{created_count} pending order(s) created"
+    if already_queued:
+        message += f", {already_queued} already queued today"
+    if fills:
+        message += f", {len(fills)} filled from T+1"
+    if closed_orders:
+        message += f", {len(closed_orders)} order(s) closed without a fill"
+    message += f", {len(rejections)} rejected"
+
+    # Earlier same-day orders that were not re-accepted are kept: a re-run
+    # never cancels an order it did not re-create this time.
+    accepted_symbols = {str(i.symbol).upper() for i in pending_items}
+    kept = sum(
+        1 for o in journal_mod.list_pending_orders("pending", limit=1000)
+        if str(o.get("signal_date") or "")[:10] == run_date
+        and str(o.get("symbol") or "").upper() not in accepted_symbols
+    )
+    if kept:
+        message += f"; {kept} earlier pending order(s) kept"
+
+    pending_errors = [r for r in pending_results if r.status == "error"]
+    if pending_errors:
+        message += f"; {len(pending_errors)} pending-order error(s)"
 
     # Run log (P2.5): every touchpoint leaves a workflow_runs row.
-    # ``skipped`` = earlier same-day acceptances kept (not re-evaluated).
+    # accepted = new pending orders; updated = fills booked from actual bars.
     if log_run:
         journal_mod.record_run(
             "enforce", apply=True,
-            accepted=len(trade_rows), rejected=len(rejections),
-            updated=inserted + updated, skipped=kept,
-            status="partial" if any(r.get("failed_step") == "error" for r in rejections) else "ok",
+            accepted=len(pending_items), rejected=len(rejections),
+            updated=len(fills), skipped=kept + len(closed_orders),
+            status=(
+                "partial"
+                if pending_errors
+                or any(r.get("failed_step") == "error" for r in rejections)
+                else "ok"
+            ),
             message=message,
             details={
-                "accepted": [str(r.get("symbol") or "") for r in trade_rows][:50],
+                "accepted": [str(i.symbol or "") for i in pending_items][:50],
+                "filled": [
+                    {
+                        "symbol": f.symbol, "date": f.fill_date,
+                        "price": f.fill_price, "same_day_stop": f.same_day_stop,
+                    }
+                    for f in fills
+                ][:50],
+                "closed_orders": [
+                    {"symbol": c.symbol, "status": c.status, "reason": c.note}
+                    for c in closed_orders
+                ][:50],
                 "rejected": [str(r.get("symbol") or "") for r in rejections][:50],
             },
         )
@@ -605,6 +850,9 @@ async def _execute_enforce(
         accepted=accepted_items,
         rejected=rejected_items,
         message=message,
+        pending=pending_items,
+        fills=fills,
+        closed_orders=closed_orders,
     )
 
 
@@ -851,11 +1099,11 @@ async def _execute_sync_exits(
         fill = exits_mod.infer_exit(
             bars, entry=entry, stop=stop,
             targets=targets, max_hold_days=max_hold_bars,
-            # EOD entries fill at the close: the entry-day bar's high/low
-            # predate the position (P2.4; bug R4).
-            exclude_entry_bar_excursions=(
-                str(row.get("entry_timing") or "eod").strip().lower() == "eod"
-            ),
+            # The fill bar is in the past for every row that reaches this path:
+            # EOD rows filled at that close; limit/MOO rows filled intraday and
+            # already had their same-session stop checked at fill time (D-73).
+            # Counting that bar here would reintroduce look-ahead.
+            exclude_entry_bar_excursions=True,
         )
         if not fill.exit_price or not fill.exit_date:
             skipped += 1
@@ -941,6 +1189,8 @@ class RunCloseRequest(BaseModel):
     min_conviction: int = 5
     only: str | None = None
     apply_exits: bool = True
+    order_type: Literal["limit", "moo"] = "limit"
+    expires_after_sessions: int = 3
 
 
 class RunCloseResponse(BaseModel):
@@ -954,10 +1204,10 @@ class RunCloseResponse(BaseModel):
 @router.post(
     "/paper-trades/run-close",
     summary="One-go after-close run — Touchpoint A then B(apply)",
-    description="Runs gate enforcement (entries) and then exit sync (exits applied) in one call, "
+    description="Fills eligible pending orders from actual bars, queues today's accepted signals "
+                "as pending (T+1), then applies exit inference to the open book — in one call, "
                 "so forgetting one of the two touchpoints is impossible. Writes a single "
-                "workflow_runs row (mode='run_close'). Entries logged today are skipped by the "
-                "exit phase ('exits start next session').",
+                "workflow_runs row (mode='run_close').",
     response_model=ApiResponse[RunCloseResponse],
 )
 async def run_close(
@@ -965,7 +1215,12 @@ async def run_close(
 ) -> ApiResponse[RunCloseResponse]:
     try:
         enforce_resp = await _execute_enforce(
-            EnforceRequest(min_conviction=request.min_conviction, only=request.only),
+            EnforceRequest(
+                min_conviction=request.min_conviction,
+                only=request.only,
+                order_type=request.order_type,
+                expires_after_sessions=request.expires_after_sessions,
+            ),
             log_run=False,
         )
     except HTTPException as exc:
@@ -998,6 +1253,17 @@ async def run_close(
         details={
             "enforce": {
                 "accepted": [i.symbol for i in enforce_resp.accepted][:50],
+                "filled": [
+                    {
+                        "symbol": f.symbol, "date": f.fill_date,
+                        "price": f.fill_price, "same_day_stop": f.same_day_stop,
+                    }
+                    for f in enforce_resp.fills
+                ][:50],
+                "closed_orders": [
+                    {"symbol": c.symbol, "status": c.status, "reason": c.note}
+                    for c in enforce_resp.closed_orders
+                ][:50],
                 "rejected": [i.symbol for i in enforce_resp.rejected][:50],
             },
             "exits": {

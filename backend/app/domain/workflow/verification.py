@@ -68,7 +68,9 @@ def _normalize_regime(name: str) -> str:
 
 
 def in_forward_sample(row: dict[str, Any]) -> bool:
-    """False for rows explicitly excluded from the forward scorecard."""
+    """False for voided rows and rows explicitly excluded from the scorecard."""
+    if str(row.get("voided") or "0").strip().lower() in {"1", "true", "yes"}:
+        return False
     return str(row.get("exclude_from_stats") or "0").strip().lower() not in {
         "1", "true", "yes",
     }

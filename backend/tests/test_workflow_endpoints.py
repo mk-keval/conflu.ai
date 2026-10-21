@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import date, timedelta
 from types import SimpleNamespace
 
 import pandas as pd
@@ -74,6 +75,157 @@ def _two_bar_ohlcv() -> pd.DataFrame:
     })
 
 
+def _previous_session(today: str) -> str:
+    """Most recent weekday before ``today`` (test date arithmetic only)."""
+    day = date.fromisoformat(today) - timedelta(days=1)
+    while day.weekday() >= 5:
+        day -= timedelta(days=1)
+    return day.isoformat()
+
+
+def _pending_bars(signal: str, today: str) -> pd.DataFrame:
+    """Signal-day low 98 (must be ignored) + today's touch of the 100 limit."""
+    return pd.DataFrame({
+        "Date": pd.to_datetime([signal, today]),
+        "Open": [101.0, 101.0], "High": [103.0, 102.0],
+        "Low": [98.0, 99.5], "Close": [102.0, 100.5],
+    })
+
+
+def _queue_pending(signal: str, **over: object) -> int:
+    row: dict[str, object] = {
+        "date_entered": signal, "symbol": "AAA", "sector": "Technology",
+        "entry_low": 100.0, "entry_high": 102.0, "entry_price": 100.0,
+        "stop_loss": 95.0, "target_1": 110.0, "target_2": 120.0,
+        "position_size_pct": 20.0, "account_value": 100_000.0,
+        "gate_verdict": "PASS", "template": "trend-pullback",
+        "regime": "neutral", "notes": "test signal",
+    }
+    row.update(over)
+    order_id = journal_mod.insert_pending_order(row)
+    assert order_id
+    return order_id
+
+
+def test_pending_fills_from_next_session_not_the_signal_day(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """D-73 regression: the signal-day low (98) is not a fill; T+1 is."""
+    wf = _wire_enforce_stubs(monkeypatch, tickers=())
+    today = journal_mod.market_today()
+    signal = _previous_session(today)
+    _queue_pending(signal)
+    monkeypatch.setattr(wf, "_fetch_daily_ohlcv", lambda _sym: _pending_bars(signal, today))
+
+    resp = asyncio.run(wf.enforce_paper_trades(wf.EnforceRequest()))
+    assert len(resp.data.fills) == 1
+    fill = resp.data.fills[0]
+    assert fill.symbol == "AAA"
+    assert fill.fill_date == today
+    assert fill.fill_price == 100.0
+    assert fill.same_day_stop is False
+
+    rows = journal_mod.read_rows()
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["date_entered"] == today
+    assert row["entry_price"] == "100.0"
+    assert row["entry_timing"] == "t1_limit"
+    assert row["shares"] == "200.0"
+    assert "Pending limit $100.00 filled" in (row["notes"] or "")
+    assert journal_mod.list_pending_orders("pending") == []
+    assert journal_mod.list_pending_orders("all")[0]["status"] == "filled"
+
+
+def test_pending_signal_is_never_filled_by_the_signal_day_bar(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The exact phantom-fill case: a same-day bar below the limit is ignored."""
+    wf = _wire_enforce_stubs(monkeypatch, tickers=())
+    today = journal_mod.market_today()
+    _queue_pending(today)
+    monkeypatch.setattr(wf, "_fetch_daily_ohlcv", lambda _sym: pd.DataFrame({
+        "Date": pd.to_datetime([today]),
+        "Open": [101.0], "High": [103.0], "Low": [98.0], "Close": [102.0],
+    }))
+
+    resp = asyncio.run(wf.enforce_paper_trades(wf.EnforceRequest()))
+    assert resp.data.fills == []
+    assert journal_mod.read_rows() == []
+    pending = journal_mod.list_pending_orders("pending")
+    assert len(pending) == 1 and pending[0]["status"] == "pending"
+
+
+def test_pending_expires_after_the_configured_sessions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    wf = _wire_enforce_stubs(monkeypatch, tickers=())
+    today = journal_mod.market_today()
+    signal = (date.fromisoformat(today) - timedelta(days=10)).isoformat()
+    _queue_pending(signal, expires_after_sessions=3)
+    dates = pd.bdate_range(end=today, periods=4)
+    frame = pd.DataFrame({
+        "Date": dates,
+        "Open": [103.0] * 4, "High": [104.0] * 4,
+        "Low": [101.0] * 4, "Close": [102.0] * 4,  # never touches 100
+    })
+    monkeypatch.setattr(wf, "_fetch_daily_ohlcv", lambda _sym: frame)
+
+    resp = asyncio.run(wf.enforce_paper_trades(wf.EnforceRequest()))
+    assert resp.data.fills == []
+    assert len(resp.data.closed_orders) == 1
+    assert resp.data.closed_orders[0].status == "expired"
+    assert journal_mod.read_rows() == []
+    assert journal_mod.list_pending_orders("pending") == []
+    expired = journal_mod.list_pending_orders("expired")[0]
+    assert expired["status_date"] == dates[-2].strftime("%Y-%m-%d")  # 3rd session
+
+
+def test_pending_fill_with_same_session_stop_closes_at_minus_one_r(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    wf = _wire_enforce_stubs(monkeypatch, tickers=())
+    today = journal_mod.market_today()
+    signal = _previous_session(today)
+    _queue_pending(signal)
+    monkeypatch.setattr(wf, "_fetch_daily_ohlcv", lambda _sym: pd.DataFrame({
+        "Date": pd.to_datetime([signal, today]),
+        "Open": [101.0, 101.0], "High": [103.0, 102.0],
+        "Low": [98.0, 94.0], "Close": [102.0, 96.0],  # fill 100 → stop 95
+    }))
+
+    resp = asyncio.run(wf.enforce_paper_trades(wf.EnforceRequest()))
+    assert resp.data.fills[0].same_day_stop is True
+    row = journal_mod.read_rows()[0]
+    assert row["date_entered"] == today
+    assert row["date_closed"] == today
+    assert row["exit_reason"] == "stop"
+    assert row["exit_price"] == "95.0"
+    assert row["realized_r"] == "-1.0"
+    assert row["pnl_usd"] == "-1000.0"
+
+
+def test_open_positions_exclude_voided_and_include_pending() -> None:
+    from backend.app.api.routers import workflow as wf
+
+    today = journal_mod.market_today()
+    journal_mod.upsert_entry({
+        "date_entered": "2026-10-19", "symbol": "BAD",
+        "entry_price": 185.97, "stop_loss": 180.0,
+    })
+    journal_mod.void_trade("2026-10-19", "BAD", "phantom fill")
+    _queue_pending(today, symbol="WAIT")
+
+    resp = asyncio.run(wf.get_open_positions())
+    assert resp.data.positions == []
+    assert resp.data.pending_count == 1
+    assert resp.data.pending_orders[0].symbol == "WAIT"
+
+    listed = asyncio.run(wf.get_pending_orders(status="pending", limit=200))
+    assert listed.data.count == 1
+    assert listed.data.items[0].order_type == "limit"
+
+
 def test_sync_exits_same_day_guard_and_run_log(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -125,23 +277,28 @@ def test_enforce_logs_run_and_reports_kept_rows(
     wf = _wire_enforce_stubs(monkeypatch, tickers=("NEW",))
 
     today = journal_mod.market_today()
-    # Earlier same-day acceptance this run will not re-accept.
-    journal_mod.upsert_entry({
-        "date_entered": today, "symbol": "OLD", "entry_price": 50.0,
+    # Earlier same-day order this run will not re-accept.
+    journal_mod.insert_pending_order({
+        "date_entered": today, "symbol": "OLD", "entry_low": 50.0,
+        "entry_price": 50.0, "stop_loss": 45.0,
     })
 
     resp = asyncio.run(wf.enforce_paper_trades(wf.EnforceRequest(min_conviction=5)))
     assert [i.symbol for i in resp.data.accepted] == ["NEW"]
-    assert "1 earlier acceptance(s) kept" in resp.data.message
+    assert resp.data.accepted[0].order_status == "pending"
+    assert "1 earlier pending order(s) kept" in resp.data.message
 
-    assert {r["symbol"] for r in journal_mod.read_rows()} == {"NEW", "OLD"}
+    # Accepted signals are orders, not journal entries yet.
+    assert journal_mod.read_rows() == []
+    pending = {o["symbol"]: o for o in journal_mod.list_pending_orders("pending")}
+    assert set(pending) == {"NEW", "OLD"}
     run = journal_mod.list_runs(limit=1)[0]
     assert run["mode"] == "enforce"
     assert run["apply"] == 1
     assert run["accepted"] == 1
     assert run["rejected"] == 0
-    assert run["updated"] == 1
-    assert run["skipped"] == 1  # earlier same-day acceptance kept
+    assert run["updated"] == 0  # no fills this run
+    assert run["skipped"] == 1  # earlier same-day pending order kept
     assert run["status"] == "ok"
 
 
@@ -188,10 +345,10 @@ def test_export_endpoint_returns_csv() -> None:
     assert resp.media_type == "text/csv"
 
 
-def test_run_close_writes_entries_then_exits_one_run_row(
+def test_run_close_fills_then_queues_pending_then_exits_one_run_row(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """P3.4: order guarantee, single combined row, idempotent re-run."""
+    """D-73 order guarantee: fills → new pending orders → exits; one run row."""
     wf = _wire_enforce_stubs(monkeypatch, tickers=("NEW",))
     journal_mod.upsert_entry({
         "date_entered": "2026-10-01", "symbol": "OLD", "sector": "Technology",
@@ -199,7 +356,7 @@ def test_run_close_writes_entries_then_exits_one_run_row(
     })
 
     def _fake_ohlcv(sym: str):
-        assert sym == "OLD"  # today's NEW row is guard-skipped, never fetched
+        # OLD needs exit bars; NEW (queued today) has no eligible T+1 bar yet.
         return _two_bar_ohlcv()
 
     monkeypatch.setattr(wf, "_fetch_daily_ohlcv", _fake_ohlcv)
@@ -209,16 +366,15 @@ def test_run_close_writes_entries_then_exits_one_run_row(
     assert [i.symbol for i in data.enforce.accepted] == ["NEW"]
     assert data.exits.updated == 1
 
-    # Order guarantee: NEW was written by the enforce phase first, so the exit
-    # phase saw it and guard-skipped it (skipped, not an error).
-    new_item = next(i for i in data.exits.items if i.symbol == "NEW")
-    assert new_item.skipped is True
-    assert "entered today" in (new_item.skip_reason or "")
+    # NEW is a pending order, not a same-day journal fill.
+    pending = journal_mod.list_pending_orders("pending")
+    assert [o["symbol"] for o in pending] == ["NEW"]
+    assert [i.symbol for i in data.exits.items] == ["OLD"]  # NEW has no position yet
 
     rows = {r["symbol"]: r for r in journal_mod.read_rows()}
     assert rows["OLD"]["date_closed"] == "2026-10-02"
     assert rows["OLD"]["exit_reason"] == "target_1"
-    assert not rows["NEW"].get("date_closed")
+    assert "NEW" not in rows
 
     # Exactly ONE workflow_runs row for the combined call.
     runs = journal_mod.list_runs(limit=10)
@@ -230,17 +386,23 @@ def test_run_close_writes_entries_then_exits_one_run_row(
     assert run["accepted"] == 1
     assert run["rejected"] == 0
     assert run["updated"] == 1   # exits applied
-    assert run["skipped"] == 1   # today's new entry kept open
+    assert run["skipped"] == 0
     assert run["status"] == "ok"
     details = json.loads(run["details_json"])
     assert details["enforce"]["accepted"] == ["NEW"]
     assert details["exits"]["applied"] == ["OLD"]
 
-    # Idempotent re-run: journal state unchanged, one more run row only.
+    # Idempotent re-run: the active NEW order is not duplicated, is reported as
+    # already queued (not rejected), and no rejection row is written.
     snapshot = {r["symbol"]: r["date_closed"] for r in journal_mod.read_rows()}
     resp2 = asyncio.run(wf.run_close(wf.RunCloseRequest(min_conviction=5)))
     assert {r["symbol"]: r["date_closed"] for r in journal_mod.read_rows()} == snapshot
-    assert resp2.data.enforce.accepted[0].symbol == "NEW"
+    assert [i.symbol for i in resp2.data.enforce.accepted] == ["NEW"]
+    assert resp2.data.enforce.accepted[0].order_status == "pending"
+    assert resp2.data.enforce.rejected == []
+    assert "0 pending order(s) created, 1 already queued today" in resp2.data.enforce.message
+    assert len(journal_mod.list_pending_orders("pending")) == 1
+    assert journal_mod.list_rejections(limit=50) == []
     assert resp2.data.exits.updated == 0
     runs2 = journal_mod.list_runs(limit=10)
     assert len(runs2) == 2
@@ -264,7 +426,8 @@ def test_run_close_dry_exits_writes_entries_but_no_exits(
     assert "exits preview only" in resp.data.message
 
     rows = {r["symbol"]: r for r in journal_mod.read_rows()}
-    assert "NEW" in rows                      # entries written
+    assert "NEW" not in rows                      # NEW is a pending order
+    assert journal_mod.list_pending_orders("pending")[0]["symbol"] == "NEW"
     assert not rows["OLD"].get("date_closed")  # exits only previewed
 
     run = journal_mod.list_runs(limit=1)[0]

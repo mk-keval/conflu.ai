@@ -298,8 +298,13 @@ export function DailyRoutine() {
                     : 'text-text-muted'
                 }
               >
-                ✓ {runCloseResult.enforce.accepted.length} accepted
+                ✓ {runCloseResult.enforce.accepted.length} pending order(s)
               </span>
+              {(runCloseResult.enforce.fills?.length ?? 0) > 0 && (
+                <span className="text-green-500">
+                  ● {runCloseResult.enforce.fills?.length} fill(s) booked
+                </span>
+              )}
               <span
                 className={
                   runCloseResult.enforce.rejected.length > 0
@@ -333,7 +338,7 @@ export function DailyRoutine() {
             </p>
             <p className="mt-1 text-[11px] text-green-500">
               Both touchpoints marked done — see the Journal tab for the run
-              row, trades and rejections.
+              row, pending orders, fills and rejections.
             </p>
           </div>
         )}

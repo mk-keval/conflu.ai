@@ -59,11 +59,36 @@ def read_rows(trades_dir: Path | str | None = None) -> list[dict[str, Any]]:
 
 
 def read_open_positions(trades_dir: Path | str | None = None) -> list[dict[str, Any]]:
-    """Rows still open: no ``date_closed`` (blank, missing, or '-')."""
+    """Rows still open: no ``date_closed`` and not ``voided``.
+
+    Voided rows stay visible through ``read_rows``/``/journal``, but they are
+    not positions: they never consume a slot, sector exposure or capital.
+    """
     return [
         r for r in read_rows(trades_dir)
-        if not r.get("date_closed")
+        if not r.get("date_closed") and not _as_int(r.get("voided"))
     ]
+
+
+def read_pending_positions(trades_dir: Path | str | None = None) -> list[dict[str, Any]]:
+    """Active pending orders shaped like journal rows (portfolio fit + capital)."""
+    _note_deprecated("read_pending_positions", trades_dir)
+    rows: list[dict[str, Any]] = []
+    for order in journal_store.list_pending_orders("pending", limit=1000):
+        entry = order.get("limit_price") or order.get("entry_high") or order.get("entry_low")
+        rows.append({
+            "date_entered": order.get("signal_date"),
+            "symbol": order.get("symbol"),
+            "sector": order.get("sector"),
+            "action": order.get("action"),
+            "entry_type": "initial",
+            "entry_price": entry,
+            "stop_loss": order.get("stop_loss"),
+            "position_size_pct": order.get("position_size_pct"),
+            "gate_verdict": order.get("gate_verdict"),
+            "entry_timing": "pending",
+        })
+    return rows
 
 
 def read_closed_trades(trades_dir: Path | str | None = None) -> list[dict[str, Any]]:
@@ -121,7 +146,13 @@ def available_capital(
         position_size_pct(r) / 100.0 * account_value_f
         for r in read_open_positions(trades_dir)
     )
-    return account_value_f - open_notional
+    # Active orders reserve capital too: a filled order must not overdraw the
+    # book because the next candidate was sized as if the order did not exist.
+    pending_notional = sum(
+        position_size_pct(r) / 100.0 * account_value_f
+        for r in read_pending_positions(trades_dir)
+    )
+    return account_value_f - open_notional - pending_notional
 
 
 # ── Write API (store re-exports; router/script/tests call these) ──
@@ -133,6 +164,10 @@ market_today = journal_store.market_today
 upsert_entry = journal_store.upsert_entry
 update_exit = journal_store.update_exit
 set_exclude_from_stats = journal_store.set_exclude_from_stats
+void_trade = journal_store.void_trade
+insert_pending_order = journal_store.insert_pending_order
+list_pending_orders = journal_store.list_pending_orders
+update_pending_order = journal_store.update_pending_order
 insert_rejection = journal_store.insert_rejection
 record_run = journal_store.record_run
 list_runs = journal_store.list_runs
@@ -145,6 +180,7 @@ __all__ = [
     "DEFAULT_TRADES_DIR",
     "read_rows",
     "read_open_positions",
+    "read_pending_positions",
     "read_closed_trades",
     "position_size_pct",
     "account_value",
@@ -157,6 +193,10 @@ __all__ = [
     "upsert_entry",
     "update_exit",
     "set_exclude_from_stats",
+    "void_trade",
+    "insert_pending_order",
+    "list_pending_orders",
+    "update_pending_order",
     "insert_rejection",
     "record_run",
     "list_runs",
