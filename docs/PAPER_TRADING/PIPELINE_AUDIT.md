@@ -260,7 +260,9 @@ Until (2)–(4) are decided, the forward journal can still accumulate — but la
 | P2 | Regime hysteresis / transition state (F9) | permission | **yes** | Open |
 | P2 | Portfolio heat + daily loss limit + real correlation cap (F10) | size | **yes** | Open |
 
-P0 items are done. P1/P2 are review decisions; doing them mid-sample restarts the sample.
+The original P0 items (F1–F4) are done. A second P0 pass (F11–F13, §8) found and fixed
+three measurement defects; P0 is now defined by `scripts/verify_journal.py` printing
+`PASS`. P1/P2 are review decisions; doing them mid-sample restarts the sample.
 
 ---
 
@@ -375,6 +377,73 @@ visibility/exclusion, capital reservation, export round-trip); endpoint tests (T
 signal-day ignored, expiry, same-session stop, `/journal/open`); frontend typecheck +
 JournalTab tests.
 
-**Live state after the correction:** 4 voided rows retained; 3 legacy rows still
+**Live state after the correction (2026-10-21):** 4 voided rows retained; 3 legacy rows still
 open/excluded; 0 pending; 0 valid forward fills. The next after-close run creates pending
 orders; the first possible fill is the next session. The forward clock starts there.
+
+---
+
+## 8. D-74 measurement addendum (2026-10-28) — three more P0 defects
+
+The audit above classified F1–F4 as the P0 measurement set and they were applied. A
+second pass through the live journal after the first valid fills found three additional
+P0 defects that the original audit did not cover. They are **measurement only**; none of
+them changes a trading decision.
+
+### F11. Dollar P&L was R × notional, not R × risk
+
+- **Evidence:** the exit sync computed `pnl_usd = realized_r × account_value ×
+  position_size_pct/100`. `position_size_pct` is a notional allocation (capped at 25%,
+  halved for CONDITIONAL), not the dollar risk. CRS stored **−$1,624.99**; the actual
+  trade was 5.84 shares × $4.31 stop distance = **−$25.17 gross**, **−$30.01 net**.
+- **Impact:** every dollar P&L in the journal was overstated by the position-size
+  factor (54× on CRS). R was unaffected.
+- **Class:** measurement bug.
+- **Status (2026-10-28): FIXED (D-74).** Canonical `pnl.py` computes gross from shares,
+  costs from 15 bps per side, net = gross − costs. `pnl_gross_usd` and `costs_usd` are
+  stored separately.
+
+### F12. The gate's R:R and the journal's stored plan did not reconcile
+
+- **Evidence:** the gate checks `v["risk_reward"]`; the journal stored
+  `risk_reward_planned` from that value and executed `target_1` / `target_2`. The third
+  target was never persisted. Verifier output after the first fills: CRS gate 4.32 vs
+  stored plan 11.89; IOSP 6.15 vs 3.99; SF 6.47 vs 4.36.
+- **Impact:** the number the gate accepted and the number the exit walker could pay were
+  not the same geometry. IOSP/SF are consistent with a missing `target_3`; CRS is not
+  (the gate's value is *lower*), so the gate's field itself can be stale.
+- **Class:** measurement/provenance + a known design gap (F5, review A).
+- **Status (2026-10-28): PARTIALLY FIXED (D-74).** `target_3`, `plan_rr` and
+  `target_1_r` are now stored going forward; `risk_reward_planned` remains the gate's
+  reported number. The verifier **warns** on every gap. The gate semantics themselves
+  are unchanged — reconciling them would change decisions and is review A.
+
+### F13. Live dollars were gross while backtests were net
+
+- **Evidence:** the replay/validation convention is 10 bps fee + 5 bps slippage per
+  side (D-71); the live path had no cost deduction.
+- **Impact:** live and simulated dollar P&L were not comparable.
+- **Class:** measurement bug.
+- **Status (2026-10-28): FIXED (D-74).** `pnl_usd` is net; `pnl_gross_usd` and
+  `costs_usd` are explicit. `realized_r` stays gross, matching the backtest convention.
+
+### Verification and artifacts
+
+- `python scripts/verify_journal.py` → **PASS**: 0 phantom fills, 0 dollar-P&L
+  mismatches, 3 plan-R:R warnings.
+- `python scripts/scorecard.py` → 1 closed, expectancy −1.00R, net −$30.01, MFE gap
+  +4.72R.
+- Pre-backfill backup: `data/backups/paper_trades_20261028T230900Z.db`.
+- Decision record: `docs/DECISIONS/D-74-p0-measurement-integrity.md`.
+- Scorecard: `docs/PAPER_TRADING/SCORECARD.md`; pre-registration:
+  `docs/PAPER_TRADING/PRE_REGISTRATION.md`.
+
+**Not changed:** targets, R:R gate, screens, sizing, regime permission, exit rules or
+the sample clock. F11–F13 are arithmetic and provenance, not strategy.
+
+### Live state at the addendum (2026-10-28)
+
+3 valid fills (SF 2026-10-22, IOSP 2026-10-23, CRS 2026-10-26); 1 closed (CRS −1.00R,
+MFE +3.72R); 2 open; 1 pending (DUK, signal 2026-10-26, 3rd eligible session
+2026-10-29); 7 runs; 40 rejections. The four phantom rows and three legacy rows remain
+excluded.

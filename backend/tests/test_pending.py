@@ -158,4 +158,6 @@ def test_same_session_stop_closes_at_minus_one_r() -> None:
     assert exit_row["exit_reason"] == "stop"
     assert exit_row["exit_price"] == 95.0
     assert exit_row["realized_r"] == -1.0
-    assert exit_row["pnl_usd"] == -1000.0
+    assert exit_row["pnl_gross_usd"] == -1000.0
+    assert exit_row["costs_usd"] == 58.5
+    assert exit_row["pnl_usd"] == -1058.5

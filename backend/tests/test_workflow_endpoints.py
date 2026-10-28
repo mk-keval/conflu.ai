@@ -202,7 +202,9 @@ def test_pending_fill_with_same_session_stop_closes_at_minus_one_r(
     assert row["exit_reason"] == "stop"
     assert row["exit_price"] == "95.0"
     assert row["realized_r"] == "-1.0"
-    assert row["pnl_usd"] == "-1000.0"
+    assert row["pnl_gross_usd"] == "-1000.0"
+    assert row["costs_usd"] == "58.5"
+    assert row["pnl_usd"] == "-1058.5"
 
 
 def test_open_positions_exclude_voided_and_include_pending() -> None:

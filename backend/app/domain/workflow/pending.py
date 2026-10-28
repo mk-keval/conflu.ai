@@ -30,6 +30,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from backend.app.domain.workflow import pnl as pnl_mod
 from backend.app.domain.workflow.exits import EXIT_STOP
 
 ORDER_LIMIT = "limit"
@@ -265,6 +266,16 @@ def build_filled_row(order: Mapping[str, Any], decision: FillDecision) -> dict[s
     notes = str(order.get("notes") or "").strip()
     notes = f"{notes} | {order_note}" if notes else order_note
 
+    targets = [
+        level for level in (
+            order.get("target_1"), order.get("target_2"), order.get("target_3"),
+        ) if level not in (None, "")
+    ]
+    metrics = pnl_mod.plan_metrics(
+        order.get("entry_low"), order.get("entry_high"),
+        order.get("stop_loss"), targets,
+    ) or {}
+
     return {
         "date_entered": decision.fill_date,
         "symbol": order.get("symbol"),
@@ -275,6 +286,9 @@ def build_filled_row(order: Mapping[str, Any], decision: FillDecision) -> dict[s
         "stop_loss": order.get("stop_loss"),
         "target_1": order.get("target_1"),
         "target_2": order.get("target_2"),
+        "target_3": order.get("target_3"),
+        "plan_rr": metrics.get("plan_rr"),
+        "target_1_r": metrics.get("target_1_r"),
         "position_size_pct": order.get("position_size_pct"),
         "account_value": order.get("account_value"),
         "shares": planned_shares(order, fill),
@@ -307,14 +321,17 @@ def stop_exit(order: Mapping[str, Any], decision: FillDecision) -> dict[str, Any
     """Exit columns for a same-session stop-out (conservative intrabar order)."""
     fill = float(decision.fill_price or 0)
     stop = float(order.get("stop_loss") or 0)
-    shares = planned_shares(order, fill) or 0.0
+    shares = planned_shares(order, fill)
     realized_r = round((stop - fill) / (fill - stop), 2) if fill > stop else None
+    money = pnl_mod.dollar_pnl(fill, stop, shares) or {}
     return {
         "date_closed": decision.fill_date,
         "exit_price": round(stop, 2),
         "exit_reason": EXIT_STOP,
         "realized_r": realized_r,
-        "pnl_usd": round((stop - fill) * shares, 2) if shares else None,
+        "pnl_usd": money.get("pnl_usd"),
+        "pnl_gross_usd": money.get("pnl_gross_usd"),
+        "costs_usd": money.get("costs_usd"),
         "mfe_r": None,
         "mae_r": -1.0,
         "plan_adherence": 1.0,

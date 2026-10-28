@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from backend.app.domain.workflow import journal as journal_mod
+from backend.app.domain.workflow import pnl as pnl_mod
 
 
 ELITE_MIN_TRADES = 30
@@ -251,6 +252,112 @@ def compute_rolling_expectancy(
     }
 
 
+def find_phantom_fills(
+    trades: list[dict[str, Any]],
+    orders: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """D-73 invariant: a journal entry must be strictly after its signal date.
+
+    ``trades`` are journal rows, ``orders`` are pending-order rows (any status).
+    A filled order with no matching journal entry is also a violation: the
+    order says it filled, but the journal cannot show the position.
+    """
+    entries: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in trades:
+        if not in_forward_sample(row):
+            continue
+        key = (
+            str(row.get("symbol") or "").strip().upper(),
+            str(row.get("date_entered") or "")[:10],
+        )
+        entries[key] = row
+
+    violations: list[dict[str, Any]] = []
+    for order in orders:
+        if str(order.get("status") or "").lower() != "filled":
+            continue
+        symbol = str(order.get("symbol") or "").strip().upper()
+        signal = str(order.get("signal_date") or "")[:10]
+        filled_on = str(order.get("status_date") or "")[:10]
+        row = entries.get((symbol, filled_on))
+        if row is None:
+            violations.append({
+                "symbol": symbol,
+                "signal_date": signal,
+                "date_entered": None,
+                "reason": "filled order has no journal entry",
+            })
+            continue
+        entered = str(row.get("date_entered") or "")[:10]
+        if entered <= signal:
+            violations.append({
+                "symbol": symbol,
+                "signal_date": signal,
+                "date_entered": entered,
+                "reason": "entry is not strictly after the signal date",
+            })
+    return violations
+
+
+def find_pnl_mismatches(
+    trades: list[dict[str, Any]],
+    tolerance: float = 0.02,
+) -> list[dict[str, Any]]:
+    """Closed forward rows whose stored dollars disagree with the canonical math."""
+    mismatches: list[dict[str, Any]] = []
+    for row in trades:
+        if not in_forward_sample(row) or not row.get("date_closed"):
+            continue
+        expected = pnl_mod.dollar_pnl(
+            row.get("entry_price"), row.get("exit_price"), row.get("shares"),
+        )
+        if expected is None:
+            continue
+        stored = row.get("pnl_usd")
+        try:
+            stored_f = float(stored)
+        except (TypeError, ValueError):
+            mismatches.append({
+                "symbol": row.get("symbol"), "stored": stored,
+                "expected": expected["pnl_usd"], "reason": "missing pnl_usd",
+            })
+            continue
+        if abs(stored_f - expected["pnl_usd"]) > tolerance:
+            mismatches.append({
+                "symbol": row.get("symbol"), "stored": round(stored_f, 2),
+                "expected": expected["pnl_usd"], "reason": "pnl_usd != shares x price move - costs",
+            })
+    return mismatches
+
+
+def find_plan_rr_gaps(
+    trades: list[dict[str, Any]],
+    tolerance: float = 0.10,
+) -> list[dict[str, Any]]:
+    """Rows where the gate's R:R and the stored plan's R:R disagree.
+
+    This is a warning, not a failure: the gate ran on the verdict's levels,
+    the journal stores the levels the exits will use. D-74 records both so the
+    gap is visible instead of being mistaken for agreement.
+    """
+    gaps: list[dict[str, Any]] = []
+    for row in trades:
+        if not in_forward_sample(row):
+            continue
+        gate = journal_mod._as_float(row.get("risk_reward_planned"))
+        plan = journal_mod._as_float(row.get("plan_rr"))
+        if gate is None or plan is None:
+            continue
+        if abs(gate - plan) > tolerance:
+            gaps.append({
+                "symbol": row.get("symbol"),
+                "gate_rr": round(gate, 2),
+                "plan_rr": round(plan, 2),
+                "gap": round(gate - plan, 2),
+            })
+    return gaps
+
+
 __all__ = [
     "ELITE_MIN_TRADES",
     "ExpectancyMetrics",
@@ -258,4 +365,7 @@ __all__ = [
     "get_elite_templates",
     "get_template_regime_performance",
     "compute_rolling_expectancy",
+    "find_phantom_fills",
+    "find_pnl_mismatches",
+    "find_plan_rr_gaps",
 ]

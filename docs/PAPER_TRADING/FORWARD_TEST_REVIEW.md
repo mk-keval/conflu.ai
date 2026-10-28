@@ -3,11 +3,12 @@
 **Created:** 2026-10-19
 **Decision:** Option 1 — no rule changes now; run the live paper loop forward and decide
 with real evidence (user decision after the 2-month replay, D-71).
-**Trigger:** 30 closed forward trades **or** 6 weeks from the first *actual fill* under
-D-73 (≈ 2026-12-03 if the first fill lands 2026-10-22), whichever first.
-**Status:** RESET (2026-10-21) — execution correction D-73. The 2026-10-19/20 rows are
-voided (visible, not positions, not scored). No valid forward trades yet; the sample
-clock restarts at the first actual T+1 fill.
+**Trigger:** 30 closed forward trades **or** 2026-12-03 (6 weeks from the first actual
+fill 2026-10-22), whichever first. The calendar trigger is a progress review; the kill
+rule can fire only at 30+ closed.
+**Status:** **ACTIVE** (since 2026-10-22). As of 2026-10-28: 1 closed (CRS −1.00R,
+MFE +3.72R), 2 open (SF, IOSP), 1 pending (DUK). The 2026-10-19/20 rows remain voided
+and the 3 legacy rows remain excluded; the review has **not** fired.
 
 ## Execution correction (2026-10-21) — the first four entries were phantom fills
 
@@ -33,6 +34,7 @@ intrabar order). Sizing, targets, R:R gate and screens are unchanged.
 
 **Sample clock:** starts at the first actual fill (T+1 after an after-close signal), not
 at run 1. Until then, the scorecard has zero valid trades. Do not backfill missed days.
+That condition was met on **2026-10-22** (SF @ 65.40); see the live-state addendum below.
 
 **Pre-correction history (invalidated, kept for audit):** run 1 (2026-10-19) "accepted"
 PM (Sector Rotation Holdings, Neutral, CONDITIONAL 12.5%, T1 ≈7.2R, 30-day time stop) and
@@ -66,6 +68,43 @@ time stop before starting. Screen/confluence/regime now land on every entry and
 rejection, sector is stored and the 30% cap is real, `max_hold_days` is persisted and
 executed as calendar days, and the 3 legacy rows are flagged out-of-sample. **Targets and
 the R/R gate are unchanged** — item A is still the first review decision.
+
+## Live-state addendum (2026-10-28) — the first valid trade is on the board
+
+The sample is no longer empty. After the D-73 restart:
+
+| Symbol | Signal | Filled | Entry | Stop | State (2026-10-28) |
+|---|---|---|---:|---:|---|
+| SF | 2026-10-21 | 2026-10-22 | 65.40 | 61.26 | open |
+| IOSP | 2026-10-21 | 2026-10-23 | 97.74 | 94.53 | open |
+| CRS | 2026-10-24 | 2026-10-26 | 278.24 | 273.93 | **closed 2026-10-27, stop, −1.00R** |
+| CVX | 2026-10-24 | — | — | 200.95 | expired unfilled (3 sessions) |
+| DUK | 2026-10-26 | — | — | 111.84 | pending; 3rd eligible session 2026-10-29 |
+
+Run ids 3–7 are all `ok`; 40 rejections are logged. The four phantom rows
+(PM/AMGN/CCK/MMM) and the three legacy rows (NTNX/WBD/NVDA) remain visible but
+excluded.
+
+**P0 measurement correction (D-74, 2026-10-28) — no decision change:** the live
+`pnl_usd` was multiplying R by notional instead of dollar risk. CRS reported
+−$1,624.99; the correct figures are gross −$25.17, costs $4.84, net −$30.01.
+`scripts/verify_journal.py` now enforces phantom fills and dollar P&L (PASS: 0
+and 0), and warns on gate-vs-stored-plan R:R gaps (3 warnings). `scripts/scorecard.py`
+is the canonical scorecard. Definitions and the pre-registration are in
+`SCORECARD.md` / `PRE_REGISTRATION.md`.
+
+**What this means for the review (still no changes):**
+
+- **Item A (exit design):** CRS is the first direct evidence. T1 was **11.2R**
+  away; the trade reached **+3.72R MFE**, then stopped for **−1.00R**. That is
+  exactly the "MFE ≫ realized R" pattern the review was designed to detect. One
+  trade is an anecdote, not a conclusion; do not change targets on it.
+- **Items C/D (per-screen, gate):** the data now exists — 5 orders, 3 fills, 40
+  rejections, one closed trade. The cells are still too small for a conclusion.
+- **The calendar trigger (2026-12-03)** will arrive before 30 closes at the
+  current pace. It is a **progress review** (confidence intervals, fill rate,
+  whether to continue), not a kill-rule verdict. The kill rule remains 30+
+  closed trades.
 
 ## Why this file exists
 
@@ -131,6 +170,9 @@ Artifacts: `docs/backtests/replay_whatif_20261019_211236.json`,
   `max_hold_days` is now stored and executed as calendar days, so trades can no longer
   sit open forever. **Target hierarchy / R:R metric: unchanged** (item A below); the
   legacy 3 rows do not enter the scorecard. See audit F3/F5.
+- First forward data point (2026-10-28): CRS had T1 at **11.2R**, reached **+3.72R
+  MFE**, and stopped at **−1.00R**. This is the pattern item A predicts, but n = 1.
+  The 3 legacy rows remain excluded; do not add them to this observation.
 
 ## B. Regime response gap — "choppy" serves continuation screens; "ranging" is unreachable
 
@@ -187,6 +229,8 @@ any screen.
 **Unblocked 2026-10-19 (execution v0.1):** live entries now store `template` and
 `confluence_count` from the brief ticker (and `regime` from the brief); rejections store
 `template`/`regime`. The forward table can now be built as soon as closed trades exist.
+**First cell (2026-10-28):** Distribution / Risk-Off, n = 1, −1.00R. Descriptive only;
+one row cannot rank a screen.
 
 ## D. Gate effectiveness
 
@@ -201,22 +245,40 @@ analysis. **Still open:** the 2.5:1 floor is measured to the last target rather 
 exit target (audit F5, item A), so gate effectiveness must be read alongside the target
 hierarchy decision.
 
+**Live state (2026-10-28):** 7 runs, **40 rejections**, 5 orders, 3 fills, 1 closed.
+The rejection rate is high (40 rejected vs 3 filled), but there is no counterfactual
+P&L for the rejected names yet, so the gate's *selection* value is unmeasured. The
+gate's *measurement* value is now recorded; the review can compute it once the sample
+is larger.
+
 ## Guardrails
 
-- **Execution v0.1 is frozen from the first run** (measurement fixes + calendar-day time
-  stop only). No changes to screens, weights, targets, R:R gate or sizing before the
-  trigger.
+- **Execution v0.1 is frozen from the first actual fill (2026-10-22)** (measurement
+  fixes + calendar-day time stop only). No changes to screens, weights, targets, R:R
+  gate or sizing before the trigger. D-74 is measurement-only (P&L arithmetic, plan
+  provenance, verifier) and does not change a decision.
 - The 3 legacy rows (NTNX/WBD/NVDA) are flagged `exclude_from_stats=1`; they are visible
   and open but never count toward the 30 closed trades, expectancy or the kill rule.
+  The 4 phantom rows (PM/AMGN/CCK/MMM) are `voided=1` and also never count.
 - The replay ledger stays simulation-only; the forward journal + VISION.md kill rule
-  (expectancy ≤ 0 after 30+ closed trades → stop) remains the decider.
+  (expectancy ≤ 0 after 30+ closed trades → stop) remains the decider. The 2026-12-03
+  calendar review is a progress review, not a kill-rule verdict.
 - Do not backfill missed days. A missed run is an honest gap.
+- Run `python scripts/verify_journal.py` before quoting any scorecard number; it must
+  print `PASS`.
 
 ## Related artifacts
 
 - `docs/PAPER_TRADING/PIPELINE_AUDIT.md` — read-only audit (2026-10-19) of the live
   screener → gate → exit pipeline; root causes and prioritized fixes mapped to the four
   dials (F1–F10).
+- `docs/PAPER_TRADING/SCORECARD.md` — canonical forward metrics, definitions and the
+  current snapshot.
+- `docs/PAPER_TRADING/PRE_REGISTRATION.md` — frozen rules, trigger, kill rule and
+  amendment policy for FWD-v0.1.
+- `docs/backtests/HYPOTHESIS_LOG.md` — every experiment with its evidence label
+  (confirmatory / exploratory / measurement / invalid).
+- `docs/DECISIONS/D-74-p0-measurement-integrity.md` — the P0 measurement fix.
 - `docs/PAPER_TRADING/V2_RISK_GOVERNOR_BLUEPRINT.md` — four-dials design proposal
   (permission / playbook / size / exits), with success criteria and guardrails.
 - `run_replay_experiments.py` — what-if runner (design learning only).

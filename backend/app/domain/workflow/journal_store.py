@@ -58,16 +58,21 @@ ENTRY_COLUMNS = [
 ]
 EXIT_COLUMNS = [
     "date_closed", "exit_price", "exit_reason", "realized_r", "pnl_usd",
-    "mfe_r", "mae_r", "plan_adherence",
+    "pnl_gross_usd", "costs_usd", "mfe_r", "mae_r", "plan_adherence",
 ]
-EXTRA_COLUMNS = ["template", "regime", "entry_timing", "max_hold_days"]
+# Journal-only entry fields: attribution, the time stop, and the D-74 plan
+# provenance (T3 + the R metrics recomputed from the stored levels).
+EXTRA_COLUMNS = [
+    "template", "regime", "entry_timing", "max_hold_days",
+    "target_3", "plan_rr", "target_1_r",
+]
 # Operational flags: fetched with rows but never overwritten by an entry upsert.
 META_COLUMNS = ["exclude_from_stats", "voided", "void_reason"]
 ENTRY_DB_COLUMNS = ENTRY_COLUMNS + EXTRA_COLUMNS
 FETCH_COLUMNS = ENTRY_DB_COLUMNS + EXIT_COLUMNS + META_COLUMNS
 PENDING_COLUMNS = [
     "signal_date", "symbol", "sector", "action", "order_type", "limit_price",
-    "entry_low", "entry_high", "stop_loss", "target_1", "target_2",
+    "entry_low", "entry_high", "stop_loss", "target_1", "target_2", "target_3",
     "position_size_pct", "account_value", "shares", "confluence_count",
     "signal_at_entry", "gate_verdict", "gate_failed_step",
     "risk_reward_planned", "gate_version", "notes", "template", "regime",
@@ -83,10 +88,11 @@ REJECTION_COLUMNS = [
 RUN_MODES = ("enforce", "sync_exits", "run_close", "import")
 
 _FLOAT_COLUMNS = {
-    "entry_price", "stop_loss", "target_1", "target_2", "position_size_pct",
-    "account_value", "shares", "entry_low", "entry_high", "risk_reward_planned",
-    "exit_price", "realized_r", "pnl_usd", "mfe_r", "mae_r", "plan_adherence",
-    "limit_price",
+    "entry_price", "stop_loss", "target_1", "target_2", "target_3",
+    "position_size_pct", "account_value", "shares", "entry_low", "entry_high",
+    "risk_reward_planned", "plan_rr", "target_1_r",
+    "exit_price", "realized_r", "pnl_usd", "pnl_gross_usd", "costs_usd",
+    "mfe_r", "mae_r", "plan_adherence", "limit_price",
 }
 _INT_COLUMNS = {
     "confluence_count", "conviction", "max_hold_days", "exclude_from_stats",
@@ -100,17 +106,19 @@ CREATE TABLE IF NOT EXISTS paper_trades (
   date_entered TEXT NOT NULL,
   symbol TEXT NOT NULL,
   sector TEXT, action TEXT, entry_type TEXT DEFAULT 'initial',
-  entry_price REAL, stop_loss REAL, target_1 REAL, target_2 REAL,
+  entry_price REAL, stop_loss REAL, target_1 REAL, target_2 REAL, target_3 REAL,
   position_size_pct REAL, account_value REAL, shares REAL,
   confluence_count INTEGER, signal_at_entry TEXT,
   gate_verdict TEXT, gate_failed_step TEXT,
   entry_low REAL, entry_high REAL, risk_reward_planned REAL,
+  plan_rr REAL, target_1_r REAL,
   gate_version TEXT, notes TEXT,
   template TEXT, regime TEXT,
   entry_timing TEXT NOT NULL DEFAULT 'eod',
   max_hold_days INTEGER,
   date_closed TEXT, exit_price REAL, exit_reason TEXT,
-  realized_r REAL, pnl_usd REAL, mfe_r REAL, mae_r REAL, plan_adherence REAL,
+  realized_r REAL, pnl_usd REAL, pnl_gross_usd REAL, costs_usd REAL,
+  mfe_r REAL, mae_r REAL, plan_adherence REAL,
   exclude_from_stats INTEGER NOT NULL DEFAULT 0,
   voided INTEGER NOT NULL DEFAULT 0,
   void_reason TEXT,
@@ -126,7 +134,7 @@ CREATE TABLE IF NOT EXISTS pending_orders (
   sector TEXT, action TEXT,
   order_type TEXT NOT NULL DEFAULT 'limit',
   limit_price REAL, entry_low REAL, entry_high REAL,
-  stop_loss REAL, target_1 REAL, target_2 REAL,
+  stop_loss REAL, target_1 REAL, target_2 REAL, target_3 REAL,
   position_size_pct REAL, account_value REAL, shares REAL,
   confluence_count INTEGER, signal_at_entry TEXT,
   gate_verdict TEXT, gate_failed_step TEXT,
@@ -176,8 +184,14 @@ def _migrate(con: sqlite3.Connection) -> None:
             "exclude_from_stats": "INTEGER NOT NULL DEFAULT 0",
             "voided": "INTEGER NOT NULL DEFAULT 0",
             "void_reason": "TEXT",
+            "target_3": "REAL",
+            "plan_rr": "REAL",
+            "target_1_r": "REAL",
+            "pnl_gross_usd": "REAL",
+            "costs_usd": "REAL",
         },
         "rejections": {"template": "TEXT", "regime": "TEXT"},
+        "pending_orders": {"target_3": "REAL"},
     }
     for table, columns in additions.items():
         existing = {row[1] for row in con.execute(f"PRAGMA table_info({table})")}

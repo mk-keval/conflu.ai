@@ -129,6 +129,7 @@ the regime manually.
 
 ## What we will NOT do
 
-- No changes before the review trigger (30 closed trades or ≈ 2026-11-30).
+- No changes before the review trigger (30 closed trades or 2026-12-03, whichever
+  first; the calendar date is a progress review, not a kill-rule verdict).
 - No tuning on a single 2-month window; the what-if runs only size hypotheses.
 - Replay numbers never count as evidence.

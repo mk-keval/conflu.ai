@@ -30,6 +30,7 @@ from backend.app.domain.workflow import gate as gate_mod
 from backend.app.domain.workflow import journal as journal_mod
 from backend.app.domain.workflow import pending as pending_mod
 from backend.app.domain.workflow import pending_service
+from backend.app.domain.workflow import pnl as pnl_mod
 from backend.app.domain.workflow import replay_store
 from backend.app.domain.workflow import sizing as sizing_mod
 from backend.app.domain.workflow import verification as verification_mod
@@ -116,6 +117,7 @@ class PendingOrderItem(BaseModel):
     stop_loss: float | None = None
     target_1: float | None = None
     target_2: float | None = None
+    target_3: float | None = None
     position_size_pct: float | None = None
     account_value: float | None = None
     shares: float | None = None
@@ -928,6 +930,12 @@ async def _build_row(
     targets = v.get("targets") or []
     t1 = round(targets[0], 2) if len(targets) >= 1 else ""
     t2 = round(targets[1], 2) if len(targets) >= 2 else ""
+    t3 = round(targets[2], 2) if len(targets) >= 3 else ""
+    entry_low = v.get("entry_zone_low")
+    entry_high = v.get("entry_zone_high")
+    # D-74 provenance: the gate's reported R:R is stored separately from the
+    # R:R recomputed on the levels the journal will actually execute.
+    metrics = pnl_mod.plan_metrics(entry_low, entry_high, stop, targets) or {}
 
     account_value = journal_mod.available_capital()
     shares = round((size / 100.0 * account_value) / entry, 2) if entry else ""
@@ -959,6 +967,9 @@ async def _build_row(
         "stop_loss": stop,
         "target_1": t1,
         "target_2": t2,
+        "target_3": t3,
+        "plan_rr": metrics.get("plan_rr"),
+        "target_1_r": metrics.get("target_1_r"),
         "position_size_pct": size,
         "account_value": round(account_value, 2),
         "shares": shares,
@@ -966,8 +977,8 @@ async def _build_row(
         "signal_at_entry": signal[:200],
         "gate_verdict": overall,
         "gate_failed_step": conditional_step if overall == "CONDITIONAL" else "",
-        "entry_low": v.get("entry_zone_low"),
-        "entry_high": v.get("entry_zone_high"),
+        "entry_low": entry_low,
+        "entry_high": entry_high,
         "risk_reward_planned": v.get("risk_reward", ""),
         "gate_version": GATE_VERSION,
         "notes": notes[:500],
@@ -991,6 +1002,8 @@ class SyncExitsResponseItem(BaseModel):
     exit_reason: str | None = None
     realized_r: float | None = None
     pnl_usd: float | None = None
+    pnl_gross_usd: float | None = None
+    costs_usd: float | None = None
     mfe_r: float | None = None
     mae_r: float | None = None
     plan_adherence: float | None = None
@@ -1111,11 +1124,14 @@ async def _execute_sync_exits(
             continue
 
         realized_r = (fill.exit_price - entry) / (entry - stop)
-        account_value = journal_mod._as_float(row.get("account_value"))
-        pnl_usd = None
-        if account_value:
-            risk_amount = account_value * (journal_mod.position_size_pct(row) / 100.0)
-            pnl_usd = round(realized_r * risk_amount, 2)
+        shares = journal_mod._as_float(row.get("shares"))
+        if not shares:
+            # Legacy rows may predate the shares column: derive from notional.
+            account_value = journal_mod._as_float(row.get("account_value"))
+            size_pct = journal_mod.position_size_pct(row)
+            if account_value and size_pct:
+                shares = account_value * size_pct / 100.0 / entry
+        money = pnl_mod.dollar_pnl(entry, fill.exit_price, shares) or {}
 
         plan_adherence = 1.0 if fill.exit_reason in (exits_mod.EXIT_STOP, exits_mod.EXIT_TARGET_1, exits_mod.EXIT_TARGET_2) else 0.5
 
@@ -1124,7 +1140,9 @@ async def _execute_sync_exits(
             "exit_price": round(fill.exit_price, 2),
             "exit_reason": fill.exit_reason,
             "realized_r": round(realized_r, 2),
-            "pnl_usd": pnl_usd,
+            "pnl_usd": money.get("pnl_usd"),
+            "pnl_gross_usd": money.get("pnl_gross_usd"),
+            "costs_usd": money.get("costs_usd"),
             "mfe_r": fill.mfe_r,
             "mae_r": fill.mae_r,
             "plan_adherence": plan_adherence,
@@ -1136,7 +1154,9 @@ async def _execute_sync_exits(
             exit_price=round(fill.exit_price, 2),
             exit_reason=fill.exit_reason,
             realized_r=round(realized_r, 2),
-            pnl_usd=pnl_usd,
+            pnl_usd=money.get("pnl_usd"),
+            pnl_gross_usd=money.get("pnl_gross_usd"),
+            costs_usd=money.get("costs_usd"),
             mfe_r=fill.mfe_r,
             mae_r=fill.mae_r,
             plan_adherence=plan_adherence,
