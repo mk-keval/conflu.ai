@@ -58,9 +58,10 @@ works, not because it says anything about the screen.
 
 CRS is a clean illustration of review item A, not a verdict on the system:
 
-- The plan's first target was **11.2R** away (T1 397.79, entry 278.24, stop
-  273.93). The gate recorded 4.32; the stored plan recomputes to 11.89. Those
-  numbers never reconciled (see D-74 and the verifier warnings).
+- The plan's first target was **11.2R** from the entry-zone midpoint (284.08) —
+  **27.7R** from the actual fill (278.24); T1 397.79, stop 273.93. The gate
+  recorded 4.32; the stored plan recomputes to 11.89 from the same midpoint.
+  Those numbers never reconciled (see D-74 and the verifier warnings).
 - The trade reached **+3.72R MFE** and then closed at the stop for −1.00R. A
   trailing stop or a nearer first target could have changed the outcome; the
   frozen design has neither.
@@ -74,6 +75,7 @@ CRS is a clean illustration of review item A, not a verdict on the system:
 | Metric | Definition |
 |---|---|
 | `realized_r` | `(exit_price − entry_price) / (entry_price − stop_loss)` — **gross of costs** |
+| `target_1_r`, `plan_rr` | R distance to T1 / R:R to the last target, measured from the **entry-zone midpoint** (the gate's basis), not the fill. Do not compare directly to `realized_r`. |
 | `pnl_gross_usd` | `(exit_price − entry_price) × shares` |
 | `costs_usd` | `(entry_price + exit_price) × shares × 15 bps` (10 bps fee + 5 bps slippage per side) |
 | `pnl_usd` | `pnl_gross_usd − costs_usd` — **net of costs** |
@@ -163,7 +165,8 @@ diagnostics belong in the review, not in the expectancy number.
 - Whether the screens have an edge (n = 1).
 - Whether the gate rejects winners (rejections are logged, but no counterfactual
   exits are computed).
-- Whether targets are reachable (the sample has one closed trade at 11.2R T1).
+- Whether targets are reachable (the sample has one closed trade whose T1 sat
+  27.7R above the fill, or 11.2R from the entry-zone midpoint).
 - Whether the replay's −0.203R carries into forward data (different execution,
   different universe, different gate).
 - Whether the system should be changed. That decision waits for the trigger and

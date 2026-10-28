@@ -64,8 +64,8 @@ Kill rule: NOT YET — 1/30 closed
 
 ## What the first valid trade shows
 
-CRS: entry 278.24, stop 273.93, T1 397.79 (**11.2R**), MFE **+3.72R**, closed at the
-stop **−1.00R**. This is the review-A pattern (MFE ≫ realized R, T1 unreachable) in its
+CRS: entry 278.24, stop 273.93, T1 397.79 (**11.2R** from the entry-zone
+midpoint; **27.7R** from the fill), MFE **+3.72R**, closed at the stop **−1.00R**. This is the review-A pattern (MFE ≫ realized R, T1 unreachable) in its
 first forward data point. One trade is an anecdote, not a verdict.
 
 ## What did not change

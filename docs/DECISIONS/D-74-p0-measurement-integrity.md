@@ -183,7 +183,8 @@ Tests:
 - **R is unchanged and remains the primary metric.** The fix does not flatter or
   punish the strategy; it only stops the dollar column from lying.
 - **The target hierarchy is now visible in the data.** CRS reached +3.72R MFE and
-  still lost 1R because T1 was 11.2R away. That is exactly the review-A question,
+  still lost 1R because T1 was 11.2R from the zone midpoint (27.7R from the fill).
+  That is exactly the review-A question,
   now measurable rather than inferred.
 - **The provenance gap is logged, not hidden.** Three warnings are part of the
   permanent record until the target hierarchy is redesigned. A future fix will

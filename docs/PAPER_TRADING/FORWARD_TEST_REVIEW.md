@@ -96,7 +96,8 @@ is the canonical scorecard. Definitions and the pre-registration are in
 **What this means for the review (still no changes):**
 
 - **Item A (exit design):** CRS is the first direct evidence. T1 was **11.2R**
-  away; the trade reached **+3.72R MFE**, then stopped for **−1.00R**. That is
+  from the entry-zone midpoint — **27.7R** from the fill; the trade reached
+  **+3.72R MFE**, then stopped for **−1.00R**. That is
   exactly the "MFE ≫ realized R" pattern the review was designed to detect. One
   trade is an anecdote, not a conclusion; do not change targets on it.
 - **Items C/D (per-screen, gate):** the data now exists — 5 orders, 3 fills, 40
@@ -170,7 +171,8 @@ Artifacts: `docs/backtests/replay_whatif_20261019_211236.json`,
   `max_hold_days` is now stored and executed as calendar days, so trades can no longer
   sit open forever. **Target hierarchy / R:R metric: unchanged** (item A below); the
   legacy 3 rows do not enter the scorecard. See audit F3/F5.
-- First forward data point (2026-10-28): CRS had T1 at **11.2R**, reached **+3.72R
+- First forward data point (2026-10-28): CRS had T1 at **11.2R** from the
+  entry-zone midpoint (**27.7R** from the fill), reached **+3.72R
   MFE**, and stopped at **−1.00R**. This is the pattern item A predicts, but n = 1.
   The 3 legacy rows remain excluded; do not add them to this observation.
 

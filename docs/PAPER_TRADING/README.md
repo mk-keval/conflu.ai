@@ -117,8 +117,9 @@ Rules you should know:
 > (converted to the first session on/after the cutoff). **Still open (review item A):**
 > T1 can sit far above entry because targets are the highest structural levels, not the
 > nearest resistance; the gate's R/R is measured to the last target. In the first valid
-> closed trade (CRS) T1 was **11.2R** away, the trade reached **+3.72R MFE**, then
-> stopped for **−1.00R**. Targets/R:R are deliberately unchanged during this sample.
+> closed trade (CRS) T1 was **11.2R** from the entry-zone midpoint (**27.7R** from
+> the fill); the trade reached **+3.72R MFE**, then stopped for **−1.00R**.
+> Targets/R:R are deliberately unchanged during this sample.
 > See `docs/PAPER_TRADING/PIPELINE_AUDIT.md` F3/F5 and `SCORECARD.md`.
 >
 > The 3 pre-instrumentation rows (NTNX/WBD/NVDA) are flagged `exclude_from_stats=1`:
