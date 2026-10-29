@@ -274,7 +274,7 @@ judgment on these rows.
 |---|---|---|
 | Pass bar (D-75) | `VISION.md` / this file | **Resolved 2026-10-28** — WR > 50% bar replaced |
 | Sample scope (Q2) | This file / D-76 | **Resolved 2026-10-28** — v0.1 closed; v0.2 is scored |
-| Bundle A spec: target hierarchy, gate R:R, exits per family, dynamic plan | `PIPELINE_AUDIT.md` F5 / review A | **Resolved 2026-10-28 (D-77)** — spec frozen; implementation pending; v0.2 starts after go-live. See `PRE_REGISTRATION-v0.2.md` |
+| Bundle A spec: target hierarchy, gate R:R, exits per family, dynamic plan | `PIPELINE_AUDIT.md` F5 / review A | **Resolved 2026-10-28 (D-77)** — spec frozen; **live 2026-10-29**. See `PRE_REGISTRATION-v0.2.md` |
 | Target hierarchy: T1 vs gate R:R (review A) | `PIPELINE_AUDIT.md` F5 | **Resolved 2026-10-28 (D-77)** — gate measures T1 from the planned fill; nearest structural target or reject |
 | Choppy menu / `ranging` unreachable (review B) | `PIPELINE_AUDIT.md` F6 | Frozen |
 | Permission, cross-screen rank, daily cap (review B) | `PIPELINE_AUDIT.md` F7 | Frozen |

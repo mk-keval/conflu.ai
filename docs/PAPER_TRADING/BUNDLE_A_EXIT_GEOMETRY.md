@@ -1,8 +1,8 @@
 # Bundle A — Exit & Gate Geometry (FWD-v0.2)
 
-**Status:** **FROZEN 2026-10-28 (D-77)** — decisions A1–A5 signed off as
-recommended; implementation in progress. No v0.2 row exists until the go-live
-commit flips `CURRENT_SAMPLE_VERSION`.
+**Status:** **FROZEN 2026-10-28 (D-77); LIVE 2026-10-29.** Decisions A1–A5 signed
+off as recommended. Implemented in `dad6ac8`; the go-live commit flips
+`CURRENT_SAMPLE_VERSION` to `v0.2`. The clock starts at the first v0.2 fill.
 **Date:** 2026-10-28
 **Scope:** P1-6 (exit policy per setup family), P1-7 (gate R:R measured on the
 exit that pays), P1-8 (wire or delete the dynamic management plan), P4-15 (use
@@ -279,6 +279,10 @@ Corrected sequence:
    pre-registration with the freeze date and "first fill TBD", and run the
    verifier. The v0.2 clock starts at the **first fill after this commit**.
 4. **H-09 replay** — after go-live, exploratory only.
+
+**Executed 2026-10-29:** implementation landed as `dad6ac8` (213 focused tests
+and the verifier passed); this go-live commit sets `CURRENT_SAMPLE_VERSION =
+"v0.2"`. First v0.2 fill: TBD. No v0.2 row existed before this commit.
 
 This preserves the rule that a row is traded under the version it is stamped
 with.

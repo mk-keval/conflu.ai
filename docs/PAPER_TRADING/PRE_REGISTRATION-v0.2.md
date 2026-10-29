@@ -1,13 +1,14 @@
 # Pre-Registration — Forward Sample v0.2
 
-> **SPEC FROZEN 2026-10-28 (D-77). NOT YET LIVE.** No row is stamped `v0.2`
-> until the go-live commit flips `CURRENT_SAMPLE_VERSION`. The clock starts at
-> the first fill after that commit, not at this document's date.
+> **LIVE 2026-10-29 (D-77, implementation `dad6ac8`).** Rows created after the
+> go-live commit are stamped `v0.2`. No `interim` row was ever created. The clock
+> starts at the first fill after go-live, not at this document's date.
 
 **Experiment ID:** `FWD-v0.2`
-**Status:** Frozen — implementation in progress; go-live pending
+**Status:** Live — clock starts at the first actual fill
 **Registered:** 2026-10-28
-**First actual fill:** not yet (go-live pending)
+**Go-live:** 2026-10-29 (implementation `dad6ac8`; `CURRENT_SAMPLE_VERSION = "v0.2"`)
+**First actual fill:** not yet — TBD
 **Supersedes:** FWD-v0.1 — closed for verdict purposes 2026-10-28 (D-76); the
 geometry it measured was incoherent (D-77)
 **Journal of record:** `data/paper_trades.db`
@@ -133,6 +134,10 @@ rows.
 3. **Go-live:** all focused tests pass and `verify_journal.py` PASS; flip
    `CURRENT_SAMPLE_VERSION = "v0.2"`; record the go-live date here and set
    "first fill TBD"; the clock starts at the first fill after the commit.
+   **Done 2026-10-29** — implementation `dad6ac8`: 213 focused tests passed, the
+   full backend suite was green apart from 5 pre-existing failures reproduced at
+   `HEAD`, and `verify_journal.py` returned PASS on the live journal (10 rows,
+   all v0.1; 0 v0.2 rows).
 4. **H-09 replay:** after go-live, exploratory only (`rules_version='v0.2'`),
    never evidence.
 
@@ -148,3 +153,4 @@ rows.
 | Date | Change |
 |---|---|
 | 2026-10-28 | Created as the v0.2 pre-registration; Bundle A frozen, not yet live |
+| 2026-10-29 | **Go-live.** Bundle A implemented (`dad6ac8`); `CURRENT_SAMPLE_VERSION = "v0.2"`; first fill TBD; no design change |

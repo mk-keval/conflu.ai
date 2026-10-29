@@ -23,8 +23,8 @@ using any figure in a decision; if the doc and the script disagree, the script w
 | Version | Rows | Scored? |
 |---|---|---|
 | `v0.1` | Everything before 2026-10-28 (1 closed CRS, 2 open SF/IOSP, 1 pending DUK) | **No** — closed for verdicts; reference only |
-| `interim` | Daily-loop rows from 2026-10-29 until the v0.2 freeze | **No** — execution diagnostics only |
-| `v0.2` | First fill after the Bundle A spec freeze | **Yes** — the canonical scorecard |
+| `interim` | None created — go-live (2026-10-29) preceded the first loop run | **No** — would be execution diagnostics only |
+| `v0.2` | Rows/orders created on or after go-live 2026-10-29; first fill TBD | **Yes** — the canonical scorecard |
 
 The version is set once on insert and never moved by a re-run. A filled pending
 order inherits its order's version. Rows from other versions appear in the
@@ -200,9 +200,9 @@ Expiry (never touched) and cancellation (gapped through the stop or above the MO
 cap) mean different things about the setup and must stay separate. These
 diagnostics belong in the review, not in the expectancy number.
 
-These counts are the v0.1 reference set. Orders created from 2026-10-29 are
-tagged `interim` and stay out of the scored sample; their diagnostics will reset
-when FWD-v0.2 starts at its first scored fill.
+These counts are the v0.1 reference set. Orders created on/after go-live
+(2026-10-29) are tagged `v0.2`; their diagnostics reset with the scored sample
+at its first fill.
 
 ---
 

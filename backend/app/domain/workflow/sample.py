@@ -8,10 +8,11 @@ Versions
 --------
 - ``v0.1``   — FWD-v0.1, the first forward sample. **Closed for verdict
   purposes on 2026-10-28** (Q2): it is reference data, never a verdict.
-- ``interim`` — daily-loop rows created after the v0.1 close and before the
-  v0.2 spec is frozen. Execution diagnostics only; **never evidence**.
-- ``v0.2``   — FWD-v0.2, the scored sample. The clock starts at the first fill
-  after the Bundle A spec is frozen.
+- ``interim`` — daily-loop rows created after the v0.1 close and before go-live.
+  Execution diagnostics only; **never evidence**. Go-live came before the first
+  loop run, so no ``interim`` row exists.
+- ``v0.2``   — FWD-v0.2, the scored sample. Live 2026-10-29; the clock starts at
+  the first fill after go-live.
 
 Rows are immutable once written: a re-run must not move a row between samples.
 A filled pending order inherits its order's version.
@@ -38,13 +39,15 @@ SAMPLE_VERSIONS = (
 # commit — a visible governance change, not an environment variable.
 SCORED_SAMPLE_VERSION = SAMPLE_VERSION_V02
 
-# What every new row/order is stamped with until that freeze.
-CURRENT_SAMPLE_VERSION = SAMPLE_VERSION_INTERIM
+# What every new row/order is stamped with. Flipped to v0.2 at go-live on
+# 2026-10-29 (implementation `dad6ac8`) after the tests and verifier passed.
+# The v0.2 clock starts at the first fill after that commit.
+CURRENT_SAMPLE_VERSION = SAMPLE_VERSION_V02
 
 SAMPLE_VERSION_LABELS = {
     SAMPLE_VERSION_V01: "closed for verdicts 2026-10-28 (Q2/D-76) — reference only",
-    SAMPLE_VERSION_INTERIM: "not evidence — loop data between samples",
-    SAMPLE_VERSION_V02: "scored sample — starts at first fill after the spec freeze",
+    SAMPLE_VERSION_INTERIM: "not evidence — loop data between samples (none created)",
+    SAMPLE_VERSION_V02: "scored sample, live 2026-10-29 — clock starts at the first fill",
 }
 
 

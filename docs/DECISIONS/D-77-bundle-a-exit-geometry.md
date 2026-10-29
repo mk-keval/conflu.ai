@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-28
 **Status:** Accepted — user sign-off on A1–A5 (2026-10-28); spec **FROZEN**;
-implementation in progress. No v0.2 row exists until the go-live commit.
+**implemented `dad6ac8`, live 2026-10-29**. First v0.2 fill TBD.
 **Branch:** `fix/technical-tab-empty`
 **Spec:** [`docs/PAPER_TRADING/BUNDLE_A_EXIT_GEOMETRY.md`](../PAPER_TRADING/BUNDLE_A_EXIT_GEOMETRY.md)
 **Related:** D-51 (single exit for v1), D-58 (structural targets), D-74
@@ -148,6 +148,11 @@ it never enters the forward scorecard and is never confirmatory evidence.
 - v0.1 rows are untouched. No past decision is re-decided under v0.2.
 
 ## Implementation checklist
+
+**Status 2026-10-29:** items 1–8, 10 and 11 are complete (`dad6ac8` + go-live
+commit). Item 9 is complete on the backend (models, OpenAPI, generated types);
+the journal page does not render family/leg badges yet — the fields are exposed
+for it.
 
 1. `backend/app/domain/workflow/exit_policy.py`: family map, bands, target
    selection, pure multi-leg simulator, accounting.

@@ -13,15 +13,15 @@ candidates (new pending orders), records every rejection, and syncs + applies
 exits for the open book (D-68/D-73). Then glance at **Workflow → Journal** —
 trades table, pending panel, runs strip, rejections, Export CSV.
 
-**Scored sample: FWD-v0.2 — not started.** FWD-v0.1 was closed for verdict
-purposes on 2026-10-28: 3 valid fills (SF, IOSP, CRS), 1 closed (CRS −1.00R),
-2 open, 1 pending (DUK). Those rows are reference only. The daily loop continues
-and every new row is tagged `interim` — execution data, never evidence. The v0.2
-clock starts at the first fill after the Bundle A spec is frozen; from there the
-sample runs to **30 closed scored trades or 6 weeks after the first scored
-fill**, whichever first. The four 2026-10-19/20 phantom fills are voided and
-visible; the three legacy rows (NTNX/WBD/NVDA) are excluded from stats. Rules and
-trigger: [PRE_REGISTRATION.md](PRE_REGISTRATION.md). Canonical numbers:
+**Scored sample: FWD-v0.2 — live 2026-10-29; first fill TBD.** FWD-v0.1 was
+closed for verdict purposes on 2026-10-28: 3 valid fills (SF, IOSP, CRS), 1
+closed (CRS −1.00R), 2 open, 1 pending (DUK). Those rows are reference only. New
+rows are stamped `v0.2` from the go-live commit; no `interim` row was created.
+The v0.2 clock starts at its first fill; from there the sample runs to **30
+closed scored trades or 6 weeks after the first scored fill**, whichever first.
+The four 2026-10-19/20 phantom fills are voided and visible; the three legacy
+rows (NTNX/WBD/NVDA) are excluded from stats. Rules and trigger:
+[PRE_REGISTRATION-v0.2.md](PRE_REGISTRATION-v0.2.md). Canonical numbers:
 [SCORECARD.md](SCORECARD.md).
 
 The journal of record is **SQLite** (`data/paper_trades.db`) — there is no
@@ -261,8 +261,8 @@ expectancy ≤ 0 after 30+ closed trades; a peak-to-trough drawdown of 8R stops 
 entries for review, and 12R kills. A written reason is required to extend.
 
 **Which rows count (D-76):** only the **scored sample version** (`v0.2`). FWD-v0.1
-was closed for verdict purposes on 2026-10-28 and is reference only; rows created
-after that date are `interim` loop data and are never evidence. `sample_version`
+was closed for verdict purposes on 2026-10-28 and is reference only; rows
+created on/after go-live (2026-10-29) are `v0.2`. `sample_version`
 is set once on insert, and a filled order inherits its order's version. The
 scorecard prints other versions as reference; it never folds them into the
 headline.
