@@ -305,6 +305,9 @@ def build_filled_row(order: Mapping[str, Any], decision: FillDecision) -> dict[s
         "regime": order.get("regime"),
         "max_hold_days": order.get("max_hold_days"),
         "entry_timing": "t1_limit" if order_type == ORDER_LIMIT else "moo",
+        # The journal row belongs to the sample the order was queued under
+        # (D-76). If the order predates versioning, upsert defaults it.
+        "sample_version": order.get("sample_version"),
     }
 
 

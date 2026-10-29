@@ -1,6 +1,6 @@
 # Paper Trading Workflow — conflu.ai Elite Trader System
 
-This is your **operating manual** for paper trading with conflu.ai. Follow it every trading day for the life of the sample (30 closed trades or 2026-12-03, whichever first). The system is only as good as your discipline in using it.
+This is your **operating manual** for paper trading with conflu.ai. Follow it every trading day for the life of the current sample (30 closed scored trades or 6 weeks after the first scored fill, whichever first). The system is only as good as your discipline in using it.
 
 ---
 
@@ -13,12 +13,15 @@ candidates (new pending orders), records every rejection, and syncs + applies
 exits for the open book (D-68/D-73). Then glance at **Workflow → Journal** —
 trades table, pending panel, runs strip, rejections, Export CSV.
 
-**Sample live since 2026-10-22** (first actual fill: SF @ 65.40). As of
-2026-10-28: 3 valid fills (SF, IOSP, CRS), 1 closed (CRS −1.00R), 2 open, 1
-pending (DUK). The clock runs to **30 closed scored trades or 2026-12-03**,
-whichever first. The four 2026-10-19/20 phantom fills are voided and visible; the
-three legacy rows (NTNX/WBD/NVDA) are excluded from stats. Rules and trigger:
-[PRE_REGISTRATION.md](PRE_REGISTRATION.md). Canonical numbers:
+**Scored sample: FWD-v0.2 — not started.** FWD-v0.1 was closed for verdict
+purposes on 2026-10-28: 3 valid fills (SF, IOSP, CRS), 1 closed (CRS −1.00R),
+2 open, 1 pending (DUK). Those rows are reference only. The daily loop continues
+and every new row is tagged `interim` — execution data, never evidence. The v0.2
+clock starts at the first fill after the Bundle A spec is frozen; from there the
+sample runs to **30 closed scored trades or 6 weeks after the first scored
+fill**, whichever first. The four 2026-10-19/20 phantom fills are voided and
+visible; the three legacy rows (NTNX/WBD/NVDA) are excluded from stats. Rules and
+trigger: [PRE_REGISTRATION.md](PRE_REGISTRATION.md). Canonical numbers:
 [SCORECARD.md](SCORECARD.md).
 
 The journal of record is **SQLite** (`data/paper_trades.db`) — there is no
@@ -207,7 +210,7 @@ not evidence yet.
 6. Look at the **losing trades**: was the catalyst signal wrong, or was the execution wrong? Check `mae_r` — did it go green first and then stop you out?
 7. Look at the **winning trades**: check `mfe_r` — did you leave R on the table?
 8. Review the **rejections log** (Journal tab): were the rejected candidates actually the losers? If the gate rejects winners, the gate is wrong.
-9. **Kill rule** — if after 30+ closed trades expectancy ≤ 0, the system is not working. Change it or stop. Do not "give it more time" without a written reason. The 2026-12-03 calendar review is a progress review, not a kill-rule verdict.
+9. **Kill rule** — if after 30+ closed scored trades expectancy ≤ 0, the system is not working. Change it or stop. Do not "give it more time" without a written reason. The calendar review (6 weeks after the first scored fill) is a progress review, not a kill-rule verdict.
 
 **Minimum sample:** do not draw pattern-level conclusions below ~30 closed
 trades per pattern. Below that you are reading noise, not edge. One closed trade
@@ -256,6 +259,13 @@ trades**, the sample passes when expectancy > 0 after costs, profit factor ≥ 1
 and average loss ≤ 1.0R. Win rate is reported, not gated. The kill rule is
 expectancy ≤ 0 after 30+ closed trades; a peak-to-trough drawdown of 8R stops new
 entries for review, and 12R kills. A written reason is required to extend.
+
+**Which rows count (D-76):** only the **scored sample version** (`v0.2`). FWD-v0.1
+was closed for verdict purposes on 2026-10-28 and is reference only; rows created
+after that date are `interim` loop data and are never evidence. `sample_version`
+is set once on insert, and a filled order inherits its order's version. The
+scorecard prints other versions as reference; it never folds them into the
+headline.
 
 **The system needs work if:** your manual reads are systematically better than
 conflu.ai's verdicts, or the gate rejects winners more often than losers.

@@ -141,6 +141,15 @@ def test_build_filled_row_uses_actual_fill_and_t1_timing() -> None:
     assert "Pending limit $100.00 filled 2026-10-21" in row["notes"]
 
 
+def test_filled_row_inherits_the_order_sample_version() -> None:
+    decision = pending.FillDecision(
+        pending.FILLED, fill_date="2026-10-21", fill_price=100.0,
+        bar=_bar("2026-10-21", 101.0, 102.0, 99.0, 100.5),
+    )
+    assert pending.build_filled_row(_order(sample_version="v0.1"), decision)["sample_version"] == "v0.1"
+    assert pending.build_filled_row(_order(), decision)["sample_version"] is None
+
+
 def test_worse_moo_fill_caps_shares_at_planned_risk() -> None:
     # 20% of 100k = $20k notional; plan risk = $1k at a $5 stop.
     # Fill 102 → risk-based shares 1000/7 = 142.86 (notional would be 196.08).

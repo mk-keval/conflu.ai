@@ -3,12 +3,13 @@
 **Created:** 2026-10-19
 **Decision:** Option 1 — no rule changes now; run the live paper loop forward and decide
 with real evidence (user decision after the 2-month replay, D-71).
-**Trigger:** 30 closed forward trades **or** 2026-12-03 (6 weeks from the first actual
-fill 2026-10-22), whichever first. The calendar trigger is a progress review; the kill
-rule can fire only at 30+ closed.
-**Status:** **ACTIVE** (since 2026-10-22). As of 2026-10-28: 1 closed (CRS −1.00R,
-MFE +3.72R), 2 open (SF, IOSP), 1 pending (DUK). The 2026-10-19/20 rows remain voided
-and the 3 legacy rows remain excluded; the review has **not** fired.
+**Trigger:** 30 closed scored trades **or** 6 weeks after the first scored fill,
+whichever first. The calendar trigger is a progress review; the kill rule can fire
+only at 30+ closed.
+**Status:** **AGENDA for FWD-v0.2 (not started).** FWD-v0.1 was closed for verdict
+purposes on 2026-10-28 (D-76); its 1 closed (CRS −1.00R, MFE +3.72R), 2 open (SF,
+IOSP) and 1 pending (DUK) are reference only. The 2026-10-19/20 rows remain voided
+and the 3 legacy rows remain excluded. The review has **not** fired.
 
 ## Execution correction (2026-10-21) — the first four entries were phantom fills
 
@@ -101,11 +102,12 @@ is the canonical scorecard. Definitions and the pre-registration are in
   exactly the "MFE ≫ realized R" pattern the review was designed to detect. One
   trade is an anecdote, not a conclusion; do not change targets on it.
 - **Items C/D (per-screen, gate):** the data now exists — 5 orders, 3 fills, 40
-  rejections, one closed trade. The cells are still too small for a conclusion.
-- **The calendar trigger (2026-12-03)** will arrive before 30 closes at the
-  current pace. It is a **progress review** (confidence intervals, fill rate,
-  whether to continue), not a kill-rule verdict. The kill rule remains 30+
-  closed trades.
+  rejections, one closed trade (v0.1 reference). The cells are still too small for
+  a conclusion.
+- **The calendar trigger** was 2026-12-03 for v0.1. FWD-v0.2's trigger is 6 weeks
+  after its first scored fill. It is a **progress review** (confidence intervals,
+  fill rate, whether to continue), not a kill-rule verdict. The kill rule remains
+  30+ closed trades.
 
 ## Why this file exists
 
@@ -247,7 +249,8 @@ analysis. **Still open:** the 2.5:1 floor is measured to the last target rather 
 exit target (audit F5, item A), so gate effectiveness must be read alongside the target
 hierarchy decision.
 
-**Live state (2026-10-28):** 7 runs, **40 rejections**, 5 orders, 3 fills, 1 closed.
+**v0.1 reference state (2026-10-28):** 7 runs, **40 rejections**, 5 orders, 3
+fills, 1 closed.
 The rejection rate is high (40 rejected vs 3 filled), but there is no counterfactual
 P&L for the rejected names yet, so the gate's *selection* value is unmeasured. The
 gate's *measurement* value is now recorded; the review can compute it once the sample
@@ -263,8 +266,10 @@ is larger.
   and open but never count toward the 30 closed trades, expectancy or the kill rule.
   The 4 phantom rows (PM/AMGN/CCK/MMM) are `voided=1` and also never count.
 - The replay ledger stays simulation-only; the forward journal + VISION.md kill rule
-  (expectancy ≤ 0 after 30+ closed trades → stop) remains the decider. The 2026-12-03
-  calendar review is a progress review, not a kill-rule verdict.
+  (expectancy ≤ 0 after 30+ closed scored trades → stop) remains the decider. The
+  calendar review (6 weeks after the first scored fill) is a progress review, not a
+  kill-rule verdict. Only the scored `sample_version` counts (D-76); v0.1 and
+  interim rows never enter the verdict.
 - Do not backfill missed days. A missed run is an honest gap.
 - Run `python scripts/verify_journal.py` before quoting any scorecard number; it must
   print `PASS`.

@@ -1,12 +1,37 @@
 # Pre-Registration — Forward Sample v0.1
 
+> **CLOSED FOR VERDICTS 2026-10-28 (Q2 = C, D-76).** No pass/fail verdict will
+> be issued from FWD-v0.1. The 1 closed trade (CRS, −1.00R) and the open
+> positions are **reference data**. The daily loop continues as `interim` data
+> (not evidence), and **FWD-v0.2** becomes the scored sample at the first fill
+> after the Bundle A spec is frozen. This file remains the frozen record of the
+> rules v0.1 actually traded under; the v0.2 pre-registration will be separate
+> and will use the D-75 bar.
+
 **Experiment ID:** `FWD-v0.1`
-**Status:** Active — frozen; no decision-changing edits until the trigger
+**Status:** Closed for verdict purposes 2026-10-28 — reference only
 **Registered:** 2026-10-28 (documenting rules already in force; see provenance)
 **First actual fill:** 2026-10-22 — SF @ 65.40
 **Journal of record:** `data/paper_trades.db`
 **Scorecard:** [SCORECARD.md](SCORECARD.md)
 **Review agenda:** [FORWARD_TEST_REVIEW.md](FORWARD_TEST_REVIEW.md)
+
+---
+
+## Sample versions (D-76)
+
+| Version | Rows | Counts toward a verdict? |
+|---|---|---|
+| `v0.1` | Everything that predates 2026-10-28 (10 journal rows, 5 orders) | **No** — closed for verdicts; reference only |
+| `interim` | New rows from 2026-10-29 until the v0.2 freeze | **No** — execution diagnostics only |
+| `v0.2` | First fill after the Bundle A spec freeze | **Yes** — the scored sample |
+
+`sample_version` is immutable on a row. A filled pending order inherits its
+order's version. The canonical scorecard counts only the scored version, plus
+`voided = 0` and `exclude_from_stats = 0`; other versions are printed as
+reference. There are no retroactive re-decisions: old rows keep the rules they
+were traded under, and any what-if run is a separate replay (`rules_version`,
+H-09).
 
 ---
 
@@ -113,6 +138,11 @@ binding decider.
 
 ## Trigger and decision rules
 
+> **Historical record for v0.1.** The triggers below governed the sample while it
+> was live. v0.1 is closed for verdicts, so no pass/fail result will be issued.
+> FWD-v0.2 will carry its own trigger: 30 closed scored trades or 6 weeks after
+> its first fill, whichever first (D-76).
+
 ### Review trigger
 
 **30 closed forward trades OR 2026-12-03 (6 weeks from the first actual fill),
@@ -151,6 +181,8 @@ The two triggers do different jobs:
 
 ### What never counts
 
+- Rows whose `sample_version` is not the scored version — v0.1 is closed for
+  verdicts and `interim` is loop data, never evidence (D-76).
 - Voided rows (PM/AMGN/CCK/MMM) — phantom fills, retained for audit only.
 - Legacy rows (NTNX/WBD/NVDA) — `exclude_from_stats = 1`.
 - Replay / backtest / what-if rows — separate tables, simulation only.
@@ -225,10 +257,14 @@ exemption.
 | 2026-10-28 | Canonical dollar P&L, plan provenance, phantom/P&L verifier (D-74) | Measurement only | Added columns, backfill, scripts; no decision change | Corrected `pnl_usd`; R unchanged; sample continues |
 | 2026-10-28 | Pass bar — closes P0-4 (D-75) | Pre-verdict definition; the flagged bar was never applied | Replaced WR > 50% / avg R > 0.5 with expectancy > 0, PF ≥ 1.3, average loss ≤ 1.0R; added the 8R/12R circuit breaker | No prior verdict; kill rule unchanged; sample continues |
 | 2026-10-28 | This pre-registration | Documentation | Consolidates D-72/D-73 rules; P0-4 is now closed by D-75 | None |
+| 2026-10-28 | Sample versions — closes Q2 (D-76) | Sample-scope change, no rule change | v0.1 closed for verdicts; daily loop continues as `interim`; **FWD-v0.2** is the scored sample and starts at the first fill after the Bundle A spec freeze. `sample_version` is immutable; fills inherit | No retroactive re-decisions; v0.1 and interim rows are reference only; the D-75 bar now applies to v0.2 |
 
 One pre-verdict definition was activated after the first actual fill: the D-75
 pass bar, which had been flagged as not applied and had produced no verdict. No
 trading decision, target, gate, screen, sizing rule or exit rule has changed.
+The v0.1 sample was subsequently closed for verdict purposes (D-76) because the
+gate/exit geometry is being redesigned; that is a new sample, not a retroactive
+judgment on these rows.
 
 ---
 
@@ -237,7 +273,9 @@ trading decision, target, gate, screen, sizing rule or exit rule has changed.
 | Item | Where | Status |
 |---|---|---|
 | Pass bar (D-75) | `VISION.md` / this file | **Resolved 2026-10-28** — WR > 50% bar replaced |
-| Target hierarchy: T1 vs gate R:R (review A) | `PIPELINE_AUDIT.md` F5 | Frozen; first review decision |
+| Sample scope (Q2) | This file / D-76 | **Resolved 2026-10-28** — v0.1 closed; v0.2 is scored |
+| Bundle A spec: target hierarchy, gate R:R, exits per family, dynamic plan | `PIPELINE_AUDIT.md` F5 / review A | **Next build** — v0.2 starts after the freeze |
+| Target hierarchy: T1 vs gate R:R (review A) | `PIPELINE_AUDIT.md` F5 | Frozen in v0.1; becomes the v0.2 design |
 | Choppy menu / `ranging` unreachable (review B) | `PIPELINE_AUDIT.md` F6 | Frozen |
 | Permission, cross-screen rank, daily cap (review B) | `PIPELINE_AUDIT.md` F7 | Frozen |
 | Sector-rotation 4th screen (review C/D) | `PIPELINE_AUDIT.md` F8 | Frozen |

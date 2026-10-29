@@ -100,6 +100,7 @@ class JournalRow(BaseModel):
     exclude_from_stats: int | None = None
     voided: int | None = None
     void_reason: str | None = None
+    sample_version: str | None = None
     _file: str | None = None
 
 
@@ -129,6 +130,7 @@ class PendingOrderItem(BaseModel):
     status_date: str | None = None
     status_reason: str | None = None
     expires_after_sessions: int | None = None
+    sample_version: str | None = None
     created_at: str | None = None
 
 

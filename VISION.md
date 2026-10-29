@@ -39,6 +39,11 @@ guarantee.
 > The legacy bar was never applied and no verdict was issued under it; the kill
 > rule is unchanged. This is the only goalpost change, recorded before the first
 > 30-trade verdict.
+>
+> **Sample (D-76, 2026-10-28):** FWD-v0.1 is **closed for verdict purposes**
+> (1 closed, −1.00R) — reference only. The daily loop continues as `interim` data
+> and is never evidence. **FWD-v0.2** is the scored sample and starts at the first
+> fill after the Bundle A spec is frozen.
 
 Primary metric: **expectancy in R** over closed journal trades.
 

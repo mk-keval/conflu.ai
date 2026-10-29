@@ -41,6 +41,8 @@ from zoneinfo import ZoneInfo
 
 from backend.app.core.logging import get_logger
 
+from backend.app.domain.workflow import sample as sample_mod
+
 log = get_logger("conflu.workflow.journal_store")
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -67,7 +69,9 @@ EXTRA_COLUMNS = [
     "target_3", "plan_rr", "target_1_r",
 ]
 # Operational flags: fetched with rows but never overwritten by an entry upsert.
-META_COLUMNS = ["exclude_from_stats", "voided", "void_reason"]
+# `sample_version` is immutable for the same reason: a re-run must not move a
+# row between forward samples (D-76).
+META_COLUMNS = ["exclude_from_stats", "voided", "void_reason", "sample_version"]
 ENTRY_DB_COLUMNS = ENTRY_COLUMNS + EXTRA_COLUMNS
 FETCH_COLUMNS = ENTRY_DB_COLUMNS + EXIT_COLUMNS + META_COLUMNS
 PENDING_COLUMNS = [
@@ -77,7 +81,7 @@ PENDING_COLUMNS = [
     "signal_at_entry", "gate_verdict", "gate_failed_step",
     "risk_reward_planned", "gate_version", "notes", "template", "regime",
     "max_hold_days", "expires_after_sessions", "status", "status_date",
-    "status_reason",
+    "status_reason", "sample_version",
 ]
 PENDING_STATUSES = ("pending", "filled", "expired", "cancelled")
 ORDER_TYPES = ("limit", "moo")
@@ -122,6 +126,7 @@ CREATE TABLE IF NOT EXISTS paper_trades (
   exclude_from_stats INTEGER NOT NULL DEFAULT 0,
   voided INTEGER NOT NULL DEFAULT 0,
   void_reason TEXT,
+  sample_version TEXT NOT NULL DEFAULT 'interim',
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ux_paper_trades_day_symbol
@@ -143,6 +148,7 @@ CREATE TABLE IF NOT EXISTS pending_orders (
   expires_after_sessions INTEGER NOT NULL DEFAULT 3,
   status TEXT NOT NULL DEFAULT 'pending',
   status_date TEXT, status_reason TEXT,
+  sample_version TEXT NOT NULL DEFAULT 'interim',
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ux_pending_orders_active_symbol
@@ -175,6 +181,22 @@ CREATE TABLE IF NOT EXISTS workflow_runs (
 
 def _migrate(con: sqlite3.Connection) -> None:
     """Add columns introduced after a DB was first created (idempotent)."""
+    # D-76 sample versioning. The DDL default covers new raw inserts, but a
+    # migration must backfill history: every row that predates the column was
+    # traded under FWD-v0.1. Only run on the first migration, so re-running
+    # never relabels interim/v0.2 rows.
+    for table in ("paper_trades", "pending_orders"):
+        existing = {row[1] for row in con.execute(f"PRAGMA table_info({table})")}
+        if "sample_version" not in existing:
+            con.execute(
+                f"ALTER TABLE {table} ADD COLUMN sample_version TEXT NOT NULL "
+                f"DEFAULT '{sample_mod.SAMPLE_VERSION_INTERIM}'"
+            )
+            con.execute(
+                f"UPDATE {table} SET sample_version = ?",
+                (sample_mod.SAMPLE_VERSION_V01,),
+            )
+
     additions = {
         "paper_trades": {
             "template": "TEXT",
@@ -377,7 +399,9 @@ def upsert_entry(row: dict[str, Any]) -> str:
     """Insert/update one entry by (date_entered, symbol). Exit columns untouched.
 
     Returns ``"inserted"`` or ``"updated"``. A same-day re-run wins on entry
-    fields (fresh evaluation); a row with exit data keeps it.
+    fields (fresh evaluation); a row with exit data keeps it. ``sample_version``
+    is set once on insert (explicit value, else the current sample) and never
+    overwritten by a later run (D-76).
     """
     norm = _norm_row(row)
     date_entered = _clean(norm.get("date_entered"))
@@ -388,6 +412,14 @@ def upsert_entry(row: dict[str, Any]) -> str:
     values["date_entered"] = str(date_entered)
     values["symbol"] = str(symbol)
     values["entry_timing"] = _clean(norm.get("entry_timing")) or "eod"
+    version = sample_mod.normalize_sample_version(
+        _clean(norm.get("sample_version")) or sample_mod.current_sample_version()
+    )
+    if version is None:
+        raise ValueError(
+            f"Unknown sample_version {norm.get('sample_version')!r}; "
+            f"expected one of {sample_mod.SAMPLE_VERSIONS}"
+        )
     now = _utc_now()
     with session() as con:
         existing = con.execute(
@@ -402,11 +434,11 @@ def upsert_entry(row: dict[str, Any]) -> str:
                 [*[values[c] for c in sets], now, existing["id"]],
             )
             return "updated"
-        cols = [*ENTRY_DB_COLUMNS, "created_at", "updated_at"]
+        cols = [*ENTRY_DB_COLUMNS, "sample_version", "created_at", "updated_at"]
         con.execute(
             f"INSERT INTO paper_trades ({', '.join(cols)}) "
             f"VALUES ({', '.join('?' * len(cols))})",
-            [*[values[c] for c in ENTRY_DB_COLUMNS], now, now],
+            [*[values[c] for c in ENTRY_DB_COLUMNS], version, now, now],
         )
         return "inserted"
 
@@ -485,6 +517,7 @@ def insert_pending_order(
     order_type: str = "limit",
     limit_price: float | None = None,
     expires_after_sessions: int = 3,
+    sample_version: str | None = None,
 ) -> int | None:
     """Create one after-close pending order. Returns its id, or None if blocked.
 
@@ -493,7 +526,8 @@ def insert_pending_order(
     order fills only at the next open inside ``entry_high`` (no chase).
 
     One active order per symbol: the partial unique index turns a duplicate into
-    ``None`` instead of raising, so a re-run is idempotent.
+    ``None`` instead of raising, so a re-run is idempotent. The order carries the
+    sample version its eventual journal row will inherit (D-76).
     """
     norm = _norm_row(row)
     signal_date = _clean(norm.get("signal_date") or norm.get("date_entered"))
@@ -536,6 +570,16 @@ def insert_pending_order(
     values["status"] = "pending"
     values["status_date"] = None
     values["status_reason"] = None
+    version = sample_mod.normalize_sample_version(
+        (sample_version if sample_version is not None else values.get("sample_version"))
+        or sample_mod.current_sample_version()
+    )
+    if version is None:
+        raise ValueError(
+            f"Unknown sample_version {sample_version!r}; "
+            f"expected one of {sample_mod.SAMPLE_VERSIONS}"
+        )
+    values["sample_version"] = version
 
     cols = [*PENDING_COLUMNS, "created_at", "updated_at"]
     now = _utc_now()
@@ -674,7 +718,10 @@ def list_rejections(limit: int = 200) -> list[dict[str, Any]]:
 
 def export_csv() -> str:
     """Canonical CSV export: journal columns plus voided/void_reason audit flags."""
-    header = [*ENTRY_COLUMNS, *EXIT_COLUMNS, *EXTRA_COLUMNS, "voided", "void_reason"]
+    header = [
+        *ENTRY_COLUMNS, *EXIT_COLUMNS, *EXTRA_COLUMNS,
+        "voided", "void_reason", "sample_version",
+    ]
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(header)
@@ -725,6 +772,9 @@ def import_csv_dir(csv_dir: Path | str | None = None) -> dict[str, int]:
                              date_entered=date_entered, file=path.name, kept="first")
 
     for norm in batch.values():
+        # A CSV without the D-76 column is a legacy artifact: it belongs to
+        # FWD-v0.1, not to whatever sample is current at import time.
+        norm.setdefault("sample_version", sample_mod.SAMPLE_VERSION_V01)
         outcome = upsert_entry(norm)
         summary["inserted" if outcome == "inserted" else "updated"] += 1
         exit_updates = {

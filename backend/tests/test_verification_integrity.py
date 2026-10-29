@@ -19,6 +19,7 @@ def _trade(**overrides):
         "exclude_from_stats": 0,
         "risk_reward_planned": 6.47,
         "plan_rr": 4.36,
+        "sample_version": "v0.1",
     }
     row.update(overrides)
     return row
@@ -30,6 +31,7 @@ def _order(**overrides):
         "signal_date": "2026-10-21",
         "status": "filled",
         "status_date": "2026-10-22",
+        "sample_version": "v0.1",
     }
     row.update(overrides)
     return row
@@ -79,3 +81,31 @@ def test_plan_rr_gap_is_a_warning() -> None:
     gaps = verification.find_plan_rr_gaps([_trade(risk_reward_planned=10.28, plan_rr=0.65)])
     assert len(gaps) == 1
     assert gaps[0]["gap"] == 9.63
+
+
+def test_known_sample_versions_pass() -> None:
+    assert verification.find_sample_version_issues([_trade()], [_order()]) == []
+
+
+def test_unknown_sample_version_is_flagged() -> None:
+    issues = verification.find_sample_version_issues(
+        [_trade(sample_version="v9.9")], [],
+    )
+    assert len(issues) == 1
+    assert issues[0]["reason"] == "unknown sample_version"
+
+    issues = verification.find_sample_version_issues(
+        [], [_order(status="pending", sample_version="v9.9")],
+    )
+    assert len(issues) == 1
+    assert issues[0]["reason"] == "unknown pending-order sample_version"
+
+
+def test_fill_must_inherit_the_order_version() -> None:
+    issues = verification.find_sample_version_issues(
+        [_trade(sample_version="interim")], [_order(sample_version="v0.2")],
+    )
+    assert len(issues) == 1
+    assert issues[0]["reason"] == "filled order and journal row versions differ"
+    assert issues[0]["order_version"] == "v0.2"
+    assert issues[0]["row_version"] == "interim"

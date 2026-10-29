@@ -81,6 +81,8 @@ export interface JournalRow {
   /** '1' when the recorded fill never traded (phantom fill) — visible, not a position. */
   voided?: string | number | boolean | null;
   void_reason?: string | null;
+  /** Forward-sample version (D-76): 'v0.1' reference, 'interim' loop data, 'v0.2' scored. */
+  sample_version?: string | null;
 }
 
 /** An after-close order waiting for (or resolved by) a T+1 fill. */
@@ -108,6 +110,8 @@ export interface PendingOrder {
   status_date: string | null;
   status_reason: string | null;
   expires_after_sessions: number | null;
+  /** Forward-sample version inherited by the journal row when this order fills (D-76). */
+  sample_version?: string | null;
   created_at: string | null;
 }
 

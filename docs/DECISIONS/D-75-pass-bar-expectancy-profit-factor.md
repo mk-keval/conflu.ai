@@ -128,7 +128,7 @@ would cost the sample for a documentation change and was rejected.
 
 | Item | Status |
 |---|---|
-| Keep v0.1 or void for FWD-v0.2 (Bundle A: exit/gate geometry) | **Open — Q2** |
+| Keep v0.1 or void for FWD-v0.2 (Bundle A: exit/gate geometry) | **Resolved 2026-10-28 by D-76 (Q2 = C)** — v0.1 closed for verdicts; daily loop is interim; v0.2 is scored |
 | P1-5..P1-8 behavior/design changes | Frozen until the sample decision |
 | P2-9 risk field, P2-11 ADV costs, P3-14 universe dating | Measurement backlog |
 | P4-16 thesis/counter-case field | Post-sample |

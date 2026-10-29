@@ -6,7 +6,9 @@ Checks, against the configured journal DB:
    dated strictly after its signal date (D-73).
 2. **Dollar P&L** — every closed forward row's ``pnl_usd`` must equal
    ``shares x (exit - entry) - costs`` (D-74).
-3. **Plan provenance** — warns when the gate's R:R and the stored plan's R:R
+3. **Sample versions** — every row must carry a known version, and a filled
+   pending order must match the version of the journal row it created (D-76).
+4. **Plan provenance** — warns when the gate's R:R and the stored plan's R:R
    disagree; this is the D-74 finding, reported rather than hidden.
 
 Exit code 0 = PASS, 1 = FAIL. Warnings do not fail the run.
@@ -47,8 +49,9 @@ def main() -> int:
     phantom = verification_mod.find_phantom_fills(trades, orders)
     pnl_bad = verification_mod.find_pnl_mismatches(forward)
     rr_gaps = verification_mod.find_plan_rr_gaps(forward)
+    version_issues = verification_mod.find_sample_version_issues(trades, orders)
 
-    failed = bool(phantom or pnl_bad)
+    failed = bool(phantom or pnl_bad or version_issues)
     report = {
         "status": "FAIL" if failed else "PASS",
         "journal": str(journal_store.get_db_path()),
@@ -62,6 +65,7 @@ def main() -> int:
         },
         "phantom_fills": phantom,
         "pnl_mismatches": pnl_bad,
+        "sample_version_issues": version_issues,
         "plan_rr_warnings": rr_gaps,
     }
 
@@ -85,6 +89,10 @@ def main() -> int:
     print(f"[{'FAIL' if pnl_bad else 'PASS'}] Dollar P&L: {len(pnl_bad)} mismatch(es)")
     for item in pnl_bad:
         print(f"  - {item['symbol']}: stored {item['stored']} vs expected {item['expected']} ({item['reason']})")
+
+    print(f"[{'FAIL' if version_issues else 'PASS'}] Sample versions: {len(version_issues)} issue(s)")
+    for item in version_issues:
+        print(f"  - {item['symbol']}: {item['reason']} ({item})")
 
     print(f"[WARN] Plan R:R gaps: {len(rr_gaps)}")
     for item in rr_gaps:

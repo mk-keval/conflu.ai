@@ -14,10 +14,11 @@ from pathlib import Path
 import pytest
 
 from backend.app.domain.workflow import journal_store as js
+from backend.app.domain.workflow import sample as sample_mod
 
 CANONICAL_HEADER = (
     js.ENTRY_COLUMNS + js.EXIT_COLUMNS + js.EXTRA_COLUMNS
-    + ["voided", "void_reason"]
+    + ["voided", "void_reason", "sample_version"]
 )
 
 
@@ -96,6 +97,25 @@ def test_entry_metadata_and_exclusion_roundtrip() -> None:
     row = js.fetch_rows()[0]
     assert row["exclude_from_stats"] == "1"
     assert row["max_hold_days"] == "30"
+
+
+def test_new_rows_are_stamped_with_the_current_sample_and_never_moved() -> None:
+    js.upsert_entry(_entry())
+    assert js.fetch_rows()[0]["sample_version"] == sample_mod.CURRENT_SAMPLE_VERSION
+
+    # A later run (or an import) cannot relabel an existing row's sample.
+    js.upsert_entry(_entry(entry_price=211.0, sample_version="v0.2"))
+    row = js.fetch_rows()[0]
+    assert row["entry_price"] == "211.0"
+    assert row["sample_version"] == sample_mod.CURRENT_SAMPLE_VERSION
+
+
+def test_explicit_and_unknown_sample_versions() -> None:
+    js.upsert_entry(_entry(sample_version="v0.1"))
+    assert js.fetch_rows()[0]["sample_version"] == "v0.1"
+
+    with pytest.raises(ValueError):
+        js.upsert_entry(_entry(symbol="BAD", sample_version="v9.9"))
 
 
 def test_rejection_dedupe() -> None:
@@ -212,6 +232,8 @@ def test_import_legacy_if_needed(tmp_path: Path) -> None:
     js.set_db_path(tmp_path / "boot.db")
     summary = js.import_legacy_if_needed(d)
     assert summary is not None and summary["inserted"] == 1
+    # A CSV that predates D-76 is FWD-v0.1, not the current sample.
+    assert js.fetch_rows()[0]["sample_version"] == "v0.1"
     # Non-empty journal → no-op.
     assert js.import_legacy_if_needed(d) is None
     # Missing dir / header-only dir → no-op on an empty journal.
@@ -302,6 +324,18 @@ def test_pending_order_status_and_listing() -> None:
     assert history[0]["status_reason"] == "not filled in 3 session(s)"
     with pytest.raises(ValueError):
         js.update_pending_order(order_id, status="pending", status_date="2026-10-23")
+
+
+def test_pending_orders_carry_the_sample_version() -> None:
+    assert js.insert_pending_order(_pending(symbol="NEW")) is not None
+    assert js.list_pending_orders("all")[0]["sample_version"] == sample_mod.CURRENT_SAMPLE_VERSION
+
+    assert js.insert_pending_order(_pending(symbol="OLD"), sample_version="v0.1") is not None
+    old = next(o for o in js.list_pending_orders("all") if o["symbol"] == "OLD")
+    assert old["sample_version"] == "v0.1"
+
+    with pytest.raises(ValueError):
+        js.insert_pending_order(_pending(symbol="BAD"), sample_version="v9.9")
 
 
 def test_voided_row_is_visible_but_not_open_or_scored() -> None:

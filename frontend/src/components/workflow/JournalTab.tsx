@@ -99,6 +99,30 @@ function isWeekend(dateKey: string): boolean {
   return dow === 0 || dow === 6;
 }
 
+const SAMPLE_VERSION_TITLES: Record<string, string> = {
+  'v0.1': 'FWD-v0.1 — closed for verdicts 2026-10-28; reference only',
+  interim: 'Interim loop data — not evidence for any sample',
+  'v0.2': 'FWD-v0.2 — scored sample',
+};
+
+/** Small marker so a row's forward sample is visible, not inferred (D-76). */
+function SampleVersionBadge({ version }: { version?: string | null }) {
+  if (!version) return null;
+  return (
+    <span
+      title={SAMPLE_VERSION_TITLES[version] ?? 'Forward-sample version'}
+      className={cn(
+        'ml-1.5 rounded-full border px-1.5 py-0.5 text-[9px] font-normal uppercase tracking-wide',
+        version === 'v0.2' && 'border-green-500/40 text-green-500',
+        version === 'interim' && 'border-yellow-400/40 text-yellow-400',
+        version === 'v0.1' && 'border-border/60 text-text-muted'
+      )}
+    >
+      {version}
+    </span>
+  );
+}
+
 export const RUNS_STRIP_DAYS = 14;
 
 export type RunsStripStatus = 'ok' | 'error' | 'missed' | 'weekend';
@@ -725,6 +749,7 @@ export function JournalTab() {
                     </td>
                     <td className={cn(TD, 'font-semibold text-text-primary')}>
                       {o.symbol}
+                      <SampleVersionBadge version={o.sample_version} />
                       {o.action && (
                         <span className="ml-1.5 text-[10px] text-text-muted">
                           {o.action}
@@ -852,6 +877,7 @@ export function JournalTab() {
                             out-of-sample
                           </span>
                         )}
+                        <SampleVersionBadge version={r.sample_version} />
                         {r.action && (
                           <span className="ml-1.5 text-[10px] text-text-muted">
                             {r.action}

@@ -15,6 +15,7 @@ from typing import Any
 
 from backend.app.domain.workflow import journal as journal_mod
 from backend.app.domain.workflow import pnl as pnl_mod
+from backend.app.domain.workflow import sample as sample_mod
 
 
 ELITE_MIN_TRADES = 30
@@ -77,22 +78,37 @@ def in_forward_sample(row: dict[str, Any]) -> bool:
     }
 
 
+def in_sample_version(row: dict[str, Any], version: str | None) -> bool:
+    """True when the row belongs to ``version`` (None = any version)."""
+    if version is None:
+        return True
+    return sample_mod.normalize_sample_version(row.get("sample_version")) == version
+
+
+def in_scored_sample(row: dict[str, Any]) -> bool:
+    """True only for rows that count toward the canonical scorecard (D-76)."""
+    return in_forward_sample(row) and sample_mod.is_scored_version(row.get("sample_version"))
+
+
 def compute_expectancy_per_template_regime(
     trades_dir: Path | str | None = None,
     min_trades: int = ELITE_MIN_TRADES,
+    *,
+    sample_version: str | None = sample_mod.SCORED_SAMPLE_VERSION,
 ) -> dict[str, ExpectancyMetrics]:
     """Compute expectancy metrics grouped by (template, regime).
     
     Args:
         trades_dir: Directory containing journal CSV files
         min_trades: Minimum trades required for elite status
+        sample_version: Scored sample version (default), or None for all rows
         
     Returns:
         Dict keyed by "template|regime" with ExpectancyMetrics
     """
     rows = [
         r for r in journal_mod.read_closed_trades(trades_dir)
-        if in_forward_sample(r)
+        if in_forward_sample(r) and in_sample_version(r, sample_version)
     ]
     
     # Group by template + regime
@@ -161,12 +177,16 @@ def compute_expectancy_per_template_regime(
 def get_elite_templates(
     trades_dir: Path | str | None = None,
     min_trades: int = ELITE_MIN_TRADES,
+    *,
+    sample_version: str | None = sample_mod.SCORED_SAMPLE_VERSION,
 ) -> list[ExpectancyMetrics]:
     """Get all template/regime combinations that have achieved elite status.
     
     Elite = n >= min_trades AND expectancy > 0
     """
-    all_metrics = compute_expectancy_per_template_regime(trades_dir, min_trades)
+    all_metrics = compute_expectancy_per_template_regime(
+        trades_dir, min_trades, sample_version=sample_version,
+    )
     return [
         m for m in all_metrics.values()
         if m.is_elite
@@ -177,9 +197,13 @@ def get_template_regime_performance(
     template: str,
     regime: str | None = None,
     trades_dir: Path | str | None = None,
+    *,
+    sample_version: str | None = sample_mod.SCORED_SAMPLE_VERSION,
 ) -> ExpectancyMetrics | None:
     """Get expectancy metrics for a specific template (and optional regime)."""
-    all_metrics = compute_expectancy_per_template_regime(trades_dir)
+    all_metrics = compute_expectancy_per_template_regime(
+        trades_dir, sample_version=sample_version,
+    )
     
     template_norm = _normalize_template(template)
     regime_norm = _normalize_regime(regime) if regime else None
@@ -197,6 +221,8 @@ def compute_rolling_expectancy(
     regime: str | None = None,
     window: int = 30,
     trades_dir: Path | str | None = None,
+    *,
+    sample_version: str | None = sample_mod.SCORED_SAMPLE_VERSION,
 ) -> dict[str, Any] | None:
     """Compute rolling expectancy over the last N trades for a symbol/template/regime.
     
@@ -204,7 +230,7 @@ def compute_rolling_expectancy(
     """
     rows = [
         r for r in journal_mod.read_closed_trades(trades_dir)
-        if in_forward_sample(r)
+        if in_forward_sample(r) and in_sample_version(r, sample_version)
     ]
     
     # Filter rows
@@ -358,9 +384,71 @@ def find_plan_rr_gaps(
     return gaps
 
 
+def find_sample_version_issues(
+    trades: list[dict[str, Any]],
+    orders: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """D-76 invariants: every row has a known version and fills inherit it.
+
+    A filled pending order and the journal row it created must carry the same
+    version. Otherwise a trade can silently move between samples — for example
+    an ``interim`` order scored as ``v0.2``.
+    """
+    issues: list[dict[str, Any]] = []
+
+    for row in trades:
+        if sample_mod.normalize_sample_version(row.get("sample_version")) is None:
+            issues.append({
+                "symbol": row.get("symbol"),
+                "date_entered": row.get("date_entered"),
+                "sample_version": row.get("sample_version"),
+                "reason": "unknown sample_version",
+            })
+
+    entries = {
+        (
+            str(row.get("symbol") or "").strip().upper(),
+            str(row.get("date_entered") or "")[:10],
+        ): row
+        for row in trades
+    }
+    for order in orders:
+        order_version = sample_mod.normalize_sample_version(order.get("sample_version"))
+        if order_version is None:
+            issues.append({
+                "symbol": order.get("symbol"),
+                "signal_date": order.get("signal_date"),
+                "sample_version": order.get("sample_version"),
+                "reason": "unknown pending-order sample_version",
+            })
+            continue
+        if str(order.get("status") or "").lower() != "filled":
+            continue
+        key = (
+            str(order.get("symbol") or "").strip().upper(),
+            str(order.get("status_date") or "")[:10],
+        )
+        row = entries.get(key)
+        if row is None:
+            continue  # the phantom-fill check owns the missing-row case
+        row_version = sample_mod.normalize_sample_version(row.get("sample_version"))
+        if row_version != order_version:
+            issues.append({
+                "symbol": order.get("symbol"),
+                "signal_date": order.get("signal_date"),
+                "order_version": order_version,
+                "row_version": row_version,
+                "reason": "filled order and journal row versions differ",
+            })
+    return issues
+
+
 __all__ = [
     "ELITE_MIN_TRADES",
     "ExpectancyMetrics",
+    "in_forward_sample",
+    "in_sample_version",
+    "in_scored_sample",
     "compute_expectancy_per_template_regime",
     "get_elite_templates",
     "get_template_regime_performance",
@@ -368,4 +456,5 @@ __all__ = [
     "find_phantom_fills",
     "find_pnl_mismatches",
     "find_plan_rr_gaps",
+    "find_sample_version_issues",
 ]
