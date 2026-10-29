@@ -4,9 +4,9 @@
 > be issued from FWD-v0.1. The 1 closed trade (CRS, −1.00R) and the open
 > positions are **reference data**. The daily loop continues as `interim` data
 > (not evidence), and **FWD-v0.2** becomes the scored sample at the first fill
-> after the Bundle A spec is frozen. This file remains the frozen record of the
-> rules v0.1 actually traded under; the v0.2 pre-registration will be separate
-> and will use the D-75 bar.
+> after go-live. This file remains the frozen record of the rules v0.1 actually
+> traded under; the v0.2 pre-registration is
+> [`PRE_REGISTRATION-v0.2.md`](PRE_REGISTRATION-v0.2.md) and uses the D-75 bar.
 
 **Experiment ID:** `FWD-v0.1`
 **Status:** Closed for verdict purposes 2026-10-28 — reference only
@@ -24,7 +24,7 @@
 |---|---|---|
 | `v0.1` | Everything that predates 2026-10-28 (10 journal rows, 5 orders) | **No** — closed for verdicts; reference only |
 | `interim` | New rows from 2026-10-29 until the v0.2 freeze | **No** — execution diagnostics only |
-| `v0.2` | First fill after the Bundle A spec freeze | **Yes** — the scored sample |
+| `v0.2` | First fill after go-live (spec frozen 2026-10-28, D-77) | **Yes** — the scored sample |
 
 `sample_version` is immutable on a row. A filled pending order inherits its
 order's version. The canonical scorecard counts only the scored version, plus
@@ -274,8 +274,8 @@ judgment on these rows.
 |---|---|---|
 | Pass bar (D-75) | `VISION.md` / this file | **Resolved 2026-10-28** — WR > 50% bar replaced |
 | Sample scope (Q2) | This file / D-76 | **Resolved 2026-10-28** — v0.1 closed; v0.2 is scored |
-| Bundle A spec: target hierarchy, gate R:R, exits per family, dynamic plan | `PIPELINE_AUDIT.md` F5 / review A | **Next build** — v0.2 starts after the freeze |
-| Target hierarchy: T1 vs gate R:R (review A) | `PIPELINE_AUDIT.md` F5 | Frozen in v0.1; becomes the v0.2 design |
+| Bundle A spec: target hierarchy, gate R:R, exits per family, dynamic plan | `PIPELINE_AUDIT.md` F5 / review A | **Resolved 2026-10-28 (D-77)** — spec frozen; implementation pending; v0.2 starts after go-live. See `PRE_REGISTRATION-v0.2.md` |
+| Target hierarchy: T1 vs gate R:R (review A) | `PIPELINE_AUDIT.md` F5 | **Resolved 2026-10-28 (D-77)** — gate measures T1 from the planned fill; nearest structural target or reject |
 | Choppy menu / `ranging` unreachable (review B) | `PIPELINE_AUDIT.md` F6 | Frozen |
 | Permission, cross-screen rank, daily cap (review B) | `PIPELINE_AUDIT.md` F7 | Frozen |
 | Sector-rotation 4th screen (review C/D) | `PIPELINE_AUDIT.md` F8 | Frozen |
