@@ -8,8 +8,12 @@ Checks, against the configured journal DB:
    ``shares x (exit - entry) - costs`` (D-74).
 3. **Sample versions** — every row must carry a known version, and a filled
    pending order must match the version of the journal row it created (D-76).
-4. **Plan provenance** — warns when the gate's R:R and the stored plan's R:R
-   disagree; this is the D-74 finding, reported rather than hidden.
+4. **Exit legs** — closed family rows carry legs that sum to 100%, and the
+   stored exit price / realized R are the size-weighted leg values (D-77).
+5. **Families** — scored rows/orders carry a valid setup family; v0.1 rows
+   never do (D-77).
+6. **Plan provenance** — a scored row's gate R:R and stored Plan R:R must
+   agree (hard failure); v0.1 gaps are reported as warnings.
 
 Exit code 0 = PASS, 1 = FAIL. Warnings do not fail the run.
 
@@ -29,6 +33,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from backend.app.domain.workflow import journal as journal_mod  # noqa: E402
 from backend.app.domain.workflow import journal_store  # noqa: E402
+from backend.app.domain.workflow import sample as sample_mod  # noqa: E402
 from backend.app.domain.workflow import verification as verification_mod  # noqa: E402
 
 
@@ -50,8 +55,22 @@ def main() -> int:
     pnl_bad = verification_mod.find_pnl_mismatches(forward)
     rr_gaps = verification_mod.find_plan_rr_gaps(forward)
     version_issues = verification_mod.find_sample_version_issues(trades, orders)
+    leg_issues = verification_mod.find_exit_leg_issues(forward)
+    family_issues = verification_mod.find_family_issues(trades, orders)
 
-    failed = bool(phantom or pnl_bad or version_issues)
+    # D-77: a v0.2 gate-vs-plan R:R gap is a hard failure (the gate's Plan R
+    # and the journal's Plan R must be the same number). v0.1 gaps stay a
+    # warning — that sample is closed and its rows are never rewritten.
+    rr_hard = [
+        gap for gap in rr_gaps
+        if gap.get("sample_version") == sample_mod.SCORED_SAMPLE_VERSION
+    ]
+    rr_warnings = [gap for gap in rr_gaps if gap not in rr_hard]
+
+    failed = bool(
+        phantom or pnl_bad or version_issues or leg_issues or family_issues
+        or rr_hard
+    )
     report = {
         "status": "FAIL" if failed else "PASS",
         "journal": str(journal_store.get_db_path()),
@@ -66,7 +85,10 @@ def main() -> int:
         "phantom_fills": phantom,
         "pnl_mismatches": pnl_bad,
         "sample_version_issues": version_issues,
-        "plan_rr_warnings": rr_gaps,
+        "exit_leg_issues": leg_issues,
+        "family_issues": family_issues,
+        "plan_rr_failures": rr_hard,
+        "plan_rr_warnings": rr_warnings,
     }
 
     if args.json:
@@ -94,8 +116,23 @@ def main() -> int:
     for item in version_issues:
         print(f"  - {item['symbol']}: {item['reason']} ({item})")
 
-    print(f"[WARN] Plan R:R gaps: {len(rr_gaps)}")
-    for item in rr_gaps:
+    print(f"[{'FAIL' if leg_issues else 'PASS'}] Exit legs: {len(leg_issues)} issue(s)")
+    for item in leg_issues:
+        print(f"  - {item['symbol']}: {item['reason']}")
+
+    print(f"[{'FAIL' if family_issues else 'PASS'}] Setup families: {len(family_issues)} issue(s)")
+    for item in family_issues:
+        print(f"  - {item['symbol']}: {item['reason']}")
+
+    print(f"[{'FAIL' if rr_hard else 'PASS'}] Plan R:R (scored): {len(rr_hard)} mismatch(es)")
+    for item in rr_hard:
+        print(
+            f"  - {item['symbol']}: gate {item['gate_rr']:.2f} vs stored plan "
+            f"{item['plan_rr']:.2f} (gap {item['gap']:+.2f})"
+        )
+
+    print(f"[WARN] Plan R:R gaps (reference): {len(rr_warnings)}")
+    for item in rr_warnings:
         print(
             f"  - {item['symbol']}: gate {item['gate_rr']:.2f} vs stored plan "
             f"{item['plan_rr']:.2f} (gap {item['gap']:+.2f})"

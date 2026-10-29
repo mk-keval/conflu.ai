@@ -61,12 +61,16 @@ ENTRY_COLUMNS = [
 EXIT_COLUMNS = [
     "date_closed", "exit_price", "exit_reason", "realized_r", "pnl_usd",
     "pnl_gross_usd", "costs_usd", "mfe_r", "mae_r", "plan_adherence",
+    # Bundle A (D-77): per-leg fills as JSON. NULL on v0.1 rows (single exit).
+    "exit_legs",
 ]
 # Journal-only entry fields: attribution, the time stop, and the D-74 plan
 # provenance (T3 + the R metrics recomputed from the stored levels).
 EXTRA_COLUMNS = [
     "template", "regime", "entry_timing", "max_hold_days",
     "target_3", "plan_rr", "target_1_r",
+    # Bundle A (D-77) provenance: family, stretch R, and the ATR the trail used.
+    "setup_family", "stretch_rr", "atr_at_entry",
 ]
 # Operational flags: fetched with rows but never overwritten by an entry upsert.
 # `sample_version` is immutable for the same reason: a re-run must not move a
@@ -80,7 +84,8 @@ PENDING_COLUMNS = [
     "position_size_pct", "account_value", "shares", "confluence_count",
     "signal_at_entry", "gate_verdict", "gate_failed_step",
     "risk_reward_planned", "gate_version", "notes", "template", "regime",
-    "max_hold_days", "expires_after_sessions", "status", "status_date",
+    "max_hold_days", "setup_family", "atr_at_entry",
+    "expires_after_sessions", "status", "status_date",
     "status_reason", "sample_version",
 ]
 PENDING_STATUSES = ("pending", "filled", "expired", "cancelled")
@@ -94,7 +99,7 @@ RUN_MODES = ("enforce", "sync_exits", "run_close", "import")
 _FLOAT_COLUMNS = {
     "entry_price", "stop_loss", "target_1", "target_2", "target_3",
     "position_size_pct", "account_value", "shares", "entry_low", "entry_high",
-    "risk_reward_planned", "plan_rr", "target_1_r",
+    "risk_reward_planned", "plan_rr", "target_1_r", "stretch_rr", "atr_at_entry",
     "exit_price", "realized_r", "pnl_usd", "pnl_gross_usd", "costs_usd",
     "mfe_r", "mae_r", "plan_adherence", "limit_price",
 }
@@ -115,7 +120,8 @@ CREATE TABLE IF NOT EXISTS paper_trades (
   confluence_count INTEGER, signal_at_entry TEXT,
   gate_verdict TEXT, gate_failed_step TEXT,
   entry_low REAL, entry_high REAL, risk_reward_planned REAL,
-  plan_rr REAL, target_1_r REAL,
+  plan_rr REAL, target_1_r REAL, stretch_rr REAL,
+  setup_family TEXT, atr_at_entry REAL,
   gate_version TEXT, notes TEXT,
   template TEXT, regime TEXT,
   entry_timing TEXT NOT NULL DEFAULT 'eod',
@@ -123,6 +129,7 @@ CREATE TABLE IF NOT EXISTS paper_trades (
   date_closed TEXT, exit_price REAL, exit_reason TEXT,
   realized_r REAL, pnl_usd REAL, pnl_gross_usd REAL, costs_usd REAL,
   mfe_r REAL, mae_r REAL, plan_adherence REAL,
+  exit_legs TEXT,
   exclude_from_stats INTEGER NOT NULL DEFAULT 0,
   voided INTEGER NOT NULL DEFAULT 0,
   void_reason TEXT,
@@ -145,6 +152,7 @@ CREATE TABLE IF NOT EXISTS pending_orders (
   gate_verdict TEXT, gate_failed_step TEXT,
   risk_reward_planned REAL, gate_version TEXT, notes TEXT,
   template TEXT, regime TEXT, max_hold_days INTEGER,
+  setup_family TEXT, atr_at_entry REAL,
   expires_after_sessions INTEGER NOT NULL DEFAULT 3,
   status TEXT NOT NULL DEFAULT 'pending',
   status_date TEXT, status_reason TEXT,
@@ -211,15 +219,31 @@ def _migrate(con: sqlite3.Connection) -> None:
             "target_1_r": "REAL",
             "pnl_gross_usd": "REAL",
             "costs_usd": "REAL",
+            "setup_family": "TEXT",
+            "stretch_rr": "REAL",
+            "atr_at_entry": "REAL",
+            "exit_legs": "TEXT",
         },
         "rejections": {"template": "TEXT", "regime": "TEXT"},
-        "pending_orders": {"target_3": "REAL"},
+        "pending_orders": {
+            "target_3": "REAL",
+            "setup_family": "TEXT",
+            "atr_at_entry": "REAL",
+        },
     }
     for table, columns in additions.items():
         existing = {row[1] for row in con.execute(f"PRAGMA table_info({table})")}
         for name, decl in columns.items():
-            if name not in existing:
+            if name in existing:
+                continue
+            try:
                 con.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+            except sqlite3.OperationalError as exc:
+                # A concurrent process (API server + CLI) may have won the race
+                # between our PRAGMA read and this ALTER. The column exists, so
+                # the schema is already correct.
+                if "duplicate column name" not in str(exc):
+                    raise
 
 
 # ── Path resolution / initialization ──

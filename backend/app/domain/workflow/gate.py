@@ -33,6 +33,7 @@ from math import isfinite
 from typing import Literal
 
 from backend.app.domain.ticker_analysis.models import GateResult, GateStepResult
+from backend.app.domain.workflow import exit_policy as exit_policy_mod
 
 # ── Thresholds (mirror frontend/src/workflow/gate.ts, keep in sync) ──
 LIQUIDITY_MIN_AVG_DAILY_USD = 10_000_000   # $10M swing-liquidity floor
@@ -93,6 +94,9 @@ class GateInput:
     open_positions: list[dict] = field(default_factory=list)
     # ^ journal rows: {symbol, sector, position_size_pct, stop_loss, entry_type}
     max_stop_distance_pct: float | None = None  # 5a/5b ceiling on entry-to-stop distance (D-8)
+    # Bundle A (D-77): when set, step 5d uses the family's T1 floors and 5c
+    # measures T1 from the planned fill. None keeps the legacy v0.1 gate.
+    setup_family: str | None = None
 
 
 def evaluate_stop_distance(
@@ -282,7 +286,12 @@ def _rr_consistency(input: GateInput) -> GateStepResult:
             name="Risk/Reward", passed=False,
             note="Plan geometry is inconsistent: stop is not below the entry basis.",
         )
-    measured = (input.targets[-1] - entry_basis) / risk
+    # v0.2 measures the gate against T1 from the planned fill (D-77/A1); v0.1
+    # measured the last target, which let a far stretch level excuse an
+    # unreachable first payout (the CRS defect).
+    target_index = 0 if input.setup_family is not None else -1
+    target_label = "T1 (planned fill)" if input.setup_family is not None else "last target"
+    measured = (input.targets[target_index] - entry_basis) / risk
     if not isfinite(measured):
         return GateStepResult(
             name="Risk/Reward", passed=False, conditional=True,
@@ -291,24 +300,60 @@ def _rr_consistency(input: GateInput) -> GateStepResult:
     if abs(measured - input.risk_reward) <= RR_CONSISTENCY_TOL:
         return GateStepResult(
             name="Risk/Reward", passed=True,
-            note=f"Reported R:R {input.risk_reward:.2f} is consistent with the plan geometry.",
+            note=f"Reported R:R {input.risk_reward:.2f} is consistent with {target_label} ({measured:.2f}).",
         )
     return GateStepResult(
         name="Risk/Reward", passed=False, conditional=True,
-        note=f"Reported R:R {input.risk_reward:.2f} disagrees with the plan geometry ({measured:.2f}) — verify the plan tuple before trading.",
+        note=f"Reported R:R {input.risk_reward:.2f} disagrees with {target_label} ({measured:.2f}) — verify the plan tuple before trading.",
+    )
+
+
+def _family_floor_step(rr: float, family: str) -> GateStepResult:
+    """5d for v0.2: the family's Plan R floors (D-77 4.1)."""
+    policy = exit_policy_mod.policy_for(family)
+    full = policy.full_size_floor_r
+    half = policy.half_size_floor_r
+    if rr >= full:
+        return GateStepResult(
+            name="Risk/Reward", passed=True,
+            note=(
+                f"Plan R to T1 satisfied: {rr:.2f} >= {full:.2f} "
+                f"({policy.family} full-size floor)"
+            ),
+        )
+    if rr >= half:
+        return GateStepResult(
+            name="Risk/Reward", passed=False, conditional=True,
+            note=(
+                f"Plan R to T1 {rr:.2f} is in the {half:.2f}-{full:.2f} "
+                f"{policy.family} half-size tier — CONDITIONAL"
+            ),
+        )
+    return GateStepResult(
+        name="Risk/Reward", passed=False,
+        note=(
+            f"Plan R to T1 below the {policy.family} floor: "
+            f"{rr:.2f} < {half:.2f}"
+        ),
     )
 
 
 def evaluate_risk_reward(input: GateInput) -> GateStepResult:
     """Step 5 — stop sanity/ceiling (5a/5b) + reported-tuple consistency (5c) + R/R floor (5d).
 
-    5d (the 2.5:1 floor) is now active: enforces R/R >= 2.5 on plan geometry.
-    Combine sub-checks: any hard fail → FAIL; any conditional → CONDITIONAL;
-    else PASS.
+    5d enforces the family Plan R floors for v0.2 rows (``setup_family`` set)
+    and the legacy 2.5:1 / D1 tiers for v0.1 rows. 5c uses T1 from the planned
+    fill for v0.2. Combine sub-checks: any hard fail → FAIL; any conditional →
+    CONDITIONAL; else PASS.
     """
     entry = input.entry_low if input.entry_low is not None else input.entry_high
     sub = [evaluate_stop_distance(entry, input.stop_loss, MAX_STOP_DISTANCE_PCT)]
-    # Determine R/R to check against floor: prefer reported, else derive from plan geometry.
+    family = (
+        exit_policy_mod.normalize_family(input.setup_family)
+        if input.setup_family is not None else None
+    )
+    target_index = 0 if family is not None else -1
+    # Determine R/R to check against the floor: prefer reported, else derive.
     rr_to_check = None
     if input.risk_reward is not None:
         rr_to_check = input.risk_reward
@@ -317,20 +362,24 @@ def evaluate_risk_reward(input: GateInput) -> GateStepResult:
         # No reported R:R — derive it from the plan geometry (teach-first).
         risk = entry - input.stop_loss
         if risk > 0 and input.targets:
-            derived = (input.targets[-1] - entry) / risk
+            derived = (input.targets[target_index] - entry) / risk
             rr_to_check = derived
-            # Note: we still run consistency check? Actually _rr_consistency requires reported R:R.
-            # We'll skip consistency check when no reported R:R, as before.
+            label = "Plan R to T1" if family is not None else "plan geometry"
+            floor = (
+                exit_policy_mod.policy_for(family).full_size_floor_r
+                if family is not None else RISK_REWARD_PASS
+            )
             sub.append(
                 GateStepResult(
                     name="Risk/Reward", passed=False, conditional=True,
-                    note=f"No reported R:R — plan geometry implies {derived:.2f}:1; confirm it clears the 2.5:1 bar.",
+                    note=f"No reported R:R — {label} implies {derived:.2f}:1; confirm it clears the {floor:.2f}:1 bar.",
                 )
             )
-    # 5d floor: enforce R/R >= 2.5 for PASS
-    # D1 tier: CONDITIONAL at 2.0:1 with r1 >= 1.0 (half size)
+
     if rr_to_check is not None:
-        if rr_to_check >= RISK_REWARD_PASS:
+        if family is not None:
+            sub.append(_family_floor_step(rr_to_check, family))
+        elif rr_to_check >= RISK_REWARD_PASS:
             sub.append(
                 GateStepResult(
                     name="Risk/Reward", passed=True,
@@ -552,6 +601,7 @@ def build_gate_input(
     short_interest_pct: float | None = None,
     institutional_ownership: float | None = None,
     options_flow: str | None = None,
+    setup_family: str | None = None,
 ) -> GateInput:
     """Adapter from verdict/tv_data pieces to GateInput (plan Sec.1B).
 
@@ -582,4 +632,5 @@ def build_gate_input(
         short_interest_pct=short_interest_pct,
         institutional_ownership=institutional_ownership,
         options_flow=options_flow,
+        setup_family=setup_family,
     )

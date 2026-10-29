@@ -1746,6 +1746,8 @@ export interface components {
              * @default []
              */
             structural_target_levels: number[];
+            /** Plan Rejection */
+            plan_rejection?: string | null;
         };
         /**
          * ApiResponse
@@ -2790,6 +2792,10 @@ export interface components {
             template?: string | null;
             /** Regime */
             regime?: string | null;
+            /** Setup Family */
+            setup_family?: string | null;
+            /** Atr At Entry */
+            atr_at_entry?: number | null;
             /** Notes */
             notes?: string | null;
             /**
@@ -3412,6 +3418,10 @@ export interface components {
             mae_r?: number | null;
             /** Plan Adherence */
             plan_adherence?: number | null;
+            /** Setup Family */
+            setup_family?: string | null;
+            /** Exit Legs */
+            exit_legs?: string | null;
             /**
              * Applied
              * @default false
@@ -3541,6 +3551,11 @@ export interface components {
             } | null;
             /** Regime */
             regime?: string | null;
+            /**
+             * Setup Family
+             * @default unknown
+             */
+            setup_family: ("trend" | "breakout" | "mean_reversion" | "rotation" | "unknown") | null;
         };
         /**
          * TickerAnalysisResponse
@@ -3744,6 +3759,10 @@ export interface components {
              * @default []
              */
             structural_target_levels: number[];
+            /** Setup Family */
+            setup_family?: string | null;
+            /** Atr At Entry */
+            atr_at_entry?: number | null;
             /**
              * Notes
              * @default []

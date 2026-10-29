@@ -11,6 +11,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 # ── Analysis Configuration ──
 
+SetupFamily = Literal["trend", "breakout", "mean_reversion", "rotation", "unknown"]
+
 
 class TickerAnalysisRequest(BaseModel):
     """Request to analyze a single ticker."""
@@ -22,6 +24,11 @@ class TickerAnalysisRequest(BaseModel):
     tv_data: dict[str, Any] | None = None
     # Optional regime to use for adaptive weighting
     regime: str | None = None
+    # Bundle A (D-77): the setup family drives target bands and exits. The API
+    # default is `unknown` (v0.2 single exit); the workflow overrides it from
+    # the morning-brief screen. `None` keeps the legacy v0.1 geometry for
+    # direct `synthesise()` callers and existing regression tests.
+    setup_family: SetupFamily | None = "unknown"
 
 
 # ── Module Outputs ──
@@ -225,7 +232,12 @@ class TradePlan(BaseModel):
     entry_basis: float | None = None  # mid + 0.09*range (plan Sec.15 Q2)
     structural_stop_level: float | None = None  # structural level used for stop
     structural_target_levels: list[float] = []  # structural levels used for targets
-    
+
+    # Bundle A (D-77) — family exit policy provenance. `setup_family` is None
+    # only for the legacy v0.1 synthesis path; the workflow always supplies one.
+    setup_family: str | None = None
+    atr_at_entry: float | None = None  # ATR14 used by the trail (None -> 2 x risk)
+
     # Notes
     notes: list[str] = []
 
@@ -306,6 +318,9 @@ class AnalysisVerdict(BaseModel):
     entry_basis: float | None = None  # mid + 0.09*range (plan Sec.15 Q2)
     structural_stop_level: float | None = None  # structural level used for stop
     structural_target_levels: list[float] = []  # structural levels used for targets
+    # Bundle A (D-77): set when no structural target sits inside the family
+    # band. The plan is rejected, never given a manufactured target.
+    plan_rejection: str | None = None
 
 
 class MultiTimeframeTechnical(BaseModel):

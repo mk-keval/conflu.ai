@@ -745,6 +745,7 @@ class TickerAnalysisService:
             tv_data=tv_data,
             technical_weekly=tech_weekly,
             options_flow=options_flow.to_dict() if options_flow else None,
+            setup_family=request.setup_family,
         )
 
         # ── 3b. Apply macro regime overlay + D-46 surface context ──

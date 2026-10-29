@@ -82,12 +82,17 @@ def plan_metrics(
     entry_high: Any,
     stop_loss: Any,
     targets: Iterable[Any],
+    *,
+    basis: str = "midpoint",
 ) -> dict[str, float] | None:
-    """R distance to T1 and R:R to the last target, at the zone midpoint.
+    """R metrics for the stored plan, on one of two explicit bases.
 
-    Mirrors the gate's ``_geometric_rr_long`` so the journal can reproduce the
-    number the gate actually saw. ``entry_low``/``entry_high`` may be a single
-    entry price (both the same).
+    ``basis="midpoint"`` (v0.1, default): zone midpoint to the **last** target.
+    ``basis="planned_fill"`` (v0.2/D-77): ``entry_low`` to **T1**, the gate's
+    Plan R. ``stretch_rr`` is T3 R when a third target exists, context only.
+
+    Mirrors the gate geometry so the journal can reproduce the number the gate
+    actually saw. ``entry_low``/``entry_high`` may be a single entry price.
     """
     low = _price(entry_low)
     high = _price(entry_high) or low
@@ -95,8 +100,14 @@ def plan_metrics(
     if low is None or high is None or stop is None:
         return None
 
-    mid = (low + high) / 2.0
-    risk = mid - stop
+    if basis == "planned_fill":
+        entry_basis = low
+    elif basis == "midpoint":
+        entry_basis = (low + high) / 2.0
+    else:
+        raise ValueError(f"Unknown plan-metrics basis {basis!r}")
+
+    risk = entry_basis - stop
     if risk <= 0:
         return None
 
@@ -108,10 +119,18 @@ def plan_metrics(
     if not levels:
         return None
 
+    if basis == "planned_fill":
+        plan_rr = (levels[0] - entry_basis) / risk
+        stretch = (levels[2] - entry_basis) / risk if len(levels) >= 3 else None
+    else:
+        plan_rr = (levels[-1] - entry_basis) / risk
+        stretch = (levels[2] - entry_basis) / risk if len(levels) >= 3 else None
+
     return {
-        "entry_basis": round(mid, 4),
-        "plan_rr": round((levels[-1] - mid) / risk, 2),
-        "target_1_r": round((levels[0] - mid) / risk, 2),
+        "entry_basis": round(entry_basis, 4),
+        "plan_rr": round(plan_rr, 2),
+        "target_1_r": round((levels[0] - entry_basis) / risk, 2),
+        "stretch_rr": None if stretch is None else round(stretch, 2),
     }
 
 

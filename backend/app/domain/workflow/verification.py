@@ -8,11 +8,13 @@ Uses the paper-trade journal CSV as the single source of truth.
 
 from __future__ import annotations
 
+import json
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from backend.app.domain.workflow import exit_policy as exit_policy_mod
 from backend.app.domain.workflow import journal as journal_mod
 from backend.app.domain.workflow import pnl as pnl_mod
 from backend.app.domain.workflow import sample as sample_mod
@@ -377,11 +379,166 @@ def find_plan_rr_gaps(
         if abs(gate - plan) > tolerance:
             gaps.append({
                 "symbol": row.get("symbol"),
+                "sample_version": sample_mod.normalize_sample_version(
+                    row.get("sample_version")
+                ),
                 "gate_rr": round(gate, 2),
                 "plan_rr": round(plan, 2),
                 "gap": round(gate - plan, 2),
             })
     return gaps
+
+
+_EXIT_LEG_REASONS = {
+    "stop", "target_1", "target_2", "trail", "time_stop", "scale_out",
+}
+
+
+def find_exit_leg_issues(
+    trades: list[dict[str, Any]],
+    tolerance: float = 0.02,
+) -> list[dict[str, Any]]:
+    """D-77 exit integrity: legs exist, sum to 100%, and match the stored exit.
+
+    A v0.2 row closes with weighted legs. The stored ``exit_price`` must be the
+    size-weighted leg VWAP and ``realized_r`` the size-weighted leg R, otherwise
+    the journal reports a number the fills do not support. v0.1 rows are exempt
+    (single exit, no legs), but any stored legs are validated wherever present.
+    """
+    issues: list[dict[str, Any]] = []
+    for row in trades:
+        if not in_forward_sample(row):
+            continue
+        raw = row.get("exit_legs")
+        if raw in (None, ""):
+            if row.get("date_closed") and row.get("setup_family"):
+                issues.append({
+                    "symbol": row.get("symbol"),
+                    "date_closed": row.get("date_closed"),
+                    "reason": "closed family row has no exit legs",
+                })
+            continue
+        try:
+            legs = json.loads(raw) if isinstance(raw, str) else raw
+        except (TypeError, ValueError):
+            issues.append({
+                "symbol": row.get("symbol"),
+                "reason": "exit_legs is not valid JSON",
+            })
+            continue
+        if not isinstance(legs, list) or not legs:
+            issues.append({
+                "symbol": row.get("symbol"),
+                "reason": "exit_legs is empty",
+            })
+            continue
+
+        total_pct = 0.0
+        weighted_price = 0.0
+        weighted_r = 0.0
+        malformed = False
+        for leg in legs:
+            if not isinstance(leg, dict):
+                malformed = True
+                break
+            try:
+                price = float(leg.get("price"))
+                pct = float(leg.get("size_pct"))
+                r_mult = float(leg.get("r"))
+            except (TypeError, ValueError):
+                malformed = True
+                break
+            if str(leg.get("reason") or "") not in _EXIT_LEG_REASONS:
+                malformed = True
+                break
+            total_pct += pct
+            weighted_price += price * pct
+            weighted_r += r_mult * pct
+        if malformed:
+            issues.append({
+                "symbol": row.get("symbol"),
+                "reason": "exit_legs contains a malformed leg",
+            })
+            continue
+        if abs(total_pct - 100.0) > 0.05:
+            issues.append({
+                "symbol": row.get("symbol"),
+                "reason": f"exit legs sum to {total_pct:.2f}% (expected 100%)",
+            })
+        if total_pct <= 0:
+            continue
+        vwap = weighted_price / total_pct
+        weighted_r_avg = weighted_r / total_pct
+        exit_price = journal_mod._as_float(row.get("exit_price"))
+        realized_r = journal_mod._as_float(row.get("realized_r"))
+        if exit_price is not None and abs(vwap - exit_price) > tolerance:
+            issues.append({
+                "symbol": row.get("symbol"),
+                "reason": (
+                    f"exit_price {exit_price:.2f} != leg VWAP {vwap:.2f}"
+                ),
+            })
+        if realized_r is not None and abs(weighted_r_avg - realized_r) > tolerance:
+            issues.append({
+                "symbol": row.get("symbol"),
+                "reason": (
+                    f"realized_r {realized_r:.2f} != weighted leg R "
+                    f"{weighted_r_avg:.2f}"
+                ),
+            })
+    return issues
+
+
+def find_family_issues(
+    trades: list[dict[str, Any]],
+    orders: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """D-77 provenance: scored rows/orders carry a family; v0.1 rows never do.
+
+    New rows always carry a family (including ``unknown``). Existing v0.1 rows
+    keep NULL and are never retro-labeled — a family on a v0.1 row means history
+    was rewritten under new rules.
+    """
+    issues: list[dict[str, Any]] = []
+    for row in trades:
+        version = sample_mod.normalize_sample_version(row.get("sample_version"))
+        family = exit_policy_mod.normalize_family(row.get("setup_family"))
+        if version == sample_mod.SCORED_SAMPLE_VERSION and family is None:
+            issues.append({
+                "symbol": row.get("symbol"),
+                "date_entered": row.get("date_entered"),
+                "sample_version": version,
+                "setup_family": row.get("setup_family"),
+                "reason": "scored row has no valid setup_family",
+            })
+        elif version == sample_mod.SAMPLE_VERSION_V01 and row.get("setup_family"):
+            issues.append({
+                "symbol": row.get("symbol"),
+                "date_entered": row.get("date_entered"),
+                "sample_version": version,
+                "setup_family": row.get("setup_family"),
+                "reason": "v0.1 row carries a setup_family (retro-labeled history)",
+            })
+    for order in orders:
+        version = sample_mod.normalize_sample_version(order.get("sample_version"))
+        family = exit_policy_mod.normalize_family(order.get("setup_family"))
+        if version == sample_mod.SCORED_SAMPLE_VERSION and family is None:
+            issues.append({
+                "symbol": order.get("symbol"),
+                "signal_date": order.get("signal_date"),
+                "sample_version": version,
+                "setup_family": order.get("setup_family"),
+                "reason": "scored pending order has no valid setup_family",
+            })
+        elif version == sample_mod.SAMPLE_VERSION_V01 and order.get("setup_family"):
+            issues.append({
+                "symbol": order.get("symbol"),
+                "signal_date": order.get("signal_date"),
+                "sample_version": version,
+                "setup_family": order.get("setup_family"),
+                "reason": "v0.1 pending order carries a setup_family",
+            })
+    return issues
 
 
 def find_sample_version_issues(

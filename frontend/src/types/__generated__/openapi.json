@@ -3978,6 +3978,17 @@
             "type": "array",
             "title": "Structural Target Levels",
             "default": []
+          },
+          "plan_rejection": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Rejection"
           }
         },
         "additionalProperties": false,
@@ -6471,6 +6482,28 @@
             ],
             "title": "Regime"
           },
+          "setup_family": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Setup Family"
+          },
+          "atr_at_entry": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Atr At Entry"
+          },
           "notes": {
             "anyOf": [
               {
@@ -7929,6 +7962,28 @@
             ],
             "title": "Plan Adherence"
           },
+          "setup_family": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Setup Family"
+          },
+          "exit_legs": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Legs"
+          },
           "applied": {
             "type": "boolean",
             "title": "Applied",
@@ -8298,6 +8353,25 @@
               }
             ],
             "title": "Regime"
+          },
+          "setup_family": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "trend",
+                  "breakout",
+                  "mean_reversion",
+                  "rotation",
+                  "unknown"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Setup Family",
+            "default": "unknown"
           }
         },
         "additionalProperties": false,
@@ -8829,6 +8903,28 @@
             "type": "array",
             "title": "Structural Target Levels",
             "default": []
+          },
+          "setup_family": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Setup Family"
+          },
+          "atr_at_entry": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Atr At Entry"
           },
           "notes": {
             "items": {

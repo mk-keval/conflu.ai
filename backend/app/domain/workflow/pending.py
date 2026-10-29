@@ -26,10 +26,12 @@ Pure functions only; the service layer owns DB writes.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from backend.app.domain.workflow import exit_policy as exit_policy_mod
 from backend.app.domain.workflow import pnl as pnl_mod
 from backend.app.domain.workflow.exits import EXIT_STOP
 
@@ -271,9 +273,14 @@ def build_filled_row(order: Mapping[str, Any], decision: FillDecision) -> dict[s
             order.get("target_1"), order.get("target_2"), order.get("target_3"),
         ) if level not in (None, "")
     ]
+    # Fills inherit the order's execution geometry (D-76/D-77). A v0.2 order
+    # carries a family; its plan metrics are measured from the planned fill to
+    # T1. A v0.1 order keeps the legacy midpoint/last-target basis untouched.
+    family = exit_policy_mod.normalize_family(order.get("setup_family"))
     metrics = pnl_mod.plan_metrics(
         order.get("entry_low"), order.get("entry_high"),
         order.get("stop_loss"), targets,
+        basis="planned_fill" if family else "midpoint",
     ) or {}
 
     return {
@@ -289,6 +296,9 @@ def build_filled_row(order: Mapping[str, Any], decision: FillDecision) -> dict[s
         "target_3": order.get("target_3"),
         "plan_rr": metrics.get("plan_rr"),
         "target_1_r": metrics.get("target_1_r"),
+        "stretch_rr": metrics.get("stretch_rr"),
+        "setup_family": family,
+        "atr_at_entry": order.get("atr_at_entry"),
         "position_size_pct": order.get("position_size_pct"),
         "account_value": order.get("account_value"),
         "shares": planned_shares(order, fill),
@@ -327,6 +337,14 @@ def stop_exit(order: Mapping[str, Any], decision: FillDecision) -> dict[str, Any
     shares = planned_shares(order, fill)
     realized_r = round((stop - fill) / (fill - stop), 2) if fill > stop else None
     money = pnl_mod.dollar_pnl(fill, stop, shares) or {}
+    leg = {
+        "date": decision.fill_date,
+        "price": round(stop, 4),
+        "shares": None if shares is None else round(shares, 4),
+        "size_pct": 100.0,
+        "reason": EXIT_STOP,
+        "r": realized_r,
+    }
     return {
         "date_closed": decision.fill_date,
         "exit_price": round(stop, 2),
@@ -338,6 +356,8 @@ def stop_exit(order: Mapping[str, Any], decision: FillDecision) -> dict[str, Any
         "mfe_r": None,
         "mae_r": -1.0,
         "plan_adherence": 1.0,
+        # D-77: every exit records its legs. A same-session stop is one leg.
+        "exit_legs": json.dumps([leg], separators=(",", ":")),
     }
 
 

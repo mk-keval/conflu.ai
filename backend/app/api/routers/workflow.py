@@ -26,6 +26,7 @@ from backend.app.core.logging import get_logger
 import backend.app.domain.ticker_analysis  # noqa: F401
 
 from backend.app.domain.workflow import exits as exits_mod
+from backend.app.domain.workflow import exit_policy as exit_policy_mod
 from backend.app.domain.workflow import gate as gate_mod
 from backend.app.domain.workflow import journal as journal_mod
 from backend.app.domain.workflow import pending as pending_mod
@@ -89,14 +90,30 @@ class JournalRow(BaseModel):
     risk_reward_planned: float | None = None
     gate_version: str | None = None
     notes: str | None = None
+    # Attribution + D-74 plan provenance (journal-only columns).
+    template: str | None = None
+    regime: str | None = None
+    entry_timing: str | None = None
+    max_hold_days: int | None = None
+    target_3: float | None = None
+    plan_rr: float | None = None
+    target_1_r: float | None = None
+    # Bundle A (D-77): family, stretch R, the ATR the trail used, and the
+    # per-leg fills. All NULL on v0.1 rows (single exit, no family).
+    setup_family: str | None = None
+    stretch_rr: float | None = None
+    atr_at_entry: float | None = None
     date_closed: str | None = None
     exit_price: float | None = None
     exit_reason: str | None = None
     realized_r: float | None = None
     pnl_usd: float | None = None
+    pnl_gross_usd: float | None = None
+    costs_usd: float | None = None
     mfe_r: float | None = None
     mae_r: float | None = None
     plan_adherence: float | None = None
+    exit_legs: str | None = None
     exclude_from_stats: int | None = None
     voided: int | None = None
     void_reason: str | None = None
@@ -125,6 +142,9 @@ class PendingOrderItem(BaseModel):
     gate_verdict: str | None = None
     template: str | None = None
     regime: str | None = None
+    # Bundle A (D-77): the order carries the family + ATR its fill inherits.
+    setup_family: str | None = None
+    atr_at_entry: float | None = None
     notes: str | None = None
     status: str = "pending"
     status_date: str | None = None
@@ -691,9 +711,14 @@ async def _execute_enforce(
             from backend.app.domain.ticker_analysis.models import TickerAnalysisRequest
 
             engine = await get_ticker_analysis_engine()
+            # D-77/A3: the brief screen selects the family (and therefore the
+            # target band + exit policy) before synthesis runs.
+            family = exit_policy_mod.family_for_screen(brief_t.get("screen_name"))
             # 45s timeout per ticker analysis (prevents yfinance hangs)
             v_resp = await asyncio.wait_for(
-                engine.analyze_async(TickerAnalysisRequest(symbol=sym, timeframe="1D")),
+                engine.analyze_async(TickerAnalysisRequest(
+                    symbol=sym, timeframe="1D", setup_family=family,
+                )),
                 timeout=45.0,
             )
             verdict = v_resp.model_dump(mode="json")
@@ -774,11 +799,14 @@ async def _execute_enforce(
                 stop_loss=trade_row.get("stop_loss"),
                 target_1=trade_row.get("target_1"),
                 target_2=trade_row.get("target_2"),
+                target_3=trade_row.get("target_3"),
                 position_size_pct=trade_row.get("position_size_pct"),
                 account_value=trade_row.get("account_value"),
                 gate_verdict=trade_row.get("gate_verdict"),
                 template=trade_row.get("template"),
                 regime=trade_row.get("regime"),
+                setup_family=trade_row.get("setup_family"),
+                atr_at_entry=trade_row.get("atr_at_entry"),
                 notes=trade_row.get("notes"),
                 status="pending",
                 expires_after_sessions=request.expires_after_sessions,
@@ -881,7 +909,11 @@ async def _build_row(
     ).strip() or "Unknown"
     template_name = str(brief_section.get("screen_name") or "").strip()
     regime_name = str(market_regime or "").strip()
+    # Bundle A (D-77/A3): the brief screen is the family source of truth.
+    setup_family = exit_policy_mod.family_for_screen(template_name)
     max_hold_days = tp.get("max_hold_days")
+    if max_hold_days in (None, ""):
+        max_hold_days = exit_policy_mod.policy_for(setup_family).time_stop_days
 
     def _rejection(step: str, reason: str, notes: str = "") -> dict:
         return {
@@ -894,6 +926,17 @@ async def _build_row(
         }
 
     # Extract gate
+    # D-77/A4: no structural target inside the family band is a rejection, not
+    # a trade with a manufactured target. Report it before the gate.
+    plan_rejection = str(v.get("plan_rejection") or "").strip()
+    if plan_rejection:
+        return None, _rejection(
+            "plan",
+            f"Plan rejected ({setup_family}): {plan_rejection}",
+            f"entry={v.get('entry_zone_low')} stop={v.get('stop_loss')} "
+            f"targets={v.get('targets') or []}",
+        )
+
     attached = _attached_gate(verdict)
     if not attached:
         return None, _rejection("gate", "No gate attached to verdict")
@@ -936,8 +979,11 @@ async def _build_row(
     entry_low = v.get("entry_zone_low")
     entry_high = v.get("entry_zone_high")
     # D-74 provenance: the gate's reported R:R is stored separately from the
-    # R:R recomputed on the levels the journal will actually execute.
-    metrics = pnl_mod.plan_metrics(entry_low, entry_high, stop, targets) or {}
+    # R:R recomputed on the levels the journal will actually execute. v0.2
+    # measures Plan R from the planned fill to T1 (D-77/A1).
+    metrics = pnl_mod.plan_metrics(
+        entry_low, entry_high, stop, targets, basis="planned_fill",
+    ) or {}
 
     account_value = journal_mod.available_capital()
     shares = round((size / 100.0 * account_value) / entry, 2) if entry else ""
@@ -972,6 +1018,9 @@ async def _build_row(
         "target_3": t3,
         "plan_rr": metrics.get("plan_rr"),
         "target_1_r": metrics.get("target_1_r"),
+        "stretch_rr": metrics.get("stretch_rr"),
+        "setup_family": setup_family,
+        "atr_at_entry": tp.get("atr_at_entry"),
         "position_size_pct": size,
         "account_value": round(account_value, 2),
         "shares": shares,
@@ -1009,6 +1058,8 @@ class SyncExitsResponseItem(BaseModel):
     mfe_r: float | None = None
     mae_r: float | None = None
     plan_adherence: float | None = None
+    setup_family: str | None = None
+    exit_legs: str | None = None
     applied: bool = False
     skipped: bool = False
     skip_reason: str | None = None
@@ -1084,13 +1135,22 @@ async def _execute_sync_exits(
             skipped += 1
             items.append(SyncExitsResponseItem(symbol=symbol, skipped=True, skip_reason="invalid geometry"))
             continue
+        family = exit_policy_mod.normalize_family(row.get("setup_family"))
         targets = [
             t for t in (
                 journal_mod._as_float(row.get("target_1")),
                 journal_mod._as_float(row.get("target_2")),
+                journal_mod._as_float(row.get("target_3")),
             ) if t is not None
         ]
         max_hold = journal_mod._as_int(row.get("max_hold_days"))
+        shares = journal_mod._as_float(row.get("shares"))
+        if not shares:
+            # Legacy rows may predate the shares column: derive from notional.
+            account_value = journal_mod._as_float(row.get("account_value"))
+            size_pct = journal_mod.position_size_pct(row)
+            if account_value and size_pct:
+                shares = account_value * size_pct / 100.0 / entry
 
         df = _fetch_daily_ohlcv(symbol)
         if df is None or df.empty:
@@ -1107,61 +1167,84 @@ async def _execute_sync_exits(
                 "open": b["Open"], "high": b["High"],
                 "low": b["Low"], "close": b["Close"],
             })
-        # The plan states calendar days; infer_exit counts trading bars.
-        max_hold_bars = exits_mod.hold_limit_bars(
-            bars, row.get("date_entered"), max_hold,
-        )
-        fill = exits_mod.infer_exit(
-            bars, entry=entry, stop=stop,
-            targets=targets, max_hold_days=max_hold_bars,
-            # The fill bar is in the past for every row that reaches this path:
-            # EOD rows filled at that close; limit/MOO rows filled intraday and
-            # already had their same-session stop checked at fill time (D-73).
-            # Counting that bar here would reintroduce look-ahead.
-            exclude_entry_bar_excursions=True,
-        )
-        if not fill.exit_price or not fill.exit_date:
-            skipped += 1
-            items.append(SyncExitsResponseItem(symbol=symbol, skipped=True, skip_reason="exit not reached"))
-            continue
 
-        realized_r = (fill.exit_price - entry) / (entry - stop)
-        shares = journal_mod._as_float(row.get("shares"))
-        if not shares:
-            # Legacy rows may predate the shares column: derive from notional.
-            account_value = journal_mod._as_float(row.get("account_value"))
-            size_pct = journal_mod.position_size_pct(row)
-            if account_value and size_pct:
-                shares = account_value * size_pct / 100.0 / entry
-        money = pnl_mod.dollar_pnl(entry, fill.exit_price, shares) or {}
+        updates: dict[str, Any]
+        if family is not None:
+            # Bundle A (D-77): family tranches, breakeven, ATR trail and the
+            # family time stop. NULL-family (v0.1) rows never reach this path.
+            sim = exit_policy_mod.simulate_exit(
+                bars, entry=entry, stop=stop, targets=targets, family=family,
+                shares=shares, atr=journal_mod._as_float(row.get("atr_at_entry")),
+                entry_date=row.get("date_entered"), max_hold_days=max_hold,
+            )
+            if sim.exit_price is None or not sim.exit_date:
+                skipped += 1
+                items.append(SyncExitsResponseItem(
+                    symbol=symbol, setup_family=family,
+                    skipped=True, skip_reason="exit not reached",
+                ))
+                continue
+            updates = sim.as_exit_columns(entry=entry, stop=stop, shares=shares)
+            if not updates:
+                skipped += 1
+                items.append(SyncExitsResponseItem(
+                    symbol=symbol, setup_family=family,
+                    skipped=True, skip_reason="invalid exit geometry",
+                ))
+                continue
+        else:
+            # The plan states calendar days; infer_exit counts trading bars.
+            max_hold_bars = exits_mod.hold_limit_bars(
+                bars, row.get("date_entered"), max_hold,
+            )
+            fill = exits_mod.infer_exit(
+                bars, entry=entry, stop=stop,
+                targets=targets, max_hold_days=max_hold_bars,
+                # The fill bar is in the past for every row that reaches this path:
+                # EOD rows filled at that close; limit/MOO rows filled intraday and
+                # already had their same-session stop checked at fill time (D-73).
+                # Counting that bar here would reintroduce look-ahead.
+                exclude_entry_bar_excursions=True,
+            )
+            if not fill.exit_price or not fill.exit_date:
+                skipped += 1
+                items.append(SyncExitsResponseItem(
+                    symbol=symbol, skipped=True, skip_reason="exit not reached",
+                ))
+                continue
 
-        plan_adherence = 1.0 if fill.exit_reason in (exits_mod.EXIT_STOP, exits_mod.EXIT_TARGET_1, exits_mod.EXIT_TARGET_2) else 0.5
-
-        updates = {
-            "date_closed": fill.exit_date,
-            "exit_price": round(fill.exit_price, 2),
-            "exit_reason": fill.exit_reason,
-            "realized_r": round(realized_r, 2),
-            "pnl_usd": money.get("pnl_usd"),
-            "pnl_gross_usd": money.get("pnl_gross_usd"),
-            "costs_usd": money.get("costs_usd"),
-            "mfe_r": fill.mfe_r,
-            "mae_r": fill.mae_r,
-            "plan_adherence": plan_adherence,
-        }
+            realized_r = (fill.exit_price - entry) / (entry - stop)
+            money = pnl_mod.dollar_pnl(entry, fill.exit_price, shares) or {}
+            plan_adherence = 1.0 if fill.exit_reason in (
+                exits_mod.EXIT_STOP, exits_mod.EXIT_TARGET_1, exits_mod.EXIT_TARGET_2,
+            ) else 0.5
+            updates = {
+                "date_closed": fill.exit_date,
+                "exit_price": round(fill.exit_price, 2),
+                "exit_reason": fill.exit_reason,
+                "realized_r": round(realized_r, 2),
+                "pnl_usd": money.get("pnl_usd"),
+                "pnl_gross_usd": money.get("pnl_gross_usd"),
+                "costs_usd": money.get("costs_usd"),
+                "mfe_r": fill.mfe_r,
+                "mae_r": fill.mae_r,
+                "plan_adherence": plan_adherence,
+            }
 
         item = SyncExitsResponseItem(
             symbol=symbol,
-            exit_date=fill.exit_date,
-            exit_price=round(fill.exit_price, 2),
-            exit_reason=fill.exit_reason,
-            realized_r=round(realized_r, 2),
-            pnl_usd=money.get("pnl_usd"),
-            pnl_gross_usd=money.get("pnl_gross_usd"),
-            costs_usd=money.get("costs_usd"),
-            mfe_r=fill.mfe_r,
-            mae_r=fill.mae_r,
-            plan_adherence=plan_adherence,
+            exit_date=updates.get("date_closed"),
+            exit_price=updates.get("exit_price"),
+            exit_reason=updates.get("exit_reason"),
+            realized_r=updates.get("realized_r"),
+            pnl_usd=updates.get("pnl_usd"),
+            pnl_gross_usd=updates.get("pnl_gross_usd"),
+            costs_usd=updates.get("costs_usd"),
+            mfe_r=updates.get("mfe_r"),
+            mae_r=updates.get("mae_r"),
+            plan_adherence=updates.get("plan_adherence"),
+            setup_family=family,
+            exit_legs=updates.get("exit_legs"),
             applied=request.apply,
         )
         items.append(item)

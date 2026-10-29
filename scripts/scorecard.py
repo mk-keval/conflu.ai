@@ -34,6 +34,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from backend.app.domain.workflow import journal as journal_mod  # noqa: E402
 from backend.app.domain.workflow import journal_store  # noqa: E402
+from backend.app.domain.workflow import exit_policy as exit_policy_mod  # noqa: E402
 from backend.app.domain.workflow import sample as sample_mod  # noqa: E402
 from backend.app.domain.workflow import verification as verification_mod  # noqa: E402
 
@@ -177,6 +178,17 @@ def build_scorecard() -> dict:
     groups = [metrics.to_dict() for metrics in per_template.values()]
     groups.sort(key=lambda item: (-item["n_trades"], item["template"]))
 
+    # Bundle A (D-77): families are the unit the exit policy trades, so report
+    # each one separately. This is context, never a second pass bar.
+    family_rows: dict[str, list[dict]] = {}
+    for row in closed:
+        family = exit_policy_mod.normalize_family(row.get("setup_family")) or "unknown"
+        family_rows.setdefault(family, []).append(row)
+    per_family = [
+        {"family": family, **_metrics(rows)}
+        for family, rows in sorted(family_rows.items())
+    ]
+
     first_fill = min(
         (str(row.get("date_entered"))[:10] for row in scored if row.get("date_entered")),
         default=None,
@@ -224,6 +236,7 @@ def build_scorecard() -> dict:
         },
         "headline": head,
         "per_template_regime": groups,
+        "per_family": per_family,
         "reference_versions": references,
     }
 
@@ -264,6 +277,20 @@ def print_scorecard(card: dict) -> None:
                 f"{item['template'][:38]:<38} {item['regime'][:14]:<14} "
                 f"{item['n_trades']:>4} {item['expectancy_r']:>7.3f} "
                 f"{item['win_rate']:>6.1%} {pf:>6}"
+            )
+    print()
+    print("By setup family (D-77 context, not a second pass bar)")
+    if not card["per_family"]:
+        print("No closed scored trades yet.")
+    else:
+        print(f"{'Family':<18} {'n':>4} {'ExpR':>7} {'WR':>7} {'PF':>6} {'AvgLoss':>8}")
+        print("-" * 56)
+        for item in card["per_family"]:
+            pf = f"{item['profit_factor']:.2f}" if item["profit_factor"] is not None else "-"
+            loss = f"{item['avg_loss_r']:.2f}" if item["avg_loss_r"] is not None else "-"
+            print(
+                f"{item['family']:<18} {item['n']:>4} {item['expectancy_r']:>7.3f} "
+                f"{item['win_rate']:>6.1%} {pf:>6} {loss:>8}"
             )
     print()
     print("Other samples (reference only, never scored)")

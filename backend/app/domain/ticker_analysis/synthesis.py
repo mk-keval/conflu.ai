@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from math import isfinite
 from typing import Any
 
 from backend.app.domain.ticker_analysis.models import (
@@ -15,6 +16,7 @@ from backend.app.domain.ticker_analysis.models import (
     TradePlan,
 )
 from backend.app.domain.workflow.gate import evaluate_stop_distance
+from backend.app.domain.workflow import exit_policy as exit_policy_mod
 
 
 # ── Regime weight tables ──
@@ -185,10 +187,11 @@ def _enforce_plan_geometry_invariants(
     dealbreakers: list[str],
     all_findings: list[str],
     prefer_ma_anchors: bool = False,
+    setup_family: str | None = None,
 ) -> tuple[
     str, float | None, float | None, float | None, list[float], float | None,
     int, list[str], list[str],
-    float | None, float | None, list[float]
+    float | None, float | None, list[float], str | None
 ]:
     """
     Enforce plan geometry invariants for any LONG-oriented plan that emitted
@@ -210,10 +213,16 @@ def _enforce_plan_geometry_invariants(
     
     R/R is validated against actual plan geometry (zone midpoint → last target
     over real risk), not the heuristic estimate.
+
+    v0.2 (``setup_family`` set) replaces INVARIANT 2 with Bundle A target
+    selection: nearest structural level inside the family band, T1 R as the
+    reported R/R, or an explicit ``plan_rejection`` when nothing fits.
     
     Returns: (action, entry_low, entry_high, stop_loss, targets, rr, conviction, 
-              dealbreakers, all_findings, entry_basis, structural_stop_level, structural_target_levels)
+              dealbreakers, all_findings, entry_basis, structural_stop_level,
+              structural_target_levels, plan_rejection)
     """
+    plan_rejection: str | None = None
     # Applies to LONG-oriented plans with a complete emitted level set.
     long_actions = ("BUY", "ACCUMULATE", "STRONG BUY")
     if (
@@ -225,7 +234,7 @@ def _enforce_plan_geometry_invariants(
         or price <= 0
     ):
         return (action, entry_low, entry_high, stop_loss, targets, rr, conviction,
-                dealbreakers, all_findings, None, None, [])
+                dealbreakers, all_findings, None, None, [], None)
 
     close = price
     
@@ -272,7 +281,7 @@ def _enforce_plan_geometry_invariants(
     # Levels may have been stripped by an invariant-1 downgrade.
     if entry_low is None or entry_high is None or stop_loss is None:
         return (action, entry_low, entry_high, stop_loss, targets, rr, conviction,
-                dealbreakers, all_findings, None, None, [])
+                dealbreakers, all_findings, None, None, [], None)
 
     # ── PROMOTION: structurally valid WATCH plans earn ACCUMULATE ────────
     # Only promote to ACCUMULATE if WATCH was due to structural issues (INVARIANT 1)
@@ -287,6 +296,62 @@ def _enforce_plan_geometry_invariants(
                 "🔧 Structurally valid setup upgraded WATCH → ACCUMULATE "
                 "(stop outside zone, structure-anchored)"
             )
+
+    # ── v0.2 (Bundle A): nearest structural target inside the family band ──
+    # INVARIANT 2's target extension/fallback is deliberately skipped: the
+    # v0.1 path kept the highest levels and manufactured targets, which let the
+    # gate pass a payout the exit would never reach (D-77). A trade with no
+    # structural level in the band is rejected, not given a number.
+    if setup_family is not None:
+        candidates = exit_policy_mod.collect_candidates(
+            price=close,
+            key_resistance=technical.key_resistance if technical else None,
+            swing_highs=technical.swing_highs if technical else None,
+            swing_lows=technical.swing_lows if technical else None,
+        )
+        selection = exit_policy_mod.select_targets(
+            entry_low=entry_low,
+            stop_loss=stop_loss,
+            family=setup_family,
+            candidates=candidates,
+        )
+        if not selection.ok:
+            reason = selection.rejection or exit_policy_mod.REJECT_NO_OBJECTIVE
+            plan_rejection = reason
+            all_findings.append(
+                f"⚠️ Plan rejected ({selection.family}): {reason} — {selection.detail}"
+            )
+            dealbreakers = list(dealbreakers) + [
+                f"Plan rejected: {reason} ({selection.detail})"
+            ]
+            action = "WATCH"
+            conviction = min(conviction, 4)
+            targets = []
+            rr = None
+            return (
+                action, entry_low, entry_high, stop_loss, targets, rr,
+                conviction, dealbreakers, all_findings, None, stop_loss, [],
+                plan_rejection,
+            )
+
+        targets = list(selection.targets)
+        rr = selection.t1_r
+        entry_basis = entry_low
+        structural_target_levels = list(targets)
+        stretch = (
+            f", stretch T3 {selection.targets[2]:.2f} ({selection.stretch_r:.2f}R)"
+            if len(selection.targets) >= 3 and selection.stretch_r is not None
+            else ""
+        )
+        all_findings.append(
+            f"🎯 {selection.family} targets from structure (planned fill): "
+            f"T1 {selection.targets[0]:.2f} ({selection.t1_r:.2f}R){stretch}"
+        )
+        return (
+            action, entry_low, entry_high, stop_loss, targets, rr,
+            conviction, dealbreakers, all_findings, entry_basis, stop_loss,
+            structural_target_levels, None,
+        )
 
     # ── INVARIANT 2: R/R >= 2.0 via priority order ──────────────────────
     if action in long_actions and (rr is None or rr < 2.0):
@@ -319,7 +384,8 @@ def _enforce_plan_geometry_invariants(
             entry_basis = (entry_low + entry_high) / 2
             structural_target_levels = targets.copy()
             return (action, entry_low, entry_high, stop_loss, targets, geo_rr, conviction,
-                    dealbreakers, all_findings, entry_basis, stop_loss, structural_target_levels)
+                    dealbreakers, all_findings, entry_basis, stop_loss, structural_target_levels,
+                    None)
         
         # Priority 2: Try to extend targets to structural levels if not already done
         # (only if we have technical data with swing data)
@@ -335,7 +401,8 @@ def _enforce_plan_geometry_invariants(
                     entry_basis = (entry_low + entry_high) / 2
                     structural_target_levels = targets.copy()
                     return (action, entry_low, entry_high, stop_loss, targets, geo_rr, conviction,
-                            dealbreakers, all_findings, entry_basis, stop_loss, structural_target_levels)
+                            dealbreakers, all_findings, entry_basis, stop_loss, structural_target_levels,
+                            None)
         
         # Priority 3: Fall back to heuristic R/R if no structural data available
         # When no structural data (swing highs/lows, key_resistance) is available,
@@ -352,7 +419,8 @@ def _enforce_plan_geometry_invariants(
                 entry_basis = (entry_low + entry_high) / 2
                 structural_target_levels = targets.copy()
                 return (action, entry_low, entry_high, stop_loss, targets, heuristic_rr, conviction,
-                        dealbreakers, all_findings, entry_basis, stop_loss, structural_target_levels)
+                        dealbreakers, all_findings, entry_basis, stop_loss, structural_target_levels,
+                        None)
         
         # Priority 4: All methods failed - downgrade to WATCH with explicit reason
         rr_display = f"{rr:.1f}" if rr is not None else "N/A (no structural targets)"
@@ -370,7 +438,8 @@ def _enforce_plan_geometry_invariants(
     entry_basis = (entry_low + entry_high) / 2 if entry_low is not None and entry_high is not None else None
     structural_target_levels = targets.copy() if targets else []
     return (action, entry_low, entry_high, stop_loss, targets, rr, conviction,
-            dealbreakers, all_findings, entry_basis, stop_loss, structural_target_levels)
+            dealbreakers, all_findings, entry_basis, stop_loss, structural_target_levels,
+            plan_rejection)
 
 
 def _recalibrate_conviction_for_breakout(
@@ -642,6 +711,7 @@ def synthesise(
     tv_data: dict[str, Any] | None = None,
     technical_weekly: TechnicalAnalysis | None = None,
     options_flow: dict[str, Any] | None = None,
+    setup_family: str | None = None,
 ) -> AnalysisVerdict:
     """Combine all module outputs into a final actionable verdict.
 
@@ -655,6 +725,9 @@ def synthesise(
         regime: Market regime for adaptive weighting (None = default).
         tv_data: Raw TV data fields for computing levels.
         technical_weekly: Weekly technical analysis for multi-timeframe alignment.
+        setup_family: Bundle A family (D-77). ``None`` keeps the legacy v0.1
+            geometry; any family value selects v0.2 structural targets and the
+            family exit plan.
 
     Returns:
         AnalysisVerdict with final action, conviction, and trade details.
@@ -1560,7 +1633,7 @@ def synthesise(
     # ── INVARIANT 1 & 2: Plan geometry enforcement ───────────────────────
     # Runs BEFORE breakout recalibration so WATCH→ACCUMULATE promotions
     # still receive the conviction floor.
-    action, entry_low, entry_high, stop_loss, targets, rr, conviction, dealbreakers, all_findings, entry_basis, structural_stop_level, structural_target_levels = _enforce_plan_geometry_invariants(
+    action, entry_low, entry_high, stop_loss, targets, rr, conviction, dealbreakers, all_findings, entry_basis, structural_stop_level, structural_target_levels, plan_rejection = _enforce_plan_geometry_invariants(
         action=action,
         entry_low=entry_low,
         entry_high=entry_high,
@@ -1574,6 +1647,7 @@ def synthesise(
         dealbreakers=dealbreakers,
         all_findings=all_findings,
         prefer_ma_anchors=is_treasury_asset,
+        setup_family=setup_family,
     )
 
     # ── INVARIANT 3: Conviction recalibration for breakout rvol ──────────
@@ -1617,6 +1691,84 @@ def synthesise(
         structural_stop_level=structural_stop_level,
         structural_target_levels=structural_target_levels,
     )
+
+    # ── Bundle A (D-77): ATR provenance + family management plan ─────────
+    # ATR is the trail distance at entry; when it is missing the simulator
+    # falls back to 2 x initial risk. The scale-out plan is re-anchored to the
+    # selected target prices and family fractions — the legacy R-multiple plan
+    # was computed and then discarded (P1-8).
+    atr_at_entry: float | None = None
+    if tv_data:
+        try:
+            raw_atr = float(tv_data.get("ATR") or tv_data.get("atr") or 0)
+        except (TypeError, ValueError):
+            raw_atr = 0.0
+        if raw_atr > 0 and isfinite(raw_atr):
+            atr_at_entry = round(raw_atr, 4)
+    if atr_at_entry is None and technical and technical.atr_pct and price and price > 0:
+        atr_at_entry = round(technical.atr_pct / 100.0 * price, 4)
+
+    if setup_family is not None and trade_plan is not None:
+        policy = exit_policy_mod.policy_for(setup_family)
+        trade_plan.setup_family = policy.family
+        trade_plan.atr_at_entry = atr_at_entry
+        trade_plan.max_hold_days = policy.time_stop_days
+        trade_plan.move_to_breakeven_at_r = policy.breakeven_at_r or 0.0
+        if policy.trail_atr_multiple is not None:
+            trade_plan.trail_type = "atr"
+            trade_plan.trail_value = policy.trail_atr_multiple
+            trade_plan.trail_activation_r = rr if rr is not None else 1.0
+        else:
+            trade_plan.trail_type = "none"
+            trade_plan.trail_value = 0.0
+            trade_plan.trail_activation_r = 0.0
+
+        if targets and entry_low is not None and stop_loss is not None:
+            risk = entry_low - stop_loss
+            if risk > 0:
+                legs: list[dict[str, Any]] = []
+                for index, fraction, label in (
+                    (0, policy.t1_fraction, "T1"),
+                    (1, policy.t2_fraction, "T2"),
+                ):
+                    if fraction <= 0 or index >= len(targets):
+                        continue
+                    level = targets[index]
+                    legs.append({
+                        "target": label,
+                        "target_price": level,
+                        "r_multiple": round((level - entry_low) / risk, 2),
+                        "position_fraction": round(fraction, 4),
+                        "size_pct": round(position_size * fraction, 2),
+                        "reason": f"Take {fraction:.0%} at {label} {level:.2f}",
+                    })
+                runner_fraction = 1.0 - sum(
+                    leg["position_fraction"] for leg in legs
+                )
+                if runner_fraction > 1e-9:
+                    trail_note = (
+                        f"trail {policy.trail_atr_multiple:g}xATR after T1"
+                        if policy.trail_atr_multiple is not None
+                        else "time stop only"
+                    )
+                    legs.append({
+                        "target": "runner",
+                        "target_price": None,
+                        "r_multiple": None,
+                        "position_fraction": round(runner_fraction, 4),
+                        "size_pct": round(position_size * runner_fraction, 2),
+                        "reason": f"Keep {runner_fraction:.0%} as runner — {trail_note}",
+                    })
+                trade_plan.scale_out = legs
+                trade_plan.notes.append(
+                    f"Bundle A {policy.family} exits: "
+                    + ", ".join(
+                        f"{leg['position_fraction']:.0%} {leg['target']}"
+                        for leg in legs
+                    )
+                    + f"; breakeven +{policy.breakeven_at_r or 0:g}R; "
+                    + f"time stop {policy.time_stop_days}d"
+                )
 
     # ── D-44: binary risk detection (G14) ─────────────────────────────
     # If the ticker reports earnings within the next 5 trading days, cap
@@ -1667,6 +1819,7 @@ def synthesise(
         short_interest_pct=short_interest_pct,
         institutional_ownership=institutional_ownership,
         options_flow=options_flow_bias,
+        setup_family=setup_family,
     )
     gate_result = evaluate_gate(gate_input)
 
@@ -1691,6 +1844,7 @@ def synthesise(
         entry_basis=entry_basis,
         structural_stop_level=structural_stop_level,
         structural_target_levels=structural_target_levels,
+        plan_rejection=plan_rejection,
     )
 
 
