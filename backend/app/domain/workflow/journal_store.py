@@ -447,10 +447,25 @@ def upsert_entry(row: dict[str, Any]) -> str:
     now = _utc_now()
     with session() as con:
         existing = con.execute(
-            "SELECT id FROM paper_trades WHERE date_entered = ? AND symbol = ?",
+            "SELECT id, sample_version, setup_family, atr_at_entry, stretch_rr "
+            "FROM paper_trades WHERE date_entered = ? AND symbol = ?",
             (date_entered, symbol),
         ).fetchone()
+        # D-77: v0.1 geometry is frozen. A re-run of an old date must not
+        # retro-label the row with a v0.2 family, ATR or planned-fill stretch —
+        # those fields did not exist in the sample the row was traded under.
+        if version == sample_mod.SAMPLE_VERSION_V01:
+            values["setup_family"] = None
+            values["atr_at_entry"] = None
+            values["stretch_rr"] = None
         if existing:
+            if (
+                sample_mod.normalize_sample_version(existing["sample_version"])
+                == sample_mod.SAMPLE_VERSION_V01
+            ):
+                values["setup_family"] = existing["setup_family"]
+                values["atr_at_entry"] = existing["atr_at_entry"]
+                values["stretch_rr"] = existing["stretch_rr"]
             sets = [c for c in ENTRY_DB_COLUMNS if c not in ("date_entered", "symbol")]
             con.execute(
                 f"UPDATE paper_trades SET {', '.join(f'{c} = ?' for c in sets)}, "

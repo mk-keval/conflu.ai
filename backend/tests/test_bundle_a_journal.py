@@ -249,6 +249,65 @@ assert _spec.loader is not None
 _spec.loader.exec_module(scorecard)
 
 
+# ── Journal writes: v0.1 geometry is frozen (D-77) ───────────────────────
+
+
+def test_rerunning_a_v01_row_never_adds_a_family() -> None:
+    """A same-day re-run must not retro-label history under v0.2 rules."""
+    assert js.upsert_entry({
+        "date_entered": "2026-10-26", "symbol": "OLD", "sector": "Utilities",
+        "entry_price": 100.0, "stop_loss": 95.0, "position_size_pct": 10.0,
+        "sample_version": sample_mod.SAMPLE_VERSION_V01,
+    }) == "inserted"
+
+    assert js.upsert_entry({
+        "date_entered": "2026-10-26", "symbol": "OLD", "sector": "Utilities",
+        "entry_price": 101.0, "stop_loss": 95.0, "position_size_pct": 10.0,
+        "setup_family": "trend", "atr_at_entry": 2.0, "stretch_rr": 4.0,
+    }) == "updated"
+
+    row = js.fetch_rows()[0]
+    # Fresh evaluation still wins on the entry fields...
+    assert row["entry_price"] == "101.0"
+    # ...but the family/ATR/stretch did not exist in v0.1 and stay NULL.
+    assert row["setup_family"] is None
+    assert row["atr_at_entry"] is None
+    assert row["stretch_rr"] is None
+    assert row["sample_version"] == sample_mod.SAMPLE_VERSION_V01
+    assert verification.find_family_issues([row], []) == []
+
+
+def test_a_v02_row_refreshes_its_family_on_rerun() -> None:
+    assert js.upsert_entry({
+        "date_entered": "2026-10-30", "symbol": "NEW", "sector": "Technology",
+        "entry_price": 100.0, "stop_loss": 95.0, "position_size_pct": 10.0,
+        "setup_family": "unknown", "atr_at_entry": 1.0,
+        "sample_version": sample_mod.SAMPLE_VERSION_V02,
+    }) == "inserted"
+    assert js.upsert_entry({
+        "date_entered": "2026-10-30", "symbol": "NEW", "sector": "Technology",
+        "entry_price": 100.0, "stop_loss": 95.0, "position_size_pct": 10.0,
+        "setup_family": "breakout", "atr_at_entry": 1.4,
+    }) == "updated"
+
+    row = js.fetch_rows()[0]
+    assert row["setup_family"] == "breakout"
+    assert row["atr_at_entry"] == "1.4"
+
+
+def test_inserting_v01_with_a_family_strips_it() -> None:
+    js.upsert_entry({
+        "date_entered": "2026-10-26", "symbol": "LEGACY", "sector": "Utilities",
+        "entry_price": 100.0, "stop_loss": 95.0,
+        "setup_family": "trend", "atr_at_entry": 2.0, "stretch_rr": 4.0,
+        "sample_version": sample_mod.SAMPLE_VERSION_V01,
+    })
+    row = js.fetch_rows()[0]
+    assert row["setup_family"] is None
+    assert row["atr_at_entry"] is None
+    assert row["stretch_rr"] is None
+
+
 def test_scorecard_reports_closed_trades_by_family() -> None:
     journal_mod.upsert_entry({
         "date_entered": "2026-10-30", "symbol": "TREND", "sector": "Technology",
