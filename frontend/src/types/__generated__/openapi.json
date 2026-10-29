@@ -3148,13 +3148,70 @@
         }
       }
     },
+    "/api/v1/workflow/pending-orders": {
+      "get": {
+        "tags": [
+          "workflow"
+        ],
+        "summary": "Read pending after-close orders",
+        "description": "After-close orders waiting for a T+1 fill. status=pending (default) or all for the filled/expired history.",
+        "operationId": "get_pending_orders_api_v1_workflow_pending_orders_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(pending|filled|expired|cancelled|all)$",
+              "default": "pending",
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 200,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/workflow/journal/open": {
       "get": {
         "tags": [
           "workflow"
         ],
         "summary": "Read open positions",
-        "description": "Returns rows with no date_closed (the current open book).",
+        "description": "Returns rows with no date_closed (the current open book), plus active pending orders \u2014 signals that have not filled yet.",
         "operationId": "get_open_positions_api_v1_workflow_journal_open_get",
         "responses": {
           "200": {
@@ -3271,7 +3328,7 @@
           "workflow"
         ],
         "summary": "Export the journal as CSV",
-        "description": "Canonical 29-col CSV (chronological) plus template/regime/entry_timing \u2014 Excel remains an output format, never the store.",
+        "description": "Canonical 29-col CSV (chronological) plus template/regime/entry_timing/max_hold_days \u2014 Excel remains an output format, never the store.",
         "operationId": "export_journal_api_v1_workflow_journal_export_get",
         "responses": {
           "200": {
@@ -3384,8 +3441,8 @@
         "tags": [
           "workflow"
         ],
-        "summary": "Touchpoint A \u2014 Run gate enforcement and write paper trades",
-        "description": "Fetches morning brief, evaluates candidates through the 7-step gate, and writes accepted trades to the journal DB (like --apply).",
+        "summary": "Touchpoint A \u2014 Run gate enforcement and queue after-close orders",
+        "description": "Fills eligible pending orders from actual bars, fetches the morning brief, evaluates candidates through the 7-step gate, and queues accepted signals as pending orders. Orders fill on the next session (T+1), never the signal day.",
         "operationId": "enforce_paper_trades_api_v1_workflow_paper_trades_enforce_post",
         "requestBody": {
           "content": {
@@ -3393,7 +3450,9 @@
               "schema": {
                 "$ref": "#/components/schemas/EnforceRequest",
                 "default": {
-                  "min_conviction": 5
+                  "min_conviction": 5,
+                  "order_type": "limit",
+                  "expires_after_sessions": 3
                 }
               }
             }
@@ -3473,7 +3532,7 @@
           "workflow"
         ],
         "summary": "One-go after-close run \u2014 Touchpoint A then B(apply)",
-        "description": "Runs gate enforcement (entries) and then exit sync (exits applied) in one call, so forgetting one of the two touchpoints is impossible. Writes a single workflow_runs row (mode='run_close'). Entries logged today are skipped by the exit phase ('exits start next session').",
+        "description": "Fills eligible pending orders from actual bars, queues today's accepted signals as pending (T+1), then applies exit inference to the open book \u2014 in one call, so forgetting one of the two touchpoints is impossible. Writes a single workflow_runs row (mode='run_close').",
         "operationId": "run_close_api_v1_workflow_paper_trades_run_close_post",
         "requestBody": {
           "content": {
@@ -3482,7 +3541,9 @@
                 "$ref": "#/components/schemas/RunCloseRequest",
                 "default": {
                   "min_conviction": 5,
-                  "apply_exits": true
+                  "apply_exits": true,
+                  "order_type": "limit",
+                  "expires_after_sessions": 3
                 }
               }
             }
@@ -4704,6 +4765,20 @@
               }
             ],
             "title": "Only"
+          },
+          "order_type": {
+            "type": "string",
+            "enum": [
+              "limit",
+              "moo"
+            ],
+            "title": "Order Type",
+            "default": "limit"
+          },
+          "expires_after_sessions": {
+            "type": "integer",
+            "title": "Expires After Sessions",
+            "default": 3
           }
         },
         "type": "object",
@@ -4728,6 +4803,30 @@
           "message": {
             "type": "string",
             "title": "Message"
+          },
+          "pending": {
+            "items": {
+              "$ref": "#/components/schemas/PendingOrderItem"
+            },
+            "type": "array",
+            "title": "Pending",
+            "default": []
+          },
+          "fills": {
+            "items": {
+              "$ref": "#/components/schemas/PendingFillItem"
+            },
+            "type": "array",
+            "title": "Fills",
+            "default": []
+          },
+          "closed_orders": {
+            "items": {
+              "$ref": "#/components/schemas/PendingOrderEventItem"
+            },
+            "type": "array",
+            "title": "Closed Orders",
+            "default": []
           }
         },
         "type": "object",
@@ -4829,6 +4928,50 @@
               }
             ],
             "title": "Reason"
+          },
+          "order_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Type"
+          },
+          "limit_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit Price"
+          },
+          "order_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Status"
+          },
+          "expires_after_sessions": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires After Sessions"
           }
         },
         "type": "object",
@@ -6052,6 +6195,363 @@
         "title": "OptimizeRequest",
         "description": "POST /api/v1/backtest/optimize-v2 request body."
       },
+      "PendingFillItem": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "order_id": {
+            "type": "integer",
+            "title": "Order Id"
+          },
+          "fill_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fill Date"
+          },
+          "fill_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fill Price"
+          },
+          "same_day_stop": {
+            "type": "boolean",
+            "title": "Same Day Stop",
+            "default": false
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol",
+          "order_id"
+        ],
+        "title": "PendingFillItem",
+        "description": "One order that filled from an actual next-session bar."
+      },
+      "PendingOrderEventItem": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "order_id": {
+            "type": "integer",
+            "title": "Order Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol",
+          "order_id",
+          "status"
+        ],
+        "title": "PendingOrderEventItem",
+        "description": "One order closed without a fill (expired/cancelled/error)."
+      },
+      "PendingOrderItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "signal_date": {
+            "type": "string",
+            "title": "Signal Date"
+          },
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "sector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector"
+          },
+          "action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          },
+          "order_type": {
+            "type": "string",
+            "title": "Order Type",
+            "default": "limit"
+          },
+          "limit_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit Price"
+          },
+          "entry_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Low"
+          },
+          "entry_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry High"
+          },
+          "stop_loss": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Loss"
+          },
+          "target_1": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target 1"
+          },
+          "target_2": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target 2"
+          },
+          "target_3": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target 3"
+          },
+          "position_size_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position Size Pct"
+          },
+          "account_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Value"
+          },
+          "shares": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shares"
+          },
+          "gate_verdict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gate Verdict"
+          },
+          "template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template"
+          },
+          "regime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regime"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "pending"
+          },
+          "status_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Date"
+          },
+          "status_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Reason"
+          },
+          "expires_after_sessions": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires After Sessions"
+          },
+          "sample_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sample Version"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "signal_date",
+          "symbol"
+        ],
+        "title": "PendingOrderItem",
+        "description": "One after-close order waiting for (or resolved by) a next-session fill."
+      },
       "PortfolioRequest": {
         "properties": {
           "symbols": {
@@ -6564,6 +7064,20 @@
             "type": "boolean",
             "title": "Apply Exits",
             "default": true
+          },
+          "order_type": {
+            "type": "string",
+            "enum": [
+              "limit",
+              "moo"
+            ],
+            "title": "Order Type",
+            "default": "limit"
+          },
+          "expires_after_sessions": {
+            "type": "integer",
+            "title": "Expires After Sessions",
+            "default": 3
           }
         },
         "type": "object",
@@ -7359,6 +7873,28 @@
               }
             ],
             "title": "Pnl Usd"
+          },
+          "pnl_gross_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pnl Gross Usd"
+          },
+          "costs_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Costs Usd"
           },
           "mfe_r": {
             "anyOf": [

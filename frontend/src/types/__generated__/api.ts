@@ -1326,6 +1326,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/workflow/pending-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read pending after-close orders
+         * @description After-close orders waiting for a T+1 fill. status=pending (default) or all for the filled/expired history.
+         */
+        get: operations["get_pending_orders_api_v1_workflow_pending_orders_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/workflow/journal/open": {
         parameters: {
             query?: never;
@@ -1335,7 +1355,7 @@ export interface paths {
         };
         /**
          * Read open positions
-         * @description Returns rows with no date_closed (the current open book).
+         * @description Returns rows with no date_closed (the current open book), plus active pending orders — signals that have not filled yet.
          */
         get: operations["get_open_positions_api_v1_workflow_journal_open_get"];
         put?: never;
@@ -1415,7 +1435,7 @@ export interface paths {
         };
         /**
          * Export the journal as CSV
-         * @description Canonical 29-col CSV (chronological) plus template/regime/entry_timing — Excel remains an output format, never the store.
+         * @description Canonical 29-col CSV (chronological) plus template/regime/entry_timing/max_hold_days — Excel remains an output format, never the store.
          */
         get: operations["export_journal_api_v1_workflow_journal_export_get"];
         put?: never;
@@ -1476,8 +1496,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Touchpoint A — Run gate enforcement and write paper trades
-         * @description Fetches morning brief, evaluates candidates through the 7-step gate, and writes accepted trades to the journal DB (like --apply).
+         * Touchpoint A — Run gate enforcement and queue after-close orders
+         * @description Fills eligible pending orders from actual bars, fetches the morning brief, evaluates candidates through the 7-step gate, and queues accepted signals as pending orders. Orders fill on the next session (T+1), never the signal day.
          */
         post: operations["enforce_paper_trades_api_v1_workflow_paper_trades_enforce_post"];
         delete?: never;
@@ -1517,7 +1537,7 @@ export interface paths {
         put?: never;
         /**
          * One-go after-close run — Touchpoint A then B(apply)
-         * @description Runs gate enforcement (entries) and then exit sync (exits applied) in one call, so forgetting one of the two touchpoints is impossible. Writes a single workflow_runs row (mode='run_close'). Entries logged today are skipped by the exit phase ('exits start next session').
+         * @description Fills eligible pending orders from actual bars, queues today's accepted signals as pending (T+1), then applies exit inference to the open book — in one call, so forgetting one of the two touchpoints is impossible. Writes a single workflow_runs row (mode='run_close').
          */
         post: operations["run_close_api_v1_workflow_paper_trades_run_close_post"];
         delete?: never;
@@ -2041,6 +2061,17 @@ export interface components {
             min_conviction: number;
             /** Only */
             only?: string | null;
+            /**
+             * Order Type
+             * @default limit
+             * @enum {string}
+             */
+            order_type: "limit" | "moo";
+            /**
+             * Expires After Sessions
+             * @default 3
+             */
+            expires_after_sessions: number;
         };
         /** EnforceResponse */
         EnforceResponse: {
@@ -2050,6 +2081,21 @@ export interface components {
             rejected: components["schemas"]["EnforceResponseItem"][];
             /** Message */
             message: string;
+            /**
+             * Pending
+             * @default []
+             */
+            pending: components["schemas"]["PendingOrderItem"][];
+            /**
+             * Fills
+             * @default []
+             */
+            fills: components["schemas"]["PendingFillItem"][];
+            /**
+             * Closed Orders
+             * @default []
+             */
+            closed_orders: components["schemas"]["PendingOrderEventItem"][];
         };
         /** EnforceResponseItem */
         EnforceResponseItem: {
@@ -2076,6 +2122,14 @@ export interface components {
             failed_step?: string | null;
             /** Reason */
             reason?: string | null;
+            /** Order Type */
+            order_type?: string | null;
+            /** Limit Price */
+            limit_price?: number | null;
+            /** Order Status */
+            order_status?: string | null;
+            /** Expires After Sessions */
+            expires_after_sessions?: number | null;
         };
         /**
          * ExpectancyItem
@@ -2655,6 +2709,105 @@ export interface components {
              */
             early_stopping: boolean;
         };
+        /**
+         * PendingFillItem
+         * @description One order that filled from an actual next-session bar.
+         */
+        PendingFillItem: {
+            /** Symbol */
+            symbol: string;
+            /** Order Id */
+            order_id: number;
+            /** Fill Date */
+            fill_date?: string | null;
+            /** Fill Price */
+            fill_price?: number | null;
+            /**
+             * Same Day Stop
+             * @default false
+             */
+            same_day_stop: boolean;
+            /** Note */
+            note?: string | null;
+        };
+        /**
+         * PendingOrderEventItem
+         * @description One order closed without a fill (expired/cancelled/error).
+         */
+        PendingOrderEventItem: {
+            /** Symbol */
+            symbol: string;
+            /** Order Id */
+            order_id: number;
+            /** Status */
+            status: string;
+            /** Note */
+            note?: string | null;
+        };
+        /**
+         * PendingOrderItem
+         * @description One after-close order waiting for (or resolved by) a next-session fill.
+         */
+        PendingOrderItem: {
+            /** Id */
+            id: number;
+            /** Signal Date */
+            signal_date: string;
+            /** Symbol */
+            symbol: string;
+            /** Sector */
+            sector?: string | null;
+            /** Action */
+            action?: string | null;
+            /**
+             * Order Type
+             * @default limit
+             */
+            order_type: string;
+            /** Limit Price */
+            limit_price?: number | null;
+            /** Entry Low */
+            entry_low?: number | null;
+            /** Entry High */
+            entry_high?: number | null;
+            /** Stop Loss */
+            stop_loss?: number | null;
+            /** Target 1 */
+            target_1?: number | null;
+            /** Target 2 */
+            target_2?: number | null;
+            /** Target 3 */
+            target_3?: number | null;
+            /** Position Size Pct */
+            position_size_pct?: number | null;
+            /** Account Value */
+            account_value?: number | null;
+            /** Shares */
+            shares?: number | null;
+            /** Gate Verdict */
+            gate_verdict?: string | null;
+            /** Template */
+            template?: string | null;
+            /** Regime */
+            regime?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /**
+             * Status
+             * @default pending
+             */
+            status: string;
+            /** Status Date */
+            status_date?: string | null;
+            /** Status Reason */
+            status_reason?: string | null;
+            /** Expires After Sessions */
+            expires_after_sessions?: number | null;
+            /** Sample Version */
+            sample_version?: string | null;
+            /** Created At */
+            created_at?: string | null;
+        };
         /** PortfolioRequest */
         PortfolioRequest: {
             /** Symbols */
@@ -2913,6 +3066,17 @@ export interface components {
              * @default true
              */
             apply_exits: boolean;
+            /**
+             * Order Type
+             * @default limit
+             * @enum {string}
+             */
+            order_type: "limit" | "moo";
+            /**
+             * Expires After Sessions
+             * @default 3
+             */
+            expires_after_sessions: number;
         };
         /**
          * RunCloseResponse
@@ -3238,6 +3402,10 @@ export interface components {
             realized_r?: number | null;
             /** Pnl Usd */
             pnl_usd?: number | null;
+            /** Pnl Gross Usd */
+            pnl_gross_usd?: number | null;
+            /** Costs Usd */
+            costs_usd?: number | null;
             /** Mfe R */
             mfe_r?: number | null;
             /** Mae R */
@@ -5650,6 +5818,38 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pending_orders_api_v1_workflow_pending_orders_get: {
+        parameters: {
+            query?: {
+                status?: string;
+                limit?: number;
             };
             header?: never;
             path?: never;
