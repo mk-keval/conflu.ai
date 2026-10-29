@@ -72,8 +72,9 @@ first forward data point. One trade is an anecdote, not a verdict.
 
 Targets, R:R gate, screens, menus, weights, sizing, regime permission, exit rules,
 sample clock. The 2026-12-03 calendar review is a progress review; the kill rule still
-requires 30+ closed trades. The legacy VISION.md WR > 50% / avg R > 0.5 bar is flagged
-as P0-4 and needs user sign-off before editing.
+requires 30+ closed trades. The legacy VISION.md WR > 50% / avg R > 0.5 bar was
+P0-4; it was resolved later the same day by **D-75** (replaced, with user
+sign-off).
 
 ## Next
 

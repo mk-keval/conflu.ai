@@ -35,6 +35,7 @@ using any figure in a decision; if the doc and the script disagree, the script w
 | Costs (10 bps fee + 5 bps slippage/side) | $4.84 |
 | MFE gap | **+4.72 R** |
 | Kill rule | **NOT YET** — 1 / 30 closed |
+| Pass bar (D-75) | **not evaluable** — 1 / 30 closed |
 | Time review trigger | 2026-12-03 |
 
 ### Closed trade ledger
@@ -126,13 +127,14 @@ The pre-registered rules are in [PRE_REGISTRATION.md](PRE_REGISTRATION.md) and
 
 - **Review trigger:** 30 closed forward trades **or** 2026-12-03 (6 weeks from the
   first actual fill), whichever comes first.
-- **Kill rule:** expectancy ≤ 0 after **30+ closed trades** → change the system or
-  stop. "Give it more time" requires a written reason.
-- **Legacy pass bar:** VISION.md also carries "hit rate > 50% AND average R > 0.5
-  after ≥ 20 closed trades." That bar predates the current expectancy-first
-  framing and is flagged for user sign-off (P0-4, D-74). It is **not** applied in
-  this scorecard until that decision is recorded. The kill rule is the binding
-  decider.
+- **Pass bar (D-75):** at **30+ closed trades**, expectancy > 0 after costs,
+  profit factor ≥ 1.3, and average loss ≤ 1.0R. Win rate, average win, payoff
+  ratio and MFE capture are reported, not gated. A win rate below 50% is
+  acceptable when the winners are large enough.
+- **Risk circuit breaker:** 8R peak-to-trough drawdown → stop new entries and
+  review; 12R → kill.
+- **Kill rule:** expectancy ≤ 0 after **30+ closed trades**, or the 12R breaker
+  → change the system or stop. "Give it more time" requires a written reason.
 
 At the current pace the time trigger will fire long before 30 closed trades. That
 review is a **progress review** — confidence intervals, execution diagnostics and

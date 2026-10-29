@@ -199,16 +199,31 @@ Tests:
 - Sizing formula, 25% notional cap, CONDITIONAL halving (size dial).
 - Exit rules (stop → T2 → T1 → time stop; full exit).
 - The forward sample clock or its pre-registration.
-- `VISION.md`'s legacy "WR > 50% AND avg R > 0.5" bar. It is flagged as P0-4 and
-  needs user sign-off before any edit; D-74 does not silently remove it.
+- `VISION.md`'s legacy "WR > 50% AND avg R > 0.5" bar. D-74 did not change it;
+  P0-4 was subsequently resolved by **D-75 (2026-10-28)**, after an explicit
+  user sign-off.
 
 ## Open items
 
 | Item | Owner | Status |
 |---|---|---|
-| P0-4: decide whether the legacy WR > 50% / avg R > 0.5 bar survives | User | Open — sign-off required |
+| P0-4: decide whether the legacy WR > 50% / avg R > 0.5 bar survives | User | **Resolved by D-75 (2026-10-28)** — replaced with expectancy > 0, PF ≥ 1.3, average loss ≤ 1.0R; 8R/12R breaker |
 | Reconcile gate R:R with the exit target (review A) | Review after trigger | Frozen |
 | Backfill `target_3` for pre-D-74 rows | Not possible | Documented gap |
 | Per-screen forward table (review C) | Review after trigger | Data now available |
 | Add fill-rate/expiry diagnostics to `scorecard.py` | Measurement backlog | Documented in SCORECARD.md, not yet in the script |
 | Actual broker fills vs the 10+5 bps model | Later | Fixed model is an assumption, not a measurement |
+
+---
+
+## Addendum — P0-4 resolved (2026-10-28, D-75)
+
+The legacy `VISION.md` pass bar ("hit rate > 50% AND average R > 0.5") was never
+applied and no verdict was issued under it. It was replaced by **D-75** with:
+expectancy > 0 after costs, profit factor ≥ 1.3, and average loss ≤ 1.0R at 30+
+closed trades; win rate is reported, not gated. The 8R/12R drawdown circuit
+breaker was added. The kill rule is unchanged.
+
+No code, target, gate, screen, sizing rule or exit rule changed. The forward
+sample (FWD-v0.1) continues; D-75 applies at the 30-trade verdict and is not
+retroactive.

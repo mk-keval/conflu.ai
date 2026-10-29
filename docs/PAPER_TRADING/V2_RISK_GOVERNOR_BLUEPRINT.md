@@ -124,6 +124,8 @@ the regime manually.
 
 - Forward expectancy **> 0** over ≥ 30 closed trades after the change, with choppy
   expectancy not worse than −0.1R — vs the current baseline.
+- The D-75 pass bar applies on top: profit factor ≥ 1.3 and average loss ≤ 1.0R
+  (win rate is reported, not gated). The 8R/12R circuit breaker stays in force.
 - No single change without a measured baseline before/after.
 - VISION.md kill rule stays in force (expectancy ≤ 0 after 30+ closed trades → stop).
 

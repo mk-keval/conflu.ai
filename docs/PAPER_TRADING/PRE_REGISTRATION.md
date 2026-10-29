@@ -90,14 +90,24 @@ be tuned.
   trades per cell**.
 - Execution diagnostics: fill rate, expiry vs cancel, same-session stop rate.
 
-### Legacy pass bar (flagged, not applied)
+### Pass bar (D-75, activated 2026-10-28)
 
-`VISION.md` carries a second bar: hit rate > 50% AND average R > 0.5 after ≥ 20
-closed trades. It predates the expectancy-first framing and conflicts with a
-system whose losses are −1R and whose targets are far away. It is flagged for
-user sign-off (P0-4, D-74). Until that sign-off is recorded, this pre-registration
-uses the **kill rule** as the only decisive threshold and reports the legacy bar
-as context. This is a disclosed open item, not a silent change.
+At **30+ closed trades**, the sample passes when:
+
+- expectancy **> 0 after costs**;
+- profit factor **≥ 1.3**;
+- average loss **≤ 1.0R**.
+
+Win rate, average win, payoff ratio and MFE capture are reported, not gated. A
+win rate below 50% is acceptable when the winners are large enough. The legacy
+"hit rate > 50% AND average R > 0.5" bar was never applied; no verdict was issued
+under it. See D-75.
+
+**Risk circuit breaker:** 8R peak-to-trough drawdown → stop new entries and
+review; 12R → kill. This is a risk control, not a retroactive verdict.
+
+The kill rule (expectancy ≤ 0 at 30+ closed trades) is unchanged and remains the
+binding decider.
 
 ---
 
@@ -110,8 +120,8 @@ whichever comes first.**
 
 The two triggers do different jobs:
 
-- **30 closed trades** is the statistical trigger. The kill rule can fire only
-  here.
+- **30 closed trades** is the statistical trigger. The expectancy kill rule can
+  fire only here; the 12R circuit breaker can fire at any time.
 - **2026-12-03** is a calendar review. It fires even if the sample is small. At
   the current pace it will arrive with far fewer than 30 closes.
 
@@ -122,8 +132,9 @@ The two triggers do different jobs:
    rejection count.
 3. Report confidence intervals. With n < 30 the interval will be wide; say so.
 4. Decide only: **continue the frozen sample**, **extend the calendar review**,
-   or **stop for a documented operational reason**. Do **not** kill the system on
-   expectancy at n < 30 — that is not the pre-registered rule.
+   or **stop for a documented operational reason** (including a fired 12R
+   breaker). Do **not** kill the system on expectancy at n < 30 — that is not the
+   pre-registered rule.
 5. Any design change proposed at this review is P1/P2 and starts a **new**
    sample; it does not retroactively judge v0.1.
 
@@ -132,6 +143,10 @@ The two triggers do different jobs:
 - If expectancy ≤ 0: **kill or change**. A written reason is required to extend.
 - If expectancy > 0: the system survives the kill rule; the review agenda
   (items A–D) still decides whether the edge is real, fragile or execution luck.
+- If expectancy > 0 but **profit factor < 1.3** or **average loss > 1.0R**: the
+  sample does not pass the D-75 effect-size / loss-control bar; the review
+  decides whether the edge is too thin to continue. This is not a kill-rule
+  firing.
 - Report the same metrics as above, plus per-template/regime cells with n ≥ 30.
 
 ### What never counts
@@ -193,6 +208,7 @@ A backup of the live DB must exist before any write that changes journal rows.
 | Bug fix that changes fills, exits, sizing or selection | **No** | Stop, void the affected cohort, start `FWD-v0.2` with a new first fill |
 | New screen, weight, target rule, permission gate or size rule | **No** | Same as above |
 | Kill-rule, trigger or metric definition change | **No** | New pre-registration; the old sample is judged on the old rules |
+| Activating a pass bar that was explicitly flagged **not applied** before any verdict (P0-4) | Yes, once | ADR + amendment; state that no verdict was issued, the kill rule is unchanged, and the bar applies at 30+ closes |
 | Documentation clarification with no behavioral effect | Yes | Record in the change log |
 
 The test is behavioral: **would the change alter a historical decision or exit?**
@@ -207,9 +223,12 @@ exemption.
 |---|---|---|---|---|
 | 2026-10-21 | Pending orders / T+1 fills (D-73) | Execution correction **before** the sample clock restarted | Voided PM/AMGN/CCK/MMM; clock restarts at first actual fill | None on v0.1; the phantom rows never count |
 | 2026-10-28 | Canonical dollar P&L, plan provenance, phantom/P&L verifier (D-74) | Measurement only | Added columns, backfill, scripts; no decision change | Corrected `pnl_usd`; R unchanged; sample continues |
-| 2026-10-28 | This pre-registration | Documentation | Consolidates D-72/D-73 rules; flags P0-4 | None |
+| 2026-10-28 | Pass bar — closes P0-4 (D-75) | Pre-verdict definition; the flagged bar was never applied | Replaced WR > 50% / avg R > 0.5 with expectancy > 0, PF ≥ 1.3, average loss ≤ 1.0R; added the 8R/12R circuit breaker | No prior verdict; kill rule unchanged; sample continues |
+| 2026-10-28 | This pre-registration | Documentation | Consolidates D-72/D-73 rules; P0-4 is now closed by D-75 | None |
 
-No rule change has been applied after the first actual fill (2026-10-22).
+One pre-verdict definition was activated after the first actual fill: the D-75
+pass bar, which had been flagged as not applied and had produced no verdict. No
+trading decision, target, gate, screen, sizing rule or exit rule has changed.
 
 ---
 
@@ -217,7 +236,7 @@ No rule change has been applied after the first actual fill (2026-10-22).
 
 | Item | Where | Status |
 |---|---|---|
-| Legacy WR > 50% / avg R > 0.5 bar | `VISION.md` | Awaiting user sign-off (P0-4) |
+| Pass bar (D-75) | `VISION.md` / this file | **Resolved 2026-10-28** — WR > 50% bar replaced |
 | Target hierarchy: T1 vs gate R:R (review A) | `PIPELINE_AUDIT.md` F5 | Frozen; first review decision |
 | Choppy menu / `ranging` unreachable (review B) | `PIPELINE_AUDIT.md` F6 | Frozen |
 | Permission, cross-screen rank, daily cap (review B) | `PIPELINE_AUDIT.md` F7 | Frozen |

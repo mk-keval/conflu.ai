@@ -251,12 +251,11 @@ from the journal, with one fixed filter and one R definition:
 - **Catalyst precision**: which catalyst signal predicted the best trades? (descriptive; needs a sample)
 - **System precision vs manual**: how often does conflu.ai's verdict match your manual read?
 
-**The binding rule is the pre-registered kill rule:** expectancy ≤ 0 after **30+
-closed trades** → change the system or stop. A written reason is required to
-extend. The older bar in `VISION.md` ("hit rate > 50% AND average R > 0.5 after
-20+ trades") predates the expectancy-first framing and is flagged for user
-sign-off (P0-4, D-74). Do not quietly switch between bars; publish both until the
-decision is recorded.
+**The binding rules are pre-registered in `VISION.md` (D-75):** at **30+ closed
+trades**, the sample passes when expectancy > 0 after costs, profit factor ≥ 1.3
+and average loss ≤ 1.0R. Win rate is reported, not gated. The kill rule is
+expectancy ≤ 0 after 30+ closed trades; a peak-to-trough drawdown of 8R stops new
+entries for review, and 12R kills. A written reason is required to extend.
 
 **The system needs work if:** your manual reads are systematically better than
 conflu.ai's verdicts, or the gate rejects winners more often than losers.
