@@ -19,7 +19,7 @@ last-target Plan R.
 | `gate.py` | Family half-size / full-size floors; step 5c measures T1 from `entry_low` for v0.2 and the last target for v0.1 |
 | `synthesis.py` | `setup_family` drives the band, ATR provenance, target-anchored `scale_out`, trail/BE/time-stop overrides, and `plan_rejection` (`target too close` / `target too far` / `no structural objective`) |
 | `pnl.plan_metrics` | `basis="planned_fill"` → Plan R = T1 R from `entry_low`; `stretch_rr` = T3 R; legacy midpoint basis unchanged |
-| Journal/pending | `setup_family`, `stretch_rr`, `atr_at_entry`, `exit_legs` columns (migrated; existing rows backfilled); fills inherit family/ATR; a same-session stop writes one full leg |
+| Journal/pending | `setup_family`, `stretch_rr`, `atr_at_entry`, `exit_legs` columns (migrated; existing rows backfilled); fills inherit family/ATR; a same-session stop writes one full leg; a same-day re-run never adds v0.2 provenance to a v0.1 row |
 | Workflow router | Rows store family provenance and planned-fill metrics; plan rejections land at failed step `plan`; sync exits branches to `simulate_exit` for family rows and `infer_exit` for NULL-family rows |
 | Verifier | Leg integrity (sum 100%, VWAP = `exit_price`, weighted R = `realized_r`), family provenance, and scored Plan-R gaps as hard failures; v0.1 Plan-R gaps stay warnings |
 | Scorecard | Per-family breakdown as context; D-75 pass bar unchanged |
@@ -28,12 +28,16 @@ One operational fix outside the trading rules: `journal_store._migrate` now
 tolerates a concurrent process winning the `ALTER TABLE` race (API server + CLI
 starting together). Schema outcome is identical; no trading effect.
 
+One integrity guard added after go-live: `upsert_entry` preserves the stored
+family/ATR/stretch on a v0.1 row and strips them on an explicit v0.1 insert, so
+re-running an old date cannot retro-label history under v0.2 rules.
+
 ## Evidence
 
-- **213 focused tests pass** (journal, pending, verification, scorecard,
+- **216 focused tests pass** (journal, pending, verification, scorecard,
   workflow endpoints, CLI, pnl, exits, gate, synthesis geometry, exit policy,
-  Bundle A). 69 of them are new: `test_exit_policy.py` (38),
-  `test_bundle_a.py` (14), `test_bundle_a_journal.py` (14),
+  Bundle A). 72 of them are new: `test_exit_policy.py` (38),
+  `test_bundle_a.py` (14), `test_bundle_a_journal.py` (17),
   `test_bundle_a_workflow.py` (3).
 - **Full backend suite:** 1017 passed, 5 failed. The 5 failures are
   `test_insider_cluster.py` (4) and
