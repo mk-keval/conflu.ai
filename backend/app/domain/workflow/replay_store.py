@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS replay_runs (
   window_end TEXT NOT NULL,
   universe_count INTEGER NOT NULL,
   templates_count INTEGER NOT NULL,
+  rules_version TEXT,
   params_json TEXT NOT NULL,
   summary_json TEXT NOT NULL,
   metadata_json TEXT
@@ -51,6 +52,8 @@ CREATE TABLE IF NOT EXISTS replay_trades (
   entry_price REAL,
   stop_loss REAL,
   target_1 REAL,
+  target_2 REAL,
+  target_3 REAL,
   exit_date TEXT,
   exit_price REAL,
   exit_reason TEXT,
@@ -64,7 +67,24 @@ CREATE TABLE IF NOT EXISTS replay_trades (
   rvol REAL,
   also_signaled_by TEXT,
   notes TEXT,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  -- H-09 (D-78): additive provenance. D-71 rows keep NULLs.
+  rules_version TEXT,
+  setup_family TEXT,
+  entry_low REAL,
+  entry_high REAL,
+  plan_rr REAL,
+  target_1_r REAL,
+  stretch_rr REAL,
+  atr_at_entry REAL,
+  gate_verdict TEXT,
+  gate_note TEXT,
+  mfe_r REAL,
+  mae_r REAL,
+  plan_adherence REAL,
+  exit_legs TEXT,
+  pnl_gross_usd REAL,
+  costs_usd REAL
 );
 
 CREATE INDEX IF NOT EXISTS idx_replay_trades_run
@@ -74,17 +94,60 @@ CREATE INDEX IF NOT EXISTS idx_replay_trades_run
 _TRADE_COLUMNS = (
     "run_id", "signal_date", "date_entered", "symbol", "template", "regime",
     "regime_key", "screen_rank", "screen_weight", "direction", "entry_price",
-    "stop_loss", "target_1", "exit_date", "exit_price", "exit_reason",
-    "realized_r", "pnl_usd", "risk_pct", "position_size_pct", "shares",
-    "account_value", "hold_bars", "rvol", "also_signaled_by", "notes",
-    "created_at",
+    "stop_loss", "target_1", "target_2", "target_3", "exit_date", "exit_price",
+    "exit_reason", "realized_r", "pnl_usd", "risk_pct", "position_size_pct",
+    "shares", "account_value", "hold_bars", "rvol", "also_signaled_by", "notes",
+    "created_at", "rules_version", "setup_family", "entry_low", "entry_high",
+    "plan_rr", "target_1_r", "stretch_rr", "atr_at_entry", "gate_verdict",
+    "gate_note", "mfe_r", "mae_r", "plan_adherence", "exit_legs",
+    "pnl_gross_usd", "costs_usd",
 )
+
+# Existing D-71 databases predate H-09; these are added in place. Additive only:
+# old rows keep NULLs and are never rewritten.
+_TRADE_MIGRATIONS = {
+    "target_2": "REAL",
+    "target_3": "REAL",
+    "rules_version": "TEXT",
+    "setup_family": "TEXT",
+    "entry_low": "REAL",
+    "entry_high": "REAL",
+    "plan_rr": "REAL",
+    "target_1_r": "REAL",
+    "stretch_rr": "REAL",
+    "atr_at_entry": "REAL",
+    "gate_verdict": "TEXT",
+    "gate_note": "TEXT",
+    "mfe_r": "REAL",
+    "mae_r": "REAL",
+    "plan_adherence": "REAL",
+    "exit_legs": "TEXT",
+    "pnl_gross_usd": "REAL",
+    "costs_usd": "REAL",
+}
+
+
+def _add_columns(
+    con: sqlite3.Connection, table: str, columns: dict[str, str]
+) -> None:
+    existing = {str(row[1]) for row in con.execute(f"PRAGMA table_info({table})")}
+    for name, declared in columns.items():
+        if name in existing:
+            continue
+        try:
+            con.execute(f"ALTER TABLE {table} ADD COLUMN {name} {declared}")
+        except sqlite3.OperationalError as exc:
+            # API server + CLI can race the same migration.
+            if "duplicate column name" not in str(exc).lower():
+                raise
 
 
 def ensure() -> None:
-    """Create replay tables in the journal DB (idempotent)."""
+    """Create replay tables in the journal DB (idempotent + additive)."""
     with journal_store.session() as con:
         con.executescript(_DDL)
+        _add_columns(con, "replay_runs", {"rules_version": "TEXT"})
+        _add_columns(con, "replay_trades", _TRADE_MIGRATIONS)
 
 
 def _utc_now() -> str:
@@ -104,14 +167,15 @@ def replace_run(run: dict[str, Any], rows: list[dict[str, Any]]) -> int:
         con.execute("DELETE FROM replay_runs")
         cur = con.execute(
             "INSERT INTO replay_runs (generated_at, window_start, window_end, "
-            "universe_count, templates_count, params_json, summary_json, metadata_json) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "universe_count, templates_count, rules_version, params_json, "
+            "summary_json, metadata_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 str(run.get("generated_at") or now),
                 str(run.get("window_start") or ""),
                 str(run.get("window_end") or ""),
                 int(run.get("universe_count") or 0),
                 int(run.get("templates_count") or 0),
+                str(run.get("rules_version") or "v0.1"),
                 _json(run.get("params") or {}),
                 _json(run.get("summary") or {}),
                 _json(run.get("metadata") or {}),
@@ -140,7 +204,7 @@ def replace_run(run: dict[str, Any], rows: list[dict[str, Any]]) -> int:
 
 
 def _row_to_trade(row: sqlite3.Row) -> dict[str, Any]:
-    return {key: row[key] for key in row.keys()}
+    return {key: row[key] for key in row.keys()}  # noqa: SIM118 - sqlite3.Row
 
 
 def latest_run() -> dict[str, Any] | None:
@@ -173,6 +237,12 @@ def latest_run() -> dict[str, Any] | None:
         "window_end": run["window_end"],
         "universe_count": run["universe_count"],
         "templates_count": run["templates_count"],
+        # Legacy D-71 runs predate the column; they are v0.1 by definition.
+        "rules_version": (
+            run["rules_version"]
+            if "rules_version" in run.keys() and run["rules_version"]  # noqa: SIM118 - sqlite3.Row
+            else "v0.1"
+        ),
         "params": _loads(run["params_json"]) or {},
         "summary": _loads(run["summary_json"]) or {},
         "metadata": _loads(run["metadata_json"]) or {},

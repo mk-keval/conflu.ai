@@ -19,8 +19,9 @@ labelled as simulated and must never be counted as forward evidence.
 
 from __future__ import annotations
 
+import json
 from collections import Counter, defaultdict
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,9 @@ import pandas as pd
 import yaml
 
 from backend.app.core.logging import get_logger
+from backend.app.domain.workflow import exit_policy as exit_policy_mod
+from backend.app.domain.workflow import pending as pending_mod
+from backend.app.infrastructure.backtest import replay_rules as rules_mod
 from backend.app.infrastructure.backtest.external_backtest import (
     BacktestConfig,
     ExternalBacktestEngine,
@@ -77,10 +81,45 @@ REPLAY_CAVEATS = [
     "P&L promise.",
 ]
 
+H09_CAVEATS = [
+    "Evidence label: exploratory_h09_not_evidence. Exploratory only: H-09 never "
+    "enters the forward scorecard, the D-75 pass bar, the kill rule, /expectancy "
+    "or any v0.2 verdict.",
+    "TradingView's screener cannot be rewound. Ranking, confluence, catalysts, "
+    "earnings/liquidity checks, portfolio caps and the live entry-zone branch "
+    "selection are not replayed; only gate step 5 is applied.",
+    "Both arms share the signal stream, the entry zone, the stop and the D-73 "
+    "fills. They differ only in target selection, the gate floor and the exit.",
+    "The signal stream is the D-71 engine's one-position-at-a-time entry list; it "
+    "is not the live signal rate.",
+    "Structural levels are OHLCV-only (no TradingView resistance), so the target "
+    "population differs from live.",
+    "The stop is 2xATR from the signal close, not from the fill (a disclosed "
+    "deviation from D-71's fill-based stop).",
+    "The v0.1 arm is a reconstruction of live v0.1 rules on replay geometry, not "
+    "the live v0.1 journal. It reproduces the 5c midpoint-vs-entry-low quirk and "
+    "infer_exit's T2-before-T1 ordering on purpose.",
+    "Family names come from the live display name (G11). Screens whose display "
+    "name does not normalize to a family run as 'unknown'; the stem-based "
+    "sensitivity is secondary.",
+    "Trades still open at the data edge close at the last close ('eod'); they are "
+    "excluded from the primary aggregate unless the 36-day horizon is covered.",
+    "Universe is today's S&P 500 snapshot (survivorship bias); one window and "
+    "several cuts mean any positive result is a hypothesis, not evidence.",
+]
+
+DATA_HORIZON_DAYS = 36
+
 
 @dataclass(frozen=True)
 class ReplayParams:
-    """Knobs for a replay run (defaults match the validation engine)."""
+    """Knobs for a replay run.
+
+    ``rules_version="v0.1"`` keeps the published D-71 engine path (its prices,
+    targets and exits). ``rules_version="v0.2"`` runs the H-09 two-arm replay:
+    the signal stream stays frozen at 2.0/3.0 ATR and 15 bars, while
+    ``stop_atr_mult`` becomes the **plan** stop (signal close − 2×ATR).
+    """
 
     window_days: int = 60
     daily_lookback_days: int = 760
@@ -93,15 +132,28 @@ class ReplayParams:
     risk_pct: float = 1.0
     account_value: float = 100_000.0
     max_per_day: int = 0
+    # H-09 (D-78). Defaults are the frozen design in the H-09 plan.
+    rules_version: str = rules_mod.RULES_V01
+    window_start: str | None = None
+    window_end: str | None = None
+    entry_zone_atr_mult: float = rules_mod.ENTRY_ZONE_ATR_MULT
+    min_zone_pct: float = rules_mod.MIN_ZONE_PCT
+    fill_expiry_sessions: int = rules_mod.FILL_EXPIRY_SESSIONS
+    v01_max_hold_days: int = rules_mod.V01_MAX_HOLD_DAYS
 
 
 @dataclass
 class ReplayResult:
-    """Persistable replay output."""
+    """Persistable replay output.
+
+    ``artifacts`` carries per-arm detail for the JSON artifact only; it is never
+    written to the replay ledger.
+    """
 
     run: dict[str, Any]
     rows: list[dict[str, Any]]
     summary: dict[str, Any]
+    artifacts: dict[str, Any] = field(default_factory=dict)
 
 
 # ── Screen mix ──────────────────────────────────────────────────────────────
@@ -153,25 +205,25 @@ def load_screen_mix(
         by_name = {item["name"]: item for item in ordered}
         loaded: list[dict[str, Any]] = []
 
-        def _add(name: str) -> None:
+        def _add(name: str, screens_by_name: dict[str, Any], target: list[dict[str, Any]]) -> None:
             try:
                 screen = load_screen_template(name)
             except Exception as exc:  # noqa: BLE001 - broken template is skipped loudly
                 log.warning("replay.screen_load_failed", screen=name, error=str(exc))
                 return
-            meta = by_name.get(name, {"weight": 0.0, "role": ""})
-            loaded.append(
+            meta = screens_by_name.get(name, {"weight": 0.0, "role": ""})
+            target.append(
                 {
                     "stem": name,
                     "config": screen,
                     "weight": float(meta.get("weight") or 0.0),
                     "role": str(meta.get("role") or ""),
-                    "rank": len(loaded) + 1,
+                    "rank": len(target) + 1,
                 }
             )
 
         for name in picked:
-            _add(name)
+            _add(name, by_name, loaded)
 
         if len(loaded) < TOP_N:
             picked_set = set(picked)
@@ -180,7 +232,7 @@ def load_screen_mix(
                     break
                 if item["name"] in picked_set:
                     continue
-                _add(item["name"])
+                _add(item["name"], by_name, loaded)
 
         mix[regime] = loaded
 
@@ -377,39 +429,57 @@ def _basic_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
     (``pnl_usd``, after fees + slippage), while ``expectancy_r`` / ``avg_win_r`` /
     ``avg_loss_r`` / ``profit_factor_r`` use the engine's **gross** R-multiples.
     Net R per trade is ``pnl_usd / (account_value * risk_pct / 100)``.
+
+    Rows without an exit (rejected plans) are excluded by the caller.
     """
     n = len(rows)
+    empty = {
+        "trades": 0,
+        "wins": 0,
+        "losses": 0,
+        "win_rate": 0.0,
+        "expectancy_r": 0.0,
+        "avg_win_r": 0.0,
+        "avg_loss_r": 0.0,
+        "profit_factor_r": None,
+        "pnl_usd": 0.0,
+        "pnl_gross_usd": 0.0,
+        "costs_usd": 0.0,
+        "avg_hold_bars": 0.0,
+        "mfe_capture": None,
+        "censored": 0,
+    }
     if n == 0:
-        return {
-            "trades": 0,
-            "wins": 0,
-            "losses": 0,
-            "win_rate": 0.0,
-            "expectancy_r": 0.0,
-            "avg_win_r": 0.0,
-            "avg_loss_r": 0.0,
-            "profit_factor_r": None,
-            "pnl_usd": 0.0,
-            "avg_hold_bars": 0.0,
-        }
-    wins = [row for row in rows if float(row["pnl_usd"]) > 0]
-    losses = [row for row in rows if float(row["pnl_usd"]) <= 0]
-    rs = [float(row["realized_r"]) for row in rows]
+        return empty
+    wins = [row for row in rows if float(row.get("pnl_usd") or 0.0) > 0]
+    losses = [row for row in rows if float(row.get("pnl_usd") or 0.0) <= 0]
+    rs = [float(row["realized_r"]) for row in rows if row.get("realized_r") is not None]
     wins_r = [r for r in rs if r > 0]
     losses_r = [r for r in rs if r < 0]
     gross_win_r = sum(wins_r)
     gross_loss_r = abs(sum(losses_r))
+    captures = [
+        float(row["realized_r"]) / float(row["mfe_r"])
+        for row in rows
+        if row.get("realized_r") is not None
+        and row.get("mfe_r") is not None
+        and float(row["mfe_r"]) > 0
+    ]
     return {
         "trades": n,
         "wins": len(wins),
         "losses": len(losses),
         "win_rate": len(wins) / n,
-        "expectancy_r": sum(rs) / n,
+        "expectancy_r": (sum(rs) / len(rs)) if rs else 0.0,
         "avg_win_r": (sum(wins_r) / len(wins_r)) if wins_r else 0.0,
         "avg_loss_r": (sum(losses_r) / len(losses_r)) if losses_r else 0.0,
         "profit_factor_r": (gross_win_r / gross_loss_r) if gross_loss_r > 0 else None,
-        "pnl_usd": sum(float(row["pnl_usd"]) for row in rows),
-        "avg_hold_bars": sum(int(row["hold_bars"]) for row in rows) / n,
+        "pnl_usd": sum(float(row.get("pnl_usd") or 0.0) for row in rows),
+        "pnl_gross_usd": sum(float(row.get("pnl_gross_usd") or 0.0) for row in rows),
+        "costs_usd": sum(float(row.get("costs_usd") or 0.0) for row in rows),
+        "avg_hold_bars": sum(int(row.get("hold_bars") or 0) for row in rows) / n,
+        "mfe_capture": (sum(captures) / len(captures)) if captures else None,
+        "censored": sum(1 for row in rows if row.get("censored")),
     }
 
 
@@ -420,6 +490,488 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
     base["regimes"] = _group_summary(rows, "regime")
     base["exit_reasons"] = dict(Counter(str(row.get("exit_reason") or "—") for row in rows))
     base["total_r"] = sum(float(row["realized_r"]) for row in rows)
+    return base
+
+
+# ── H-09 two-arm replay ─────────────────────────────────────────────────────
+
+
+def _signal_key(candidate: dict[str, Any]) -> str:
+    return f"{candidate['signal_date']}|{candidate['symbol']}"
+
+
+def _arm_row(
+    candidate: dict[str, Any],
+    geometry: rules_mod.PlanGeometry,
+    plan: rules_mod.PlanDecision,
+    fill: pending_mod.FillDecision,
+    outcome: rules_mod.TradeOutcome | None,
+    shares: float | None,
+    params: ReplayParams,
+    *,
+    arm: str,
+) -> dict[str, Any]:
+    """One arm's row. Rejected plans carry no exit and never enter the ledger."""
+    targets = list(plan.targets)
+    fill_price = float(fill.fill_price or 0.0)
+    condition = plan.gate_verdict == "CONDITIONAL"
+    risk_pct = params.risk_pct * 0.5 if condition else params.risk_pct
+    position_size_pct = (
+        shares * fill_price / params.account_value * 100.0
+        if shares is not None and params.account_value > 0
+        else None
+    )
+    notes = [
+        "SIMULATED REPLAY (H-09, not forward evidence)",
+        f"arm {arm}",
+        f"gate {plan.gate_verdict or '—'}",
+    ]
+    if plan.family:
+        notes.append(f"family {plan.family}")
+    if plan.rejection:
+        notes.append(f"rejected: {plan.rejection}")
+    if candidate.get("also_signaled_by"):
+        notes.append(f"also signalled by: {candidate['also_signaled_by']}")
+
+    return {
+        # Artifact-only fields (the store ignores unknown keys).
+        "signal_key": _signal_key(candidate),
+        "arm": arm,
+        "accepted": plan.accepted,
+        "has_exit": outcome is not None and outcome.exit_price is not None,
+        "rejection": plan.rejection,
+        "rejection_detail": plan.rejection_detail,
+        "censored": bool(outcome.censored) if outcome else False,
+        # Ledger fields.
+        "rules_version": arm,
+        "signal_date": candidate["signal_date"],
+        "date_entered": str(fill.fill_date or "")[:10],
+        "symbol": candidate["symbol"],
+        "template": candidate["template"],
+        "regime": candidate["regime"],
+        "regime_key": candidate["regime_key"],
+        "screen_rank": candidate["screen_rank"],
+        "screen_weight": candidate["screen_weight"],
+        "direction": "long",
+        "entry_price": round(fill_price, 4),
+        "entry_low": geometry.entry_low,
+        "entry_high": geometry.entry_high,
+        "stop_loss": geometry.stop_loss,
+        "target_1": targets[0] if len(targets) >= 1 else None,
+        "target_2": targets[1] if len(targets) >= 2 else None,
+        "target_3": targets[2] if len(targets) >= 3 else None,
+        "setup_family": plan.family,
+        "plan_rr": plan.plan_rr,
+        "target_1_r": plan.target_1_r,
+        "stretch_rr": plan.stretch_rr,
+        "atr_at_entry": geometry.atr,
+        "gate_verdict": plan.gate_verdict,
+        "gate_note": (plan.gate_note or "")[:300] or None,
+        "exit_date": outcome.exit_date if outcome else None,
+        "exit_price": outcome.exit_price if outcome else None,
+        "exit_reason": outcome.exit_reason if outcome else None,
+        "realized_r": outcome.realized_r if outcome else None,
+        "pnl_usd": outcome.pnl_usd if outcome else None,
+        "pnl_gross_usd": outcome.pnl_gross_usd if outcome else None,
+        "costs_usd": outcome.costs_usd if outcome else None,
+        "mfe_r": outcome.mfe_r if outcome else None,
+        "mae_r": outcome.mae_r if outcome else None,
+        "plan_adherence": outcome.plan_adherence if outcome else None,
+        "exit_legs": (
+            json.dumps(outcome.legs, separators=(",", ":"))
+            if outcome and outcome.legs
+            else None
+        ),
+        "risk_pct": risk_pct,
+        "position_size_pct": position_size_pct,
+        "shares": shares,
+        "account_value": params.account_value,
+        "hold_bars": outcome.bars_held if outcome else 0,
+        "rvol": candidate.get("rvol"),
+        "also_signaled_by": candidate.get("also_signaled_by") or None,
+        "notes": " · ".join(notes),
+    }
+
+
+def _fill_outcome(
+    plan: rules_mod.PlanDecision,
+    *,
+    arm: str,
+    fill: pending_mod.FillDecision,
+    geometry: rules_mod.PlanGeometry,
+    exit_bars: list[dict[str, Any]],
+    shares: float | None,
+    same_session: bool,
+    params: ReplayParams,
+) -> rules_mod.TradeOutcome | None:
+    if not plan.has_plan:
+        return None
+    if same_session:
+        return rules_mod.stop_outcome(fill, geometry.stop_loss, shares)
+    if arm == "v0.1":
+        return rules_mod.v01_outcome(
+            exit_bars,
+            fill=fill,
+            stop_loss=geometry.stop_loss,
+            targets=plan.targets,
+            shares=shares,
+            max_hold_days=params.v01_max_hold_days,
+        )
+    return rules_mod.v02_outcome(
+        exit_bars,
+        fill=fill,
+        stop_loss=geometry.stop_loss,
+        targets=plan.targets,
+        family=plan.family or "unknown",
+        atr=geometry.atr,
+        shares=shares,
+    )
+
+
+def _run_h09(
+    params: ReplayParams,
+    candidates: list[dict[str, Any]],
+    daily: dict[str, pd.DataFrame],
+    *,
+    templates: dict[str, ScreenConfig],
+    horizon_end: str | None,
+) -> dict[str, Any]:
+    """Evaluate both arms on the same signals, fills and geometry."""
+    funnel: Counter[str] = Counter()
+    # Every funnel bucket is present even when a stage never runs, so a stored
+    # run always reconciles (an empty signal stream is a valid result).
+    for bucket in (
+        "orders",
+        "filled",
+        "expired",
+        "cancelled_gap",
+        "no_sessions",
+        "geometry_invalid",
+        "v01_gated_out",
+        "v01_accepted",
+        "v02_rejected",
+        "v02_gated_out",
+        "v02_accepted",
+        "v02_closed",
+        "v02_eod",
+    ):
+        funnel[bucket] = 0
+    funnel["deduped"] = len(candidates)
+    rejection_reasons: Counter[str] = Counter()
+    arms: dict[str, list[dict[str, Any]]] = {"v01": [], "v02": [], "v02_stem": []}
+
+    family_map = {
+        stem: {
+            "display_name": config.name,
+            "family": exit_policy_mod.family_for_screen(config.name),
+            "stem_family": exit_policy_mod.family_for_screen(stem),
+        }
+        for stem, config in templates.items()
+    }
+    unknown_screens = sorted(
+        stem for stem, meta in family_map.items() if meta["family"] == "unknown"
+    )
+
+    bars_by_symbol = {
+        symbol: rules_mod.frame_to_bars(frame, end=horizon_end)
+        for symbol, frame in daily.items()
+    }
+
+    for candidate in candidates:
+        symbol = candidate["symbol"]
+        frame = daily.get(symbol)
+        signal_date = candidate["signal_date"]
+        if frame is None or frame.empty:
+            funnel["geometry_invalid"] += 1
+            continue
+        timestamp = pd.Timestamp(signal_date)
+        if timestamp not in frame.index:
+            funnel["geometry_invalid"] += 1
+            continue
+
+        close = float(frame.loc[timestamp, "Close"])
+        atr = rules_mod.atr_at(frame, signal_date)
+        geometry = rules_mod.build_geometry(
+            close,
+            atr,
+            entry_zone_atr_mult=params.entry_zone_atr_mult,
+            min_zone_pct=params.min_zone_pct,
+            stop_atr_mult=params.stop_atr_mult,
+        )
+        if geometry is None:
+            funnel["geometry_invalid"] += 1
+            continue
+
+        funnel["orders"] += 1
+        bars = bars_by_symbol.get(symbol) or []
+        fill = rules_mod.evaluate_fill(
+            geometry,
+            signal_date,
+            bars,
+            expiry_sessions=params.fill_expiry_sessions,
+            today=horizon_end,
+        )
+        if fill.status != pending_mod.FILLED:
+            if fill.status == pending_mod.CANCELLED:
+                funnel["cancelled_gap"] += 1
+            elif fill.status == pending_mod.EXPIRED:
+                funnel["expired"] += 1
+            else:
+                funnel["no_sessions"] += 1
+            continue
+        funnel["filled"] += 1
+
+        levels = rules_mod.structural_levels(
+            frame.loc[:timestamp], close=close, atr=atr
+        )
+        meta = family_map.get(candidate["template"]) or {}
+        family = meta.get("family") or "unknown"
+        stem_family = meta.get("stem_family") or "unknown"
+
+        v01 = rules_mod.v01_plan(geometry, levels, symbol=symbol)
+        v02 = rules_mod.v02_plan(geometry, levels, family, symbol=symbol)
+        v02_stem = (
+            rules_mod.v02_plan(geometry, levels, stem_family, symbol=symbol)
+            if stem_family != family
+            else v02
+        )
+
+        fill_price = float(fill.fill_price or 0.0)
+        same_session = rules_mod.same_session_stop(fill, geometry.stop_loss)
+        exit_bars = [
+            bar for bar in bars if str(bar.get("date") or "") >= str(fill.fill_date)
+        ]
+
+        def _shares(
+            plan: rules_mod.PlanDecision, price: float, stop_loss: float
+        ) -> float | None:
+            risk = params.risk_pct * 0.5 if plan.gate_verdict == "CONDITIONAL" else params.risk_pct
+            return rules_mod.shares_for(
+                price,
+                stop_loss,
+                risk_pct=risk,
+                account_value=params.account_value,
+            )
+
+        shares01 = _shares(v01, fill_price, geometry.stop_loss)
+        shares02 = _shares(v02, fill_price, geometry.stop_loss)
+        outcome01 = _fill_outcome(
+            v01, arm="v0.1", fill=fill, geometry=geometry, exit_bars=exit_bars,
+            shares=shares01, same_session=same_session, params=params,
+        )
+        outcome02 = _fill_outcome(
+            v02, arm="v0.2", fill=fill, geometry=geometry, exit_bars=exit_bars,
+            shares=shares02, same_session=same_session, params=params,
+        )
+        arms["v01"].append(
+            _arm_row(candidate, geometry, v01, fill, outcome01, shares01, params, arm="v0.1")
+        )
+        arms["v02"].append(
+            _arm_row(candidate, geometry, v02, fill, outcome02, shares02, params, arm="v0.2")
+        )
+        if v02_stem is not v02:
+            shares_stem = _shares(v02_stem, fill_price, geometry.stop_loss)
+            outcome_stem = _fill_outcome(
+                v02_stem, arm="v0.2", fill=fill, geometry=geometry,
+                exit_bars=exit_bars, shares=shares_stem,
+                same_session=same_session, params=params,
+            )
+            arms["v02_stem"].append(
+                _arm_row(
+                    candidate, geometry, v02_stem, fill, outcome_stem,
+                    shares_stem, params, arm="v0.2",
+                )
+            )
+
+        if v02.rejection:
+            rejection_reasons[v02.rejection] += 1
+
+    # ── Funnel reconciliation (hard failure, never a rounding note) ──
+    v01_rows = arms["v01"]
+    v02_rows = arms["v02"]
+    funnel["v01_gated_out"] = sum(1 for row in v01_rows if row["gate_verdict"] == "FAIL")
+    funnel["v01_accepted"] = sum(1 for row in v01_rows if row["accepted"])
+    funnel["v02_rejected"] = sum(1 for row in v02_rows if row["rejection"])
+    funnel["v02_rejected_reasons"] = dict(rejection_reasons)
+    funnel["v02_gated_out"] = sum(
+        1 for row in v02_rows if not row["rejection"] and row["gate_verdict"] == "FAIL"
+    )
+    funnel["v02_accepted"] = sum(1 for row in v02_rows if row["accepted"])
+    funnel["v02_closed"] = sum(
+        1 for row in v02_rows if row["accepted"] and row["has_exit"] and not row["censored"]
+    )
+    funnel["v02_eod"] = sum(
+        1 for row in v02_rows if row["accepted"] and row["censored"]
+    )
+
+    filled = funnel["filled"]
+    if funnel["v02_rejected"] + funnel["v02_gated_out"] + funnel["v02_accepted"] != filled:
+        raise RuntimeError(
+            "H-09 funnel does not reconcile for v0.2: "
+            f"filled={filled} rejected={funnel['v02_rejected']} "
+            f"gated_out={funnel['v02_gated_out']} accepted={funnel['v02_accepted']}"
+        )
+    if funnel["v01_gated_out"] + funnel["v01_accepted"] != filled:
+        raise RuntimeError(
+            "H-09 funnel does not reconcile for v0.1: "
+            f"filled={filled} gated_out={funnel['v01_gated_out']} "
+            f"accepted={funnel['v01_accepted']}"
+        )
+    if (
+        funnel["filled"] + funnel["cancelled_gap"]
+        + funnel["expired"] + funnel["no_sessions"]
+        != funnel["orders"]
+    ):
+        raise RuntimeError(
+            "H-09 funnel does not reconcile at the fill stage: "
+            f"orders={funnel['orders']} filled={funnel['filled']} "
+            f"cancelled={funnel['cancelled_gap']} expired={funnel['expired']} "
+            f"no_sessions={funnel['no_sessions']}"
+        )
+
+    # ── Deltas ──
+    exited01 = {row["signal_key"]: row for row in v01_rows if row["has_exit"]}
+    exited02 = {row["signal_key"]: row for row in v02_rows if row["has_exit"]}
+    paired = sorted(set(exited01) & set(exited02))
+
+    accepted02_keys = {row["signal_key"] for row in v02_rows if row["accepted"]}
+    v01_gate_fail_keys = {
+        row["signal_key"] for row in v01_rows if row["gate_verdict"] == "FAIL"
+    }
+    rejected02_keys = {row["signal_key"] for row in v02_rows if row["rejection"]}
+
+    delta = {
+        "exit_only": {
+            "n_paired": len(paired),
+            "v01": _basic_summary([exited01[key] for key in paired]),
+            "v02": _basic_summary([exited02[key] for key in paired]),
+        },
+        "policy": {
+            "v01": _basic_summary([row for row in exited01.values() if row["accepted"]]),
+            "v02": _basic_summary([row for row in exited02.values() if row["accepted"]]),
+        },
+        "rejection_quality": {
+            "v02_rejected": {
+                "n": len(rejected02_keys),
+                "v01_counterfactual": _basic_summary(
+                    [exited01[key] for key in sorted(rejected02_keys) if key in exited01]
+                ),
+            },
+            "v02_accepted_v01_gate_fail": {
+                "n": len(accepted02_keys & v01_gate_fail_keys),
+                "v02": _basic_summary(
+                    [
+                        exited02[key]
+                        for key in sorted(accepted02_keys & v01_gate_fail_keys)
+                        if key in exited02
+                    ]
+                ),
+            },
+        },
+        "sensitivity_stem_family": {
+            "n_changed": sum(
+                1
+                for stem, meta in family_map.items()
+                if meta["family"] != meta["stem_family"]
+            ),
+            "v02": _basic_summary(
+                [
+                    row
+                    for row in arms["v02_stem"]
+                    if row["accepted"] and row["has_exit"]
+                ]
+            ),
+        },
+    }
+
+    accepted_rows = [
+        row for row in v02_rows if row["accepted"] and row["has_exit"]
+    ]
+    accepted_rows.sort(key=lambda row: (row["date_entered"], row["symbol"]), reverse=True)
+
+    # Frozen-design provenance: the CLI refuses to write a run when this list is
+    # non-empty. Dry runs may deviate on purpose; the artifact says so.
+    frozen = {
+        "entry_zone_atr_mult": rules_mod.ENTRY_ZONE_ATR_MULT,
+        "min_zone_pct": rules_mod.MIN_ZONE_PCT,
+        "stop_atr_mult": rules_mod.STOP_ATR_MULT,
+        "fill_expiry_sessions": rules_mod.FILL_EXPIRY_SESSIONS,
+        "v01_max_hold_days": rules_mod.V01_MAX_HOLD_DAYS,
+        "signal_stop_atr_mult": rules_mod.SIGNAL_STOP_ATR_MULT,
+        "signal_target_atr_mult": rules_mod.SIGNAL_TARGET_ATR_MULT,
+        "signal_max_hold_bars": rules_mod.SIGNAL_MAX_HOLD_BARS,
+    }
+    actual = {
+        "entry_zone_atr_mult": params.entry_zone_atr_mult,
+        "min_zone_pct": params.min_zone_pct,
+        "stop_atr_mult": params.stop_atr_mult,
+        "fill_expiry_sessions": params.fill_expiry_sessions,
+        "v01_max_hold_days": params.v01_max_hold_days,
+        # The engine is hard-wired to these for H-09 (run_replay); record them
+        # so the verifier can prove the signal stream never moved.
+        "signal_stop_atr_mult": rules_mod.SIGNAL_STOP_ATR_MULT,
+        "signal_target_atr_mult": rules_mod.SIGNAL_TARGET_ATR_MULT,
+        "signal_max_hold_bars": rules_mod.SIGNAL_MAX_HOLD_BARS,
+    }
+    design = {
+        "frozen": frozen,
+        "actual": actual,
+        "deviations": sorted(
+            key for key, value in frozen.items() if actual[key] != value
+        ),
+    }
+
+    return {
+        "rows": accepted_rows,
+        "arms": arms,
+        "funnel": dict(funnel),
+        "delta": delta,
+        "family_map": family_map,
+        "unknown_screens": unknown_screens,
+        "family_mix": dict(Counter(row["setup_family"] or "unknown" for row in accepted_rows)),
+        "arm_summaries": {
+            "v01": _basic_summary([row for row in v01_rows if row["has_exit"]]),
+            "v01_accepted": _basic_summary(
+                [row for row in v01_rows if row["accepted"] and row["has_exit"]]
+            ),
+            "v02": _basic_summary([row for row in v02_rows if row["has_exit"]]),
+            "v02_accepted": _basic_summary(accepted_rows),
+            "v02_accepted_closed": _basic_summary(
+                [row for row in accepted_rows if not row["censored"]]
+            ),
+        },
+        "design": design,
+    }
+
+
+def _h09_summary(result: dict[str, Any]) -> dict[str, Any]:
+    """Primary aggregate for the H-09 ledger.
+
+    The primary number excludes ``eod`` rows (trades still open at the data
+    edge). ``all_accepted`` keeps them visible so the exclusion can never hide
+    a loss; ``censored_excluded`` records how many were left out.
+    """
+    accepted = result["rows"]
+    closed = [row for row in accepted if row["has_exit"] and not row["censored"]]
+    base = _basic_summary(closed)
+    base["templates"] = _group_summary(closed, "template")
+    base["regimes"] = _group_summary(closed, "regime")
+    base["exit_reasons"] = dict(
+        Counter(str(row.get("exit_reason") or "—") for row in closed)
+    )
+    base["total_r"] = sum(
+        float(row["realized_r"])
+        for row in closed
+        if row.get("realized_r") is not None
+    )
+    base["all_accepted"] = _basic_summary(accepted)
+    base["censored_excluded"] = len(accepted) - len(closed)
+    base["arms"] = result["arm_summaries"]
+    base["delta"] = result["delta"]
+    base["funnel"] = result["funnel"]
+    base["family_mix"] = result["family_mix"]
+    base["unknown_screens"] = result["unknown_screens"]
+    base["evidence_label"] = rules_mod.EVIDENCE_LABEL
     return base
 
 
@@ -451,18 +1003,38 @@ async def run_replay(
     now = now or datetime.now(UTC)
     today = now.date()
 
+    if params.rules_version not in rules_mod.RULES_VERSIONS:
+        raise ValueError(
+            f"Unknown rules_version {params.rules_version!r}; "
+            f"expected one of {rules_mod.RULES_VERSIONS}"
+        )
+    h09 = params.rules_version == rules_mod.RULES_V02
+    if h09:
+        if not params.window_start or not params.window_end:
+            raise ValueError(
+                "H-09 (rules_version='v0.2') requires explicit window_start and "
+                "window_end; the frozen window is not inferred from the data edge."
+            )
+        if params.max_per_day:
+            raise ValueError(
+                "H-09 requires max_per_day=0 (no portfolio caps in the replay)."
+            )
+
     if symbols is None:
         symbols = sorted(daily) if daily is not None else load_universe(universe_file)
 
-    daily_start = (today - timedelta(days=params.daily_lookback_days)).isoformat()
-    hourly_start = (today - timedelta(days=params.hourly_lookback_days)).isoformat()
+    fetch_anchor = (
+        pd.Timestamp(params.window_start).date() if params.window_start else today
+    )
+    daily_start = (fetch_anchor - timedelta(days=params.daily_lookback_days)).isoformat()
+    hourly_start = (fetch_anchor - timedelta(days=params.hourly_lookback_days)).isoformat()
     end_date = today.isoformat()
 
     missing_daily: list[str] = []
     missing_hourly: list[str] = []
     dropped: dict[str, str] = {}
 
-    if daily is None or hourly is None:
+    if daily is None or (hourly is None and not h09):
         if progress:
             print(f"Fetching daily OHLCV for {len(symbols)} symbols...")
         raw_daily, missing_daily = fetch_history(
@@ -474,20 +1046,25 @@ async def run_replay(
             refresh=refresh_data,
             progress=progress,
         )
-        if progress:
-            print(f"Fetching hourly OHLCV for {len(symbols)} symbols...")
-        raw_hourly, missing_hourly = fetch_history(
-            symbols,
-            start=hourly_start,
-            end=end_date,
-            interval="1h",
-            cache_dir=cache_dir,
-            refresh=refresh_data,
-            progress=progress,
-        )
+        raw_hourly: dict[str, pd.DataFrame] = {}
+        if not h09:
+            # H-09 is daily-only: its geometry, structure and signal engine all
+            # read daily bars, so skipping the hourly fetch halves the run time
+            # without changing the population.
+            if progress:
+                print(f"Fetching hourly OHLCV for {len(symbols)} symbols...")
+            raw_hourly, missing_hourly = fetch_history(
+                symbols,
+                start=hourly_start,
+                end=end_date,
+                interval="1h",
+                cache_dir=cache_dir,
+                refresh=refresh_data,
+                progress=progress,
+            )
         daily, hourly, dropped = filter_usable(raw_daily, raw_hourly)
     else:
-        daily, hourly, dropped = filter_usable(daily, hourly)
+        daily, hourly, dropped = filter_usable(daily, hourly or {})
 
     if regime_frames is None:
         if progress:
@@ -503,9 +1080,31 @@ async def run_replay(
     if spy is None or spy.empty:
         raise RuntimeError("Regime frames are missing SPY; cannot build a trading calendar.")
 
-    end_ts = pd.Timestamp(spy.index[-1])
-    window_start_ts = end_ts - pd.Timedelta(days=params.window_days)
-    signal_dates = [ts for ts in spy.index if window_start_ts <= ts <= end_ts]
+    data_end_ts = pd.Timestamp(spy.index[-1])
+    window_end_ts = (
+        pd.Timestamp(params.window_end) if params.window_end else data_end_ts
+    )
+    window_start_ts = (
+        pd.Timestamp(params.window_start)
+        if params.window_start
+        else window_end_ts - pd.Timedelta(days=params.window_days)
+    )
+    signal_dates = [
+        ts for ts in spy.index if window_start_ts <= ts <= window_end_ts
+    ]
+    if not signal_dates:
+        raise RuntimeError(
+            "No signal days in the replay window "
+            f"{window_start_ts.date()} .. {window_end_ts.date()} "
+            f"(data ends {data_end_ts.date()})."
+        )
+    # The D-71 ledger can be written at any time; the H-09 ledger needs enough
+    # post-window data for a 3-session fill + 30-day time stop. 36 calendar days
+    # is the frozen minimum (H-09 plan §9; earliest full run 2026-11-24).
+    data_horizon_days = int(
+        (data_end_ts.normalize() - window_end_ts.normalize()).days
+    )
+    horizon_ok = data_horizon_days >= DATA_HORIZON_DAYS
 
     macro_frames = {sym: regime_frames[sym] for sym in MACRO_SYMBOLS if sym in regime_frames}
     sector_frames = {sym: regime_frames[sym] for sym in SECTOR_SYMBOLS if sym in regime_frames}
@@ -535,6 +1134,19 @@ async def run_replay(
     if progress:
         print(f"Running {len(templates)} deployed templates across {len(daily)} symbols...")
 
+    # The signal stream is the population. In H-09 it is frozen independently
+    # of the plan geometry (2.0 stop / 3.0 target / 15 bars); the shared plan
+    # stop is applied later by replay_rules.build_geometry.
+    signal_stop_mult = (
+        rules_mod.SIGNAL_STOP_ATR_MULT if h09 else params.stop_atr_mult
+    )
+    signal_target_mult = (
+        rules_mod.SIGNAL_TARGET_ATR_MULT if h09 else params.target_atr_mult
+    )
+    signal_max_hold = (
+        rules_mod.SIGNAL_MAX_HOLD_BARS if h09 else params.max_hold_bars
+    )
+
     prefetched: dict[tuple[str, str], pd.DataFrame] = {}
     for symbol, frame in daily.items():
         prefetched[(symbol, "1D")] = frame
@@ -561,9 +1173,9 @@ async def run_replay(
                 end_date=end_date,
                 signal_filters=list(screen.filters),
                 direction=getattr(screen, "direction", "long"),
-                stop_atr_mult=params.stop_atr_mult,
-                target_atr_mult=params.target_atr_mult,
-                max_hold_bars=params.max_hold_bars,
+                stop_atr_mult=signal_stop_mult,
+                target_atr_mult=signal_target_mult,
+                max_hold_bars=signal_max_hold,
                 fees_bps=params.fees_bps,
                 slippage_bps=params.slippage_bps,
             )
@@ -592,6 +1204,7 @@ async def run_replay(
                         "signal_date": signal_date,
                         "symbol": symbol,
                         "template": stem,
+                        "screen_name": screen.name,
                         "regime": regime["label"],
                         "regime_key": regime["key"],
                         "screen_rank": selection["rank"],
@@ -633,27 +1246,43 @@ async def run_replay(
             capped.extend(items[: params.max_per_day])
         deduped = capped
 
-    rows: list[dict[str, Any]] = []
-    for candidate in deduped:
-        row = _candidate_to_row(candidate, params)
-        if row is not None:
-            rows.append(row)
-    rows.sort(key=lambda row: (row["date_entered"], row["symbol"]), reverse=True)
-
-    summary = summarize(rows)
+    h09_result: dict[str, Any] | None = None
+    if h09:
+        h09_result = _run_h09(
+            params,
+            deduped,
+            daily,
+            templates=templates,
+            horizon_end=data_end_ts.date().isoformat(),
+        )
+        rows = h09_result["rows"]
+        summary = _h09_summary(h09_result)
+    else:
+        rows = []
+        for candidate in deduped:
+            row = _candidate_to_row(candidate, params)
+            if row is not None:
+                rows.append(row)
+        rows.sort(key=lambda row: (row["date_entered"], row["symbol"]), reverse=True)
+        summary = summarize(rows)
     regime_days = Counter(record["key"] for record in regime_by_date.values())
     run = {
         "generated_at": now.isoformat(),
         "window_start": window_start_ts.date().isoformat(),
-        "window_end": end_ts.date().isoformat(),
+        "window_end": window_end_ts.date().isoformat(),
         "universe_count": len(daily),
         "universe_requested": len(symbols),
         "templates_count": len(templates),
+        "rules_version": params.rules_version,
         "params": asdict(params),
         "summary": summary,
         "metadata": {
             "engine": "external_backtest v2 (validation reset 2026-10-19)",
             "source": "local OHLCV replay of deployed screen templates",
+            "rules_version": params.rules_version,
+            "evidence_label": (
+                rules_mod.EVIDENCE_LABEL if h09 else "d71_screen_replay_not_evidence"
+            ),
             "templates": sorted(templates),
             "screens": {
                 regime: [
@@ -669,6 +1298,13 @@ async def run_replay(
                 for regime, items in mix.items()
             },
             "regime_days": dict(regime_days),
+            "data_horizon": {
+                "as_of": data_end_ts.date().isoformat(),
+                "window_end": window_end_ts.date().isoformat(),
+                "days": data_horizon_days,
+                "required_days": DATA_HORIZON_DAYS,
+                "ok": horizon_ok,
+            },
             "data_quality": {
                 "requested": len(symbols),
                 "usable_daily": len(daily),
@@ -685,16 +1321,38 @@ async def run_replay(
                 "after_day_cap": len(deduped),
                 "rows": len(rows),
             },
+            "h09": (
+                {
+                    "evidence_label": rules_mod.EVIDENCE_LABEL,
+                    "funnel": h09_result["funnel"],
+                    "delta": h09_result["delta"],
+                    "family_map": h09_result["family_map"],
+                    "unknown_screens": h09_result["unknown_screens"],
+                    "family_mix": h09_result["family_mix"],
+                    "arm_summaries": h09_result["arm_summaries"],
+                    "design": h09_result["design"],
+                    "primary_excludes_censored": True,
+                }
+                if h09_result is not None
+                else None
+            ),
             "not_applied_filters": {
                 stem: dict(counter)
                 for stem, counter in skipped_by_template.items()
                 if counter
             },
-            "caveats": REPLAY_CAVEATS,
+            "caveats": H09_CAVEATS if h09 else REPLAY_CAVEATS,
         },
     }
 
-    return ReplayResult(run=run, rows=rows, summary=summary)
+    return ReplayResult(
+        run=run,
+        rows=rows,
+        summary=summary,
+        artifacts=(
+            {"arms": h09_result["arms"]} if h09_result is not None else {}
+        ),
+    )
 
 
 class _PrefetchedFetcher:
