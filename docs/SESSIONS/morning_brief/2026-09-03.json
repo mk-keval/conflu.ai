@@ -1,0 +1,42 @@
+{
+  "date": "2026-09-03",
+  "args": {
+    "base_url": "http://localhost:8000",
+    "min_confluence": 0,
+    "limit": 50,
+    "tickers": null,
+    "brief_dir": "docs\\SESSIONS\\morning_brief"
+  },
+  "macro_context": {
+    "timestamp": 1788470623.275902,
+    "vix": 14.319999694824219,
+    "spy_close": 773.1699829101562,
+    "qqq_close": 717.6699829101562,
+    "dxy": 98.98300170898438,
+    "spy_change_1d_pct": 1.046841189654324,
+    "qqq_change_1d_pct": 1.1885952275470846,
+    "sector_1d_pct": {
+      "XLE": -0.7373206433021195,
+      "XLF": 1.560876739959438,
+      "XLV": 0.17924114718921302,
+      "XLY": 1.3929988382543224,
+      "XLP": -0.3156747888692357,
+      "XLI": 1.0302111308442496,
+      "XLB": -0.6232329108589174,
+      "XLK": 1.2908469708063475,
+      "XLU": 0.8436855537846455,
+      "XBI": -0.5986516681417697,
+      "XHB": 1.087277349045901,
+      "XRT": 0.405193464511
+    },
+    "leading_sector": "XLF",
+    "leading_sector_1d_pct": 1.560876739959438,
+    "lagging_sector": "XLE",
+    "lagging_sector_1d_pct": -0.7373206433021195,
+    "risk_regime": "calm"
+  },
+  "screener_results_count": 0,
+  "screener_results": [],
+  "explicit_tickers": [],
+  "generated_at": "2026-09-03T17:24:09.591315"
+}

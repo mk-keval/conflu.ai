@@ -131,7 +131,8 @@ class SnapshotMultiScreenEngine:
         """Run ONE upstream query returning the masked-ready base frame."""
         q = Query()
         q.set_markets("america")
-        q.set_property("interval", "1D")
+        # Base snapshot is daily (no pipe suffixes): the TV server ignores a
+        # top-level `interval`, and non-1D rules remain a documented divergence.
         q.select(*SNAPSHOT_COLUMNS, *_required_extra_columns(configs))
 
         condition = self.specialist.compile_filters(list(_BASE_GATES))

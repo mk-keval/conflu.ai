@@ -25,61 +25,75 @@ const CHANGE_COLORS = {
 
 function formatPrice(price: number): string {
   return price >= 1000
-    ? price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    ? price.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
     : price.toFixed(2);
 }
 
 export function TickerCard({ ticker, onAddToWatchlist }: TickerCardProps) {
   const navigate = useNavigate();
 
-  const changeColor = ticker.premarketChangePct !== null
-    ? ticker.premarketChangePct > 0
-      ? CHANGE_COLORS.positive
-      : ticker.premarketChangePct < 0
-        ? CHANGE_COLORS.negative
-        : CHANGE_COLORS.neutral
-    : CHANGE_COLORS.neutral;
+  const changeColor =
+    ticker.premarketChangePct !== null
+      ? ticker.premarketChangePct > 0
+        ? CHANGE_COLORS.positive
+        : ticker.premarketChangePct < 0
+          ? CHANGE_COLORS.negative
+          : CHANGE_COLORS.neutral
+      : CHANGE_COLORS.neutral;
 
-  const ChangeIcon = ticker.premarketChangePct !== null && ticker.premarketChangePct > 0
-    ? TrendingUp
-    : ticker.premarketChangePct !== null && ticker.premarketChangePct < 0
-      ? TrendingDown
-      : Minus;
+  const ChangeIcon =
+    ticker.premarketChangePct !== null && ticker.premarketChangePct > 0
+      ? TrendingUp
+      : ticker.premarketChangePct !== null && ticker.premarketChangePct < 0
+        ? TrendingDown
+        : Minus;
 
   const verdictColor = VERDICT_COLORS[ticker.verdict] || VERDICT_COLORS.WATCH;
 
   return (
     <div
       data-testid="ticker-card"
-      className="rounded-lg border border-border/60 bg-surface-secondary p-3 hover:border-accent/30 transition-all duration-150 group"
+      className="bg-surface-secondary group rounded-lg border border-border/60 p-3 transition-all duration-150 hover:border-accent/30"
     >
       {/* Header: Symbol + Verdict badge */}
-      <div className="flex items-center justify-between mb-2">
-        <span className="font-bold text-text-primary text-sm">{ticker.symbol}</span>
-        <span className={cn(
-          'text-2xs font-semibold px-2 py-0.5 rounded-full border',
-          verdictColor
-        )}>
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-sm font-bold text-text-primary">
+          {ticker.symbol}
+        </span>
+        <span
+          className={cn(
+            'text-2xs rounded-full border px-2 py-0.5 font-semibold',
+            verdictColor
+          )}
+        >
           {ticker.verdict}
         </span>
       </div>
 
       {/* Screen name + score */}
-      <div className="flex items-center gap-2 mb-2 text-2xs text-text-muted">
+      <div className="text-2xs mb-2 flex items-center gap-2 text-text-muted">
         <span>{ticker.screenName}</span>
         <span className="opacity-50">|</span>
         <span>Score: {ticker.screenScore.toFixed(1)}</span>
       </div>
 
       {/* Pre-market price */}
-      <div className="flex items-center gap-1.5 mb-2">
+      <div className="mb-2 flex items-center gap-1.5">
         {ticker.livePrice !== null ? (
           <>
-            <span className="text-sm font-mono font-medium text-text-primary">
+            <span className="font-mono text-sm font-medium text-text-primary">
               ${formatPrice(ticker.livePrice)}
             </span>
             {ticker.premarketChangePct !== null && (
-              <span className={cn('flex items-center gap-0.5 text-xs font-mono', changeColor)}>
+              <span
+                className={cn(
+                  'flex items-center gap-0.5 font-mono text-xs',
+                  changeColor
+                )}
+              >
                 <ChangeIcon className="h-3 w-3" />
                 {formatPct(ticker.premarketChangePct)}
               </span>
@@ -92,10 +106,12 @@ export function TickerCard({ ticker, onAddToWatchlist }: TickerCardProps) {
 
       {/* Education hints */}
       {Object.keys(ticker.educationHints).length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-3">
-          {Object.entries(ticker.educationHints).slice(0, 3).map(([key]) => (
-            <EducationTooltip key={key} metricKey={key} compact />
-          ))}
+        <div className="mb-3 flex flex-wrap gap-1">
+          {Object.entries(ticker.educationHints)
+            .slice(0, 3)
+            .map(([key]) => (
+              <EducationTooltip key={key} metricKey={key} compact />
+            ))}
         </div>
       )}
 
@@ -103,15 +119,15 @@ export function TickerCard({ ticker, onAddToWatchlist }: TickerCardProps) {
       <div className="flex gap-2">
         <button
           onClick={() => navigate(`/pro/ticker/${ticker.symbol}`)}
-          className="flex-1 px-2 py-1.5 rounded-md bg-accent/10 text-accent text-xs font-medium hover:bg-accent/20 transition-colors"
+          className="flex-1 rounded-md bg-accent/10 px-2 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20"
         >
-          <ExternalLink className="h-3 w-3 inline mr-1" />
+          <ExternalLink className="mr-1 inline h-3 w-3" />
           Analyze
         </button>
         {onAddToWatchlist && (
           <button
             onClick={() => onAddToWatchlist(ticker.symbol)}
-            className="px-2 py-1.5 rounded-md border border-border/60 text-text-muted text-xs hover:text-accent hover:border-accent/30 transition-colors"
+            className="rounded-md border border-border/60 px-2 py-1.5 text-xs text-text-muted transition-colors hover:border-accent/30 hover:text-accent"
           >
             + Add
           </button>

@@ -56,7 +56,7 @@ All 12 page `<h1>`s across 11 components updated to `font-display text-xl/2xl fo
 **Symptom**: User reported garbled characters — "XLY ae" on sector rotation, "close A july 31 2026 A" on Morning Brief. Font-display changes appeared missing.
 
 **Root cause**: A PowerShell sweep used `Get-Content -Raw` + `Set-Content -Encoding UTF8` on 11 TSX files. Windows PowerShell 5.1:
-1. Reads UTF-8 files **without BOM as ANSI/CP1252** → multi-byte UTF-8 chars (—, ·, ─, ▲) decoded as 2 mojibake chars (e.g. `—` → `â€”`)
+1. Reads UTF-8 files **without BOM as ANSI/CP1252** → multi-byte UTF-8 chars (—, ·, ─, ▲) decoded as 2 mojibake chars (e.g. `—` → `—`)
 2. Writes a UTF-8 **BOM** (`EF BB BF`) at file start
 3. Normalized CRLF→LF (ScreenerPage was committed with CRLF)
 
@@ -68,7 +68,7 @@ Result: whole-file diffs (571 lines on a ~300-line file) and garbled UI text. **
 3. Encode as CP1252 → recovers the **original UTF-8 bytes**
 4. Decode as UTF-8 → correct text
 5. Write back without BOM, LF line endings (except ScreenerPage reverted to CRLF to match its committed state)
-6. Verified: `git diff --ignore-cr-at-eol` shows only the intended 1–3 line changes per file; mojibake regex sweep (`/[ÃÂâ€”\uFFFD]/g`) across entire `frontend/src` → **ALL CLEAN**; `tsc --noEmit` exit 0; browser re-verify on both reported pages shows clean text
+6. Verified: `git diff --ignore-cr-at-eol` shows only the intended 1–3 line changes per file; mojibake regex sweep (`/[×\uFFFD]/g`) across entire `frontend/src` → **ALL CLEAN**; `tsc --noEmit` exit 0; browser re-verify on both reported pages shows clean text
 
 **Lessons for future sessions**:
 - **NEVER use PowerShell `Set-Content`/`Out-File` on UTF-8 source files** — use the `edit`/`write` tools (proper UTF-8 no-BOM) or `node` scripts. PS 5.1 is ANSI-by-default on read when no BOM exists.

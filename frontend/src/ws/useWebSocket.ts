@@ -13,18 +13,25 @@ interface UseWebSocketReturn {
 }
 
 export function useWebSocket(url: string): UseWebSocketReturn {
-  const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
+  const [connectionState, setConnectionState] =
+    useState<ConnectionState>('disconnected');
   const wsRef = useRef<WebSocket | null>(null);
   const subscriptionsRef = useRef<Set<string>>(new Set());
   const reconnectAttemptRef = useRef(0);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const handlersRef = useRef<Set<(message: WSMessage) => void>>(new Set());
   const mountedRef = useRef(true);
 
   const handleMessage = useCallback((event: MessageEvent) => {
     try {
       const message = JSON.parse(event.data) as WSMessage;
-      if ('channel' in message && 'sequence' in message && typeof message.sequence === 'number') {
+      if (
+        'channel' in message &&
+        'sequence' in message &&
+        typeof message.sequence === 'number'
+      ) {
         storeSequence(message.channel as string, message.sequence as number);
       }
       handlersRef.current.forEach((handler) => {
@@ -100,14 +107,18 @@ export function useWebSocket(url: string): UseWebSocketReturn {
   const subscribe = useCallback((channel: string) => {
     subscriptionsRef.current.add(channel);
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'subscribe', channels: [channel] }));
+      wsRef.current.send(
+        JSON.stringify({ type: 'subscribe', channels: [channel] })
+      );
     }
   }, []);
 
   const unsubscribe = useCallback((channel: string) => {
     subscriptionsRef.current.delete(channel);
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'unsubscribe', channels: [channel] }));
+      wsRef.current.send(
+        JSON.stringify({ type: 'unsubscribe', channels: [channel] })
+      );
     }
   }, []);
 

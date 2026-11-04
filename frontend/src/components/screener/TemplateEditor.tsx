@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/cn';
-import type { ScreenTemplateConfig, FilterRuleConfig, FilterParam } from '@/lib/constants';
+import type {
+  ScreenTemplateConfig,
+  FilterRuleConfig,
+  FilterParam,
+} from '@/lib/constants';
 import { TIMEFRAMES } from '@/lib/constants';
 
 interface FilterParamInputProps {
@@ -25,7 +29,7 @@ function FilterParamInput({ param, value, onChange }: FilterParamInputProps) {
       <select
         value={String(value)}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded border border-dark-400 bg-dark-600 px-2 py-1 text-sm text-dark-50 focus:border-accent focus:outline-none"
+        className="border-dark-400 bg-dark-600 text-dark-50 rounded border px-2 py-1 text-sm focus:border-accent focus:outline-none"
       >
         {options.map((opt) => (
           <option key={opt} value={opt}>
@@ -44,9 +48,9 @@ function FilterParamInput({ param, value, onChange }: FilterParamInputProps) {
           type="checkbox"
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}
-          className="rounded border-dark-400 bg-dark-600 text-accent focus:ring-accent"
+          className="border-dark-400 bg-dark-600 rounded text-accent focus:ring-accent"
         />
-        <span className="text-sm text-dark-300">Enabled</span>
+        <span className="text-dark-300 text-sm">Enabled</span>
       </label>
     );
   }
@@ -61,7 +65,7 @@ function FilterParamInput({ param, value, onChange }: FilterParamInputProps) {
       min={min}
       max={max}
       step={step}
-      className="w-20 rounded border border-dark-400 bg-dark-600 px-2 py-1 text-sm text-dark-50 focus:border-accent focus:outline-none"
+      className="border-dark-400 bg-dark-600 text-dark-50 w-20 rounded border px-2 py-1 text-sm focus:border-accent focus:outline-none"
     />
   );
 }
@@ -70,7 +74,11 @@ interface FilterRowProps {
   filter: FilterRuleConfig;
   index: number;
   values: Record<string, string | number | boolean>;
-  onParamChange: (filterIndex: number, paramKey: string, value: string | number | boolean) => void;
+  onParamChange: (
+    filterIndex: number,
+    paramKey: string,
+    value: string | number | boolean
+  ) => void;
   onToggleNegate: (filterIndex: number) => void;
   onToggleOperator: (filterIndex: number) => void;
   onToggleCompareTimeframe: (filterIndex: number) => void;
@@ -79,46 +87,84 @@ interface FilterRowProps {
   onToggleExpand: () => void;
 }
 
-function FilterRow({ filter, index, values, onParamChange, onToggleNegate, onToggleOperator, onToggleCompareTimeframe, onRemove, isExpanded, onToggleExpand }: FilterRowProps) {
+function FilterRow({
+  filter,
+  index,
+  values,
+  onParamChange,
+  onToggleNegate,
+  onToggleOperator,
+  onToggleCompareTimeframe,
+  onRemove,
+  isExpanded,
+  onToggleExpand,
+}: FilterRowProps) {
   const isMultiTF = MULTI_TF_FILTERS.has(filter.indicator);
   const currentCompareTF = filter.compareTimeframe || '';
 
   return (
-    <div className={cn('rounded border border-dark-600 bg-dark-800 overflow-hidden', isExpanded && 'border-accent')}>
+    <div
+      className={cn(
+        'border-dark-600 bg-dark-800 overflow-hidden rounded border',
+        isExpanded && 'border-accent'
+      )}
+    >
       {/* Filter header */}
       <div
         onClick={onToggleExpand}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleExpand(); }}}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onToggleExpand();
+          }
+        }}
         role="button"
         tabIndex={0}
-        className={cn('w-full flex items-center justify-between gap-2 p-3 text-left cursor-pointer', isExpanded && 'bg-dark-700')}
+        className={cn(
+          'flex w-full cursor-pointer items-center justify-between gap-2 p-3 text-left',
+          isExpanded && 'bg-dark-700'
+        )}
       >
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <span className="text-xs font-mono text-dark-400 w-8 text-right">{index + 1}.</span>
-          <span className="text-xs text-dark-400 uppercase tracking-wider">{filter.category}</span>
-          <span className="font-medium text-dark-100 truncate">{filter.label}</span>
-          <span className="text-xs px-1.5 py-0.5 rounded bg-dark-600 text-dark-300">{filter.timeframe}</span>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="text-dark-400 w-8 text-right font-mono text-xs">
+            {index + 1}.
+          </span>
+          <span className="text-dark-400 text-xs uppercase tracking-wider">
+            {filter.category}
+          </span>
+          <span className="text-dark-100 truncate font-medium">
+            {filter.label}
+          </span>
+          <span className="bg-dark-600 text-dark-300 rounded px-1.5 py-0.5 text-xs">
+            {filter.timeframe}
+          </span>
           {isMultiTF && currentCompareTF && (
-            <span className="text-xs px-1.5 py-0.5 rounded bg-accent/20 text-accent border border-accent/30">
+            <span className="rounded border border-accent/30 bg-accent/20 px-1.5 py-0.5 text-xs text-accent">
               vs {currentCompareTF}
             </span>
           )}
         </div>
         <div className="flex items-center gap-1">
-          <label className="flex items-center gap-1.5 cursor-pointer">
+          <label className="flex cursor-pointer items-center gap-1.5">
             <input
               type="checkbox"
               checked={filter.negate}
-              onChange={(e) => { e.stopPropagation(); onToggleNegate(index); }}
-              className="rounded border-dark-400 bg-dark-600 text-accent focus:ring-accent"
+              onChange={(e) => {
+                e.stopPropagation();
+                onToggleNegate(index);
+              }}
+              className="border-dark-400 bg-dark-600 rounded text-accent focus:ring-accent"
               title="Negate filter"
             />
-            <span className="text-[10px] text-dark-400">NOT</span>
+            <span className="text-dark-400 text-[10px]">NOT</span>
           </label>
           <select
             value={filter.operator}
-            onChange={(e) => { e.stopPropagation(); onToggleOperator(index); }}
-            className="rounded border border-dark-400 bg-dark-600 px-2 py-0.5 text-xs text-dark-50 focus:border-accent focus:outline-none"
+            onChange={(e) => {
+              e.stopPropagation();
+              onToggleOperator(index);
+            }}
+            className="border-dark-400 bg-dark-600 text-dark-50 rounded border px-2 py-0.5 text-xs focus:border-accent focus:outline-none"
             title="Operator"
           >
             <option value="gt">&gt;</option>
@@ -130,23 +176,41 @@ function FilterRow({ filter, index, values, onParamChange, onToggleNegate, onTog
           {isMultiTF && (
             <select
               value={currentCompareTF}
-              onChange={(e) => { e.stopPropagation(); onToggleCompareTimeframe(index); }}
-              className="rounded border border-dark-400 bg-dark-600 px-2 py-0.5 text-xs text-dark-50 focus:border-accent focus:outline-none"
+              onChange={(e) => {
+                e.stopPropagation();
+                onToggleCompareTimeframe(index);
+              }}
+              className="border-dark-400 bg-dark-600 text-dark-50 rounded border px-2 py-0.5 text-xs focus:border-accent focus:outline-none"
               title="Compare Timeframe"
             >
               <option value="">-- Compare TF --</option>
               {TIMEFRAMES.map((tf) => (
-                <option key={tf} value={tf}>{tf}</option>
+                <option key={tf} value={tf}>
+                  {tf}
+                </option>
               ))}
             </select>
           )}
           <button
-            onClick={(e) => { e.stopPropagation(); onRemove(index); }}
-            className="p-1 text-dark-400 hover:text-loss hover:bg-dark-600 rounded"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(index);
+            }}
+            className="text-dark-400 hover:bg-dark-600 rounded p-1 hover:text-loss"
             title="Remove filter"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
             </svg>
           </button>
         </div>
@@ -154,17 +218,21 @@ function FilterRow({ filter, index, values, onParamChange, onToggleNegate, onTog
 
       {/* Expanded params */}
       {isExpanded && Object.keys(filter.params).length > 0 && (
-        <div className="p-3 border-t border-dark-600 space-y-2 bg-dark-900">
+        <div className="border-dark-600 bg-dark-900 space-y-2 border-t p-3">
           {Object.entries(filter.params).map(([paramKey, param]) => (
             <div key={paramKey} className="flex items-center gap-2">
-              <label className="text-xs text-dark-300 w-32">{param.label}:</label>
+              <label className="text-dark-300 w-32 text-xs">
+                {param.label}:
+              </label>
               <FilterParamInput
                 param={param}
                 value={values[paramKey] ?? param.defaultValue}
                 onChange={(v) => onParamChange(index, paramKey, v)}
               />
               {param.type === 'number' && param.min !== undefined && (
-                <span className="text-[10px] text-dark-400">({param.min}–{param.max})</span>
+                <span className="text-dark-400 text-[10px]">
+                  ({param.min}–{param.max})
+                </span>
               )}
             </div>
           ))}
@@ -173,7 +241,7 @@ function FilterRow({ filter, index, values, onParamChange, onToggleNegate, onTog
 
       {/* No params message */}
       {isExpanded && Object.keys(filter.params).length === 0 && (
-        <div className="p-3 border-t border-dark-600 text-center text-xs text-dark-400 bg-dark-900">
+        <div className="border-dark-600 text-dark-400 bg-dark-900 border-t p-3 text-center text-xs">
           No configurable parameters
         </div>
       )}
@@ -197,7 +265,9 @@ export function ScreenTemplateEditor({
   isDirty,
 }: ScreenTemplateEditorProps) {
   const [configState, setConfigState] = useState<ScreenTemplateConfig>(config);
-  const [expandedFilters, setExpandedFilters] = useState<Record<number, boolean>>({});
+  const [expandedFilters, setExpandedFilters] = useState<
+    Record<number, boolean>
+  >({});
 
   // Sync with config prop changes
   useEffect(() => {
@@ -214,12 +284,22 @@ export function ScreenTemplateEditor({
   //   onConfigChange(config);
   // }, [config, onConfigChange]);
 
-  const handleParamChange = (filterIndex: number, paramKey: string, value: string | number | boolean) => {
+  const handleParamChange = (
+    filterIndex: number,
+    paramKey: string,
+    value: string | number | boolean
+  ) => {
     const newConfig = {
       ...configState,
       filters: configState.filters.map((f, i) =>
         i === filterIndex && f.params[paramKey]
-          ? { ...f, params: { ...f.params, [paramKey]: { ...f.params[paramKey], defaultValue: value } } }
+          ? {
+              ...f,
+              params: {
+                ...f.params,
+                [paramKey]: { ...f.params[paramKey], defaultValue: value },
+              },
+            }
           : f
       ),
     };
@@ -239,12 +319,20 @@ export function ScreenTemplateEditor({
   };
 
   const handleToggleOperator = (filterIndex: number) => {
-    const operators = ['gt', 'lt', 'eq', 'crosses_above', 'crosses_below'] as const;
+    const operators = [
+      'gt',
+      'lt',
+      'eq',
+      'crosses_above',
+      'crosses_below',
+    ] as const;
     const newConfig = {
       ...configState,
       filters: configState.filters.map((f, i) => {
         if (i !== filterIndex) return f;
-        const currentIndex = operators.indexOf(f.operator as typeof operators[number]);
+        const currentIndex = operators.indexOf(
+          f.operator as (typeof operators)[number]
+        );
         const nextIndex = (currentIndex + 1) % operators.length;
         return { ...f, operator: operators[nextIndex] };
       }),
@@ -259,7 +347,7 @@ export function ScreenTemplateEditor({
     const currentIndex = timeframes.indexOf(currentTF);
     const nextIndex = (currentIndex + 1) % timeframes.length;
     const newTF = timeframes[nextIndex];
-    
+
     const newConfig = {
       ...configState,
       filters: configState.filters.map((f, i) =>
@@ -280,28 +368,37 @@ export function ScreenTemplateEditor({
   };
 
   const handleToggleExpand = (filterIndex: number) => {
-    setExpandedFilters((prev) => ({ ...prev, [filterIndex]: !prev[filterIndex] }));
+    setExpandedFilters((prev) => ({
+      ...prev,
+      [filterIndex]: !prev[filterIndex],
+    }));
   };
 
   return (
     <div className="space-y-3">
       {/* Template header */}
-      <div className="flex items-start justify-between gap-3 p-3 rounded border border-dark-600 bg-dark-800">
+      <div className="border-dark-600 bg-dark-800 flex items-start justify-between gap-3 rounded border p-3">
         <div>
-          <h3 className="font-semibold text-dark-50">{defaultConfig.name}</h3>
-          <p className="text-xs text-dark-400 mt-0.5">{defaultConfig.description}</p>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-[10px] text-dark-400">Asset Classes:</span>
-            <span className="text-xs text-dark-200">{defaultConfig.assetClasses.join(', ')}</span>
-            <span className="text-[10px] text-dark-400">Timeframes:</span>
-            <span className="text-xs text-dark-200">{defaultConfig.timeframes.join(', ')}</span>
+          <h3 className="text-dark-50 font-semibold">{defaultConfig.name}</h3>
+          <p className="text-dark-400 mt-0.5 text-xs">
+            {defaultConfig.description}
+          </p>
+          <div className="mt-1 flex items-center gap-2">
+            <span className="text-dark-400 text-[10px]">Asset Classes:</span>
+            <span className="text-dark-200 text-xs">
+              {defaultConfig.assetClasses.join(', ')}
+            </span>
+            <span className="text-dark-400 text-[10px]">Timeframes:</span>
+            <span className="text-dark-200 text-xs">
+              {defaultConfig.timeframes.join(', ')}
+            </span>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {isDirty && (
             <button
               onClick={onReset}
-              className="px-3 py-1.5 text-xs font-medium text-dark-300 hover:text-dark-50 hover:bg-dark-600 rounded border border-dark-400 transition-colors"
+              className="text-dark-300 hover:text-dark-50 hover:bg-dark-600 border-dark-400 rounded border px-3 py-1.5 text-xs font-medium transition-colors"
             >
               Reset to Defaults
             </button>
@@ -330,7 +427,7 @@ export function ScreenTemplateEditor({
         ))}
 
         {configState.filters.length === 0 && (
-          <div className="text-center py-8 text-dark-400">
+          <div className="text-dark-400 py-8 text-center">
             No filters in this template
           </div>
         )}

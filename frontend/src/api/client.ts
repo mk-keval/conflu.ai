@@ -61,26 +61,44 @@ async function request<T>(promise: Promise<unknown>): Promise<T> {
 }
 
 /** GET that unwraps the ApiResponse envelope (or returns the raw body). */
-export function apiGet<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
+export function apiGet<T>(
+  url: string,
+  config?: AxiosRequestConfig
+): Promise<T> {
   return request<T>(apiClient.get(url, config));
 }
 
 /** POST that unwraps the ApiResponse envelope (or returns the raw body). */
-export function apiPost<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+export function apiPost<T>(
+  url: string,
+  data?: unknown,
+  config?: AxiosRequestConfig
+): Promise<T> {
   return request<T>(apiClient.post(url, data, config));
 }
 
 /** PUT that unwraps the ApiResponse envelope (or returns the raw body). */
-export function apiPut<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+export function apiPut<T>(
+  url: string,
+  data?: unknown,
+  config?: AxiosRequestConfig
+): Promise<T> {
   return request<T>(apiClient.put(url, data, config));
 }
 
 /** PATCH that unwraps the ApiResponse envelope (or returns the raw body). */
-export function apiPatch<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+export function apiPatch<T>(
+  url: string,
+  data?: unknown,
+  config?: AxiosRequestConfig
+): Promise<T> {
   return request<T>(apiClient.patch(url, data, config));
 }
 
 /** DELETE that unwraps the ApiResponse envelope (or returns the raw body). */
-export function apiDelete<T = void>(url: string, config?: AxiosRequestConfig): Promise<T> {
+export function apiDelete<T = void>(
+  url: string,
+  config?: AxiosRequestConfig
+): Promise<T> {
   return request<T>(apiClient.delete(url, config));
 }

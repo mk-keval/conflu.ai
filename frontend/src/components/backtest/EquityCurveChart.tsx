@@ -20,13 +20,19 @@ interface TooltipPayloadEntry {
   payload: EquityPoint;
 }
 
-function CustomTooltip({ active, payload }: { active?: boolean; payload?: TooltipPayloadEntry[] }) {
+function CustomTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: TooltipPayloadEntry[];
+}) {
   if (!active || !payload?.length) return null;
   const p = payload[0].payload;
   return (
-    <div className="rounded border border-dark-500 bg-dark-800 px-3 py-2 text-xs shadow-lg">
+    <div className="border-dark-500 bg-dark-800 rounded border px-3 py-2 text-xs shadow-lg">
       <p className="text-dark-300">{formatDate(p.timestamp)}</p>
-      <p className="font-mono text-dark-50">{formatPrice(p.equity)}</p>
+      <p className="text-dark-50 font-mono">{formatPrice(p.equity)}</p>
     </div>
   );
 }
@@ -34,7 +40,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
 export function EquityCurveChart({ data, initialCash }: EquityCurveChartProps) {
   if (!data.length) {
     return (
-      <div className="flex h-64 items-center justify-center rounded border border-dark-600 bg-dark-800 text-sm text-dark-400">
+      <div className="border-dark-600 bg-dark-800 text-dark-400 flex h-64 items-center justify-center rounded border text-sm">
         No equity data available
       </div>
     );
@@ -44,11 +50,11 @@ export function EquityCurveChart({ data, initialCash }: EquityCurveChartProps) {
   const domainMax = Math.max(...data.map((d) => d.equity)) * 1.02;
 
   return (
-    <div className="rounded border border-dark-600 bg-dark-800 p-3">
+    <div className="border-dark-600 bg-dark-800 rounded border p-3">
       <div className="mb-2 flex items-center justify-between">
-        <h4 className="text-xs font-semibold text-dark-200">Equity Curve</h4>
+        <h4 className="text-dark-200 text-xs font-semibold">Equity Curve</h4>
         {initialCash && (
-          <span className="text-[10px] text-dark-400">
+          <span className="text-dark-400 text-[10px]">
             Initial: {formatPrice(initialCash)}
           </span>
         )}

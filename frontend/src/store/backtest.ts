@@ -36,10 +36,10 @@ export const useBacktestStore = create<BacktestStore>()(
       optimizationParams: {},
       addRunId: (runId) =>
         set((state) => ({
-          recentRunIds: [runId, ...state.recentRunIds.filter((id) => id !== runId)].slice(
-            0,
-            MAX_RECENT_RUNS
-          ),
+          recentRunIds: [
+            runId,
+            ...state.recentRunIds.filter((id) => id !== runId),
+          ].slice(0, MAX_RECENT_RUNS),
         })),
       setSelectedRunId: (runId) => set({ selectedRunId: runId }),
       setTradeFilter: (filter) => set({ tradeFilter: filter }),

@@ -33,7 +33,9 @@ export async function fetchCorrelation(
   if (window) params.set('window', String(window));
   if (groupBy) params.set('group_by', groupBy);
 
-  return apiGet<CorrelationResult>(`/api/v1/risk/correlation?${params.toString()}`);
+  return apiGet<CorrelationResult>(
+    `/api/v1/risk/correlation?${params.toString()}`
+  );
 }
 
 export async function fetchVaR(

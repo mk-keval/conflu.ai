@@ -23,6 +23,10 @@ class CoreSettings(BaseSettings):
         default="data",
         description="Root directory for partitioned Parquet data",
     )
+    paper_journal_path: str = Field(
+        default="data/paper_trades.db",
+        description="Path to the SQLite paper-trade journal (D-68; relative to repo root)",
+    )
     log_level: str = Field(default="INFO", description="Log level (DEBUG, INFO, WARNING, ERROR)")
     log_json: bool = Field(default=True, description="Output logs as JSON")
 

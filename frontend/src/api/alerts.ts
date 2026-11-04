@@ -14,7 +14,9 @@ export async function getAlert(id: string): Promise<AlertRule> {
   return apiGet<AlertRule>(`/api/v1/alerts/${id}`);
 }
 
-export async function createAlert(data: CreateAlertRequest): Promise<AlertRule> {
+export async function createAlert(
+  data: CreateAlertRequest
+): Promise<AlertRule> {
   return apiPost<AlertRule>('/api/v1/alerts', data);
 }
 
@@ -44,7 +46,9 @@ export async function getAlertHistory(
 ): Promise<AlertHistoryEntry[]> {
   const params: Record<string, string | number> = {};
   if (limit) params.limit = limit;
-  return apiGet<AlertHistoryEntry[]>(`/api/v1/alerts/${alertId}/history`, { params });
+  return apiGet<AlertHistoryEntry[]>(`/api/v1/alerts/${alertId}/history`, {
+    params,
+  });
 }
 
 export async function dismissAlertHistory(id: string): Promise<void> {

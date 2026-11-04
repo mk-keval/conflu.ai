@@ -16,8 +16,10 @@ export const queryKeys = {
   tickerNews: (symbol: string) => ['ticker', symbol, 'news'] as const,
   chartOHLCV: (symbol: string, timeframe: string) =>
     ['chart', symbol, timeframe] as const,
-  backtest: (runId?: string) => (runId ? (['backtest', runId] as const) : (['backtest'] as const)),
+  backtest: (runId?: string) =>
+    runId ? (['backtest', runId] as const) : (['backtest'] as const),
   risk: (symbol: string) => ['risk', symbol] as const,
   education: (metric: string) => ['professional', 'education', metric] as const,
-  portfolioAnalysis: (symbols: string[]) => ['portfolio-analysis', symbols] as const,
+  portfolioAnalysis: (symbols: string[]) =>
+    ['portfolio-analysis', symbols] as const,
 } as const;

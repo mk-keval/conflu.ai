@@ -20,27 +20,81 @@ from backend.app.domain.ticker_analysis import structure, volume_profile, smc, b
 # For lows: low[i] < low[i-1..i-2] and low[i] < low[i+1..i+2]
 
 
+# ── D-44: In-memory OHLCV cache ──
+# Pre-warmed via POST /api/v1/admin/refresh-data (Task 8). Process-local;
+# lost on restart. Key: (symbol, period, interval) so a daily fetch and
+# weekly fetch for the same symbol don't collide.
+_OHLCV_CACHE: dict[tuple[str, str, str], tuple[float, pd.DataFrame | None]] = {}
+_OHLCV_CACHE_TTL = 21600.0  # 6 hours (yfinance only updates on market hours)
+
+
+def _cached_yfinance_fetch(symbol: str, period: str, interval: str, fetcher) -> pd.DataFrame | None:
+    """Cache wrapper for yfinance fetches. Thread-unsafe (per-process)."""
+    key = (symbol, period, interval)
+    now = time.monotonic()
+    cached = _OHLCV_CACHE.get(key)
+    if cached is not None:
+        cached_at, data = cached
+        if now - cached_at < _OHLCV_CACHE_TTL:
+            return data
+    data = fetcher()
+    _OHLCV_CACHE[key] = (now, data)
+    return data
+
+
+def _raw_fetch_weekly(symbol: str) -> pd.DataFrame | None:
+    """Uncached yfinance weekly fetch. Wrapped by _cached_yfinance_fetch."""
+    try:
+        ticker = yf.Ticker(symbol)
+        hist = ticker.history(period="5y", interval="1wk")
+        if hist is None or len(hist) < 20:
+            return None
+        return hist
+    except Exception:
+        return None
+
+
+def _raw_fetch_daily(symbol: str) -> pd.DataFrame | None:
+    """Uncached yfinance daily fetch. Wrapped by _cached_yfinance_fetch."""
+    try:
+        ticker = yf.Ticker(symbol)
+        hist = ticker.history(period="2y", interval="1d")
+        if hist is None or len(hist) < 50:
+            return None
+        return hist
+    except Exception:
+        return None
+
+
 def _detect_swings(ohlcv: pd.DataFrame, lookback: int = 5) -> dict[str, list[dict]]:
     """
     Detect swing highs and lows using fractal pattern.
-    
+
     Returns dict with 'highs' and 'lows' lists of dicts: {price, index, timestamp}
     """
-    highs = ohlcv["High"].values
-    lows = ohlcv["Low"].values
-    timestamps = ohlcv.index
-    
-    swing_highs = []
-    swing_lows = []
-    
-    for i in range(lookback, len(ohlcv) - lookback):
+    # Drop any rows with NaN highs/lows so the < / > comparisons don't short-circuit.
+    # yfinance OHLCV is normally clean, but defensively handle gaps at the edges.
+    clean = ohlcv[["High", "Low"]].dropna()
+    if clean.empty:
+        return {"highs": [], "lows": []}
+    # Cast to explicit float64 ndarray so the LSP sees concrete types below
+    # (without this, the type checker infers the union Any | object | NAType
+    # for the values of clean["High"] and rejects < / <= comparisons).
+    highs: np.ndarray = np.asarray(clean["High"].to_numpy(), dtype=np.float64)
+    lows: np.ndarray = np.asarray(clean["Low"].to_numpy(), dtype=np.float64)
+    timestamps = clean.index
+
+    swing_highs: list[dict] = []
+    swing_lows: list[dict] = []
+
+    for i in range(lookback, len(clean) - lookback):
         # Swing high: current high > all highs in lookback window before and after
         is_swing_high = True
         for j in range(1, lookback + 1):
             if highs[i] <= highs[i - j] or highs[i] <= highs[i + j]:
                 is_swing_high = False
                 break
-        
+
         # Swing low: current low < all lows in lookback window before and after
         is_swing_low = True
         for j in range(1, lookback + 1):
@@ -296,15 +350,18 @@ def _compute_indicators_from_ohlcv(ohlcv: pd.DataFrame) -> dict[str, Any]:
     result: dict[str, Any] = {}
     
     try:
-        # RSI(14)
-        rsi_series = ta.rsi(ohlcv["Close"], length=14)
+        # RSI(14). Note: pandas_ta is a runtime function dispatcher; the LSP
+        # stubs for the package don't expose these entry points, so we ignore
+        # the type checker. Runtime behavior is verified by an integration
+        # test in backend/tests/.
+        rsi_series = ta.rsi(ohlcv["Close"], length=14)  # type: ignore[attr-defined]
         if rsi_series is not None and len(rsi_series) > 0:
             last = rsi_series.iloc[-1]
             if not pd.isna(last):
                 result["RSI"] = round(float(last), 1)
 
         # ADX(14)
-        adx_df = ta.adx(ohlcv["High"], ohlcv["Low"], ohlcv["Close"], length=14)
+        adx_df = ta.adx(ohlcv["High"], ohlcv["Low"], ohlcv["Close"], length=14)  # type: ignore[attr-defined]
         if adx_df is not None and len(adx_df) > 0:
             last = adx_df.iloc[-1]
             adx_val = last.get("ADX_14")
@@ -312,7 +369,7 @@ def _compute_indicators_from_ohlcv(ohlcv: pd.DataFrame) -> dict[str, Any]:
                 result["ADX"] = round(float(adx_val), 1)
 
         # MACD(12,26,9)
-        macd_df = ta.macd(ohlcv["Close"], fast=12, slow=26, signal=9)
+        macd_df = ta.macd(ohlcv["Close"], fast=12, slow=26, signal=9)  # type: ignore[attr-defined]
         if macd_df is not None and len(macd_df) > 0:
             last = macd_df.iloc[-1]
             macd_line = last.get("MACD_12_26_9")
@@ -330,14 +387,14 @@ def _compute_indicators_from_ohlcv(ohlcv: pd.DataFrame) -> dict[str, Any]:
                     result[key] = round(float(sma), 2)
 
         # ATR(14)
-        atr_series = ta.atr(ohlcv["High"], ohlcv["Low"], ohlcv["Close"], length=14)
+        atr_series = ta.atr(ohlcv["High"], ohlcv["Low"], ohlcv["Close"], length=14)  # type: ignore[attr-defined]
         if atr_series is not None and len(atr_series) > 0:
             last = atr_series.iloc[-1]
             if not pd.isna(last):
                 result["ATR"] = round(float(last), 2)
 
         # Bollinger Bands (20, 2)
-        bb_df = ta.bbands(ohlcv["Close"], length=20, std=2)
+        bb_df = ta.bbands(ohlcv["Close"], length=20, std=2)  # type: ignore[attr-defined]
         if bb_df is not None and len(bb_df) > 0:
             last = bb_df.iloc[-1]
             bb_upper = last.get("BBU_20_2.0")
@@ -357,6 +414,20 @@ def _compute_indicators_from_ohlcv(ohlcv: pd.DataFrame) -> dict[str, Any]:
             if avg_vol and avg_vol > 0:
                 result["relative_volume_10d_calc"] = round(float(last_vol / avg_vol), 2)
 
+        # avg_daily_volume_usd — mentor teaching comment
+        # What this number means and why it matters (wave-1 learning slice):
+        # Most beginners only look at "how many shares changed hands." But a
+        # stock can trade 2M shares and still be illiquid in dollars if the
+        # price is pennies, or trade lightly and still be a whale's pool if
+        # the price is $$$. Dollar volume (Close × Volume) is the REAL liquidity:
+        # it tells you how much capital is truly flowing through the ticker
+        # each day, so you can judge whether your order (and your exit) will
+        # find a buyer/seller without moving the price against you.
+        if len(ohlcv) >= 10:
+            avg_dollar_vol = (ohlcv["Close"] * ohlcv["Volume"]).tail(10).mean()
+            if avg_dollar_vol is not None and not pd.isna(avg_dollar_vol) and avg_dollar_vol > 0:
+                result["avg_daily_volume_usd_calc"] = round(float(avg_dollar_vol), 2)
+
         # Close price
         result["close"] = round(float(ohlcv["Close"].iloc[-1]), 2)
 
@@ -367,27 +438,24 @@ def _compute_indicators_from_ohlcv(ohlcv: pd.DataFrame) -> dict[str, Any]:
 
 
 def _fetch_weekly_ohlcv(symbol: str) -> pd.DataFrame | None:
-    """Fetch weekly OHLCV from yfinance (2 years of weekly data)."""
-    try:
-        ticker = yf.Ticker(symbol)
-        hist = ticker.history(period="2y", interval="1wk")
-        if hist is None or len(hist) < 20:
-            return None
-        return hist
-    except Exception:
-        return None
+    """Fetch weekly OHLCV from yfinance (5 years of weekly data, cached).
+
+    D-44: bumped from 2y to 5y so SMA200 (200-period) can be computed for
+    mature tickers. ~5y gives ~260 weekly bars, which is > 200. Cached
+    in _OHLCV_CACHE with TTL 6h so the admin refresh endpoint can pre-warm
+    the cache before market opens.
+    """
+    return _cached_yfinance_fetch(symbol, "5y", "1wk", lambda: _raw_fetch_weekly(symbol))
 
 
 def _fetch_daily_ohlcv(symbol: str) -> pd.DataFrame | None:
-    """Fetch daily OHLCV from yfinance (6 months of daily data for swing detection)."""
-    try:
-        ticker = yf.Ticker(symbol)
-        hist = ticker.history(period="6mo", interval="1d")
-        if hist is None or len(hist) < 50:
-            return None
-        return hist
-    except Exception:
-        return None
+    """Fetch daily OHLCV from yfinance (2 years of daily data, cached).
+
+    D-44: bumped from 6mo to 2y so SMA200 (200-period) can be computed
+    on the daily timeframe. ~2y gives ~500 daily bars, > 200. Cached in
+    _OHLCV_CACHE with TTL 6h.
+    """
+    return _cached_yfinance_fetch(symbol, "2y", "1d", lambda: _raw_fetch_daily(symbol))
 
 
 def _fetch_intraday_ohlcv(symbol: str, interval: str, period: str = "3mo") -> pd.DataFrame | None:
@@ -513,56 +581,73 @@ def _compute_volume_profile_tpo(ohlcv: pd.DataFrame, lookback: int = 20) -> dict
     }
 
 
-def analyze(data_fields: dict[str, Any], symbol: str | None = None, include_weekly: bool = False, include_intraday: bool = False) -> TechnicalAnalysis | dict[str, TechnicalAnalysis]:
+def analyze(
+    data_fields: dict[str, Any],
+    symbol: str | None = None,
+    include_weekly: bool = False,
+    include_intraday: bool = False,
+    # Pre-fetched OHLCV kwargs (orchestrator pre-fetches to enable parallel fan-out;
+    # we accept them to keep the orchestrator's call site working and to avoid a
+    # TypeError on `unexpected keyword argument 'daily_ohlcv'`. We honour caller-
+    # supplied data when present and only fall back to yfinance when missing — so
+    # the orchestrator's pre-fetched data is used and the duplicate-fetch penalty
+    # from D-36 is removed in the same change).
+    daily_ohlcv: pd.DataFrame | None = None,
+    weekly_ohlcv: pd.DataFrame | None = None,
+    intraday_4h_ohlcv: pd.DataFrame | None = None,
+    intraday_1h_ohlcv: pd.DataFrame | None = None,
+) -> TechnicalAnalysis | dict[str, TechnicalAnalysis]:
     """Analyse technical indicators from TV screener data.
-    
+
     Args:
         data_fields: TV screener data (daily timeframe)
         symbol: Optional symbol to fetch weekly/intraday data from yfinance
         include_weekly: If True, also fetch and analyze weekly timeframe
         include_intraday: If True, also fetch and analyze 4h/1h timeframes
-        
+        daily_ohlcv, weekly_ohlcv, intraday_4h_ohlcv, intraday_1h_ohlcv:
+            Optional pre-fetched OHLCV frames. If provided, used as-is; if
+            ``None``, fetched internally from yfinance when ``symbol`` is given.
+
     Returns:
         TechnicalAnalysis for daily, or dict with timeframe keys if include_weekly/intraday=True
     """
     start_time = time.time()
-    
-    # Fetch OHLCV data needed for advanced chart reading (only for daily with symbol)
-    daily_ohlcv = None
-    weekly_ohlcv = None
-    intraday_4h_ohlcv = None
-    intraday_1h_ohlcv = None
-    
+
+    # Backfill any missing OHLCV frames from yfinance (only when symbol given).
+    # Honours caller-supplied pre-fetched data so the orchestrator's parallel
+    # pre-fetch is not duplicated.
     if symbol:
-        daily_ohlcv = _fetch_daily_ohlcv(symbol)
-        if include_weekly:
+        if daily_ohlcv is None:
+            daily_ohlcv = _fetch_daily_ohlcv(symbol)
+        if include_weekly and weekly_ohlcv is None:
             weekly_ohlcv = _fetch_weekly_ohlcv(symbol)
         if include_intraday:
-            intraday_4h_ohlcv = _fetch_intraday_ohlcv(symbol, "4h", "3mo")
-            intraday_1h_ohlcv = _fetch_intraday_ohlcv(symbol, "1h", "1mo")
+            if intraday_4h_ohlcv is None:
+                intraday_4h_ohlcv = _fetch_intraday_ohlcv(symbol, "4h", "3mo")
+            if intraday_1h_ohlcv is None:
+                intraday_1h_ohlcv = _fetch_intraday_ohlcv(symbol, "1h", "1mo")
     
     # Analyze daily timeframe from TV data (with OHLCV for advanced chart reading)
     daily_result = _analyze_timeframe(data_fields, "daily", symbol, daily_ohlcv, weekly_ohlcv, intraday_4h_ohlcv, intraday_1h_ohlcv)
-    
+
     results = {"daily": daily_result}
-    
-    # Also run analysis for other timeframes if requested
-    if include_weekly:
-        weekly_ohlcv = _fetch_weekly_ohlcv(symbol) if symbol else None
-        if weekly_ohlcv is not None:
-            weekly_fields = _compute_indicators_from_ohlcv(weekly_ohlcv)
-            results["weekly"] = _analyze_timeframe(weekly_fields, "weekly", None, weekly_ohlcv)
-    
+
+    # Also run analysis for other timeframes if requested. Each block falls back
+    # to an internal yfinance fetch only when the caller (or our backfill above)
+    # did not already supply the data — this preserves the pre-fetch optimization
+    # in orchestrator.py while keeping `analyze` callable without pre-fetched data.
+    if include_weekly and weekly_ohlcv is not None:
+        weekly_fields = _compute_indicators_from_ohlcv(weekly_ohlcv)
+        results["weekly"] = _analyze_timeframe(weekly_fields, "weekly", None, weekly_ohlcv)
+
     if include_intraday:
-        ohlcv_4h = _fetch_intraday_ohlcv(symbol, "4h", "3mo") if symbol else None
-        if ohlcv_4h is not None:
-            fields_4h = _compute_indicators_from_ohlcv(ohlcv_4h)
-            results["4h"] = _analyze_timeframe(fields_4h, "4h", None, ohlcv_4h)
-        
-        ohlcv_1h = _fetch_intraday_ohlcv(symbol, "1h", "1mo") if symbol else None
-        if ohlcv_1h is not None:
-            fields_1h = _compute_indicators_from_ohlcv(ohlcv_1h)
-            results["1h"] = _analyze_timeframe(fields_1h, "1h", None, ohlcv_1h)
+        if intraday_4h_ohlcv is not None:
+            fields_4h = _compute_indicators_from_ohlcv(intraday_4h_ohlcv)
+            results["4h"] = _analyze_timeframe(fields_4h, "4h", None, intraday_4h_ohlcv)
+
+        if intraday_1h_ohlcv is not None:
+            fields_1h = _compute_indicators_from_ohlcv(intraday_1h_ohlcv)
+            results["1h"] = _analyze_timeframe(fields_1h, "1h", None, intraday_1h_ohlcv)
     
     # Build ChartReadingAnalysis for daily (only when we have OHLCV data)
     if isinstance(daily_result, TechnicalAnalysis) and daily_ohlcv is not None:
@@ -615,17 +700,33 @@ def _build_timeframe_chart_reading(
         ]
         tf_reading.structure_label = structure_label
         
-        # 2. Volume Profile TPO (only for daily timeframe)
+        # 2. Volume Profile TPO (only for daily timeframe).
+        # Note: compute_professional_tpo may return either a single
+        # DailyTPOProfile OR a tuple (list[DailyTPOProfile], CompositeTPOProfile)
+        # depending on whether daily history is available. Normalize to the
+        # tuple form so the unpacking below is always safe.
         if include_tpo and ohlcv is not None:
-            tpo_daily, tpo_composite = volume_profile.compute_professional_tpo(ohlcv)
+            tpo_result = volume_profile.compute_professional_tpo(ohlcv)
+            # Explicit type annotation helps the type checker narrow the union.
+            # tpo_daily_list is a list of DailyTPOProfile; tpo_composite is
+            # either a CompositeTPOProfile (when daily history is sufficient)
+            # or None (when only the single daily profile was returned).
+            tpo_daily_list: list[Any]
+            tpo_composite: Any
+            if isinstance(tpo_result, tuple):
+                tpo_daily_list, tpo_composite = tpo_result  # type: ignore[assignment]
+            else:
+                # Single DailyTPOProfile returned; wrap in a list and no composite.
+                tpo_daily_list = [tpo_result]
+                tpo_composite = None
             tf_reading.tpo_profiles = [
                 {"date": str(p.date), "poc": p.poc, "vah": p.vah, "val": p.val,
                  "ib_high": p.ib_high, "ib_low": p.ib_low, "ib_mid": p.ib_mid,
                  "range_extension_up": p.range_extension_up, "range_extension_down": p.range_extension_down,
                  "single_prints": p.single_prints, "tail_excess": p.tail_excess}
-                for p in tpo_daily
+                for p in tpo_daily_list
             ]
-            if tpo_composite:
+            if tpo_composite is not None:
                 tf_reading.composite_tpo_profile = {
                     "composite_poc": tpo_composite.composite_poc,
                     "composite_vah": tpo_composite.composite_vah,
@@ -804,27 +905,51 @@ def _analyze_timeframe(data_fields: dict[str, Any], timeframe: str, symbol: str 
     pullback_quality = "unknown"
     pullback_score = 0.0
     
-    # Fetch OHLCV for swing detection (daily timeframe with symbol)
-    if timeframe == "daily" and symbol:
-        daily_ohlcv = _fetch_daily_ohlcv(symbol)
-        if daily_ohlcv is not None:
-            swings = _detect_swings(daily_ohlcv)
-            structure, structure_details = _classify_market_structure(swings, close)
-            key_resistance, key_support = _find_key_levels(swings, daily_ohlcv, 
-                                                            data_fields.get("ATR") / close * 100 if data_fields.get("ATR") and close else None,
-                                                            close)
-            
-            # Pullback quality
-            atr = data_fields.get("ATR")
-            atr_pct = (atr / close * 100) if atr and close else None
-            rel_vol = data_fields.get("relative_volume_10d_calc")
-            pullback_quality, pullback_score, pb_findings = _score_pullback_quality(
-                daily_ohlcv, swings, structure, close, atr_pct, rel_vol
-            )
-            findings.extend(pb_findings)
+    # Pick the right OHLCV frame based on the timeframe. The orchestrator
+    # passes the appropriate pre-fetched OHLCV (daily_ohlcv, weekly_ohlcv,
+    # intraday_4h_ohlcv, intraday_1h_ohlcv) so we don't re-fetch here.
+    # Falls back to a yfinance fetch only if the orchestrator didn't pass
+    # one (back-compat with direct callers).
+    ohlcv_for_swing: pd.DataFrame | None = None
+    if timeframe == "daily" and daily_ohlcv is not None:
+        ohlcv_for_swing = daily_ohlcv
+    elif timeframe == "weekly" and weekly_ohlcv is not None:
+        ohlcv_for_swing = weekly_ohlcv
+    elif timeframe == "4h" and intraday_4h_ohlcv is not None:
+        ohlcv_for_swing = intraday_4h_ohlcv
+    elif timeframe == "1h" and intraday_1h_ohlcv is not None:
+        ohlcv_for_swing = intraday_1h_ohlcv
+    elif symbol:
+        # Back-compat: fetch if not pre-loaded
+        if timeframe == "weekly":
+            ohlcv_for_swing = _fetch_weekly_ohlcv(symbol)
+        elif timeframe == "4h":
+            ohlcv_for_swing = _fetch_intraday_ohlcv(symbol, "4h", "3mo")
+        elif timeframe == "1h":
+            ohlcv_for_swing = _fetch_intraday_ohlcv(symbol, "1h", "1mo")
         else:
-            structure = "unknown"
-            structure_details = {"reason": "No OHLCV data available"}
+            ohlcv_for_swing = _fetch_daily_ohlcv(symbol)
+
+    if ohlcv_for_swing is not None and len(ohlcv_for_swing) >= 11:
+        swings = _detect_swings(ohlcv_for_swing)
+        structure, structure_details = _classify_market_structure(swings, close)
+        key_resistance, key_support = _find_key_levels(
+            swings, ohlcv_for_swing,
+            data_fields.get("ATR") / close * 100 if data_fields.get("ATR") and close else None,
+            close,
+        )
+
+        # Pullback quality
+        atr = data_fields.get("ATR")
+        atr_pct = (atr / close * 100) if atr and close else None
+        rel_vol = data_fields.get("relative_volume_10d_calc")
+        pullback_quality, pullback_score, pb_findings = _score_pullback_quality(
+            ohlcv_for_swing, swings, structure, close, atr_pct, rel_vol
+        )
+        findings.extend(pb_findings)
+    else:
+        structure = "unknown"
+        structure_details = {"reason": "No OHLCV data available for swing detection"}
     
     # If we couldn't get OHLCV, use MA alignment as proxy
     if structure == "unknown":
@@ -844,14 +969,24 @@ def _analyze_timeframe(data_fields: dict[str, Any], timeframe: str, symbol: str 
         sma200 = data_fields.get("SMA200") or data_fields.get("EMA200")
 
     ma_alignment = "N/A"
-    if all(v is not None and not (isinstance(v, float) and math.isnan(v)) for v in [sma20, sma50, sma200]):
-        if sma20 > sma50 > sma200 and close > sma20:
+    # Local non-None re-bindings so the type checker sees concrete floats below.
+    # The `all(...) is not None and not isnan` check above does narrow at
+    # runtime but the LSP doesn't propagate that through a generator
+    # expression; rebinding to a concrete type makes both happy.
+    s20: float = sma20 if sma20 is not None and not (isinstance(sma20, float) and math.isnan(sma20)) else 0.0
+    s50: float = sma50 if sma50 is not None and not (isinstance(sma50, float) and math.isnan(sma50)) else 0.0
+    s200: float = sma200 if sma200 is not None and not (isinstance(sma200, float) and math.isnan(sma200)) else 0.0
+    if all(
+        v is not None and not (isinstance(v, float) and math.isnan(v))
+        for v in [sma20, sma50, sma200]
+    ):
+        if s20 > s50 > s200 and close > s20:
             ma_alignment = "bullish"
-            findings.append(f"✅ {timeframe.capitalize()} Bullish MA stack: SMA20 ({sma20:.2f}) > SMA50 ({sma50:.2f}) > SMA200 ({sma200:.2f})")
+            findings.append(f"✅ {timeframe.capitalize()} Bullish MA stack: SMA20 ({s20:.2f}) > SMA50 ({s50:.2f}) > SMA200 ({s200:.2f})")
             score += 1.0
-        elif sma20 < sma50 < sma200 and close < sma20:
+        elif s20 < s50 < s200 and close < s20:
             ma_alignment = "bearish"
-            findings.append(f"⚠️ {timeframe.capitalize()} Bearish MA stack: SMA20 ({sma20:.2f}) < SMA50 ({sma50:.2f}) < SMA200 ({sma200:.2f})")
+            findings.append(f"⚠️ {timeframe.capitalize()} Bearish MA stack: SMA20 ({s20:.2f}) < SMA50 ({s50:.2f}) < SMA200 ({s200:.2f})")
             score -= 0.8
         else:
             ma_alignment = "mixed"

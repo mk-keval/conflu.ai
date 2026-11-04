@@ -4,7 +4,14 @@ import { useMarketRegime } from '@/hooks/useMarketRegime';
 import { cn } from '@/lib/cn';
 import { findLesson } from '@/content/index';
 import { TermLink } from '@/components/learn/TermLink';
-import { TrendingUp, TrendingDown, Activity, ChevronDown, AlertCircle, RefreshCw } from 'lucide-react';
+import {
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  ChevronDown,
+  AlertCircle,
+  RefreshCw,
+} from 'lucide-react';
 
 function scoreToColor(score: number): string {
   if (score >= 80) return 'bg-green-500';
@@ -34,7 +41,8 @@ function regimeIcon(label: string): React.ReactNode {
 }
 
 export function RegimeBar() {
-  const { regime, isLoading, error, setRegime, setIsLoading, setError } = useMarketStore();
+  const { regime, isLoading, error, setRegime, setIsLoading, setError } =
+    useMarketStore();
   const [expanded, setExpanded] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -58,7 +66,11 @@ export function RegimeBar() {
       setRegime(regimeQuery);
       setError(null);
     } else if (regimeError) {
-      setError(regimeQueryError instanceof Error ? regimeQueryError.message : 'Regime fetch failed');
+      setError(
+        regimeQueryError instanceof Error
+          ? regimeQueryError.message
+          : 'Regime fetch failed'
+      );
     }
   }, [regimeQuery, regimeError, regimeQueryError, setRegime, setError]);
 
@@ -70,7 +82,10 @@ export function RegimeBar() {
         setRegime(data.data);
         setError(null);
       } else if (data.error) {
-        const msg = data.error instanceof Error ? data.error.message : 'Regime fetch failed';
+        const msg =
+          data.error instanceof Error
+            ? data.error.message
+            : 'Regime fetch failed';
         // On background refresh error: keep showing stale data, just store the error
         if (regime) {
           setFetchError(msg);
@@ -103,7 +118,7 @@ export function RegimeBar() {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Close panel on outside click
@@ -178,7 +193,12 @@ export function RegimeBar() {
           )}
           title={`Market Regime: ${regime_label} (${composite_score}/100)`}
         >
-          <span className={cn('flex items-center gap-1', scoreToTextColor(composite_score))}>
+          <span
+            className={cn(
+              'flex items-center gap-1',
+              scoreToTextColor(composite_score)
+            )}
+          >
             {regimeIcon(regime_label)}
             <span>{composite_score.toFixed(0)}</span>
           </span>
@@ -186,18 +206,24 @@ export function RegimeBar() {
           {/* Mini score bar */}
           <div className="h-1.5 w-12 overflow-hidden rounded-full bg-border">
             <div
-              className={cn('h-full rounded-full transition-all duration-500', scoreToColor(composite_score))}
+              className={cn(
+                'h-full rounded-full transition-all duration-500',
+                scoreToColor(composite_score)
+              )}
               style={{ width: `${composite_score}%` }}
             />
           </div>
 
-          <span className="text-text-muted max-w-[80px] truncate">
+          <span className="max-w-[80px] truncate text-text-muted">
             {regime_label}
           </span>
           {/* "As of" timestamp — daily data reference */}
           {regime.timestamp && (
-            <span className="text-[10px] text-text-muted/50 tabular-nums whitespace-nowrap">
-              {new Date(regime.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+            <span className="whitespace-nowrap text-[10px] tabular-nums text-text-muted/50">
+              {new Date(regime.timestamp).toLocaleTimeString([], {
+                hour: 'numeric',
+                minute: '2-digit',
+              })}
             </span>
           )}
           <ChevronDown
@@ -212,8 +238,8 @@ export function RegimeBar() {
           onClick={handleRefresh}
           disabled={isRefreshing}
           className={cn(
-            'p-1 rounded-full text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors',
-            isRefreshing && 'animate-spin opacity-50 cursor-wait'
+            'rounded-full p-1 text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary',
+            isRefreshing && 'animate-spin cursor-wait opacity-50'
           )}
           title="Refresh market regime"
         >
@@ -264,7 +290,10 @@ export function RegimeBar() {
                   />
                 </div>
               </div>
-              <span className="text-sm font-bold" style={{ color: regime_color }}>
+              <span
+                className="text-sm font-bold"
+                style={{ color: regime_color }}
+              >
                 <TermLink text={regime_label} />
               </span>
             </div>
@@ -280,12 +309,31 @@ export function RegimeBar() {
           <div className="space-y-1 px-4 py-2.5">
             {[
               { key: 'vix', label: 'VIX', indicator: regime.vix },
-              { key: 'risk_appetite', label: 'Risk Appetite', indicator: regime.risk_appetite },
-              { key: 'sector_breadth', label: 'Sector Breadth', indicator: regime.sector_breadth },
-              { key: 'safe_haven', label: 'Safe Haven', indicator: regime.safe_haven },
-              { key: 'yield_curve', label: 'Yield Curve', indicator: regime.yield_curve },
+              {
+                key: 'risk_appetite',
+                label: 'Risk Appetite',
+                indicator: regime.risk_appetite,
+              },
+              {
+                key: 'sector_breadth',
+                label: 'Sector Breadth',
+                indicator: regime.sector_breadth,
+              },
+              {
+                key: 'safe_haven',
+                label: 'Safe Haven',
+                indicator: regime.safe_haven,
+              },
+              {
+                key: 'yield_curve',
+                label: 'Yield Curve',
+                indicator: regime.yield_curve,
+              },
             ].map(({ key, label, indicator }) => (
-              <div key={key} className="flex items-center justify-between py-0.5">
+              <div
+                key={key}
+                className="flex items-center justify-between py-0.5"
+              >
                 <div className="flex items-center gap-1.5">
                   <div
                     className={cn(

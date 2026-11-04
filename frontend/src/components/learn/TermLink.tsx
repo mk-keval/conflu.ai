@@ -36,7 +36,9 @@ function segmentText(text: string): Segment[] {
   if (!text || TERMS.length === 0) return [{ text }];
 
   // One combined regex of escaped alternations, word-bounded.
-  const escaped = TERMS.map((t) => t.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const escaped = TERMS.map((t) =>
+    t.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  );
   const re = new RegExp(`\\b(${escaped.join('|')})\\b`, 'gi');
 
   const segments: Segment[] = [];
@@ -46,7 +48,9 @@ function segmentText(text: string): Segment[] {
     const idx = m.index ?? 0;
     if (idx > last) segments.push({ text: text.slice(last, idx) });
     if (links < MAX_LINKS_PER_TEXT) {
-      const def = TERMS.find((t) => t.term.toLowerCase() === m[0].toLowerCase());
+      const def = TERMS.find(
+        (t) => t.term.toLowerCase() === m[0].toLowerCase()
+      );
       if (def) {
         segments.push({ text: m[0], def });
         links += 1;
@@ -62,14 +66,24 @@ function segmentText(text: string): Segment[] {
   return segments;
 }
 
-export function TermLink({ text, className }: { text: string; className?: string }) {
+export function TermLink({
+  text,
+  className,
+}: {
+  text: string;
+  className?: string;
+}) {
   const segments = useMemo(() => segmentText(text), [text]);
   const hasTerms = segments.some((s) => s.def);
   if (!hasTerms) return <span className={className}>{text}</span>;
   return (
     <span className={className}>
       {segments.map((s, i) =>
-        s.def ? <TermSpan key={i} term={s.text} def={s.def} /> : <span key={i}>{s.text}</span>
+        s.def ? (
+          <TermSpan key={i} term={s.text} def={s.def} />
+        ) : (
+          <span key={i}>{s.text}</span>
+        )
       )}
     </span>
   );
@@ -88,7 +102,10 @@ function TermSpan({ term, def }: { term: string; def: TermDef }) {
       if (!el) return;
       const r = el.getBoundingClientRect();
       setPos({
-        left: Math.max(8, Math.min(r.left + r.width / 2 - 120, window.innerWidth - 256)),
+        left: Math.max(
+          8,
+          Math.min(r.left + r.width / 2 - 120, window.innerWidth - 256)
+        ),
         top: r.bottom + 6,
       });
     };
@@ -107,7 +124,8 @@ function TermSpan({ term, def }: { term: string; def: TermDef }) {
       const path = e.composedPath() as Node[];
       const tip = popRef.current;
       const trg = ref.current;
-      if (!tip || !trg || (!path.includes(tip) && !path.includes(trg))) setOpen(false);
+      if (!tip || !trg || (!path.includes(tip) && !path.includes(trg)))
+        setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
     document.addEventListener('mousedown', onDown, true);
@@ -127,7 +145,7 @@ function TermSpan({ term, def }: { term: string; def: TermDef }) {
           e.stopPropagation();
           setOpen((o) => !o);
         }}
-        className="cursor-help border-b border-dotted border-accent/60 font-inherit text-inherit transition-colors hover:text-accent"
+        className="font-inherit cursor-help border-b border-dotted border-accent/60 text-inherit transition-colors hover:text-accent"
         title={def.definition.slice(0, 120)}
       >
         {term}
@@ -140,8 +158,12 @@ function TermSpan({ term, def }: { term: string; def: TermDef }) {
             style={{ left: pos.left, top: pos.top }}
             className="fixed z-[9999] w-60 rounded-lg border border-border bg-surface p-2.5 shadow-xl"
           >
-            <p className="text-xs font-semibold text-text-primary">{def.term}</p>
-            <p className="mt-0.5 text-xs leading-relaxed text-text-muted">{def.definition}</p>
+            <p className="text-xs font-semibold text-text-primary">
+              {def.term}
+            </p>
+            <p className="mt-0.5 text-xs leading-relaxed text-text-muted">
+              {def.definition}
+            </p>
           </div>,
           document.body
         )}

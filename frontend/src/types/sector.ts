@@ -14,7 +14,12 @@ export interface SectorPerformance {
   relative_strength_1d: number | null;
   relative_strength_1w: number | null;
   momentum_score: number | null;
-  trend: 'bullish' | 'bearish' | 'neutral' | 'slight_bullish' | 'slight_bearish';
+  trend:
+    | 'bullish'
+    | 'bearish'
+    | 'neutral'
+    | 'slight_bullish'
+    | 'slight_bearish';
   flow_signal: 'inflow' | 'outflow' | 'neutral';
   flow_strength: number;
   flow_signal_1w: 'inflow' | 'outflow' | 'neutral';

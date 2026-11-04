@@ -9,10 +9,7 @@
  * capped by the 13-step plan-steps taxonomy (see `types/workflow.ts`).
  */
 
-import {
-  ADHERENCE_MAX_STEPS,
-  type PaperTrade,
-} from '../types/workflow';
+import { ADHERENCE_MAX_STEPS, type PaperTrade } from '../types/workflow';
 
 /** Default rolling window for the 20-trade adherence metric. */
 export const DEFAULT_ROLLING_WINDOW = 20;
@@ -43,8 +40,14 @@ export interface RollingAdherence {
  * @param stepsFollowed numerator (0..stepsTotal)
  * @param stepsTotal    denominator, clamped to at most ADHERENCE_MAX_STEPS
  */
-export function adherencePct(stepsFollowed: number, stepsTotal: number): number {
-  const total = Math.max(1, Math.min(ADHERENCE_MAX_STEPS, Math.round(stepsTotal)));
+export function adherencePct(
+  stepsFollowed: number,
+  stepsTotal: number
+): number {
+  const total = Math.max(
+    1,
+    Math.min(ADHERENCE_MAX_STEPS, Math.round(stepsTotal))
+  );
   const followed = Math.max(0, Math.min(total, Math.round(stepsFollowed)));
   const pct = (followed / total) * 100;
   return Math.round(pct * 100) / 100;
@@ -66,7 +69,9 @@ function closedTradesChronological(trades: PaperTrade[]): PaperTrade[] {
   return trades
     .filter((t) => t.status === 'closed' && t.closedAt != null)
     .slice()
-    .sort((a, b) => (a.closedAt! < b.closedAt! ? -1 : a.closedAt! > b.closedAt! ? 1 : 0));
+    .sort((a, b) =>
+      a.closedAt! < b.closedAt! ? -1 : a.closedAt! > b.closedAt! ? 1 : 0
+    );
 }
 
 /**

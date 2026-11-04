@@ -5,11 +5,7 @@ export type {
   MetaInfo,
 } from './api';
 
-export type {
-  ScreenRequest,
-  ScreenSymbolResult,
-  SymbolInfo,
-} from './screener';
+export type { ScreenRequest, ScreenSymbolResult, SymbolInfo } from './screener';
 
 export type {
   BacktestRequest,

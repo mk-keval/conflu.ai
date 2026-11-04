@@ -13,6 +13,68 @@ from backend.app.core.logging import get_logger
 log = get_logger("conflu.screener.tv_specialist")
 
 # ---------------------------------------------------------------------------
+# Timeframe handling (TV pipe suffixes)
+#
+# The TV scan payload has NO working top-level `interval` property — the
+# server ignores it (live-verified 2026-10-19). Timeframes are selected PER
+# COLUMN via `|INTERVAL` suffixes, valid in both `select()` and `where()`:
+# `RSI|240`, `EMA20|240`, `close|60`, … The daily default is no suffix.
+# ---------------------------------------------------------------------------
+
+_TF_SUFFIX: dict[str, str] = {
+    "1m": "|1", "5m": "|5", "15m": "|15", "30m": "|30",
+    "1h": "|60", "2h": "|120", "4h": "|240",
+    "1W": "|1W", "1M": "|1M",
+    "1D": "",
+}
+
+# Column prefixes that accept pipe suffixes (live-verified 2026-10-19 via the
+# probe script in .claude/skills/tvscreener-specialist). Anything else stays
+# on the default daily timeframe — suffixed fundamentals (e.g.
+# market_cap_basic|240) would null out the field.
+_TF_AWARE_PREFIXES: tuple[str, ...] = (
+    "EMA", "SMA", "RSI", "MACD.", "BB.", "Stoch.", "CCI", "ADX", "ATR",
+    "close", "volume", "VWAP", "relative_volume_10d_calc",
+)
+
+
+def _tf_suffix(timeframe: str | None) -> str:
+    """Pipe suffix for a friendly timeframe label ('' for 1D / unknown)."""
+    return _TF_SUFFIX.get((timeframe or "1D").strip(), "")
+
+
+def _tf_column(column: str, suffix: str) -> str:
+    """Apply the pipe suffix to timeframe-aware columns only."""
+    if suffix and column.startswith(_TF_AWARE_PREFIXES):
+        return f"{column}{suffix}"
+    return column
+
+
+def _strip_tf_suffix(column: str, suffix: str) -> str:
+    """Reverse :func:`_tf_column` for result frames."""
+    if suffix and isinstance(column, str) and column.endswith(suffix):
+        return column[: -len(suffix)]
+    return column
+
+
+def _make_col_factory(suffix: str) -> Any:
+    """Column factory for FILTER_MAP lambdas on a given timeframe.
+
+    ``1D`` (no suffix) returns the Column class itself — original behavior;
+    other timeframes return a callable that pipe-suffixes timeframe-aware
+    column names (used by compile_filters, per rule).
+    """
+    from tradingview_screener.column import Column
+    if not suffix:
+        return Column
+
+    def factory(name: str) -> Any:
+        return Column(_tf_column(name, suffix))
+
+    return factory
+
+
+# ---------------------------------------------------------------------------
 # Filter map: ScreenConfig filter names -> tradingview_screener Query expressions
 #
 # LEGEND:
@@ -83,6 +145,13 @@ FILTER_MAP: dict[str, Callable[..., Any]] = {
     "price_below_bb_lower": lambda p, col: col("close") < col("BB.lower"),
     "price_above_bb_upper": lambda p, col: col("close") > col("BB.upper"),
 
+    # 52-week high/low proximity
+    "price_near_52w_high":  lambda p, col: col("close").above_pct("price_52_week_high", 1 - p.get("pct_within", 5) / 100),
+    "price_above_52w_low":  lambda p, col: col("close").above_pct("price_52_week_low", 1 + p.get("pct_above", 30) / 100),
+
+    # Price near EMA (pullback entry zone)
+    "price_near_ema":       lambda p, col: col("close").below_pct(col(f"EMA{p.get('period', 20)}"), 1 + p.get("pct_within", 2) / 100),
+
     # =====================================================================
     # TREND QUALITY
     # =====================================================================
@@ -141,10 +210,11 @@ FILTER_MAP: dict[str, Callable[..., Any]] = {
     "macd_hist_rising":     lambda p, col: col("MACD.hist") > 0,
 
     # Stochastic Oscillator — momentum + mean-reversion timing
-    "stoch_bullish_cross":  lambda p, col: col("STOCH.K").crosses_above(col("STOCH.D")),
-    "stoch_bearish_cross":  lambda p, col: col("STOCH.K").crosses_below(col("STOCH.D")),
-    "stoch_oversold":       lambda p, col: col("STOCH.K") < p.get("threshold", 20),
-    "stoch_overbought":     lambda p, col: col("STOCH.K") > p.get("threshold", 80),
+    # (TV field casing is `Stoch.K`; `STOCH.K` silently returns null upstream)
+    "stoch_bullish_cross":  lambda p, col: col("Stoch.K").crosses_above(col("Stoch.D")),
+    "stoch_bearish_cross":  lambda p, col: col("Stoch.K").crosses_below(col("Stoch.D")),
+    "stoch_oversold":       lambda p, col: col("Stoch.K") < p.get("threshold", 20),
+    "stoch_overbought":     lambda p, col: col("Stoch.K") > p.get("threshold", 80),
 
     # CCI — commodity channel index for cyclical entries
     "cci_oversold":         lambda p, col: col("CCI20") < p.get("threshold", -100),
@@ -226,6 +296,8 @@ FILTER_MAP: dict[str, Callable[..., Any]] = {
     "dividend_yield_gt":    lambda p, col: col("dividends_yield_current") > p.get("threshold", 0.03),
     "eps_positive":         lambda p, col: col("earnings_per_share_diluted_ttm") > 0,
     "pe_max":               lambda p, col: col("price_earnings_ttm") < p.get("max_pe", 50),
+    "rs_rank_min":          lambda p, col: col("relative_strength_rank") <= p["value"],
+    "rs_rank_max":          lambda p, col: col("relative_strength_rank") >= p["value"],
 
     # =====================================================================
     # PRICE / EXCHANGE / COUNTRY / VOLUME
@@ -290,8 +362,8 @@ SNAPSHOT_COLUMNS: list[str] = [
     "MACD.signal",
     "MACD.hist",
     "RSI",
-    "STOCH.K",
-    "STOCH.D",
+    "Stoch.K",
+    "Stoch.D",
     "CCI20",
     # Volume
     "volume_change",
@@ -301,7 +373,7 @@ SNAPSHOT_COLUMNS: list[str] = [
     "ADX",
     "ATR",
     "BB.upper",
-    "BB.middle",
+    "BB.basis",
     "BB.lower",
     # Supertrend — trend-following overlay
     "supertrend",
@@ -310,8 +382,11 @@ SNAPSHOT_COLUMNS: list[str] = [
     # Perf columns — P1.3 RS-vs-index percentile enrichment (zero extra calls)
     "Perf.1M",
     "Perf.3M",
+    # Relative Strength rank
+    "relative_strength_rank",
     # P1.4 Catalyst-Breakout badge — proximity to 52-week high
     "price_52_week_high",
+    "price_52_week_low",
 ]
 
 
@@ -329,11 +404,14 @@ class TVScreenerSpecialist:
     def compile_filters(self, filters: list[FilterRule]) -> Any | None:
         """Compile a list of FilterRules into a single tradingview_screener condition.
 
+        Each rule is compiled on its own timeframe: non-1D rules get pipe
+        suffixes on timeframe-aware columns (the TV server ignores a top-level
+        `interval` property — live-verified 2026-10-19).
+
         Returns None if no filters to apply.
         note: `tradingview_screener` does not provide a `Not` operator.
               For negated filters, invert the comparison at the filter-map level.
         """
-        from tradingview_screener.column import Column
         from tradingview_screener.query import And
 
         conditions = []
@@ -342,13 +420,14 @@ class TVScreenerSpecialist:
             if builder is None:
                 self.log.warning("unknown_filter", indicator=flt.indicator)
                 continue
-            condition = builder(flt.params, Column)
+            col_factory = _make_col_factory(_tf_suffix(flt.timeframe))
+            condition = builder(flt.params, col_factory)
             conditions.append(condition)
 
         if not conditions:
             return None
-        if len(conditions) == 1:
-            return conditions[0]
+        # Always wrap in And(): where2() expects an And/Or operation dict —
+        # a bare comparison would land in the payload as `filter2: "greater"`.
         return And(*conditions)
 
     def evaluate_filters_local(self, df: pd.DataFrame, filters: list[FilterRule]) -> pd.Series | None:
@@ -417,13 +496,15 @@ class TVScreenerSpecialist:
         else:
             markets = config.universe.markets or ["america"]
             q.set_markets(*markets)
-        if config.timeframes:
-            q.set_property("interval", config.timeframes[0])
+        # Select columns on the config's primary timeframe. The TV server
+        # ignores a top-level `interval` property, so timeframes go into
+        # per-column pipe suffixes (live-verified 2026-10-19).
+        suffix = _tf_suffix(config.timeframes[0] if config.timeframes else "1D")
 
         # Select columns needed by the confluence scorer + all elite filters
         # NOTE: .select() replaces TV's default columns, so we must include
         # all the default columns the scorer references here too.
-        q.select(*SNAPSHOT_COLUMNS)
+        q.select(*[_tf_column(c, suffix) for c in SNAPSHOT_COLUMNS])
 
         # Apply filters
         condition = self.compile_filters(config.filters)
@@ -485,6 +566,12 @@ class TVScreenerSpecialist:
                 raw_data=None,
                 timeframe=config.timeframes[0] if config.timeframes else "1D",
             )
+
+        # Strip pipe suffixes so downstream consumers see base column names
+        # (`EMA20|240` -> `EMA20` for a 4h query).
+        suffix = _tf_suffix(config.timeframes[0] if config.timeframes else "1D")
+        if suffix and df is not None and len(df.columns):
+            df = df.rename(columns={c: _strip_tf_suffix(c, suffix) for c in df.columns})
 
         duration_ms = round((time.monotonic() - start) * 1000)
         tickers = df["ticker"].str.split(":").str[-1].unique().tolist() if df is not None else []

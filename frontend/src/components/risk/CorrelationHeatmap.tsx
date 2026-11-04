@@ -23,7 +23,7 @@ function CorrCell({ value }: { value: number }) {
   return (
     <div
       className={cn(
-        'flex h-9 items-center justify-center rounded text-[10px] font-mono font-medium transition-opacity hover:opacity-80',
+        'flex h-9 items-center justify-center rounded font-mono text-[10px] font-medium transition-opacity hover:opacity-80',
         corrColor(value)
       )}
       title={value.toFixed(3)}
@@ -33,18 +33,24 @@ function CorrCell({ value }: { value: number }) {
   );
 }
 
-export function CorrelationHeatmap({ data, isLoading, error }: CorrelationHeatmapProps) {
+export function CorrelationHeatmap({
+  data,
+  isLoading,
+  error,
+}: CorrelationHeatmapProps) {
   const matrix = useMemo(() => {
     if (!data) return { symbols: [] as string[], rows: [] as number[][] };
     // Handle case where data exists but has unexpected shape (e.g., empty object from API)
     const symbols = Array.isArray(data.symbols) ? data.symbols : [];
-    const rows = Array.isArray(data.correlation_matrix) ? data.correlation_matrix : [];
+    const rows = Array.isArray(data.correlation_matrix)
+      ? data.correlation_matrix
+      : [];
     return { symbols, rows };
   }, [data]);
 
   if (isLoading) {
     return (
-      <div className="flex h-48 items-center justify-center rounded border border-dark-600 bg-dark-800 text-sm text-dark-400">
+      <div className="border-dark-600 bg-dark-800 text-dark-400 flex h-48 items-center justify-center rounded border text-sm">
         Loading correlation data...
       </div>
     );
@@ -52,7 +58,7 @@ export function CorrelationHeatmap({ data, isLoading, error }: CorrelationHeatma
 
   if (error) {
     return (
-      <div className="flex h-48 items-center justify-center rounded border border-dark-600 bg-dark-800 text-sm text-loss">
+      <div className="border-dark-600 bg-dark-800 flex h-48 items-center justify-center rounded border text-sm text-loss">
         Error: {error}
       </div>
     );
@@ -60,7 +66,7 @@ export function CorrelationHeatmap({ data, isLoading, error }: CorrelationHeatma
 
   if (!data || !matrix.symbols?.length) {
     return (
-      <div className="flex h-48 items-center justify-center rounded border-dashed border-dark-600 text-sm text-dark-400">
+      <div className="border-dark-600 text-dark-400 flex h-48 items-center justify-center rounded border-dashed text-sm">
         No correlation data
       </div>
     );
@@ -69,12 +75,16 @@ export function CorrelationHeatmap({ data, isLoading, error }: CorrelationHeatma
   return (
     <div className="space-y-3">
       {/* Diversification score */}
-      <div className="flex items-center gap-2 rounded border border-dark-600 bg-dark-800 px-3 py-2">
-        <span className="text-xs text-dark-300">Diversification Score:</span>
+      <div className="border-dark-600 bg-dark-800 flex items-center gap-2 rounded border px-3 py-2">
+        <span className="text-dark-300 text-xs">Diversification Score:</span>
         <span
           className={cn(
             'font-mono text-sm font-semibold',
-            (data.diversification_score ?? 0) >= 0.7 ? 'text-gain' : (data.diversification_score ?? 0) >= 0.4 ? 'text-yellow-400' : 'text-loss'
+            (data.diversification_score ?? 0) >= 0.7
+              ? 'text-gain'
+              : (data.diversification_score ?? 0) >= 0.4
+                ? 'text-yellow-400'
+                : 'text-loss'
           )}
         >
           {formatNumber(data.diversification_score ?? 0, 2)}
@@ -90,7 +100,7 @@ export function CorrelationHeatmap({ data, isLoading, error }: CorrelationHeatma
             {matrix.symbols.map((sym) => (
               <div
                 key={sym}
-                className="w-16 shrink-0 text-center text-[10px] font-medium text-dark-300"
+                className="text-dark-300 w-16 shrink-0 text-center text-[10px] font-medium"
               >
                 {sym}
               </div>
@@ -99,8 +109,11 @@ export function CorrelationHeatmap({ data, isLoading, error }: CorrelationHeatma
 
           {/* Matrix rows */}
           {matrix.rows.map((row, i) => (
-            <div key={matrix.symbols[i]} className="flex items-center gap-1 py-0.5">
-              <div className="w-16 shrink-0 text-[10px] font-medium text-dark-200">
+            <div
+              key={matrix.symbols[i]}
+              className="flex items-center gap-1 py-0.5"
+            >
+              <div className="text-dark-200 w-16 shrink-0 text-[10px] font-medium">
                 {matrix.symbols[i]}
               </div>
               {row.map((value, j) => (
@@ -115,8 +128,8 @@ export function CorrelationHeatmap({ data, isLoading, error }: CorrelationHeatma
 
       {/* High correlation pairs */}
       {data.high_correlation_pairs?.length > 0 && (
-        <div className="rounded border border-dark-600 bg-dark-800 p-3">
-          <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-dark-400">
+        <div className="border-dark-600 bg-dark-800 rounded border p-3">
+          <h4 className="text-dark-400 mb-2 text-[11px] font-semibold uppercase tracking-wider">
             High Correlation Pairs
           </h4>
           <div className="space-y-1">
@@ -128,7 +141,9 @@ export function CorrelationHeatmap({ data, isLoading, error }: CorrelationHeatma
                 <span className="text-dark-200">
                   {pair.symbols[0]} / {pair.symbols[1]}
                 </span>
-                <span className="font-mono text-loss">{formatNumber(pair.correlation, 3)}</span>
+                <span className="font-mono text-loss">
+                  {formatNumber(pair.correlation, 3)}
+                </span>
               </div>
             ))}
           </div>

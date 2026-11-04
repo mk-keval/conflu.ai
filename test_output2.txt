@@ -1,0 +1,24 @@
+=== NVDA ===
+  D/E: 0.17
+  FLAG: ⚠️ yfinance D/E 16.97 appears incorrect; recalculated to 0.17 from balance sheet
+  FLAG: ✅ D/E 0.17 — conservative balance sheet (low debt)
+  FLAG: ⚠️ yfinance D/E 16.97 appears incorrect; recalculated to 0.17 from balance sheet
+=== INTC ===
+  D/E: 0.58
+  FLAG: ⚠️ yfinance D/E 49.00 appears incorrect; recalculated to 0.58 from balance sheet
+  FLAG: ✅ D/E 0.58 — healthy leverage
+=== AAPL ===
+  D/E: 0.78
+  FLAG: ⚠️ yfinance D/E 78.44 appears incorrect; recalculated to 0.78 from balance sheet
+  FLAG: ✅ D/E 0.78 — healthy leverage
+  FLAG: ⚠️ yfinance D/E 78.44 appears incorrect; recalculated to 0.78 from balance sheet
+=== MSFT ===
+  D/E: 0.29
+  FLAG: ⚠️ yfinance D/E 29.12 appears incorrect; recalculated to 0.29 from balance sheet
+  FLAG: ✅ D/E 0.29 — conservative balance sheet (low debt)
+  FLAG: ⚠️ yfinance D/E 29.12 appears incorrect; recalculated to 0.29 from balance sheet
+=== TSLA ===
+  D/E: 0.19
+  FLAG: ⚠️ yfinance D/E 18.37 appears incorrect; recalculated to 0.19 from balance sheet
+  FLAG: ✅ D/E 0.19 — conservative balance sheet (low debt)
+  FLAG: ⚠️ yfinance D/E 18.37 appears incorrect; recalculated to 0.19 from balance sheet

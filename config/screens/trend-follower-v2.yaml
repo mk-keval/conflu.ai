@@ -1,0 +1,74 @@
+# VCP-Enhanced Trend Follower — Optimized for >55% Win Rate
+# Based on: Mark Minervini VCP (profit factor 4.5), MR Swing regime filtering (77% QQQQ), gate 2.5:1 R:R floor
+# Key additions: RS rank ≥96 (strict), 52w-high proximity ≤5%, volume surge ≥1.5x, ADX ≥25
+
+name: trend-follower-v2
+description: VCP-enhanced trend follower with strict RS filter and 52w-high proximity — targets >55% win rate
+asset_classes: ["equities"]
+timeframes: ["1D"]
+filters:
+  # --- Fundamental quality gates ---
+  - category: fundamental
+    indicator: market_cap_gt
+    params: { value: 2000000000 }
+    # $2B minimum — institutional position sizing (gate L140)
+  - category: fundamental
+    indicator: exchange_in
+    params: { exchanges: ["NYSE", "NASDAQ"] }
+    # Major exchanges only — liquidity gate
+  - category: fundamental
+    indicator: country_in
+    params: { countries: ["United States"] }
+    # US-domiciled — regulatory consistency
+  - category: fundamental
+    indicator: close_above
+    params: { threshold: 5.0 }
+    # Penny stock exclusion
+
+  # --- Volume & momentum ---
+  - category: volume
+    indicator: avg_volume_gt
+    params: { threshold: 1000000 }
+    # 1M avg daily volume — institutional liquidity floor (sweep: 500K-5M)
+  - category: volume
+    indicator: rvol_high
+    params: { threshold: 1.5 }
+    # Volume surge on breakout ≥1.5x (VCP requirement; sweep: 1.0-2.5)
+
+  # --- Trend structure (VCP Stage 2) ---
+  - category: trend
+    indicator: price_above_ema
+    params: { period: 200 }
+    # Price above 200 EMA — long-term uptrend (VCP Stage 2 requirement)
+  - category: trend
+    indicator: ema_stack_bullish
+    params: {}
+    # EMA20 > EMA50 > EMA200 — perfect alignment (Minervini Stage 2)
+  - category: trend
+    indicator: adx_trending
+    params: { threshold: 25 }
+    # ADX ≥25 — genuine trend present (Wilder; sweep: 15-35)
+
+  # --- Momentum confirmation ---
+  - category: momentum
+    indicator: macd_bullish
+    params: {}
+    # MACD bullish crossover — momentum confirmation
+
+  # --- Relative Strength gate (CRITICAL - repo shows win rate drops without RS≥96) ---
+  - category: momentum
+    indicator: rs_rank_min
+    params: { value: 96 }
+    # RS rank ≥96 — top 4% of universe (strict gate from VCP/Connors; sweep: 90-98)
+
+  # --- 52-week high proximity (CRITICAL - pullback research) ---
+  - category: trend
+    indicator: price_near_52w_high
+    params: { pct_within: 5 }
+    # Within 5% of 52w high — leadership cohort (VCP/Proximity Pullback research; sweep: 3-7%)
+
+  # --- Regime filter (MR Swing 200-day MA channel) ---
+  - category: trend
+    indicator: price_above_ema
+    params: { period: 200 }
+    # 200-day MA regime filter — bull regime gate (MR Swing 77% QQQQ)

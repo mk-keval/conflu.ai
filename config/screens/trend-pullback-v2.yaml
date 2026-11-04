@@ -1,0 +1,66 @@
+# Trend Pullback (Connors 20 EMA/SMA50) — Optimized for >55% Win Rate
+# Based on: Connors Trend Pullback (repo: "most forgiving structure"), repo win rate drops materially without RS≥96
+# Key additions: Strict RS rank ≥96, pullback to rising EMA20, price above SMA50, RSI 55-80
+
+name: trend-pullback-v2
+description: Connors-style pullback to rising EMA20 with strict RS filter — targets >55% win rate
+asset_classes: ["equities"]
+timeframes: ["1D"]
+filters:
+  # --- Fundamental quality gates ---
+  - category: fundamental
+    indicator: market_cap_gt
+    params: { value: 1000000000 }
+    # $1B minimum — tradeable liquidity (sweep: $500M-$10B)
+  - category: fundamental
+    indicator: exchange_in
+    params: { exchanges: ["NYSE", "NASDAQ"] }
+    # Major exchanges only — liquidity gate
+  - category: fundamental
+    indicator: country_in
+    params: { countries: ["United States"] }
+    # US-domiciled — regulatory consistency
+  - category: fundamental
+    indicator: close_above
+    params: { threshold: 10.0 }
+    # $10 minimum — avoids penny stocks
+
+  # --- Volume ---
+  - category: volume
+    indicator: avg_volume_gt
+    params: { threshold: 1000000 }
+    # 1M avg daily volume — institutional liquidity floor (sweep: 500K-5M)
+
+  # --- Trend structure (Connors: above SMA50, EMA20 > SMA50) ---
+  - category: trend
+    indicator: price_above_ema
+    params: { period: 50 }
+    # Price above SMA50 — intermediate uptrend confirmed (Connors requirement)
+  - category: trend
+    indicator: ema_stack_bullish
+    params: {}
+    # EMA20 > EMA50 > EMA200 — bullish alignment (Connors hard gate)
+
+  # --- Pullback to rising EMA20 (Connors entry) ---
+  - category: trend
+    indicator: price_near_ema
+    params: { period: 20, pct_within: 2 }
+    # Price within 2% of EMA20 — pullback entry zone (Connors trigger)
+
+  # --- Strict RS gate (CRITICAL - repo shows win rate drops materially without RS≥96) ---
+  - category: momentum
+    indicator: rs_rank_min
+    params: { value: 96 }
+    # RS rank ≥96 — top 4% of universe (strict gate from VCP/Connors; sweep: 90-98)
+
+  # --- ADX for trend strength ---
+  - category: volatility
+    indicator: adx_trending
+    params: { threshold: 25 }
+    # ADX ≥25 — genuine trend present (Wilder; sweep: 15-35)
+
+  # --- Regime filter ---
+  - category: trend
+    indicator: price_above_ema
+    params: { period: 200 }
+    # 200-day MA regime filter — bull regime gate (MR Swing)

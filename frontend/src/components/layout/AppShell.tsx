@@ -10,7 +10,7 @@ export function AppShell() {
     <div className="relative flex h-screen overflow-hidden bg-background">
       {/* Ambient glow background — subtle atmosphere, never decoration */}
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0">
-        <div className="absolute -top-40 -left-40 h-[600px] w-[600px] bg-[radial-gradient(ellipse_at_top_left,rgba(45,212,191,0.08),transparent_50%)]" />
+        <div className="absolute -left-40 -top-40 h-[600px] w-[600px] bg-[radial-gradient(ellipse_at_top_left,rgba(45,212,191,0.08),transparent_50%)]" />
         <div className="absolute -bottom-40 -right-40 h-[600px] w-[600px] bg-[radial-gradient(ellipse_at_bottom_right,rgba(99,102,241,0.07),transparent_50%)]" />
       </div>
 

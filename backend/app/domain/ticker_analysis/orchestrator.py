@@ -8,6 +8,8 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timezone
 from typing import Any
 
+import pandas as pd
+
 import yfinance as yf
 
 from backend.app.core.logging import get_logger
@@ -31,6 +33,11 @@ from backend.app.domain.ticker_analysis.models import (
     TickerAnalysisResponse,
     AnalysisVerdict,
 )
+from backend.app.infrastructure.professional import macro_context as macro_context_module
+from backend.app.infrastructure.professional.macro_context import get_macro_context, MacroContext
+from backend.app.infrastructure import analyst_revisions as analyst_revisions_module
+from backend.app.infrastructure import insider_cluster as insider_cluster_module
+from backend.app.infrastructure import options_flow as options_flow_module
 
 # Import OHLCV fetchers from technical module
 from backend.app.domain.ticker_analysis.technical import (
@@ -149,6 +156,21 @@ def _compute_missing_technicals(symbol: str, tv_data: dict[str, Any]) -> dict[st
                 last = sma20.iloc[-1]
                 if not pd.isna(last):
                     result["SMA20"] = round(float(last), 2)
+
+        # Mentor liquidity metric — 10-day mean dollar volume (Close × Volume).
+        # Mirrors technical.py:426-429 (avg_daily_volume_usd_calc), taught at
+        # technical.py:945/1104 ("20-Day Avg Daily Value: how much capital is
+        # genuinely committed"). The merge manifest below (orchestrator.py:546)
+        # carries this key into tv_data so the synthesis calc gate
+        # (synthesis.py:834) fires on the mentor's OWN mean — the raw-TV gate
+        # keys on the screener's point-in-time dollar_volume, which can print a
+        # fat spike today yet stay structurally illiquid on a 10-day mean.
+        if not tv_data.get("avg_daily_volume_usd_calc") and len(hist) >= 10:
+            mentor_dollar_series = hist["Close"] * hist["Volume"]
+            if mentor_dollar_series is not None and len(mentor_dollar_series) >= 10:
+                mentor_dollar_mean = mentor_dollar_series.tail(10).mean()
+                if not pd.isna(mentor_dollar_mean):
+                    result["avg_daily_volume_usd_calc"] = round(float(mentor_dollar_mean), 2)
 
         return result
     except Exception:
@@ -334,8 +356,55 @@ def _analyze_catalyst_bias(info: dict[str, Any], tv_data: dict[str, Any]) -> dic
         catalysts["bias"] = "bullish"
     elif bearish_signals > bullish_signals:
         catalysts["bias"] = "bearish"
-    
+
     return catalysts
+
+
+# ── D-44: Stale-warning + data-quality helpers ──
+def _compute_stale_warning(
+    data_quality_warnings: list[str],
+    data_age_hours: float | None,
+    now: datetime | None = None,
+) -> str | None:
+    """Compute the human-readable staleness message.
+
+    Thresholds: 24h on weekends (Sat/Sun), 36h on weekdays. If the data
+    is fresh, returns None. Appends the first data_quality_warning (if
+    any) so the user sees context for the staleness (e.g. "Only 125 daily
+    bars" when a chart-reading computation is degraded).
+    """
+    if data_age_hours is None:
+        return None
+    if now is None:
+        now = datetime.now(UTC)
+    is_weekend = now.weekday() >= 5  # Sat=5, Sun=6
+    threshold = 24 if is_weekend else 36
+    if data_age_hours <= threshold:
+        return None
+    msg = (
+        f"Data is {data_age_hours:.0f}h old (threshold: {threshold}h). "
+        f"Consider POST /api/v1/admin/refresh-data."
+    )
+    if data_quality_warnings:
+        msg += f" Note: {data_quality_warnings[0]}"
+    return msg
+
+
+def _collect_data_quality_warnings(
+    daily_ohlcv: "pd.DataFrame | None",
+    weekly_ohlcv: "pd.DataFrame | None",
+) -> list[str]:
+    """Return human-readable warnings when OHLCV is insufficient for SMA200."""
+    warnings: list[str] = []
+    if daily_ohlcv is not None and len(daily_ohlcv) < 200:
+        warnings.append(
+            f"Daily OHLCV has {len(daily_ohlcv)} bars (need 200+ for SMA200)"
+        )
+    if weekly_ohlcv is not None and len(weekly_ohlcv) < 200:
+        warnings.append(
+            f"Weekly OHLCV has {len(weekly_ohlcv)} bars (need 200+ for SMA200)"
+        )
+    return warnings
 
 
 class TickerAnalysisService:
@@ -395,6 +464,13 @@ class TickerAnalysisService:
             or info.get("sector")
         )
         if not has_core_data:
+            # D-46: still try to attach macro context (VIX/risk regime) so the
+            # no-data response explains the market context, not just the symbol.
+            macro_context_dict_no_data: dict[str, Any] | None = None
+            try:
+                macro_context_dict_no_data = get_macro_context().to_dict()
+            except Exception:
+                pass
             return TickerAnalysisResponse(
                 symbol=symbol,
                 price=0,
@@ -411,6 +487,7 @@ class TickerAnalysisService:
                     thesis=f"No data returned from yfinance for {symbol}. The symbol may be delisted, invalid, or temporarily unavailable.",
                 ),
                 execution_ms=0,
+                macro_context=macro_context_dict_no_data,
             )
 
         # Merge TV data fields into info context
@@ -484,6 +561,9 @@ class TickerAnalysisService:
         for key in ("RSI", "ADX", "MACD.macd", "MACD.signal", "SMA20"):
             if not tv_data.get(key) and computed.get(key):
                 tv_data[key] = computed[key]
+        # Zero dollar volume is evidence of illiquidity, not missing data.
+        if tv_data.get("avg_daily_volume_usd_calc") is None and computed.get("avg_daily_volume_usd_calc") is not None:
+            tv_data["avg_daily_volume_usd_calc"] = computed["avg_daily_volume_usd_calc"]
 
         # Cross-reference RSI/ADX: log + reconcile when discrepancy > 5 points
         for key in ("RSI", "ADX"):
@@ -541,15 +621,32 @@ class TickerAnalysisService:
             weekly_ohlcv = _fetch_weekly_ohlcv(symbol) if symbol else None
             intraday_4h_ohlcv = _fetch_intraday_ohlcv(symbol, "4h", "3mo") if symbol else None
             intraday_1h_ohlcv = _fetch_intraday_ohlcv(symbol, "1h", "1mo") if symbol else None
-            
+
+            # D-46 PR 2: compute sector-relative RS BEFORE the modules run so
+            # the technical module can incorporate the finding. The sector ETF
+            # fetch is cheap (5min cache) and runs in parallel with the others.
+            sector_rs: macro_context_module.SectorRelativeRS | None = None
+            try:
+                sector_rs = macro_context_module.compute_sector_relative_rs(
+                    symbol=symbol,
+                    sector=sector,
+                    stock_history=daily_ohlcv,
+                )
+                # Inject as a finding into tv_data so the technical module can pick it up
+                # via the standard findings pipeline. Synthesis also sees it via the
+                # passed-in technical object (we re-apply after technical returns below).
+                tv_data["sector_relative_rs"] = sector_rs.to_dict()
+            except Exception:
+                self.log.exception("sector_rs_compute_failed", symbol=symbol)
+
             f_tech = module_pool.submit(
-                _run_module, "technical", technical.analyze, 
+                _run_module, "technical", technical.analyze,
                 tv_data, symbol=symbol, include_weekly=True,
                 daily_ohlcv=daily_ohlcv, weekly_ohlcv=weekly_ohlcv,
                 intraday_4h_ohlcv=intraday_4h_ohlcv, intraday_1h_ohlcv=intraday_1h_ohlcv
             )
-            f_fund = module_pool.submit(_run_module, "fundamental", fundamentals.analyze, info)
-            f_earn = module_pool.submit(_run_module, "earnings", earnings.analyze, info)
+            f_fund = module_pool.submit(_run_module, "fundamental", fundamentals.analyze, info, symbol)
+            f_earn = module_pool.submit(_run_module, "earnings", earnings.analyze, info, symbol)
             f_sent = module_pool.submit(_run_module, "sentiment", sentiment.analyze, info)
             f_risk = module_pool.submit(_run_module, "risk", risk_module.analyze, tv_data, info)
 
@@ -570,6 +667,12 @@ class TickerAnalysisService:
         tech_daily = tech["daily"] if isinstance(tech, dict) else tech
         tech_weekly = tech.get("weekly") if isinstance(tech, dict) else None
 
+        # D-46 PR 2: inject the sector-relative RS findings into the technical
+        # module's findings so synthesis sees them and the user sees them in
+        # the verdict. Append to daily.findings (the primary display field).
+        if sector_rs and sector_rs.findings and tech_daily is not None:
+            tech_daily.findings = list(tech_daily.findings or []) + sector_rs.findings
+
         # ── 2b. M&A Detection ──
         # Heuristic: if price is pinned near analyst target with ultra-low volatility
         # and near-zero beta, the stock is likely in a pending acquisition.
@@ -588,6 +691,48 @@ class TickerAnalysisService:
         tv_data["catalyst_findings"] = catalyst_bias.get("key_findings", [])
         tv_data["catalyst_bias_direction"] = catalyst_bias.get("bias", "neutral")
 
+        # ── 2d. D-46 PR 3: analyst revision tracker ──
+        # Look up the 5d revision BEFORE synthesise so the finding can be
+        # included in the sentiment module's findings. Then record today's
+        # target AFTER synthesise (so the next request sees it).
+        analyst_revision_5d: analyst_revisions_module.AnalystRevision | None = None
+        try:
+            analyst_revision_5d = analyst_revisions_module.get_revision(symbol, window_days=5)
+            if analyst_revision_5d and analyst_revision_5d.findings:
+                # Inject into the sentiment module's findings so the user sees it
+                # in the verdict. Sentiment is the natural home for analyst data.
+                if sent is not None:
+                    sent.findings = list(sent.findings or []) + analyst_revision_5d.findings
+        except Exception:
+            self.log.exception("analyst_revision_lookup_failed", symbol=symbol)
+
+        # ── 2e. D-46 PR 4: insider cluster detector ──
+        # Pull last 30 days of Form 4 transactions. If 3+ insiders bought
+        # in the same week, surface a cluster finding. CEO buying 4x in a
+        # month (like KURA's CEO Troy Wilson) is the elite trader's #1
+        # insider signal. Failures here are non-fatal — sentiment still
+        # works without cluster data.
+        try:
+            cluster = insider_cluster_module.detect_insider_cluster(symbol)
+            if cluster and cluster.findings:
+                if sent is not None:
+                    sent.findings = list(sent.findings or []) + cluster.findings
+        except Exception:
+            self.log.exception("insider_cluster_check_failed", symbol=symbol)
+
+        # ── 2f. D-46 PR 5: unusual options activity ──
+        # Call/put volume ratio > 2x with elevated call volume vs OI
+        # = bullish unusual activity. Same logic in reverse for bearish.
+        # Smart money leaves a footprint in the options market.
+        options_flow: options_flow_module.OptionsFlow | None = None
+        try:
+            options_flow = options_flow_module.detect_unusual_options_activity(symbol)
+            if options_flow and options_flow.findings:
+                if sent is not None:
+                    sent.findings = list(sent.findings or []) + options_flow.findings
+        except Exception:
+            self.log.exception("options_flow_check_failed", symbol=symbol)
+
         # ── 3. Synthesise verdict (daily technical + weekly for MTF alignment) ──
         verdict: AnalysisVerdict = synthesis.synthesise(
             technical=tech_daily,
@@ -599,9 +744,42 @@ class TickerAnalysisService:
             regime=request.regime,
             tv_data=tv_data,
             technical_weekly=tech_weekly,
+            options_flow=options_flow.to_dict() if options_flow else None,
+            setup_family=request.setup_family,
         )
 
-        # ── 3b. Apply macro regime overlay ──
+        # ── 3b. Apply macro regime overlay + D-46 surface context ──
+        # The existing macro overlay adjusts the verdict based on VIX/risk-appetite.
+        # D-46 ALSO surfaces the macro context to the user so they can see WHY
+        # the verdict was adjusted. Without this, the elite trader's #1 question
+        # ("what's the market doing right now?") goes unanswered in the API.
+        macro_context_dict: dict[str, Any] | None = None
+        try:
+            macro_ctx = get_macro_context()
+            macro_context_dict = macro_ctx.to_dict()
+
+            # D-46: emit a buy_trigger (or sell_trigger in fear regime) so the
+            # user sees the macro context in the verdict text. The macro_overlay
+            # already adjusts the score; this makes the WHY visible.
+            if macro_ctx.risk_regime == "calm" and macro_ctx.vix is not None:
+                verdict.buy_triggers = list(verdict.buy_triggers or []) + [
+                    f"🌤️ Macro: VIX {macro_ctx.vix:.1f} (calm) — supportive of momentum entries, "
+                    f"leading sector {macro_ctx.leading_sector or 'N/A'} "
+                    f"({macro_ctx.leading_sector_1d_pct:+.1f}% today) confirms risk-on"
+                ]
+            elif macro_ctx.risk_regime == "fear" and macro_ctx.vix is not None:
+                verdict.sell_triggers = list(verdict.sell_triggers or []) + [
+                    f"⛈️ Macro: VIX {macro_ctx.vix:.1f} (fear) — defensive sizing, "
+                    f"widen stops and reduce position count until VIX < 25"
+                ]
+            elif macro_ctx.risk_regime == "elevated" and macro_ctx.vix is not None:
+                verdict.buy_triggers = list(verdict.buy_triggers or []) + [
+                    f"⚠️ Macro: VIX {macro_ctx.vix:.1f} (elevated) — caution on new entries, "
+                    f"stick to highest-conviction setups only"
+                ]
+        except Exception:
+            self.log.exception("macro_context_fetch_failed", symbol=symbol)
+
         try:
             from backend.app.infrastructure.market.regime import get_market_regime_sync
             regime = get_market_regime_sync()
@@ -609,7 +787,7 @@ class TickerAnalysisService:
                 from backend.app.domain.ticker_analysis.macro_overlay import get_macro_adjustment, apply_macro_adjustment
                 # Calculate weighted score from verdict action/conviction for macro overlay
                 action_to_score = {
-                    "BUY": 0.8, "ACCUMULATE": 0.4, "WATCH": 0.1, 
+                    "BUY": 0.8, "ACCUMULATE": 0.4, "WATCH": 0.1,
                     "HOLD": -0.1, "REDUCE": -0.4, "AVOID": -0.8
                 }
                 weighted_score = action_to_score.get(verdict.action, 0.0)
@@ -677,6 +855,32 @@ class TickerAnalysisService:
             except (ValueError, OSError):
                 pass
 
+        # D-46 PR 3: record today's analyst target so future requests can
+        # detect revisions. Failures here are non-fatal (the verdict still
+        # works without historical snapshots).
+        try:
+            target_mean = info.get("targetMeanPrice")
+            target_low = info.get("targetLowPrice")
+            target_high = info.get("targetHighPrice")
+            num_analysts = info.get("numberOfAnalystOpinions") or info.get("averageAnalystRating")  # fallback
+            # yfinance uses 'numberOfAnalystOpinions' but sometimes a rating string
+            if not isinstance(num_analysts, int):
+                num_analysts = None
+            analyst_revisions_module.record_today_target(
+                symbol=symbol,
+                target_mean_price=target_mean,
+                target_low_price=target_low,
+                target_high_price=target_high,
+                num_analysts=num_analysts,
+                consensus_rating=info.get("recommendationKey"),
+            )
+        except Exception:
+            self.log.exception("record_today_target_outer_failed", symbol=symbol)
+
+        # D-44: compute data_quality_warnings + stale_warning for this response
+        data_quality_warnings = _collect_data_quality_warnings(daily_ohlcv, weekly_ohlcv)
+        stale_warning = _compute_stale_warning(data_quality_warnings, data_age_hours)
+
         return TickerAnalysisResponse(
             symbol=symbol,
             price=price,
@@ -692,10 +896,20 @@ class TickerAnalysisService:
             data_age_hours=data_age_hours,
             technical=technical_payload,
             data_sources={
-                "technical_daily": "TV Screener + yfinance (6mo daily)",
-                "technical_weekly": "yfinance (2y weekly)",
+                # D-44: periods bumped to 2y daily / 5y weekly
+                "technical_daily": "TV Screener + yfinance (2y daily)",
+                "technical_weekly": "yfinance (5y weekly)",
                 "fundamental": "yfinance info",
                 "sentiment": "yfinance info",
                 "earnings": "yfinance info",
             },
+            stale_warning=stale_warning,
+            data_quality_warnings=data_quality_warnings,
+            # D-46: macro context (VIX, SPY/QQQ close, leading/lagging sectors,
+            # risk regime classification) — what the elite trader holds in
+            # their head when sizing any trade.
+            macro_context=macro_context_dict,
+            # D-46 PR 5: unusual options activity (call/put volume ratio, vol/OI).
+            # Smart money footprint confirmation.
+            options_flow=options_flow.to_dict() if options_flow else None,
         )

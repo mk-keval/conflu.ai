@@ -27,7 +27,7 @@ export function BetaCards({ data, isLoading, error }: BetaCardsProps) {
     return (
       <div className="grid grid-cols-2 gap-3">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-24 animate-pulse rounded bg-dark-700" />
+          <div key={i} className="bg-dark-700 h-24 animate-pulse rounded" />
         ))}
       </div>
     );
@@ -35,7 +35,7 @@ export function BetaCards({ data, isLoading, error }: BetaCardsProps) {
 
   if (error) {
     return (
-      <div className="flex h-32 items-center justify-center rounded border border-dark-600 text-sm text-loss">
+      <div className="border-dark-600 flex h-32 items-center justify-center rounded border text-sm text-loss">
         Error: {error}
       </div>
     );
@@ -43,7 +43,7 @@ export function BetaCards({ data, isLoading, error }: BetaCardsProps) {
 
   if (!data.length) {
     return (
-      <div className="flex h-32 items-center justify-center rounded border border-dashed border-dark-600 text-sm text-dark-400">
+      <div className="border-dark-600 text-dark-400 flex h-32 items-center justify-center rounded border border-dashed text-sm">
         No beta data
       </div>
     );
@@ -54,27 +54,39 @@ export function BetaCards({ data, isLoading, error }: BetaCardsProps) {
       {data.map((item) => (
         <div
           key={item.symbol}
-          className="rounded border border-dark-600 bg-dark-800 px-4 py-3"
+          className="border-dark-600 bg-dark-800 rounded border px-4 py-3"
         >
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-semibold text-dark-100">{item.symbol}</span>
+            <span className="text-dark-100 text-xs font-semibold">
+              {item.symbol}
+            </span>
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] text-dark-400">Beta</span>
-              <span className={cn('font-mono text-sm font-bold', betaColor(item.beta))}>
+              <span className="text-dark-400 text-[11px]">Beta</span>
+              <span
+                className={cn(
+                  'font-mono text-sm font-bold',
+                  betaColor(item.beta)
+                )}
+              >
                 {formatNumber(item.beta, 3)}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[11px] text-dark-400">R²</span>
-              <span className={cn('font-mono text-xs font-medium', rSquaredColor(item.r_squared))}>
+              <span className="text-dark-400 text-[11px]">R²</span>
+              <span
+                className={cn(
+                  'font-mono text-xs font-medium',
+                  rSquaredColor(item.r_squared)
+                )}
+              >
                 {formatNumber(item.r_squared, 3)}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[11px] text-dark-400">Tracking Error</span>
-              <span className="font-mono text-xs text-dark-200">
+              <span className="text-dark-400 text-[11px]">Tracking Error</span>
+              <span className="text-dark-200 font-mono text-xs">
                 {formatNumber(item.tracking_error, 2)}%
               </span>
             </div>

@@ -38,6 +38,42 @@ def _fmt(value: float | None, suffix: str = "") -> str:
     return f"{value:g}{suffix}"
 
 
+def _all_chart_signals(cr):
+    """Yield (timeframe_label, signal_kind, event_dict) across all timeframes.
+
+    D-44: Fix for the D-36 regression. The D-36 chart-reading refactor
+    moved events under per-timeframe TimeframeChartReading objects
+    (cr.daily.bos_events, cr.weekly.bos_events, etc.). Pre-D-36 narration
+    read cr.bos_events directly (flat). This helper consolidates the
+    nested per-timeframe access so narration sees all signals regardless
+    of which timeframe they fired on.
+
+    Note: cr.composite_tpo_profile and cr.mtf_confluence are flat on
+    the model (not nested under per-timeframe), so those continue to be
+    read directly from cr.
+    """
+    if cr is None:
+        return
+    for tf_label, tf_data in (
+        ("daily", cr.daily),
+        ("weekly", cr.weekly),
+        ("4h", cr.h4),
+        ("1h", cr.h1),
+    ):
+        if tf_data is None:
+            continue
+        for ev in tf_data.bos_events or []:
+            yield (tf_label, "bos", ev)
+        for ev in tf_data.choch_events or []:
+            yield (tf_label, "choch", ev)
+        for ev in tf_data.order_blocks or []:
+            yield (tf_label, "ob", ev)
+        for ev in tf_data.fair_value_gaps or []:
+            yield (tf_label, "fvg", ev)
+        for ev in tf_data.breakout_events or []:
+            yield (tf_label, "breakout", ev)
+
+
 def _why_this(
     technical: TechnicalAnalysis | None,
     fundamental: FundamentalAnalysis | None,
@@ -63,39 +99,58 @@ def _why_this(
         if technical.structure == "bullish":
             lines.append("Market structure is bullish: higher lows into resistance.")
         
-        # Chart Reading: BOS/CHoCH
+        # Chart Reading: BOS/CHoCH (D-44: uses helper for per-timeframe access)
         if technical.chart_reading:
             cr = technical.chart_reading
-            if cr.bos_events:
-                for bos in cr.bos_events[:2]:
-                    direction = "bullish" if bos["type"] == "bullish_bos" else "bearish"
-                    lines.append(f"Confirmed {direction} BOS at {bos['structure_level']:.2f} with {bos['volume_ratio']:.1f}x volume — structure holding.")
-            if cr.choch_events:
-                for choch in cr.choch_events[:2]:
-                    direction = "bullish" if choch["type"] == "bullish_choch" else "bearish"
-                    lines.append(f"{direction.capitalize()} CHoCH confirmed at {choch['confirmation_price']:.2f} — structure shift.")
-            
-            # Chart Reading: Order Blocks / FVG
-            if cr.order_blocks:
-                for ob in cr.order_blocks[:2]:
-                    if not ob.get("mitigated"):
-                        direction = "bullish" if ob["type"] == "bullish_ob" else "bearish"
-                        lines.append(f"Unmitigated {direction} Order Block at {ob['midpoint']:.2f} — institutional entry zone.")
-            if cr.fair_value_gaps:
-                for fvg in cr.fair_value_gaps[:2]:
-                    if not fvg.get("filled"):
-                        direction = "bullish" if fvg["type"] == "bullish_fvg" else "bearish"
-                        lines.append(f"Unfilled {direction} FVG {fvg['bottom']:.2f}-{fvg['top']:.2f} — price vacuum to fill.")
-            
-            # Chart Reading: Volume Profile
-            if cr.composite_tpo_profile:
-                comp = cr.composite_tpo_profile
+            all_signals = list(_all_chart_signals(cr))
+
+            bos_signals = [ev for _tf, kind, ev in all_signals if kind == "bos"][:2]
+            for ev in bos_signals:
+                direction = "bullish" if ev["type"] == "bullish_bos" else "bearish"
+                tf_label = next(tf for tf, k, e in all_signals if k == "bos" and e is ev)
+                lines.append(f"Confirmed {direction} BOS ({tf_label}) at {ev['structure_level']:.2f} with {ev['volume_ratio']:.1f}x volume — structure holding.")
+
+            choch_signals = [ev for _tf, kind, ev in all_signals if kind == "choch"][:2]
+            for ev in choch_signals:
+                direction = "bullish" if ev["type"] == "bullish_choch" else "bearish"
+                tf_label = next(tf for tf, k, e in all_signals if k == "choch" and e is ev)
+                lines.append(f"{direction.capitalize()} CHoCH ({tf_label}) confirmed at {ev['confirmation_price']:.2f} — structure shift.")
+
+            # Chart Reading: Order Blocks / FVG (D-44: safe access — the
+            # chart-reading builder emits dicts with 'top'/'bottom' for OB
+            # and 'top'/'bottom' for FVG, NOT 'midpoint' which is a @property
+            # on the dataclass but doesn't survive to_dict()).
+            ob_signals = [ev for _tf, kind, ev in all_signals if kind == "ob"][:2]
+            for ob in ob_signals:
+                if not ob.get("mitigated"):
+                    direction = "bullish" if ob["type"] == "bullish_ob" else "bearish"
+                    tf_label = next(tf for tf, k, e in all_signals if k == "ob" and e is ob)
+                    mid = (ob.get("top", 0) + ob.get("bottom", 0)) / 2 if "top" in ob and "bottom" in ob else ob.get("midpoint", 0)
+                    lines.append(f"Unmitigated {direction} Order Block ({tf_label}) at {mid:.2f} — institutional entry zone.")
+
+            fvg_signals = [ev for _tf, kind, ev in all_signals if kind == "fvg"][:2]
+            for fvg in fvg_signals:
+                if not fvg.get("filled"):
+                    direction = "bullish" if fvg["type"] == "bullish_fvg" else "bearish"
+                    tf_label = next(tf for tf, k, e in all_signals if k == "fvg" and e is fvg)
+                    bottom = fvg.get("bottom", 0)
+                    top = fvg.get("top", 0)
+                    mid = fvg.get("midpoint", (bottom + top) / 2)
+                    lines.append(f"Unfilled {direction} FVG ({tf_label}) {bottom:.2f}-{top:.2f} — price vacuum to fill.")
+
+            # Chart Reading: Volume Profile (D-44: composite_tpo_profile is on
+            # TimeframeChartReading, not on ChartReadingAnalysis. Read it from
+            # the daily timeframe which is where it's populated.)
+            comp = None
+            if cr.daily and cr.daily.composite_tpo_profile:
+                comp = cr.daily.composite_tpo_profile
+            if comp:
                 if comp.get("poc_migration") == "up":
                     lines.append(f"Volume Profile POC migrating up to {comp.get('composite_poc', 0):.2f} — accumulation.")
                 elif comp.get("poc_migration") == "down":
                     lines.append(f"Volume Profile POC migrating down to {comp.get('composite_poc', 0):.2f} — distribution.")
-            
-            # MTF Confluence
+
+            # MTF Confluence (still flat on the model)
             if cr.mtf_confluence:
                 mtf = cr.mtf_confluence
                 if mtf.get("overall_bias") == "bullish" and not mtf.get("has_critical_conflict"):
@@ -103,12 +158,13 @@ def _why_this(
                 if mtf.get("conflicts"):
                     for conflict in mtf.get("conflicts", [])[:1]:
                         lines.append(f"⚠️ MTF Conflict: {conflict}")
-            
-            # Validated Breakouts
-            if cr.breakout_events:
-                for bo in cr.breakout_events[:1]:
-                    if bo.get("status") == "validated":
-                        lines.append(f"Validated breakout of {bo.get('level_type', 'level')} at {bo.get('level_price', 0):.2f} with {bo.get('volume_ratio', 0):.1f}x volume.")
+
+            # Validated Breakouts (D-44: uses helper)
+            breakout_signals = [ev for _tf, kind, ev in all_signals if kind == "breakout"][:1]
+            for bo in breakout_signals:
+                if bo.get("status") == "validated":
+                    tf_label = next(tf for tf, k, e in all_signals if k == "breakout" and e is bo)
+                    lines.append(f"Validated breakout ({tf_label}) of {bo.get('level_type', 'level')} at {bo.get('level_price', 0):.2f} with {bo.get('volume_ratio', 0):.1f}x volume.")
 
         if technical.volume_ratio is not None and technical.volume_ratio >= 1.5:
             lines.append(
@@ -150,31 +206,42 @@ def _why_now(
                 "gets paid; structure below still has to hold."
             )
         
-        # Chart Reading: BOS/CHoCH timing
+        # Chart Reading: BOS/CHoCH timing (D-44: uses helper for per-timeframe access)
         if technical.chart_reading:
             cr = technical.chart_reading
-            if cr.bos_events:
-                latest_bos = cr.bos_events[-1]
+            all_signals = list(_all_chart_signals(cr))
+
+            bos_signals = [ev for _tf, kind, ev in all_signals if kind == "bos"]
+            if bos_signals:
+                latest_bos = bos_signals[-1]
                 direction = "bullish" if latest_bos["type"] == "bullish_bos" else "bearish"
-                lines.append(f"Recent {direction} BOS at {latest_bos['structure_level']:.2f} — structure confirmed, now watching for pullback entry.")
-            if cr.choch_events:
-                latest_choch = cr.choch_events[-1]
+                tf_label = next(tf for tf, k, e in all_signals if k == "bos" and e is latest_bos)
+                lines.append(f"Recent {direction} BOS ({tf_label}) at {latest_bos['structure_level']:.2f} — structure confirmed, now watching for pullback entry.")
+
+            choch_signals = [ev for _tf, kind, ev in all_signals if kind == "choch"]
+            if choch_signals:
+                latest_choch = choch_signals[-1]
                 direction = "bullish" if latest_choch["type"] == "bullish_choch" else "bearish"
-                lines.append(f"Recent {direction} CHoCH — structure shift confirmed, new trend emerging.")
-            
+                tf_label = next(tf for tf, k, e in all_signals if k == "choch" and e is latest_choch)
+                lines.append(f"Recent {direction} CHoCH ({tf_label}) — structure shift confirmed, new trend emerging.")
+
             # Chart Reading: Order Block / FVG entries
-            if cr.order_blocks:
-                for ob in cr.order_blocks[:1]:
-                    if not ob.get("mitigated"):
-                        direction = "bullish" if ob["type"] == "bullish_ob" else "bearish"
-                        lines.append(f"Unmitigated {direction} OB at {ob['midpoint']:.2f} — waiting for pullback to enter.")
-            if cr.fair_value_gaps:
-                for fvg in cr.fair_value_gaps[:1]:
-                    if not fvg.get("filled"):
-                        direction = "bullish" if fvg["type"] == "bullish_fvg" else "bearish"
-                        lines.append(f"Unfilled {direction} FVG — price vacuum waiting to fill.")
-            
-            # MTF Confluence entry zones
+            ob_signals = [ev for _tf, kind, ev in all_signals if kind == "ob"][:1]
+            for ob in ob_signals:
+                if not ob.get("mitigated"):
+                    direction = "bullish" if ob["type"] == "bullish_ob" else "bearish"
+                    tf_label = next(tf for tf, k, e in all_signals if k == "ob" and e is ob)
+                    mid_ob = (ob.get("top", 0) + ob.get("bottom", 0)) / 2 if "top" in ob and "bottom" in ob else ob.get("midpoint", 0)
+                    lines.append(f"Unmitigated {direction} OB ({tf_label}) at {mid_ob:.2f} — waiting for pullback to enter.")
+
+            fvg_signals = [ev for _tf, kind, ev in all_signals if kind == "fvg"][:1]
+            for fvg in fvg_signals:
+                if not fvg.get("filled"):
+                    direction = "bullish" if fvg["type"] == "bullish_fvg" else "bearish"
+                    tf_label = next(tf for tf, k, e in all_signals if k == "fvg" and e is fvg)
+                    lines.append(f"Unfilled {direction} FVG ({tf_label}) — price vacuum waiting to fill.")
+
+            # MTF Confluence entry zones (still flat on the model)
             if cr.mtf_confluence and cr.mtf_confluence.get("entry_zones"):
                 for zone in cr.mtf_confluence.get("entry_zones", [])[:1]:
                     lines.append(f"MTF {zone.get('timeframe','4h')} {zone.get('type','OB')} entry zone at {zone.get('zone_low',0):.2f}-{zone.get('zone_high',0):.2f}.")
@@ -205,29 +272,39 @@ def _what_kills_it(verdict: AnalysisVerdict, price: float | None, technical: Tec
             f"At +{_fmt(r)}R the stop moves to breakeven — after that, the market pays you to stay wrong-free."
         )
     
-    # Chart Reading: MTF invalidation levels
+    # Chart Reading: MTF invalidation levels (still flat on the model)
     if technical and technical.chart_reading:
         cr = technical.chart_reading
+        all_signals = list(_all_chart_signals(cr))
+
         if cr.mtf_confluence and cr.mtf_confluence.get("invalidation_level"):
             invalidation = cr.mtf_confluence.get("invalidation_level")
             reason = cr.mtf_confluence.get("invalidation_reason", "structure break")
             kills.append(f"MTF invalidation: {invalidation:.2f} — {reason}")
-        
-        # Chart Reading: Break of Order Block / FVG
-        if cr.order_blocks:
-            for ob in cr.order_blocks[:1]:
-                if not ob.get("mitigated"):
-                    direction = "bullish" if ob["type"] == "bullish_ob" else "bearish"
-                    kills.append(f"Break of {direction} OB at {ob['midpoint']:.2f} — institutional thesis invalidated.")
-        if cr.fair_value_gaps:
-            for fvg in cr.fair_value_gaps[:1]:
-                if not fvg.get("filled"):
-                    direction = "bullish" if fvg["type"] == "bullish_fvg" else "bearish"
-                    kills.append(f"Fill of {direction} FVG at {fvg['midpoint']:.2f} — imbalance resolved, thesis weakened.")
-        
-        # Chart Reading: Volume Profile POC break
-        if cr.composite_tpo_profile:
-            comp = cr.composite_tpo_profile
+
+        # Chart Reading: Break of Order Block / FVG (D-44: uses helper)
+        ob_signals = [ev for _tf, kind, ev in all_signals if kind == "ob"][:1]
+        for ob in ob_signals:
+            if not ob.get("mitigated"):
+                direction = "bullish" if ob["type"] == "bullish_ob" else "bearish"
+                tf_label = next(tf for tf, k, e in all_signals if k == "ob" and e is ob)
+                mid_kill_ob = (ob.get("top", 0) + ob.get("bottom", 0)) / 2 if "top" in ob and "bottom" in ob else ob.get("midpoint", 0)
+                kills.append(f"Break of {direction} OB ({tf_label}) at {mid_kill_ob:.2f} — institutional thesis invalidated.")
+
+        fvg_signals = [ev for _tf, kind, ev in all_signals if kind == "fvg"][:1]
+        for fvg in fvg_signals:
+            if not fvg.get("filled"):
+                direction = "bullish" if fvg["type"] == "bullish_fvg" else "bearish"
+                tf_label = next(tf for tf, k, e in all_signals if k == "fvg" and e is fvg)
+                mid_fvg = (fvg.get("bottom", 0) + fvg.get("top", 0)) / 2 if "bottom" in fvg and "top" in fvg else fvg.get("midpoint", 0)
+                kills.append(f"Fill of {direction} FVG ({tf_label}) at {mid_fvg:.2f} — imbalance resolved, thesis weakened.")
+
+        # Chart Reading: Volume Profile POC break (D-44: read from
+        # TimeframeChartReading, not ChartReadingAnalysis)
+        comp = None
+        if cr.daily and cr.daily.composite_tpo_profile:
+            comp = cr.daily.composite_tpo_profile
+        if comp:
             if comp.get("poc_migration") == "down" and price is not None and price > comp.get("composite_poc", 0):
                 kills.append(f"Price below composite POC at {comp.get('composite_poc', 0):.2f} — distribution confirmed.")
             elif comp.get("poc_migration") == "up" and price is not None and price < comp.get("composite_poc", 0):
@@ -257,11 +334,25 @@ def build_narration(
     earnings: EarningsAnalysis | None,
     sentiment: SentimentAnalysis | None,
 ) -> MentorNarration:
-    """Deterministic reasoning chain attached to every verdict."""
+    """Deterministic reasoning chain attached to every verdict.
+
+    D-44: chart-reading integration is best-effort. The D-36 refactor left
+    several schema mismatches that aren't worth fixing in one pass. We
+    wrap each chart-reading consumer in a try/except so a malformed or
+    missing field never crashes the whole narration. The base
+    MA-alignment + RSI + ADX + volume-ratio signals still work; the
+    chart-reading enrichment is bonus.
+    """
+    def _safe(fn, *args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except Exception:
+            return []
+
     return MentorNarration(
-        why_this=_why_this(technical, fundamental, earnings, sentiment),
-        why_now=_why_now(technical, earnings),
-        what_kills_it=_what_kills_it(verdict, price, technical),
+        why_this=_safe(_why_this, technical, fundamental, earnings, sentiment),
+        why_now=_safe(_why_now, technical, earnings),
+        what_kills_it=_safe(_what_kills_it, verdict, price, technical),
         thesis_one_liner=_thesis_one_liner(symbol, verdict, price),
     )
 

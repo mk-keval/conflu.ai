@@ -24,6 +24,22 @@ from backend.app.domain.ticker_analysis.models import (
     TradePlan,
 )
 from backend.app.domain.ticker_analysis import synthesis
+from backend.app.domain.workflow.gate import evaluate_stop_distance
+
+
+def test_stop_distance_exceeding_explicit_ceiling_fails() -> None:
+    from backend.app.domain.ticker_analysis.models import GateStepResult
+
+    result = evaluate_stop_distance(
+        entry=100.0, stop=92.0, max_stop_distance_pct=7.0,
+    )
+
+    assert isinstance(result, GateStepResult)
+    assert result.name == "Risk/Reward"
+    assert result.passed is False
+    assert result.conditional is False
+    assert "8.0%" in result.note
+    assert "7.0%" in result.note
 
 
 # ── Helpers ──

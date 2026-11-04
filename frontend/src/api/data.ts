@@ -1,5 +1,9 @@
 import { apiGet } from './client';
-import type { OHLCVCandle, OHLCVResponse, IndicatorResponse } from '@/types/data';
+import type {
+  OHLCVCandle,
+  OHLCVResponse,
+  IndicatorResponse,
+} from '@/types/data';
 
 export async function fetchOHLCV(
   symbol: string,

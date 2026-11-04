@@ -25,17 +25,41 @@ interface MobileNavItem {
 
 const primaryItems: MobileNavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: <Home className="h-5 w-5" /> },
-  { to: '/screener', label: 'Screener', icon: <LayoutDashboard className="h-5 w-5" /> },
-  { to: '/sector-rotation', label: 'Sectors', icon: <RotateCcw className="h-5 w-5" /> },
+  {
+    to: '/screener',
+    label: 'Screener',
+    icon: <LayoutDashboard className="h-5 w-5" />,
+  },
+  {
+    to: '/sector-rotation',
+    label: 'Sectors',
+    icon: <RotateCcw className="h-5 w-5" />,
+  },
   { to: '/charts', label: 'Charts', icon: <TrendingUp className="h-5 w-5" /> },
-  { to: '/backtest', label: 'Backtest', icon: <BarChart2 className="h-5 w-5" /> },
+  {
+    to: '/backtest',
+    label: 'Backtest',
+    icon: <BarChart2 className="h-5 w-5" />,
+  },
 ];
 
 const moreItems: MobileNavItem[] = [
-  { to: '/ticker', label: 'Ticker Analysis', icon: <Search className="h-5 w-5" /> },
+  {
+    to: '/ticker',
+    label: 'Ticker Analysis',
+    icon: <Search className="h-5 w-5" />,
+  },
   { to: '/risk', label: 'Risk', icon: <Shield className="h-5 w-5" /> },
-  { to: '/portfolio', label: 'Portfolio', icon: <Briefcase className="h-5 w-5" /> },
-  { to: '/workflow', label: 'Swing Desk', icon: <Briefcase className="h-5 w-5" /> },
+  {
+    to: '/portfolio',
+    label: 'Portfolio',
+    icon: <Briefcase className="h-5 w-5" />,
+  },
+  {
+    to: '/workflow',
+    label: 'Swing Desk',
+    icon: <Briefcase className="h-5 w-5" />,
+  },
 ];
 
 interface DrawerItemProps extends MobileNavItem {
@@ -75,7 +99,9 @@ export function MobileNav() {
   useKeyboard({ Escape: () => setOpen(false) });
 
   const isMoreActive = moreItems.some(
-    (item) => location.pathname === item.to || location.pathname.startsWith(item.to + '/')
+    (item) =>
+      location.pathname === item.to ||
+      location.pathname.startsWith(item.to + '/')
   );
 
   return (
@@ -84,11 +110,14 @@ export function MobileNav() {
       <div
         aria-hidden={!open}
         className={cn(
-          'fixed inset-0 z-50 lg:hidden transition-opacity duration-200',
+          'fixed inset-0 z-50 transition-opacity duration-200 lg:hidden',
           open ? 'opacity-100' : 'pointer-events-none opacity-0'
         )}
       >
-        <div className="absolute inset-0 bg-black/60" onClick={() => setOpen(false)} />
+        <div
+          className="absolute inset-0 bg-black/60"
+          onClick={() => setOpen(false)}
+        />
 
         <div
           className={cn(
@@ -97,7 +126,9 @@ export function MobileNav() {
           )}
         >
           <div className="flex items-center justify-between border-b border-border/50 px-4 py-3">
-            <span className="text-sm font-semibold text-text-primary">More</span>
+            <span className="text-sm font-semibold text-text-primary">
+              More
+            </span>
             <button
               onClick={() => setOpen(false)}
               aria-label="Close menu"
@@ -109,16 +140,30 @@ export function MobileNav() {
 
           <nav className="space-y-1 p-3 pb-[env(safe-area-inset-bottom)]">
             {moreItems.map((item) => (
-              <DrawerItem key={item.to} {...item} onNavigate={() => setOpen(false)} />
+              <DrawerItem
+                key={item.to}
+                {...item}
+                onNavigate={() => setOpen(false)}
+              />
             ))}
 
             {proModeEnabled && (
               <>
-                <div className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-text-muted/60">
+                <div className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-widest text-text-muted/60">
                   Guided Mode
                 </div>
-                <DrawerItem to="/pro" label="Morning Brief" icon={<Sun className="h-5 w-5" />} onNavigate={() => setOpen(false)} />
-                <DrawerItem to="/pro/watchlist" label="Watchlist" icon={<Briefcase className="h-5 w-5" />} onNavigate={() => setOpen(false)} />
+                <DrawerItem
+                  to="/pro"
+                  label="Morning Brief"
+                  icon={<Sun className="h-5 w-5" />}
+                  onNavigate={() => setOpen(false)}
+                />
+                <DrawerItem
+                  to="/pro/watchlist"
+                  label="Watchlist"
+                  icon={<Briefcase className="h-5 w-5" />}
+                  onNavigate={() => setOpen(false)}
+                />
               </>
             )}
           </nav>
@@ -128,7 +173,7 @@ export function MobileNav() {
       {/* Bottom navigation bar — mobile only */}
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-surface/80 backdrop-blur-xl pb-[env(safe-area-inset-bottom)] lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-surface/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden"
       >
         <div className="flex">
           {primaryItems.map((item) => (
@@ -138,11 +183,15 @@ export function MobileNav() {
               className={({ isActive }) =>
                 cn(
                   'flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors',
-                  isActive ? 'text-accent' : 'text-text-muted hover:text-text-primary'
+                  isActive
+                    ? 'text-accent'
+                    : 'text-text-muted hover:text-text-primary'
                 )
               }
             >
-              <span className="flex h-5 w-5 items-center justify-center">{item.icon}</span>
+              <span className="flex h-5 w-5 items-center justify-center">
+                {item.icon}
+              </span>
               <span>{item.label}</span>
             </NavLink>
           ))}
@@ -153,7 +202,9 @@ export function MobileNav() {
             aria-label="More menu"
             className={cn(
               'flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors',
-              isMoreActive ? 'text-accent' : 'text-text-muted hover:text-text-primary'
+              isMoreActive
+                ? 'text-accent'
+                : 'text-text-muted hover:text-text-primary'
             )}
           >
             <span className="flex h-5 w-5 items-center justify-center">

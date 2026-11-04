@@ -8,11 +8,24 @@ interface TradeDetailProps {
   onClose: () => void;
 }
 
-function DetailRow({ label, value, color }: { label: string; value: string; color?: string }) {
+function DetailRow({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color?: string;
+}) {
   return (
-    <div className="flex items-center justify-between border-b border-dark-700 py-1.5">
-      <span className="text-[11px] text-dark-400">{label}</span>
-      <span className={cn('font-mono text-xs font-medium text-dark-50', color && `text-${color}`)}>
+    <div className="border-dark-700 flex items-center justify-between border-b py-1.5">
+      <span className="text-dark-400 text-[11px]">{label}</span>
+      <span
+        className={cn(
+          'text-dark-50 font-mono text-xs font-medium',
+          color && `text-${color}`
+        )}
+      >
         {value}
       </span>
     </div>
@@ -39,12 +52,12 @@ export function TradeDetail({ trade, onClose }: TradeDetailProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div
         ref={ref}
-        className="w-full max-w-md rounded border border-dark-500 bg-dark-800 p-4 shadow-xl"
+        className="border-dark-500 bg-dark-800 w-full max-w-md rounded border p-4 shadow-xl"
       >
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-dark-50">
+          <h3 className="text-dark-50 text-sm font-semibold">
             Trade #{trade.trade_index}
-            <span className="ml-2 text-dark-400">{trade.symbol}</span>
+            <span className="text-dark-400 ml-2">{trade.symbol}</span>
           </h3>
           <button
             onClick={onClose}
@@ -75,10 +88,19 @@ export function TradeDetail({ trade, onClose }: TradeDetailProps) {
           </span>
         </div>
 
-        <div className="rounded bg-dark-900 px-3 py-2">
-          <DetailRow label="Entry Time" value={formatDateTime(trade.entry_time)} />
-          <DetailRow label="Exit Time" value={formatDateTime(trade.exit_time)} />
-          <DetailRow label="Entry Price" value={formatPrice(trade.entry_price)} />
+        <div className="bg-dark-900 rounded px-3 py-2">
+          <DetailRow
+            label="Entry Time"
+            value={formatDateTime(trade.entry_time)}
+          />
+          <DetailRow
+            label="Exit Time"
+            value={formatDateTime(trade.exit_time)}
+          />
+          <DetailRow
+            label="Entry Price"
+            value={formatPrice(trade.entry_price)}
+          />
           <DetailRow label="Exit Price" value={formatPrice(trade.exit_price)} />
           <DetailRow label="Size" value={trade.size.toFixed(4)} />
           <DetailRow
@@ -89,7 +111,10 @@ export function TradeDetail({ trade, onClose }: TradeDetailProps) {
           <DetailRow label="Fees" value={formatPrice(trade.fees)} />
           <DetailRow label="MAE" value={formatPrice(trade.mae)} />
           <DetailRow label="MFE" value={formatPrice(trade.mfe)} />
-          <DetailRow label="Hold Duration" value={`${trade.hold_duration_bars} bars`} />
+          <DetailRow
+            label="Hold Duration"
+            value={`${trade.hold_duration_bars} bars`}
+          />
           <DetailRow label="Exit Reason" value={trade.exit_reason} />
         </div>
       </div>

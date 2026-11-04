@@ -12,8 +12,12 @@ const INDICATOR_BUTTONS = [
 const TIMEFRAME_BUTTONS = ['1D', '4H', '1H', '15m'];
 
 export function ChartToolbar() {
-  const { activeIndicators, activeTimeframes, toggleIndicator, toggleTimeframe } =
-    useChartStore();
+  const {
+    activeIndicators,
+    activeTimeframes,
+    toggleIndicator,
+    toggleTimeframe,
+  } = useChartStore();
 
   return (
     <div className="flex items-center gap-4">
@@ -52,7 +56,12 @@ export function ChartToolbar() {
             >
               {ind.label}
             </button>
-            <EducationTooltip metricKey={ind.lesson} metricLabel={ind.label} compact position="bottom" />
+            <EducationTooltip
+              metricKey={ind.lesson}
+              metricLabel={ind.label}
+              compact
+              position="bottom"
+            />
           </span>
         ))}
       </div>

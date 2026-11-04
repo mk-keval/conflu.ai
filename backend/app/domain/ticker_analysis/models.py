@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any, Literal
+from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ── Analysis Configuration ──
+
+SetupFamily = Literal["trend", "breakout", "mean_reversion", "rotation", "unknown"]
 
 
 class TickerAnalysisRequest(BaseModel):
@@ -20,6 +24,11 @@ class TickerAnalysisRequest(BaseModel):
     tv_data: dict[str, Any] | None = None
     # Optional regime to use for adaptive weighting
     regime: str | None = None
+    # Bundle A (D-77): the setup family drives target bands and exits. The API
+    # default is `unknown` (v0.2 single exit); the workflow overrides it from
+    # the morning-brief screen. `None` keeps the legacy v0.1 geometry for
+    # direct `synthesise()` callers and existing regression tests.
+    setup_family: SetupFamily | None = "unknown"
 
 
 # ── Module Outputs ──
@@ -38,6 +47,13 @@ class TechnicalAnalysis(BaseModel):
     atr_pct: float | None = None
     volatility_regime: str  # low / normal / high / extreme
     volume_ratio: float | None = None
+    # avg_daily_volume_usd — average daily DOLLAR volume over a 10-day window
+    # (mean of Close × Volume per day). Why it matters in plain English:
+    # a penny stock with 10M shares traded looks "active", but if each share
+    # is worth $1 the real money moving through it is tiny. Looking at $
+    # instead of shares tells you how much capital is genuinely committed —
+    # enough to absorb your order and get you out when you need to be.
+    avg_daily_volume_usd: float | None = None
     bb_position: str | None = None  # below_lower / inside / above_upper
     macd_status: str | None = None  # bullish / bearish / neutral
     # Market structure (new)
@@ -212,6 +228,16 @@ class TradePlan(BaseModel):
     max_position_pct: float = 10.0  # Hard cap on position size
     daily_loss_limit_pct: float = 2.0  # Stop trading if daily loss exceeds this
     
+    # Provenance (1H source fix) — recorded structural levels for audit
+    entry_basis: float | None = None  # mid + 0.09*range (plan Sec.15 Q2)
+    structural_stop_level: float | None = None  # structural level used for stop
+    structural_target_levels: list[float] = []  # structural levels used for targets
+
+    # Bundle A (D-77) — family exit policy provenance. `setup_family` is None
+    # only for the legacy v0.1 synthesis path; the workflow always supplies one.
+    setup_family: str | None = None
+    atr_at_entry: float | None = None  # ATR14 used by the trail (None -> 2 x risk)
+
     # Notes
     notes: list[str] = []
 
@@ -232,10 +258,38 @@ class MentorNarration(BaseModel):
     thesis_one_liner: str = ""     # trader-style compression of the above
 
 
+class GateStepResult(BaseModel):
+    """One workflow check; conditional never means approved."""
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    name: Literal["Liquidity", "Structure", "Positioning", "Catalyst", "Risk/Reward", "Portfolio Fit", "Conviction"]
+    passed: bool
+    conditional: bool = False
+    note: str = ""
+
+
+class GateResult(BaseModel):
+    """Advisory workflow assessment, distinct from strategy validation."""
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    overall: Literal["PASS", "FAIL", "CONDITIONAL"]
+    # Alias to match frontend ValidationGate.stepResults
+    steps: list[GateStepResult] = Field(default_factory=list, alias="stepResults")
+    # Aliases to match frontend ValidationGate field names
+    conviction_score: int = Field(default=0, alias="convictionScore")
+    data_gaps: list[str] = Field(default_factory=list, alias="dataGaps")
+    evaluated_at: str = Field(default="", alias="evaluatedAt")
+    # Additional fields expected by frontend
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    symbol: str = ""
+    created_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat(), alias="createdAt")
+
+
 class AnalysisVerdict(BaseModel):
     """Final actionable verdict synthesised from all modules."""
     model_config = ConfigDict(extra="forbid")
 
+    gate: GateResult | None = None
     action: str  # BUY / SELL / HOLD / WATCH
     conviction: int  # 1-10
     entry_zone_low: float | None = None
@@ -255,6 +309,18 @@ class AnalysisVerdict(BaseModel):
     trade_plan: TradePlan | None = None
     # P2.1 mentor reasoning chain (additive)
     narration: MentorNarration | None = None
+    # D-44: earnings binary risk (G14). True if ticker reports earnings in the
+    # next 5 trading days. Conviction is capped at 5 by synthesis when this is set.
+    binary_risk: bool = False
+    # D-44: ISO date of the imminent earnings event (when binary_risk=True).
+    earnings_date: str | None = None
+    # Provenance (1H source fix) — recorded structural levels for audit
+    entry_basis: float | None = None  # mid + 0.09*range (plan Sec.15 Q2)
+    structural_stop_level: float | None = None  # structural level used for stop
+    structural_target_levels: list[float] = []  # structural levels used for targets
+    # Bundle A (D-77): set when no structural target sits inside the family
+    # band. The plan is rejected, never given a manufactured target.
+    plan_rejection: str | None = None
 
 
 class MultiTimeframeTechnical(BaseModel):
@@ -290,3 +356,17 @@ class TickerAnalysisResponse(BaseModel):
     data_age_hours: float | None = None
     # Data source attribution
     data_sources: dict[str, str] | None = None
+    # D-44: human-readable staleness message. Set when data_age_hours exceeds
+    # the threshold (36h weekday / 24h weekend). NULL when data is fresh.
+    stale_warning: str | None = None
+    # D-44: list of data quality issues (e.g. "Only 125 daily bars, need 200+ for SMA200").
+    # Empty list when the data is sufficient for all computations.
+    data_quality_warnings: list[str] = []
+    # D-46: macro context (VIX, SPY/QQQ close, leading/lagging sectors, risk regime).
+    # What the elite trader holds in their head when sizing any trade.
+    # None if the lightweight fetch failed (the verdict still works without it).
+    macro_context: dict[str, Any] | None = None
+    # D-46 PR 5: unusual options activity (call/put volume ratio, vol/OI ratio).
+    # Smart money leaving a footprint in the options market — the elite trader
+    # watches for this to confirm a thesis.
+    options_flow: dict[str, Any] | None = None

@@ -1,0 +1,6449 @@
+{
+  "generated_at": "2026-10-19T19:15:30.726014+00:00",
+  "engine": "external_backtest v2 \u2014 validation reset 2026-10-19 (no look-ahead, per-rule timeframes, ATR exits)",
+  "window": {
+    "start": "2024-11-18",
+    "end": "2026-10-19",
+    "days": 700,
+    "max_hold_bars": 15,
+    "stop_atr_mult": 2.0,
+    "target_atr_mult": 3.0
+  },
+  "universe": [
+    "AAPL",
+    "MSFT",
+    "GOOGL",
+    "AMZN",
+    "NVDA",
+    "META",
+    "TSLA",
+    "AVGO",
+    "ORCL",
+    "CRM",
+    "JPM",
+    "V",
+    "UNH",
+    "LLY",
+    "XOM",
+    "COST",
+    "WMT",
+    "CAT",
+    "GE",
+    "NFLX",
+    "AMD",
+    "MU",
+    "PANW",
+    "SHOP",
+    "COIN",
+    "UBER",
+    "DECK",
+    "ON",
+    "MRNA",
+    "LULU"
+  ],
+  "universe_note": "Current liquid names (survivorship bias remains); not a P&L promise \u2014 screen-behavior evidence.",
+  "caveats": [
+    "4h rules are computed from 1h bars resampled into calendar 4h buckets (TV parity is approximate).",
+    "Intraday history from yfinance only covers ~730 days; the window is capped accordingly.",
+    "Stop/target fills are assumed at the level (no gap slippage).",
+    "Fundamental rules are recorded as 'not applied' \u2014 templates are validated on their technical subset.",
+    "Fees 10 bps + slippage 5 bps per side applied; entries at next bar's open."
+  ],
+  "templates": {
+    "52week-breakout": {
+      "direction": "long",
+      "symbols_evaluated": 30,
+      "symbols_excluded": [],
+      "pooled": {
+        "trades": 30,
+        "win_rate": 0.5333333333333333,
+        "profit_factor": 1.5684655403800514,
+        "expectancy_r": 0.19326689627815893,
+        "avg_win_r": 1.2166035362831769,
+        "avg_loss_r": -0.9762606922990046,
+        "avg_hold_bars": 7.1,
+        "exit_reasons": {
+          "stop": 13,
+          "target": 12,
+          "time": 4,
+          "eod": 1
+        }
+      },
+      "not_applied_filters": {
+        "market_cap_gt (not available offline)": 30,
+        "exchange_in (not available offline)": 30,
+        "country_in (not available offline)": 30
+      },
+      "per_symbol": {
+        "AAPL": {
+          "trades": 2,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 3.5,
+          "exit_reasons": {
+            "stop": 2
+          }
+        },
+        "MSFT": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 10.0,
+          "exit_reasons": {
+            "target": 1
+          }
+        },
+        "GOOGL": {
+          "trades": 2,
+          "win_rate": 1.0,
+          "expectancy_r": 0.3827,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 2
+          }
+        },
+        "AMZN": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "NVDA": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "META": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -0.6676,
+          "profit_factor": null,
+          "avg_hold_bars": 4.0,
+          "exit_reasons": {
+            "eod": 1
+          }
+        },
+        "TSLA": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "AVGO": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "ORCL": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "CRM": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "JPM": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "V": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 0.5658,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "UNH": {
+          "trades": 2,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 3.0,
+          "exit_reasons": {
+            "stop": 2
+          }
+        },
+        "LLY": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "XOM": {
+          "trades": 3,
+          "win_rate": 0.3333,
+          "expectancy_r": -0.1667,
+          "profit_factor": 0.4876,
+          "avg_hold_bars": 2.67,
+          "exit_reasons": {
+            "target": 1,
+            "stop": 2
+          }
+        },
+        "COST": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "WMT": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 1.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "CAT": {
+          "trades": 2,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 11.5,
+          "exit_reasons": {
+            "target": 2
+          }
+        },
+        "GE": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "NFLX": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "AMD": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "MU": {
+          "trades": 2,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 9.0,
+          "exit_reasons": {
+            "target": 2
+          }
+        },
+        "PANW": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.6667,
+          "profit_factor": 2.3828,
+          "avg_hold_bars": 8.0,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 1
+          }
+        },
+        "SHOP": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "COIN": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "UBER": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "DECK": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "ON": {
+          "trades": 4,
+          "win_rate": 0.25,
+          "expectancy_r": -0.375,
+          "profit_factor": 0.3729,
+          "avg_hold_bars": 6.0,
+          "exit_reasons": {
+            "stop": 3,
+            "target": 1
+          }
+        },
+        "MRNA": {
+          "trades": 6,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.4391,
+          "profit_factor": 2.6402,
+          "avg_hold_bars": 7.17,
+          "exit_reasons": {
+            "target": 3,
+            "stop": 2,
+            "time": 1
+          }
+        },
+        "LULU": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        }
+      }
+    },
+    "breakdown": {
+      "direction": "short",
+      "symbols_evaluated": 30,
+      "symbols_excluded": [],
+      "pooled": {
+        "trades": 20,
+        "win_rate": 0.35,
+        "profit_factor": 0.6573718655466749,
+        "expectancy_r": -0.15285865936118836,
+        "avg_win_r": 1.1542490077911118,
+        "avg_loss_r": -0.8566858647508884,
+        "avg_hold_bars": 10.2,
+        "exit_reasons": {
+          "stop": 9,
+          "time": 7,
+          "target": 4
+        }
+      },
+      "not_applied_filters": {
+        "market_cap_gt (not available offline)": 30,
+        "exchange_in (not available offline)": 30,
+        "country_in (not available offline)": 30
+      },
+      "per_symbol": {
+        "AAPL": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "MSFT": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "GOOGL": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "AMZN": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "NVDA": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "META": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 4.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "TSLA": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "AVGO": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "ORCL": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": -0.1943,
+          "profit_factor": 0.5324,
+          "avg_hold_bars": 9.5,
+          "exit_reasons": {
+            "time": 1,
+            "stop": 1
+          }
+        },
+        "CRM": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": 0.7261,
+          "profit_factor": 14.6837,
+          "avg_hold_bars": 9.0,
+          "exit_reasons": {
+            "target": 1,
+            "time": 1
+          }
+        },
+        "JPM": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "V": {
+          "trades": 2,
+          "win_rate": 0.0,
+          "expectancy_r": -0.7366,
+          "profit_factor": null,
+          "avg_hold_bars": 9.5,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 1
+          }
+        },
+        "UNH": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 10.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "LLY": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "XOM": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "COST": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 9.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "WMT": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "CAT": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "GE": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "NFLX": {
+          "trades": 5,
+          "win_rate": 0.6,
+          "expectancy_r": 0.3175,
+          "profit_factor": 1.3861,
+          "avg_hold_bars": 9.2,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 2,
+            "time": 1
+          }
+        },
+        "AMD": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "MU": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "PANW": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 8.0,
+          "exit_reasons": {
+            "target": 1
+          }
+        },
+        "SHOP": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "COIN": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 13.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "UBER": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "DECK": {
+          "trades": 3,
+          "win_rate": 0.3333,
+          "expectancy_r": -0.3481,
+          "profit_factor": 0.5776,
+          "avg_hold_bars": 14.33,
+          "exit_reasons": {
+            "time": 2,
+            "stop": 1
+          }
+        },
+        "ON": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "MRNA": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "LULU": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -0.6912,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        }
+      }
+    },
+    "bull-flag-continuation": {
+      "direction": "long",
+      "symbols_evaluated": 30,
+      "symbols_excluded": [],
+      "pooled": {
+        "trades": 129,
+        "win_rate": 0.4573643410852713,
+        "profit_factor": 1.1541226358993069,
+        "expectancy_r": 0.1203620941941602,
+        "avg_win_r": 1.1731558462252372,
+        "avg_loss_r": -0.8538649599241499,
+        "avg_hold_bars": 7.496124031007752,
+        "exit_reasons": {
+          "target": 43,
+          "time": 25,
+          "stop": 54,
+          "eod": 7
+        }
+      },
+      "not_applied_filters": {
+        "market_cap_gt (not available offline)": 30,
+        "exchange_in (not available offline)": 30,
+        "country_in (not available offline)": 30
+      },
+      "per_symbol": {
+        "AAPL": {
+          "trades": 6,
+          "win_rate": 0.3333,
+          "expectancy_r": -0.0111,
+          "profit_factor": 0.7578,
+          "avg_hold_bars": 8.0,
+          "exit_reasons": {
+            "target": 2,
+            "time": 1,
+            "stop": 3
+          }
+        },
+        "MSFT": {
+          "trades": 4,
+          "win_rate": 0.5,
+          "expectancy_r": -0.0594,
+          "profit_factor": 0.8295,
+          "avg_hold_bars": 7.75,
+          "exit_reasons": {
+            "stop": 2,
+            "target": 1,
+            "eod": 1
+          }
+        },
+        "GOOGL": {
+          "trades": 8,
+          "win_rate": 0.5,
+          "expectancy_r": 0.1078,
+          "profit_factor": 1.1869,
+          "avg_hold_bars": 10.25,
+          "exit_reasons": {
+            "time": 5,
+            "target": 1,
+            "stop": 2
+          }
+        },
+        "AMZN": {
+          "trades": 3,
+          "win_rate": 0.0,
+          "expectancy_r": -0.4852,
+          "profit_factor": null,
+          "avg_hold_bars": 10.67,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 2
+          }
+        },
+        "NVDA": {
+          "trades": 2,
+          "win_rate": 0.0,
+          "expectancy_r": -0.5937,
+          "profit_factor": null,
+          "avg_hold_bars": 9.0,
+          "exit_reasons": {
+            "time": 1,
+            "stop": 1
+          }
+        },
+        "META": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -0.6676,
+          "profit_factor": null,
+          "avg_hold_bars": 4.0,
+          "exit_reasons": {
+            "eod": 1
+          }
+        },
+        "TSLA": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": -0.3416,
+          "profit_factor": 0.328,
+          "avg_hold_bars": 8.0,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 1
+          }
+        },
+        "AVGO": {
+          "trades": 3,
+          "win_rate": 0.0,
+          "expectancy_r": -0.4059,
+          "profit_factor": null,
+          "avg_hold_bars": 11.0,
+          "exit_reasons": {
+            "time": 2,
+            "stop": 1
+          }
+        },
+        "ORCL": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 2.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "CRM": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "JPM": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 0.3126,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "V": {
+          "trades": 5,
+          "win_rate": 0.6,
+          "expectancy_r": 0.1844,
+          "profit_factor": 1.7497,
+          "avg_hold_bars": 6.4,
+          "exit_reasons": {
+            "stop": 2,
+            "time": 1,
+            "target": 1,
+            "eod": 1
+          }
+        },
+        "UNH": {
+          "trades": 4,
+          "win_rate": 0.5,
+          "expectancy_r": 0.1246,
+          "profit_factor": 1.0223,
+          "avg_hold_bars": 10.0,
+          "exit_reasons": {
+            "target": 1,
+            "time": 1,
+            "stop": 2
+          }
+        },
+        "LLY": {
+          "trades": 7,
+          "win_rate": 0.5714,
+          "expectancy_r": 0.2698,
+          "profit_factor": 1.679,
+          "avg_hold_bars": 6.86,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 2,
+            "time": 2,
+            "eod": 1
+          }
+        },
+        "XOM": {
+          "trades": 9,
+          "win_rate": 0.5556,
+          "expectancy_r": 0.5115,
+          "profit_factor": 2.6585,
+          "avg_hold_bars": 6.78,
+          "exit_reasons": {
+            "target": 4,
+            "time": 2,
+            "stop": 2,
+            "eod": 1
+          }
+        },
+        "COST": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 4.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "WMT": {
+          "trades": 8,
+          "win_rate": 0.25,
+          "expectancy_r": -0.3015,
+          "profit_factor": 0.4033,
+          "avg_hold_bars": 6.5,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 5,
+            "time": 1
+          }
+        },
+        "CAT": {
+          "trades": 13,
+          "win_rate": 0.6154,
+          "expectancy_r": 0.5385,
+          "profit_factor": 2.0154,
+          "avg_hold_bars": 6.77,
+          "exit_reasons": {
+            "target": 8,
+            "stop": 5
+          }
+        },
+        "GE": {
+          "trades": 7,
+          "win_rate": 0.5714,
+          "expectancy_r": 0.3788,
+          "profit_factor": 1.7456,
+          "avg_hold_bars": 9.29,
+          "exit_reasons": {
+            "time": 2,
+            "target": 3,
+            "stop": 2
+          }
+        },
+        "NFLX": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "AMD": {
+          "trades": 4,
+          "win_rate": 0.25,
+          "expectancy_r": -0.375,
+          "profit_factor": 0.3977,
+          "avg_hold_bars": 2.25,
+          "exit_reasons": {
+            "stop": 3,
+            "target": 1
+          }
+        },
+        "MU": {
+          "trades": 7,
+          "win_rate": 0.5714,
+          "expectancy_r": 0.4286,
+          "profit_factor": 1.7177,
+          "avg_hold_bars": 5.14,
+          "exit_reasons": {
+            "target": 4,
+            "stop": 3
+          }
+        },
+        "PANW": {
+          "trades": 8,
+          "win_rate": 0.5,
+          "expectancy_r": 0.25,
+          "profit_factor": 1.372,
+          "avg_hold_bars": 7.12,
+          "exit_reasons": {
+            "target": 4,
+            "stop": 4
+          }
+        },
+        "SHOP": {
+          "trades": 5,
+          "win_rate": 0.2,
+          "expectancy_r": -0.3642,
+          "profit_factor": 0.3937,
+          "avg_hold_bars": 6.2,
+          "exit_reasons": {
+            "stop": 3,
+            "target": 1,
+            "eod": 1
+          }
+        },
+        "COIN": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 4.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "UBER": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "DECK": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "ON": {
+          "trades": 9,
+          "win_rate": 0.5556,
+          "expectancy_r": 0.2488,
+          "profit_factor": 1.1351,
+          "avg_hold_bars": 9.11,
+          "exit_reasons": {
+            "target": 4,
+            "time": 1,
+            "stop": 4
+          }
+        },
+        "MRNA": {
+          "trades": 10,
+          "win_rate": 0.6,
+          "expectancy_r": 0.3796,
+          "profit_factor": 2.47,
+          "avg_hold_bars": 7.7,
+          "exit_reasons": {
+            "target": 4,
+            "stop": 3,
+            "time": 2,
+            "eod": 1
+          }
+        },
+        "LULU": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        }
+      }
+    },
+    "distribution": {
+      "direction": "long",
+      "symbols_evaluated": 30,
+      "symbols_excluded": [],
+      "pooled": {
+        "trades": 64,
+        "win_rate": 0.5,
+        "profit_factor": 1.4199090795775515,
+        "expectancy_r": 0.14196279247452165,
+        "avg_win_r": 1.0913754924710966,
+        "avg_loss_r": -0.8074499075220533,
+        "avg_hold_bars": 9.28125,
+        "exit_reasons": {
+          "stop": 24,
+          "time": 22,
+          "target": 17,
+          "eod": 1
+        }
+      },
+      "not_applied_filters": {
+        "market_cap_gt (not available offline)": 30,
+        "exchange_in (not available offline)": 30,
+        "country_in (not available offline)": 30
+      },
+      "per_symbol": {
+        "AAPL": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "MSFT": {
+          "trades": 3,
+          "win_rate": 0.3333,
+          "expectancy_r": -0.4112,
+          "profit_factor": 0.4475,
+          "avg_hold_bars": 7.0,
+          "exit_reasons": {
+            "stop": 2,
+            "time": 1
+          }
+        },
+        "GOOGL": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "AMZN": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "NVDA": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "META": {
+          "trades": 5,
+          "win_rate": 0.4,
+          "expectancy_r": -0.0,
+          "profit_factor": 1.1722,
+          "avg_hold_bars": 6.4,
+          "exit_reasons": {
+            "stop": 3,
+            "target": 2
+          }
+        },
+        "TSLA": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 0.565,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "AVGO": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "ORCL": {
+          "trades": 5,
+          "win_rate": 0.6,
+          "expectancy_r": 0.2277,
+          "profit_factor": 1.5607,
+          "avg_hold_bars": 3.6,
+          "exit_reasons": {
+            "stop": 2,
+            "target": 2,
+            "eod": 1
+          }
+        },
+        "CRM": {
+          "trades": 6,
+          "win_rate": 0.5,
+          "expectancy_r": 0.2202,
+          "profit_factor": 1.8125,
+          "avg_hold_bars": 10.0,
+          "exit_reasons": {
+            "stop": 2,
+            "time": 3,
+            "target": 1
+          }
+        },
+        "JPM": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "V": {
+          "trades": 2,
+          "win_rate": 1.0,
+          "expectancy_r": 0.3331,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 2
+          }
+        },
+        "UNH": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": 0.25,
+          "profit_factor": 1.2599,
+          "avg_hold_bars": 6.5,
+          "exit_reasons": {
+            "target": 1,
+            "stop": 1
+          }
+        },
+        "LLY": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "XOM": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "COST": {
+          "trades": 5,
+          "win_rate": 0.6,
+          "expectancy_r": 0.5,
+          "profit_factor": 2.104,
+          "avg_hold_bars": 9.6,
+          "exit_reasons": {
+            "stop": 2,
+            "target": 3
+          }
+        },
+        "WMT": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 0.8782,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "CAT": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "GE": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "NFLX": {
+          "trades": 7,
+          "win_rate": 0.4286,
+          "expectancy_r": -0.0205,
+          "profit_factor": 1.1443,
+          "avg_hold_bars": 9.86,
+          "exit_reasons": {
+            "stop": 3,
+            "target": 1,
+            "time": 3
+          }
+        },
+        "AMD": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "MU": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "PANW": {
+          "trades": 3,
+          "win_rate": 0.3333,
+          "expectancy_r": -0.1667,
+          "profit_factor": 0.9801,
+          "avg_hold_bars": 6.33,
+          "exit_reasons": {
+            "stop": 2,
+            "target": 1
+          }
+        },
+        "SHOP": {
+          "trades": 2,
+          "win_rate": 0.0,
+          "expectancy_r": -0.5335,
+          "profit_factor": null,
+          "avg_hold_bars": 9.0,
+          "exit_reasons": {
+            "time": 1,
+            "stop": 1
+          }
+        },
+        "COIN": {
+          "trades": 4,
+          "win_rate": 0.5,
+          "expectancy_r": 0.1896,
+          "profit_factor": 1.6766,
+          "avg_hold_bars": 11.5,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 2,
+            "target": 1
+          }
+        },
+        "UBER": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.5102,
+          "profit_factor": 5.1865,
+          "avg_hold_bars": 13.0,
+          "exit_reasons": {
+            "time": 2,
+            "target": 1
+          }
+        },
+        "DECK": {
+          "trades": 4,
+          "win_rate": 0.25,
+          "expectancy_r": -0.2983,
+          "profit_factor": 0.3044,
+          "avg_hold_bars": 9.5,
+          "exit_reasons": {
+            "stop": 2,
+            "time": 2
+          }
+        },
+        "ON": {
+          "trades": 2,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 5.5,
+          "exit_reasons": {
+            "target": 2
+          }
+        },
+        "MRNA": {
+          "trades": 2,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 10.5,
+          "exit_reasons": {
+            "target": 2
+          }
+        },
+        "LULU": {
+          "trades": 7,
+          "win_rate": 0.2857,
+          "expectancy_r": -0.3765,
+          "profit_factor": 0.261,
+          "avg_hold_bars": 11.57,
+          "exit_reasons": {
+            "time": 4,
+            "stop": 3
+          }
+        }
+      }
+    },
+    "high-conviction-stack": {
+      "direction": "long",
+      "symbols_evaluated": 30,
+      "symbols_excluded": [],
+      "pooled": {
+        "trades": 127,
+        "win_rate": 0.5118110236220472,
+        "profit_factor": 1.4977377223858557,
+        "expectancy_r": 0.25586589653724945,
+        "avg_win_r": 1.2814452961420912,
+        "avg_loss_r": -0.8537773882811039,
+        "avg_hold_bars": 7.952755905511811,
+        "exit_reasons": {
+          "target": 50,
+          "time": 25,
+          "stop": 48,
+          "eod": 4
+        }
+      },
+      "not_applied_filters": {
+        "market_cap_gt (not available offline)": 30,
+        "exchange_in (not available offline)": 30,
+        "country_in (not available offline)": 30,
+        "eps_positive (not available offline)": 30,
+        "pe_max (not available offline)": 30
+      },
+      "per_symbol": {
+        "AAPL": {
+          "trades": 6,
+          "win_rate": 0.5,
+          "expectancy_r": 0.3631,
+          "profit_factor": 1.6733,
+          "avg_hold_bars": 10.0,
+          "exit_reasons": {
+            "target": 2,
+            "time": 2,
+            "stop": 2
+          }
+        },
+        "MSFT": {
+          "trades": 3,
+          "win_rate": 0.3333,
+          "expectancy_r": 0.115,
+          "profit_factor": 1.3281,
+          "avg_hold_bars": 10.67,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 1,
+            "target": 1
+          }
+        },
+        "GOOGL": {
+          "trades": 9,
+          "win_rate": 0.5556,
+          "expectancy_r": 0.3889,
+          "profit_factor": 1.5429,
+          "avg_hold_bars": 5.56,
+          "exit_reasons": {
+            "target": 5,
+            "stop": 4
+          }
+        },
+        "AMZN": {
+          "trades": 3,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 7.67,
+          "exit_reasons": {
+            "stop": 3
+          }
+        },
+        "NVDA": {
+          "trades": 3,
+          "win_rate": 0.0,
+          "expectancy_r": -0.7291,
+          "profit_factor": null,
+          "avg_hold_bars": 9.0,
+          "exit_reasons": {
+            "time": 1,
+            "stop": 2
+          }
+        },
+        "META": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -0.1462,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "TSLA": {
+          "trades": 3,
+          "win_rate": 0.3333,
+          "expectancy_r": 0.0756,
+          "profit_factor": 0.9285,
+          "avg_hold_bars": 12.67,
+          "exit_reasons": {
+            "target": 1,
+            "time": 1,
+            "stop": 1
+          }
+        },
+        "AVGO": {
+          "trades": 4,
+          "win_rate": 0.5,
+          "expectancy_r": 0.307,
+          "profit_factor": 1.4867,
+          "avg_hold_bars": 8.5,
+          "exit_reasons": {
+            "time": 1,
+            "target": 2,
+            "stop": 1
+          }
+        },
+        "ORCL": {
+          "trades": 2,
+          "win_rate": 0.0,
+          "expectancy_r": -0.8178,
+          "profit_factor": null,
+          "avg_hold_bars": 11.0,
+          "exit_reasons": {
+            "time": 1,
+            "stop": 1
+          }
+        },
+        "CRM": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 6.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "JPM": {
+          "trades": 4,
+          "win_rate": 0.5,
+          "expectancy_r": -0.1517,
+          "profit_factor": 0.6281,
+          "avg_hold_bars": 12.5,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 3
+          }
+        },
+        "V": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.0453,
+          "profit_factor": 1.06,
+          "avg_hold_bars": 7.33,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 1,
+            "eod": 1
+          }
+        },
+        "UNH": {
+          "trades": 4,
+          "win_rate": 0.75,
+          "expectancy_r": 0.875,
+          "profit_factor": 3.4039,
+          "avg_hold_bars": 10.5,
+          "exit_reasons": {
+            "target": 3,
+            "stop": 1
+          }
+        },
+        "LLY": {
+          "trades": 6,
+          "win_rate": 0.5,
+          "expectancy_r": 0.1692,
+          "profit_factor": 1.3218,
+          "avg_hold_bars": 6.83,
+          "exit_reasons": {
+            "target": 1,
+            "time": 2,
+            "stop": 2,
+            "eod": 1
+          }
+        },
+        "XOM": {
+          "trades": 7,
+          "win_rate": 0.7143,
+          "expectancy_r": 0.9434,
+          "profit_factor": 43.0767,
+          "avg_hold_bars": 7.43,
+          "exit_reasons": {
+            "target": 4,
+            "time": 2,
+            "eod": 1
+          }
+        },
+        "COST": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 4.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "WMT": {
+          "trades": 4,
+          "win_rate": 0.5,
+          "expectancy_r": 0.25,
+          "profit_factor": 1.3663,
+          "avg_hold_bars": 11.5,
+          "exit_reasons": {
+            "stop": 2,
+            "target": 2
+          }
+        },
+        "CAT": {
+          "trades": 11,
+          "win_rate": 0.6364,
+          "expectancy_r": 0.5909,
+          "profit_factor": 2.1506,
+          "avg_hold_bars": 6.27,
+          "exit_reasons": {
+            "target": 7,
+            "stop": 4
+          }
+        },
+        "GE": {
+          "trades": 7,
+          "win_rate": 0.5714,
+          "expectancy_r": 0.2473,
+          "profit_factor": 1.6774,
+          "avg_hold_bars": 11.14,
+          "exit_reasons": {
+            "time": 3,
+            "stop": 2,
+            "target": 2
+          }
+        },
+        "NFLX": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "AMD": {
+          "trades": 7,
+          "win_rate": 0.4286,
+          "expectancy_r": -0.1372,
+          "profit_factor": 0.7998,
+          "avg_hold_bars": 5.14,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 4,
+            "time": 1
+          }
+        },
+        "MU": {
+          "trades": 12,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.6069,
+          "profit_factor": 1.9178,
+          "avg_hold_bars": 7.08,
+          "exit_reasons": {
+            "target": 7,
+            "stop": 4,
+            "time": 1
+          }
+        },
+        "PANW": {
+          "trades": 7,
+          "win_rate": 0.4286,
+          "expectancy_r": 0.0449,
+          "profit_factor": 1.0851,
+          "avg_hold_bars": 7.57,
+          "exit_reasons": {
+            "stop": 4,
+            "target": 2,
+            "time": 1
+          }
+        },
+        "SHOP": {
+          "trades": 4,
+          "win_rate": 0.0,
+          "expectancy_r": -0.8303,
+          "profit_factor": null,
+          "avg_hold_bars": 4.0,
+          "exit_reasons": {
+            "stop": 3,
+            "eod": 1
+          }
+        },
+        "COIN": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "UBER": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "DECK": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "ON": {
+          "trades": 7,
+          "win_rate": 0.7143,
+          "expectancy_r": 0.6057,
+          "profit_factor": 2.4576,
+          "avg_hold_bars": 6.86,
+          "exit_reasons": {
+            "target": 4,
+            "time": 1,
+            "stop": 2
+          }
+        },
+        "MRNA": {
+          "trades": 8,
+          "win_rate": 0.75,
+          "expectancy_r": 0.8188,
+          "profit_factor": 6.4616,
+          "avg_hold_bars": 7.62,
+          "exit_reasons": {
+            "target": 5,
+            "time": 2,
+            "stop": 1
+          }
+        },
+        "LULU": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        }
+      }
+    },
+    "institutional-quality-v2": {
+      "direction": "long",
+      "symbols_evaluated": 30,
+      "symbols_excluded": [],
+      "pooled": {
+        "trades": 68,
+        "win_rate": 0.47058823529411764,
+        "profit_factor": 1.3594486939283859,
+        "expectancy_r": 0.1337466945373857,
+        "avg_win_r": 1.2473951438153001,
+        "avg_loss_r": -0.8561630381540939,
+        "avg_hold_bars": 8.117647058823529,
+        "exit_reasons": {
+          "target": 22,
+          "stop": 28,
+          "time": 17,
+          "eod": 1
+        }
+      },
+      "not_applied_filters": {
+        "market_cap_gt (not available offline)": 30,
+        "exchange_in (not available offline)": 30,
+        "country_in (not available offline)": 30,
+        "eps_positive (not available offline)": 30,
+        "pe_max (not available offline)": 30
+      },
+      "per_symbol": {
+        "AAPL": {
+          "trades": 6,
+          "win_rate": 0.3333,
+          "expectancy_r": -0.091,
+          "profit_factor": 0.6818,
+          "avg_hold_bars": 10.83,
+          "exit_reasons": {
+            "target": 1,
+            "stop": 3,
+            "time": 2
+          }
+        },
+        "MSFT": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": 0.6726,
+          "profit_factor": 5.827,
+          "avg_hold_bars": 14.5,
+          "exit_reasons": {
+            "time": 1,
+            "target": 1
+          }
+        },
+        "GOOGL": {
+          "trades": 4,
+          "win_rate": 0.5,
+          "expectancy_r": 0.25,
+          "profit_factor": 1.2073,
+          "avg_hold_bars": 7.5,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 2
+          }
+        },
+        "AMZN": {
+          "trades": 2,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 7.5,
+          "exit_reasons": {
+            "stop": 2
+          }
+        },
+        "NVDA": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "META": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -0.6676,
+          "profit_factor": null,
+          "avg_hold_bars": 4.0,
+          "exit_reasons": {
+            "eod": 1
+          }
+        },
+        "TSLA": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -0.2733,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "AVGO": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 1.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "ORCL": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -0.6357,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "CRM": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 6.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "JPM": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": 0.348,
+          "profit_factor": 3.4994,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 2
+          }
+        },
+        "V": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": -0.2171,
+          "profit_factor": 0.5925,
+          "avg_hold_bars": 9.5,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 1
+          }
+        },
+        "UNH": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": 0.0022,
+          "profit_factor": 0.7866,
+          "avg_hold_bars": 14.0,
+          "exit_reasons": {
+            "time": 1,
+            "stop": 1
+          }
+        },
+        "LLY": {
+          "trades": 5,
+          "win_rate": 0.4,
+          "expectancy_r": -0.227,
+          "profit_factor": 0.5313,
+          "avg_hold_bars": 7.0,
+          "exit_reasons": {
+            "target": 1,
+            "time": 1,
+            "stop": 3
+          }
+        },
+        "XOM": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.6667,
+          "profit_factor": 2.3775,
+          "avg_hold_bars": 2.67,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 1
+          }
+        },
+        "COST": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "WMT": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": 0.25,
+          "profit_factor": 0.9888,
+          "avg_hold_bars": 8.0,
+          "exit_reasons": {
+            "target": 1,
+            "stop": 1
+          }
+        },
+        "CAT": {
+          "trades": 4,
+          "win_rate": 0.25,
+          "expectancy_r": -0.375,
+          "profit_factor": 0.3416,
+          "avg_hold_bars": 4.25,
+          "exit_reasons": {
+            "target": 1,
+            "stop": 3
+          }
+        },
+        "GE": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -0.1865,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "NFLX": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "AMD": {
+          "trades": 3,
+          "win_rate": 0.3333,
+          "expectancy_r": -0.6534,
+          "profit_factor": 0.0093,
+          "avg_hold_bars": 6.33,
+          "exit_reasons": {
+            "stop": 2,
+            "time": 1
+          }
+        },
+        "MU": {
+          "trades": 8,
+          "win_rate": 0.75,
+          "expectancy_r": 0.7854,
+          "profit_factor": 3.2524,
+          "avg_hold_bars": 7.62,
+          "exit_reasons": {
+            "target": 5,
+            "stop": 2,
+            "time": 1
+          }
+        },
+        "PANW": {
+          "trades": 4,
+          "win_rate": 0.5,
+          "expectancy_r": 0.2035,
+          "profit_factor": 1.7263,
+          "avg_hold_bars": 8.75,
+          "exit_reasons": {
+            "stop": 2,
+            "time": 1,
+            "target": 1
+          }
+        },
+        "SHOP": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 3.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "COIN": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "UBER": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "DECK": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "ON": {
+          "trades": 6,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.4566,
+          "profit_factor": 1.8431,
+          "avg_hold_bars": 6.67,
+          "exit_reasons": {
+            "target": 3,
+            "time": 1,
+            "stop": 2
+          }
+        },
+        "MRNA": {
+          "trades": 6,
+          "win_rate": 0.8333,
+          "expectancy_r": 1.0084,
+          "profit_factor": 14.4776,
+          "avg_hold_bars": 7.67,
+          "exit_reasons": {
+            "target": 4,
+            "time": 2
+          }
+        },
+        "LULU": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        }
+      }
+    },
+    "institutional-swing-quality": {
+      "direction": "long",
+      "symbols_evaluated": 30,
+      "symbols_excluded": [],
+      "pooled": {
+        "trades": 91,
+        "win_rate": 0.5494505494505495,
+        "profit_factor": 1.8968448901503314,
+        "expectancy_r": 0.3254535184833348,
+        "avg_win_r": 1.3091065908203137,
+        "avg_loss_r": -0.8741233990007858,
+        "avg_hold_bars": 8.384615384615385,
+        "exit_reasons": {
+          "target": 38,
+          "stop": 34,
+          "time": 19
+        }
+      },
+      "not_applied_filters": {
+        "market_cap_gt (not available offline)": 30,
+        "exchange_in (not available offline)": 30,
+        "eps_positive (not available offline)": 30,
+        "pe_max (not available offline)": 30
+      },
+      "per_symbol": {
+        "AAPL": {
+          "trades": 6,
+          "win_rate": 0.5,
+          "expectancy_r": 0.2075,
+          "profit_factor": 1.2111,
+          "avg_hold_bars": 9.5,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 3,
+            "time": 1
+          }
+        },
+        "MSFT": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": 0.6726,
+          "profit_factor": 5.827,
+          "avg_hold_bars": 14.5,
+          "exit_reasons": {
+            "time": 1,
+            "target": 1
+          }
+        },
+        "GOOGL": {
+          "trades": 6,
+          "win_rate": 0.3333,
+          "expectancy_r": -0.1667,
+          "profit_factor": 0.6738,
+          "avg_hold_bars": 6.17,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 4
+          }
+        },
+        "AMZN": {
+          "trades": 2,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 7.5,
+          "exit_reasons": {
+            "stop": 2
+          }
+        },
+        "NVDA": {
+          "trades": 2,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 6.0,
+          "exit_reasons": {
+            "stop": 2
+          }
+        },
+        "META": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -0.1462,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "TSLA": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -0.2733,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "AVGO": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.3493,
+          "profit_factor": 1.79,
+          "avg_hold_bars": 10.0,
+          "exit_reasons": {
+            "time": 1,
+            "target": 1,
+            "stop": 1
+          }
+        },
+        "ORCL": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -0.6357,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "CRM": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 6.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "JPM": {
+          "trades": 3,
+          "win_rate": 0.3333,
+          "expectancy_r": -0.1014,
+          "profit_factor": 0.7917,
+          "avg_hold_bars": 11.67,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 2
+          }
+        },
+        "V": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": -0.2171,
+          "profit_factor": 0.5925,
+          "avg_hold_bars": 9.5,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 1
+          }
+        },
+        "UNH": {
+          "trades": 4,
+          "win_rate": 0.75,
+          "expectancy_r": 0.875,
+          "profit_factor": 3.4039,
+          "avg_hold_bars": 10.5,
+          "exit_reasons": {
+            "target": 3,
+            "stop": 1
+          }
+        },
+        "LLY": {
+          "trades": 5,
+          "win_rate": 0.6,
+          "expectancy_r": 0.2189,
+          "profit_factor": 1.4477,
+          "avg_hold_bars": 8.0,
+          "exit_reasons": {
+            "target": 1,
+            "time": 2,
+            "stop": 2
+          }
+        },
+        "XOM": {
+          "trades": 5,
+          "win_rate": 0.8,
+          "expectancy_r": 1.1968,
+          "profit_factor": 65.7614,
+          "avg_hold_bars": 7.8,
+          "exit_reasons": {
+            "target": 4,
+            "time": 1
+          }
+        },
+        "COST": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "WMT": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": 0.25,
+          "profit_factor": 1.21,
+          "avg_hold_bars": 11.5,
+          "exit_reasons": {
+            "target": 1,
+            "stop": 1
+          }
+        },
+        "CAT": {
+          "trades": 7,
+          "win_rate": 0.4286,
+          "expectancy_r": 0.0714,
+          "profit_factor": 0.9198,
+          "avg_hold_bars": 6.29,
+          "exit_reasons": {
+            "target": 3,
+            "stop": 4
+          }
+        },
+        "GE": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.4219,
+          "profit_factor": 1.958,
+          "avg_hold_bars": 11.33,
+          "exit_reasons": {
+            "time": 1,
+            "target": 1,
+            "stop": 1
+          }
+        },
+        "NFLX": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "AMD": {
+          "trades": 6,
+          "win_rate": 0.5,
+          "expectancy_r": 0.0067,
+          "profit_factor": 1.0911,
+          "avg_hold_bars": 5.83,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 3,
+            "time": 1
+          }
+        },
+        "MU": {
+          "trades": 10,
+          "win_rate": 0.8,
+          "expectancy_r": 0.9283,
+          "profit_factor": 4.4899,
+          "avg_hold_bars": 7.5,
+          "exit_reasons": {
+            "target": 7,
+            "stop": 2,
+            "time": 1
+          }
+        },
+        "PANW": {
+          "trades": 5,
+          "win_rate": 0.6,
+          "expectancy_r": 0.4628,
+          "profit_factor": 2.2237,
+          "avg_hold_bars": 8.6,
+          "exit_reasons": {
+            "stop": 2,
+            "target": 2,
+            "time": 1
+          }
+        },
+        "SHOP": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 3.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "COIN": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "UBER": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "DECK": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "ON": {
+          "trades": 6,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.4566,
+          "profit_factor": 1.8946,
+          "avg_hold_bars": 7.5,
+          "exit_reasons": {
+            "target": 3,
+            "time": 1,
+            "stop": 2
+          }
+        },
+        "MRNA": {
+          "trades": 7,
+          "win_rate": 0.8571,
+          "expectancy_r": 1.0786,
+          "profit_factor": 17.8361,
+          "avg_hold_bars": 7.86,
+          "exit_reasons": {
+            "target": 5,
+            "time": 2
+          }
+        },
+        "LULU": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        }
+      }
+    },
+    "institutional-trend-follower-mtf": {
+      "direction": "long",
+      "symbols_evaluated": 30,
+      "symbols_excluded": [],
+      "pooled": {
+        "trades": 24,
+        "win_rate": 0.5833333333333334,
+        "profit_factor": 1.7306245282938986,
+        "expectancy_r": 0.2977695038205584,
+        "avg_win_r": 1.1844779065413442,
+        "avg_loss_r": -0.9436222599885419,
+        "avg_hold_bars": 7.208333333333333,
+        "exit_reasons": {
+          "stop": 9,
+          "target": 10,
+          "time": 5
+        }
+      },
+      "not_applied_filters": {
+        "market_cap_gt (not available offline)": 30,
+        "exchange_in (not available offline)": 30
+      },
+      "per_symbol": {
+        "AAPL": {
+          "trades": 2,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 8.0,
+          "exit_reasons": {
+            "stop": 2
+          }
+        },
+        "MSFT": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 10.0,
+          "exit_reasons": {
+            "target": 1
+          }
+        },
+        "GOOGL": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 0.0657,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "AMZN": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "NVDA": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "META": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "TSLA": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "AVGO": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "ORCL": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "CRM": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "JPM": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "V": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 0.5658,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "UNH": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "LLY": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "XOM": {
+          "trades": 3,
+          "win_rate": 0.3333,
+          "expectancy_r": -0.1667,
+          "profit_factor": 0.4876,
+          "avg_hold_bars": 2.67,
+          "exit_reasons": {
+            "target": 1,
+            "stop": 2
+          }
+        },
+        "COST": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "WMT": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 6.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "CAT": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 10.0,
+          "exit_reasons": {
+            "target": 1
+          }
+        },
+        "GE": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "NFLX": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "AMD": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "MU": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 10.0,
+          "exit_reasons": {
+            "target": 1
+          }
+        },
+        "PANW": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.4038,
+          "profit_factor": 1.6705,
+          "avg_hold_bars": 6.67,
+          "exit_reasons": {
+            "time": 1,
+            "stop": 1,
+            "target": 1
+          }
+        },
+        "SHOP": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "COIN": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "UBER": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "DECK": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "ON": {
+          "trades": 4,
+          "win_rate": 0.75,
+          "expectancy_r": 0.5599,
+          "profit_factor": 2.1134,
+          "avg_hold_bars": 6.25,
+          "exit_reasons": {
+            "target": 2,
+            "time": 1,
+            "stop": 1
+          }
+        },
+        "MRNA": {
+          "trades": 6,
+          "win_rate": 0.5,
+          "expectancy_r": 0.344,
+          "profit_factor": 1.9556,
+          "avg_hold_bars": 6.33,
+          "exit_reasons": {
+            "target": 3,
+            "stop": 2,
+            "time": 1
+          }
+        },
+        "LULU": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        }
+      }
+    },
+    "low-vol-setup": {
+      "direction": "long",
+      "symbols_evaluated": 30,
+      "symbols_excluded": [],
+      "pooled": {
+        "trades": 189,
+        "win_rate": 0.5079365079365079,
+        "profit_factor": 1.2609139839638193,
+        "expectancy_r": 0.1741391418075803,
+        "avg_win_r": 1.1720116666892892,
+        "avg_loss_r": -0.8779655855133519,
+        "avg_hold_bars": 9.137566137566138,
+        "exit_reasons": {
+          "time": 52,
+          "target": 60,
+          "stop": 73,
+          "eod": 4
+        }
+      },
+      "not_applied_filters": {},
+      "per_symbol": {
+        "AAPL": {
+          "trades": 11,
+          "win_rate": 0.5455,
+          "expectancy_r": 0.2911,
+          "profit_factor": 1.6099,
+          "avg_hold_bars": 8.36,
+          "exit_reasons": {
+            "time": 2,
+            "target": 5,
+            "stop": 4
+          }
+        },
+        "MSFT": {
+          "trades": 8,
+          "win_rate": 0.625,
+          "expectancy_r": 0.5689,
+          "profit_factor": 2.263,
+          "avg_hold_bars": 9.12,
+          "exit_reasons": {
+            "target": 4,
+            "stop": 2,
+            "time": 2
+          }
+        },
+        "GOOGL": {
+          "trades": 11,
+          "win_rate": 0.5455,
+          "expectancy_r": 0.3879,
+          "profit_factor": 1.7418,
+          "avg_hold_bars": 8.55,
+          "exit_reasons": {
+            "time": 1,
+            "target": 5,
+            "stop": 4,
+            "eod": 1
+          }
+        },
+        "AMZN": {
+          "trades": 10,
+          "win_rate": 0.3,
+          "expectancy_r": -0.4061,
+          "profit_factor": 0.2639,
+          "avg_hold_bars": 8.6,
+          "exit_reasons": {
+            "stop": 6,
+            "time": 2,
+            "target": 1,
+            "eod": 1
+          }
+        },
+        "NVDA": {
+          "trades": 7,
+          "win_rate": 0.5714,
+          "expectancy_r": 0.4536,
+          "profit_factor": 2.2712,
+          "avg_hold_bars": 7.14,
+          "exit_reasons": {
+            "time": 2,
+            "target": 3,
+            "stop": 2
+          }
+        },
+        "META": {
+          "trades": 5,
+          "win_rate": 0.2,
+          "expectancy_r": -0.242,
+          "profit_factor": 0.3988,
+          "avg_hold_bars": 11.2,
+          "exit_reasons": {
+            "stop": 2,
+            "target": 1,
+            "time": 2
+          }
+        },
+        "TSLA": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -0.1041,
+          "profit_factor": null,
+          "avg_hold_bars": 3.0,
+          "exit_reasons": {
+            "eod": 1
+          }
+        },
+        "AVGO": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 5.0,
+          "exit_reasons": {
+            "target": 1
+          }
+        },
+        "ORCL": {
+          "trades": 3,
+          "win_rate": 0.3333,
+          "expectancy_r": -0.1667,
+          "profit_factor": 0.6853,
+          "avg_hold_bars": 4.0,
+          "exit_reasons": {
+            "target": 1,
+            "stop": 2
+          }
+        },
+        "CRM": {
+          "trades": 5,
+          "win_rate": 0.2,
+          "expectancy_r": -0.748,
+          "profit_factor": 0.0514,
+          "avg_hold_bars": 6.4,
+          "exit_reasons": {
+            "stop": 4,
+            "time": 1
+          }
+        },
+        "JPM": {
+          "trades": 14,
+          "win_rate": 0.5,
+          "expectancy_r": 0.1039,
+          "profit_factor": 1.1909,
+          "avg_hold_bars": 9.86,
+          "exit_reasons": {
+            "stop": 6,
+            "time": 6,
+            "target": 2
+          }
+        },
+        "V": {
+          "trades": 15,
+          "win_rate": 0.4667,
+          "expectancy_r": -0.194,
+          "profit_factor": 0.6388,
+          "avg_hold_bars": 10.6,
+          "exit_reasons": {
+            "stop": 8,
+            "time": 5,
+            "target": 2
+          }
+        },
+        "UNH": {
+          "trades": 8,
+          "win_rate": 0.75,
+          "expectancy_r": 0.8449,
+          "profit_factor": 3.9263,
+          "avg_hold_bars": 9.62,
+          "exit_reasons": {
+            "stop": 1,
+            "target": 5,
+            "time": 2
+          }
+        },
+        "LLY": {
+          "trades": 8,
+          "win_rate": 0.5,
+          "expectancy_r": 0.2163,
+          "profit_factor": 1.2604,
+          "avg_hold_bars": 9.75,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 3,
+            "time": 2,
+            "eod": 1
+          }
+        },
+        "XOM": {
+          "trades": 13,
+          "win_rate": 0.6154,
+          "expectancy_r": 0.4409,
+          "profit_factor": 2.1769,
+          "avg_hold_bars": 11.23,
+          "exit_reasons": {
+            "time": 6,
+            "target": 5,
+            "stop": 2
+          }
+        },
+        "COST": {
+          "trades": 11,
+          "win_rate": 0.4545,
+          "expectancy_r": -0.0369,
+          "profit_factor": 0.8544,
+          "avg_hold_bars": 11.0,
+          "exit_reasons": {
+            "time": 5,
+            "stop": 4,
+            "target": 2
+          }
+        },
+        "WMT": {
+          "trades": 14,
+          "win_rate": 0.4286,
+          "expectancy_r": 0.1075,
+          "profit_factor": 0.9694,
+          "avg_hold_bars": 9.57,
+          "exit_reasons": {
+            "stop": 5,
+            "time": 4,
+            "target": 5
+          }
+        },
+        "CAT": {
+          "trades": 6,
+          "win_rate": 1.0,
+          "expectancy_r": 1.0996,
+          "profit_factor": null,
+          "avg_hold_bars": 11.83,
+          "exit_reasons": {
+            "time": 2,
+            "target": 4
+          }
+        },
+        "GE": {
+          "trades": 16,
+          "win_rate": 0.5625,
+          "expectancy_r": 0.3334,
+          "profit_factor": 1.5186,
+          "avg_hold_bars": 7.62,
+          "exit_reasons": {
+            "stop": 7,
+            "target": 7,
+            "time": 2
+          }
+        },
+        "NFLX": {
+          "trades": 6,
+          "win_rate": 0.5,
+          "expectancy_r": 0.049,
+          "profit_factor": 1.1228,
+          "avg_hold_bars": 9.17,
+          "exit_reasons": {
+            "target": 1,
+            "stop": 3,
+            "time": 2
+          }
+        },
+        "AMD": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "MU": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "PANW": {
+          "trades": 6,
+          "win_rate": 0.5,
+          "expectancy_r": 0.1794,
+          "profit_factor": 1.4696,
+          "avg_hold_bars": 7.83,
+          "exit_reasons": {
+            "time": 1,
+            "stop": 3,
+            "target": 2
+          }
+        },
+        "SHOP": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "COIN": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "UBER": {
+          "trades": 6,
+          "win_rate": 0.5,
+          "expectancy_r": -0.133,
+          "profit_factor": 0.6938,
+          "avg_hold_bars": 8.0,
+          "exit_reasons": {
+            "target": 1,
+            "stop": 3,
+            "time": 2
+          }
+        },
+        "DECK": {
+          "trades": 2,
+          "win_rate": 0.0,
+          "expectancy_r": -0.5186,
+          "profit_factor": null,
+          "avg_hold_bars": 12.5,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 1
+          }
+        },
+        "ON": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 1.0,
+          "exit_reasons": {
+            "target": 1
+          }
+        },
+        "MRNA": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "LULU": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 2.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        }
+      }
+    },
+    "mean-reversion": {
+      "direction": "long",
+      "symbols_evaluated": 30,
+      "symbols_excluded": [],
+      "pooled": {
+        "trades": 128,
+        "win_rate": 0.5703125,
+        "profit_factor": 1.9360705179009614,
+        "expectancy_r": 0.3222836311028136,
+        "avg_win_r": 1.1464339329091036,
+        "avg_loss_r": -0.8071075232243246,
+        "avg_hold_bars": 8.8125,
+        "exit_reasons": {
+          "target": 45,
+          "stop": 40,
+          "time": 43
+        }
+      },
+      "not_applied_filters": {
+        "market_cap_gt (not available offline)": 30,
+        "exchange_in (not available offline)": 30,
+        "country_in (not available offline)": 30
+      },
+      "per_symbol": {
+        "AAPL": {
+          "trades": 4,
+          "win_rate": 0.75,
+          "expectancy_r": 0.875,
+          "profit_factor": 6.6658,
+          "avg_hold_bars": 5.5,
+          "exit_reasons": {
+            "target": 3,
+            "stop": 1
+          }
+        },
+        "MSFT": {
+          "trades": 6,
+          "win_rate": 0.8333,
+          "expectancy_r": 0.9467,
+          "profit_factor": 6.8961,
+          "avg_hold_bars": 6.17,
+          "exit_reasons": {
+            "target": 4,
+            "time": 1,
+            "stop": 1
+          }
+        },
+        "GOOGL": {
+          "trades": 2,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 4.0,
+          "exit_reasons": {
+            "target": 2
+          }
+        },
+        "AMZN": {
+          "trades": 4,
+          "win_rate": 0.25,
+          "expectancy_r": 0.0908,
+          "profit_factor": 1.65,
+          "avg_hold_bars": 8.75,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 2,
+            "target": 1
+          }
+        },
+        "NVDA": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 1.0,
+          "exit_reasons": {
+            "target": 1
+          }
+        },
+        "META": {
+          "trades": 4,
+          "win_rate": 0.75,
+          "expectancy_r": 0.875,
+          "profit_factor": 4.6848,
+          "avg_hold_bars": 6.25,
+          "exit_reasons": {
+            "target": 3,
+            "stop": 1
+          }
+        },
+        "TSLA": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.355,
+          "profit_factor": 2.6089,
+          "avg_hold_bars": 9.67,
+          "exit_reasons": {
+            "stop": 1,
+            "target": 1,
+            "time": 1
+          }
+        },
+        "AVGO": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 3.0,
+          "exit_reasons": {
+            "target": 1
+          }
+        },
+        "ORCL": {
+          "trades": 6,
+          "win_rate": 0.3333,
+          "expectancy_r": -0.0541,
+          "profit_factor": 0.852,
+          "avg_hold_bars": 6.67,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 3,
+            "time": 1
+          }
+        },
+        "CRM": {
+          "trades": 9,
+          "win_rate": 0.2222,
+          "expectancy_r": -0.3525,
+          "profit_factor": 0.6123,
+          "avg_hold_bars": 7.22,
+          "exit_reasons": {
+            "stop": 6,
+            "time": 1,
+            "target": 2
+          }
+        },
+        "JPM": {
+          "trades": 4,
+          "win_rate": 0.75,
+          "expectancy_r": 0.875,
+          "profit_factor": 7.0153,
+          "avg_hold_bars": 6.0,
+          "exit_reasons": {
+            "stop": 1,
+            "target": 3
+          }
+        },
+        "V": {
+          "trades": 2,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 9.0,
+          "exit_reasons": {
+            "target": 2
+          }
+        },
+        "UNH": {
+          "trades": 8,
+          "win_rate": 0.625,
+          "expectancy_r": 0.1418,
+          "profit_factor": 1.0895,
+          "avg_hold_bars": 10.62,
+          "exit_reasons": {
+            "time": 4,
+            "stop": 3,
+            "target": 1
+          }
+        },
+        "LLY": {
+          "trades": 3,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 7.67,
+          "exit_reasons": {
+            "target": 3
+          }
+        },
+        "XOM": {
+          "trades": 3,
+          "win_rate": 0.3333,
+          "expectancy_r": -0.1693,
+          "profit_factor": 0.3111,
+          "avg_hold_bars": 10.33,
+          "exit_reasons": {
+            "time": 2,
+            "stop": 1
+          }
+        },
+        "COST": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 9.0,
+          "exit_reasons": {
+            "target": 1
+          }
+        },
+        "WMT": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.4436,
+          "profit_factor": 42.2278,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 3
+          }
+        },
+        "CAT": {
+          "trades": 6,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.1273,
+          "profit_factor": 1.5311,
+          "avg_hold_bars": 11.17,
+          "exit_reasons": {
+            "stop": 2,
+            "time": 4
+          }
+        },
+        "GE": {
+          "trades": 5,
+          "win_rate": 0.6,
+          "expectancy_r": 0.6281,
+          "profit_factor": 3.0659,
+          "avg_hold_bars": 8.4,
+          "exit_reasons": {
+            "target": 3,
+            "stop": 1,
+            "time": 1
+          }
+        },
+        "NFLX": {
+          "trades": 7,
+          "win_rate": 0.2857,
+          "expectancy_r": -0.3919,
+          "profit_factor": 0.3686,
+          "avg_hold_bars": 8.29,
+          "exit_reasons": {
+            "time": 2,
+            "stop": 4,
+            "target": 1
+          }
+        },
+        "AMD": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.5566,
+          "profit_factor": 4.4559,
+          "avg_hold_bars": 10.67,
+          "exit_reasons": {
+            "time": 2,
+            "target": 1
+          }
+        },
+        "MU": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 0.7566,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "PANW": {
+          "trades": 5,
+          "win_rate": 0.8,
+          "expectancy_r": 0.6223,
+          "profit_factor": 4.5373,
+          "avg_hold_bars": 8.6,
+          "exit_reasons": {
+            "target": 2,
+            "time": 2,
+            "stop": 1
+          }
+        },
+        "SHOP": {
+          "trades": 4,
+          "win_rate": 0.75,
+          "expectancy_r": 0.5927,
+          "profit_factor": 4.9652,
+          "avg_hold_bars": 7.5,
+          "exit_reasons": {
+            "time": 1,
+            "target": 2,
+            "stop": 1
+          }
+        },
+        "COIN": {
+          "trades": 5,
+          "win_rate": 0.4,
+          "expectancy_r": -0.1693,
+          "profit_factor": 0.77,
+          "avg_hold_bars": 9.6,
+          "exit_reasons": {
+            "time": 3,
+            "stop": 2
+          }
+        },
+        "UBER": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.2302,
+          "profit_factor": 2.5421,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 3
+          }
+        },
+        "DECK": {
+          "trades": 10,
+          "win_rate": 0.3,
+          "expectancy_r": -0.2384,
+          "profit_factor": 0.6824,
+          "avg_hold_bars": 8.9,
+          "exit_reasons": {
+            "stop": 6,
+            "target": 2,
+            "time": 2
+          }
+        },
+        "ON": {
+          "trades": 4,
+          "win_rate": 0.75,
+          "expectancy_r": 0.5822,
+          "profit_factor": 5.849,
+          "avg_hold_bars": 12.5,
+          "exit_reasons": {
+            "time": 3,
+            "target": 1
+          }
+        },
+        "MRNA": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 11.0,
+          "exit_reasons": {
+            "target": 1
+          }
+        },
+        "LULU": {
+          "trades": 10,
+          "win_rate": 0.4,
+          "expectancy_r": -0.0174,
+          "profit_factor": 0.9898,
+          "avg_hold_bars": 9.8,
+          "exit_reasons": {
+            "stop": 4,
+            "time": 4,
+            "target": 2
+          }
+        }
+      }
+    },
+    "quality-trend-fundamentals": {
+      "direction": "long",
+      "symbols_evaluated": 30,
+      "symbols_excluded": [],
+      "pooled": {
+        "trades": 110,
+        "win_rate": 0.5272727272727272,
+        "profit_factor": 1.6655680629813217,
+        "expectancy_r": 0.27568161869954444,
+        "avg_win_r": 1.3193554332722395,
+        "avg_loss_r": -0.8884160975546153,
+        "avg_hold_bars": 8.436363636363636,
+        "exit_reasons": {
+          "target": 45,
+          "stop": 44,
+          "time": 21
+        }
+      },
+      "not_applied_filters": {
+        "market_cap_gt (not available offline)": 30,
+        "exchange_in (not available offline)": 30,
+        "country_in (not available offline)": 30,
+        "eps_positive (not available offline)": 30,
+        "pe_max (not available offline)": 30
+      },
+      "per_symbol": {
+        "AAPL": {
+          "trades": 7,
+          "win_rate": 0.4286,
+          "expectancy_r": 0.035,
+          "profit_factor": 0.8821,
+          "avg_hold_bars": 8.57,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 4,
+            "time": 1
+          }
+        },
+        "MSFT": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": 0.6726,
+          "profit_factor": 5.827,
+          "avg_hold_bars": 14.5,
+          "exit_reasons": {
+            "time": 1,
+            "target": 1
+          }
+        },
+        "GOOGL": {
+          "trades": 8,
+          "win_rate": 0.625,
+          "expectancy_r": 0.3832,
+          "profit_factor": 1.7253,
+          "avg_hold_bars": 9.25,
+          "exit_reasons": {
+            "stop": 3,
+            "target": 4,
+            "time": 1
+          }
+        },
+        "AMZN": {
+          "trades": 2,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 7.5,
+          "exit_reasons": {
+            "stop": 2
+          }
+        },
+        "NVDA": {
+          "trades": 2,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 6.0,
+          "exit_reasons": {
+            "stop": 2
+          }
+        },
+        "META": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -0.1462,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "TSLA": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -0.2733,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "AVGO": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.3493,
+          "profit_factor": 1.79,
+          "avg_hold_bars": 10.0,
+          "exit_reasons": {
+            "time": 1,
+            "target": 1,
+            "stop": 1
+          }
+        },
+        "ORCL": {
+          "trades": 2,
+          "win_rate": 0.0,
+          "expectancy_r": -0.4971,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 2
+          }
+        },
+        "CRM": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 6.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "JPM": {
+          "trades": 3,
+          "win_rate": 0.3333,
+          "expectancy_r": -0.1014,
+          "profit_factor": 0.7917,
+          "avg_hold_bars": 11.67,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 2
+          }
+        },
+        "V": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": -0.2171,
+          "profit_factor": 0.5925,
+          "avg_hold_bars": 9.5,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 1
+          }
+        },
+        "UNH": {
+          "trades": 4,
+          "win_rate": 0.75,
+          "expectancy_r": 0.875,
+          "profit_factor": 3.4039,
+          "avg_hold_bars": 10.5,
+          "exit_reasons": {
+            "target": 3,
+            "stop": 1
+          }
+        },
+        "LLY": {
+          "trades": 6,
+          "win_rate": 0.5,
+          "expectancy_r": 0.1116,
+          "profit_factor": 1.2311,
+          "avg_hold_bars": 8.0,
+          "exit_reasons": {
+            "target": 1,
+            "stop": 3,
+            "time": 2
+          }
+        },
+        "XOM": {
+          "trades": 6,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.8307,
+          "profit_factor": 3.5904,
+          "avg_hold_bars": 7.0,
+          "exit_reasons": {
+            "target": 4,
+            "time": 1,
+            "stop": 1
+          }
+        },
+        "COST": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "WMT": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": 0.25,
+          "profit_factor": 1.21,
+          "avg_hold_bars": 11.5,
+          "exit_reasons": {
+            "target": 1,
+            "stop": 1
+          }
+        },
+        "CAT": {
+          "trades": 9,
+          "win_rate": 0.4444,
+          "expectancy_r": -0.0054,
+          "profit_factor": 0.7968,
+          "avg_hold_bars": 7.33,
+          "exit_reasons": {
+            "target": 3,
+            "stop": 5,
+            "time": 1
+          }
+        },
+        "GE": {
+          "trades": 4,
+          "win_rate": 0.5,
+          "expectancy_r": 0.0664,
+          "profit_factor": 1.0717,
+          "avg_hold_bars": 11.25,
+          "exit_reasons": {
+            "time": 1,
+            "stop": 2,
+            "target": 1
+          }
+        },
+        "NFLX": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "AMD": {
+          "trades": 8,
+          "win_rate": 0.5,
+          "expectancy_r": 0.25,
+          "profit_factor": 1.6613,
+          "avg_hold_bars": 5.12,
+          "exit_reasons": {
+            "target": 4,
+            "stop": 4
+          }
+        },
+        "MU": {
+          "trades": 12,
+          "win_rate": 0.8333,
+          "expectancy_r": 0.9677,
+          "profit_factor": 6.0595,
+          "avg_hold_bars": 7.92,
+          "exit_reasons": {
+            "target": 8,
+            "stop": 2,
+            "time": 2
+          }
+        },
+        "PANW": {
+          "trades": 7,
+          "win_rate": 0.5714,
+          "expectancy_r": 0.4286,
+          "profit_factor": 1.899,
+          "avg_hold_bars": 6.71,
+          "exit_reasons": {
+            "stop": 3,
+            "target": 4
+          }
+        },
+        "SHOP": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 3.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "COIN": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "UBER": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "DECK": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "ON": {
+          "trades": 8,
+          "win_rate": 0.5,
+          "expectancy_r": 0.0925,
+          "profit_factor": 0.873,
+          "avg_hold_bars": 10.0,
+          "exit_reasons": {
+            "target": 3,
+            "time": 1,
+            "stop": 4
+          }
+        },
+        "MRNA": {
+          "trades": 9,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.6167,
+          "profit_factor": 3.8231,
+          "avg_hold_bars": 6.22,
+          "exit_reasons": {
+            "target": 5,
+            "stop": 2,
+            "time": 2
+          }
+        },
+        "LULU": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        }
+      }
+    },
+    "statistical-mean-reversion": {
+      "direction": "long",
+      "symbols_evaluated": 30,
+      "symbols_excluded": [],
+      "pooled": {
+        "trades": 80,
+        "win_rate": 0.5375,
+        "profit_factor": 1.5010678567738596,
+        "expectancy_r": 0.2536076726495734,
+        "avg_win_r": 1.1097164724117201,
+        "avg_loss_r": -0.8471036413303296,
+        "avg_hold_bars": 9.0875,
+        "exit_reasons": {
+          "target": 26,
+          "stop": 28,
+          "time": 25,
+          "eod": 1
+        }
+      },
+      "not_applied_filters": {
+        "market_cap_gt (not available offline)": 30,
+        "exchange_in (not available offline)": 30,
+        "country_in (not available offline)": 30
+      },
+      "per_symbol": {
+        "AAPL": {
+          "trades": 4,
+          "win_rate": 0.5,
+          "expectancy_r": 0.25,
+          "profit_factor": 1.1563,
+          "avg_hold_bars": 5.25,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 2
+          }
+        },
+        "MSFT": {
+          "trades": 8,
+          "win_rate": 0.5,
+          "expectancy_r": 0.3827,
+          "profit_factor": 1.9549,
+          "avg_hold_bars": 6.5,
+          "exit_reasons": {
+            "target": 4,
+            "time": 1,
+            "stop": 3
+          }
+        },
+        "GOOGL": {
+          "trades": 4,
+          "win_rate": 0.75,
+          "expectancy_r": 0.875,
+          "profit_factor": 5.1541,
+          "avg_hold_bars": 8.0,
+          "exit_reasons": {
+            "stop": 1,
+            "target": 3
+          }
+        },
+        "AMZN": {
+          "trades": 4,
+          "win_rate": 0.0,
+          "expectancy_r": -0.5342,
+          "profit_factor": null,
+          "avg_hold_bars": 9.5,
+          "exit_reasons": {
+            "stop": 2,
+            "time": 2
+          }
+        },
+        "NVDA": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "META": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": 0.25,
+          "profit_factor": 1.5257,
+          "avg_hold_bars": 4.5,
+          "exit_reasons": {
+            "stop": 1,
+            "target": 1
+          }
+        },
+        "TSLA": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 10.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "AVGO": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "ORCL": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 5.0,
+          "exit_reasons": {
+            "target": 1
+          }
+        },
+        "CRM": {
+          "trades": 7,
+          "win_rate": 0.1429,
+          "expectancy_r": -0.6429,
+          "profit_factor": 0.2113,
+          "avg_hold_bars": 4.29,
+          "exit_reasons": {
+            "stop": 6,
+            "target": 1
+          }
+        },
+        "JPM": {
+          "trades": 3,
+          "win_rate": 1.0,
+          "expectancy_r": 1.2325,
+          "profit_factor": null,
+          "avg_hold_bars": 9.0,
+          "exit_reasons": {
+            "target": 2,
+            "time": 1
+          }
+        },
+        "V": {
+          "trades": 3,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 10.0,
+          "exit_reasons": {
+            "target": 3
+          }
+        },
+        "UNH": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.4763,
+          "profit_factor": 2.412,
+          "avg_hold_bars": 10.67,
+          "exit_reasons": {
+            "target": 1,
+            "time": 1,
+            "stop": 1
+          }
+        },
+        "LLY": {
+          "trades": 2,
+          "win_rate": 1.0,
+          "expectancy_r": 0.8245,
+          "profit_factor": null,
+          "avg_hold_bars": 11.5,
+          "exit_reasons": {
+            "target": 1,
+            "time": 1
+          }
+        },
+        "XOM": {
+          "trades": 2,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 12.5,
+          "exit_reasons": {
+            "target": 2
+          }
+        },
+        "COST": {
+          "trades": 2,
+          "win_rate": 1.0,
+          "expectancy_r": 0.9709,
+          "profit_factor": null,
+          "avg_hold_bars": 13.0,
+          "exit_reasons": {
+            "time": 1,
+            "target": 1
+          }
+        },
+        "WMT": {
+          "trades": 4,
+          "win_rate": 0.75,
+          "expectancy_r": 0.4849,
+          "profit_factor": 58.3099,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 4
+          }
+        },
+        "CAT": {
+          "trades": 6,
+          "win_rate": 0.5,
+          "expectancy_r": 0.0937,
+          "profit_factor": 1.3089,
+          "avg_hold_bars": 8.83,
+          "exit_reasons": {
+            "stop": 2,
+            "time": 3,
+            "eod": 1
+          }
+        },
+        "GE": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.4194,
+          "profit_factor": 3.2876,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 3
+          }
+        },
+        "NFLX": {
+          "trades": 8,
+          "win_rate": 0.375,
+          "expectancy_r": -0.1684,
+          "profit_factor": 0.8015,
+          "avg_hold_bars": 9.62,
+          "exit_reasons": {
+            "target": 2,
+            "time": 2,
+            "stop": 4
+          }
+        },
+        "AMD": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "MU": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "PANW": {
+          "trades": 4,
+          "win_rate": 0.75,
+          "expectancy_r": 0.3751,
+          "profit_factor": 2.2725,
+          "avg_hold_bars": 10.0,
+          "exit_reasons": {
+            "target": 1,
+            "time": 2,
+            "stop": 1
+          }
+        },
+        "SHOP": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "COIN": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "UBER": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.2698,
+          "profit_factor": 2.7402,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 3
+          }
+        },
+        "DECK": {
+          "trades": 3,
+          "win_rate": 0.3333,
+          "expectancy_r": 0.1413,
+          "profit_factor": 1.3324,
+          "avg_hold_bars": 9.0,
+          "exit_reasons": {
+            "target": 1,
+            "stop": 1,
+            "time": 1
+          }
+        },
+        "ON": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "MRNA": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "LULU": {
+          "trades": 3,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 6.67,
+          "exit_reasons": {
+            "stop": 3
+          }
+        }
+      }
+    },
+    "trend-follower": {
+      "direction": "long",
+      "symbols_evaluated": 30,
+      "symbols_excluded": [],
+      "pooled": {
+        "trades": 146,
+        "win_rate": 0.4246575342465753,
+        "profit_factor": 1.0402319858978557,
+        "expectancy_r": 0.07265007129226891,
+        "avg_win_r": 1.1739478683637095,
+        "avg_loss_r": -0.8359206112916695,
+        "avg_hold_bars": 7.684931506849315,
+        "exit_reasons": {
+          "target": 45,
+          "time": 31,
+          "stop": 63,
+          "eod": 7
+        }
+      },
+      "not_applied_filters": {
+        "market_cap_gt (not available offline)": 30,
+        "exchange_in (not available offline)": 30,
+        "country_in (not available offline)": 30
+      },
+      "per_symbol": {
+        "AAPL": {
+          "trades": 8,
+          "win_rate": 0.25,
+          "expectancy_r": -0.0558,
+          "profit_factor": 0.6579,
+          "avg_hold_bars": 10.75,
+          "exit_reasons": {
+            "target": 1,
+            "time": 4,
+            "stop": 3
+          }
+        },
+        "MSFT": {
+          "trades": 5,
+          "win_rate": 0.6,
+          "expectancy_r": 0.2525,
+          "profit_factor": 1.3601,
+          "avg_hold_bars": 8.4,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 2,
+            "eod": 1
+          }
+        },
+        "GOOGL": {
+          "trades": 9,
+          "win_rate": 0.4444,
+          "expectancy_r": -0.0153,
+          "profit_factor": 0.7921,
+          "avg_hold_bars": 9.78,
+          "exit_reasons": {
+            "time": 5,
+            "target": 1,
+            "stop": 3
+          }
+        },
+        "AMZN": {
+          "trades": 5,
+          "win_rate": 0.0,
+          "expectancy_r": -0.6911,
+          "profit_factor": null,
+          "avg_hold_bars": 8.0,
+          "exit_reasons": {
+            "stop": 3,
+            "time": 2
+          }
+        },
+        "NVDA": {
+          "trades": 2,
+          "win_rate": 0.0,
+          "expectancy_r": -0.5937,
+          "profit_factor": null,
+          "avg_hold_bars": 9.0,
+          "exit_reasons": {
+            "time": 1,
+            "stop": 1
+          }
+        },
+        "META": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -0.6676,
+          "profit_factor": null,
+          "avg_hold_bars": 4.0,
+          "exit_reasons": {
+            "eod": 1
+          }
+        },
+        "TSLA": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": -0.3416,
+          "profit_factor": 0.328,
+          "avg_hold_bars": 8.0,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 1
+          }
+        },
+        "AVGO": {
+          "trades": 4,
+          "win_rate": 0.0,
+          "expectancy_r": -0.5545,
+          "profit_factor": null,
+          "avg_hold_bars": 11.75,
+          "exit_reasons": {
+            "time": 2,
+            "stop": 2
+          }
+        },
+        "ORCL": {
+          "trades": 3,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 4.0,
+          "exit_reasons": {
+            "stop": 3
+          }
+        },
+        "CRM": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "JPM": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 0.3126,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "V": {
+          "trades": 5,
+          "win_rate": 0.6,
+          "expectancy_r": 0.1844,
+          "profit_factor": 1.7497,
+          "avg_hold_bars": 6.4,
+          "exit_reasons": {
+            "stop": 2,
+            "time": 1,
+            "target": 1,
+            "eod": 1
+          }
+        },
+        "UNH": {
+          "trades": 4,
+          "win_rate": 0.5,
+          "expectancy_r": 0.1246,
+          "profit_factor": 1.0223,
+          "avg_hold_bars": 10.0,
+          "exit_reasons": {
+            "target": 1,
+            "time": 1,
+            "stop": 2
+          }
+        },
+        "LLY": {
+          "trades": 7,
+          "win_rate": 0.2857,
+          "expectancy_r": -0.0614,
+          "profit_factor": 0.8109,
+          "avg_hold_bars": 5.86,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 3,
+            "time": 1,
+            "eod": 1
+          }
+        },
+        "XOM": {
+          "trades": 9,
+          "win_rate": 0.5556,
+          "expectancy_r": 0.5115,
+          "profit_factor": 2.6585,
+          "avg_hold_bars": 6.78,
+          "exit_reasons": {
+            "target": 4,
+            "time": 2,
+            "stop": 2,
+            "eod": 1
+          }
+        },
+        "COST": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 4.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "WMT": {
+          "trades": 9,
+          "win_rate": 0.3333,
+          "expectancy_r": -0.1013,
+          "profit_factor": 0.6463,
+          "avg_hold_bars": 6.33,
+          "exit_reasons": {
+            "target": 3,
+            "stop": 5,
+            "time": 1
+          }
+        },
+        "CAT": {
+          "trades": 14,
+          "win_rate": 0.6429,
+          "expectancy_r": 0.5819,
+          "profit_factor": 2.5373,
+          "avg_hold_bars": 8.29,
+          "exit_reasons": {
+            "target": 8,
+            "stop": 4,
+            "time": 2
+          }
+        },
+        "GE": {
+          "trades": 7,
+          "win_rate": 0.4286,
+          "expectancy_r": 0.0217,
+          "profit_factor": 0.8696,
+          "avg_hold_bars": 7.43,
+          "exit_reasons": {
+            "time": 2,
+            "target": 2,
+            "stop": 3
+          }
+        },
+        "NFLX": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "AMD": {
+          "trades": 7,
+          "win_rate": 0.2857,
+          "expectancy_r": -0.1513,
+          "profit_factor": 0.7491,
+          "avg_hold_bars": 6.14,
+          "exit_reasons": {
+            "stop": 4,
+            "time": 1,
+            "target": 2
+          }
+        },
+        "MU": {
+          "trades": 7,
+          "win_rate": 0.5714,
+          "expectancy_r": 0.4286,
+          "profit_factor": 1.7177,
+          "avg_hold_bars": 5.14,
+          "exit_reasons": {
+            "target": 4,
+            "stop": 3
+          }
+        },
+        "PANW": {
+          "trades": 8,
+          "win_rate": 0.625,
+          "expectancy_r": 0.5239,
+          "profit_factor": 2.5749,
+          "avg_hold_bars": 7.38,
+          "exit_reasons": {
+            "target": 4,
+            "stop": 3,
+            "time": 1
+          }
+        },
+        "SHOP": {
+          "trades": 6,
+          "win_rate": 0.3333,
+          "expectancy_r": -0.0535,
+          "profit_factor": 0.8766,
+          "avg_hold_bars": 6.67,
+          "exit_reasons": {
+            "stop": 3,
+            "target": 2,
+            "eod": 1
+          }
+        },
+        "COIN": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 4.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "UBER": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "DECK": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "ON": {
+          "trades": 10,
+          "win_rate": 0.5,
+          "expectancy_r": 0.124,
+          "profit_factor": 0.9221,
+          "avg_hold_bars": 8.4,
+          "exit_reasons": {
+            "target": 4,
+            "time": 1,
+            "stop": 5
+          }
+        },
+        "MRNA": {
+          "trades": 11,
+          "win_rate": 0.5455,
+          "expectancy_r": 0.2542,
+          "profit_factor": 1.734,
+          "avg_hold_bars": 7.73,
+          "exit_reasons": {
+            "target": 4,
+            "stop": 4,
+            "time": 2,
+            "eod": 1
+          }
+        },
+        "LULU": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        }
+      }
+    },
+    "trend-follower-v2": {
+      "direction": "long",
+      "symbols_evaluated": 30,
+      "symbols_excluded": [],
+      "pooled": {
+        "trades": 37,
+        "win_rate": 0.5405405405405406,
+        "profit_factor": 1.6355733573103186,
+        "expectancy_r": 0.26151125603022757,
+        "avg_win_r": 1.2012116953579608,
+        "avg_loss_r": -0.8440186725906349,
+        "avg_hold_bars": 8.216216216216216,
+        "exit_reasons": {
+          "target": 14,
+          "time": 9,
+          "stop": 13,
+          "eod": 1
+        }
+      },
+      "not_applied_filters": {
+        "market_cap_gt (not available offline)": 30,
+        "exchange_in (not available offline)": 30,
+        "country_in (not available offline)": 30,
+        "rs_rank_min (not available offline)": 30
+      },
+      "per_symbol": {
+        "AAPL": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "MSFT": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 10.0,
+          "exit_reasons": {
+            "target": 1
+          }
+        },
+        "GOOGL": {
+          "trades": 2,
+          "win_rate": 1.0,
+          "expectancy_r": 0.1587,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 2
+          }
+        },
+        "AMZN": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 13.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "NVDA": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "META": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -0.6676,
+          "profit_factor": null,
+          "avg_hold_bars": 4.0,
+          "exit_reasons": {
+            "eod": 1
+          }
+        },
+        "TSLA": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "AVGO": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 1.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "ORCL": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "CRM": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "JPM": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 0.8971,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "V": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": -0.2171,
+          "profit_factor": 0.5909,
+          "avg_hold_bars": 9.0,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 1
+          }
+        },
+        "UNH": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": 0.0022,
+          "profit_factor": 0.7866,
+          "avg_hold_bars": 14.0,
+          "exit_reasons": {
+            "time": 1,
+            "stop": 1
+          }
+        },
+        "LLY": {
+          "trades": 3,
+          "win_rate": 0.0,
+          "expectancy_r": -0.686,
+          "profit_factor": null,
+          "avg_hold_bars": 9.0,
+          "exit_reasons": {
+            "time": 1,
+            "stop": 2
+          }
+        },
+        "XOM": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.6667,
+          "profit_factor": 2.3775,
+          "avg_hold_bars": 2.67,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 1
+          }
+        },
+        "COST": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "WMT": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 14.0,
+          "exit_reasons": {
+            "target": 1
+          }
+        },
+        "CAT": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": 0.25,
+          "profit_factor": 1.4765,
+          "avg_hold_bars": 6.5,
+          "exit_reasons": {
+            "target": 1,
+            "stop": 1
+          }
+        },
+        "GE": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -0.1865,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "NFLX": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "AMD": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.6667,
+          "profit_factor": 3.0748,
+          "avg_hold_bars": 5.67,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 1
+          }
+        },
+        "MU": {
+          "trades": 2,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 7.5,
+          "exit_reasons": {
+            "target": 2
+          }
+        },
+        "PANW": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": 0.25,
+          "profit_factor": 1.4647,
+          "avg_hold_bars": 5.5,
+          "exit_reasons": {
+            "stop": 1,
+            "target": 1
+          }
+        },
+        "SHOP": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "COIN": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "UBER": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "DECK": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "ON": {
+          "trades": 4,
+          "win_rate": 0.75,
+          "expectancy_r": 0.5599,
+          "profit_factor": 2.4644,
+          "avg_hold_bars": 8.75,
+          "exit_reasons": {
+            "time": 1,
+            "target": 2,
+            "stop": 1
+          }
+        },
+        "MRNA": {
+          "trades": 5,
+          "win_rate": 0.4,
+          "expectancy_r": 0.1128,
+          "profit_factor": 1.4661,
+          "avg_hold_bars": 6.0,
+          "exit_reasons": {
+            "stop": 2,
+            "time": 1,
+            "target": 2
+          }
+        },
+        "LULU": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        }
+      }
+    },
+    "trend-leader": {
+      "direction": "long",
+      "symbols_evaluated": 30,
+      "symbols_excluded": [],
+      "pooled": {
+        "trades": 113,
+        "win_rate": 0.4778761061946903,
+        "profit_factor": 1.3536463050539411,
+        "expectancy_r": 0.15658969960674837,
+        "avg_win_r": 1.1426072480861957,
+        "avg_loss_r": -0.8470353050955464,
+        "avg_hold_bars": 7.486725663716814,
+        "exit_reasons": {
+          "target": 38,
+          "time": 23,
+          "stop": 45,
+          "eod": 7
+        }
+      },
+      "not_applied_filters": {
+        "market_cap_gt (not available offline)": 30,
+        "exchange_in (not available offline)": 30,
+        "country_in (not available offline)": 30
+      },
+      "per_symbol": {
+        "AAPL": {
+          "trades": 6,
+          "win_rate": 0.3333,
+          "expectancy_r": -0.0111,
+          "profit_factor": 0.7578,
+          "avg_hold_bars": 8.0,
+          "exit_reasons": {
+            "target": 2,
+            "time": 1,
+            "stop": 3
+          }
+        },
+        "MSFT": {
+          "trades": 4,
+          "win_rate": 0.5,
+          "expectancy_r": -0.0594,
+          "profit_factor": 0.8295,
+          "avg_hold_bars": 7.75,
+          "exit_reasons": {
+            "stop": 2,
+            "target": 1,
+            "eod": 1
+          }
+        },
+        "GOOGL": {
+          "trades": 8,
+          "win_rate": 0.375,
+          "expectancy_r": -0.0254,
+          "profit_factor": 0.7898,
+          "avg_hold_bars": 10.12,
+          "exit_reasons": {
+            "time": 4,
+            "target": 1,
+            "stop": 3
+          }
+        },
+        "AMZN": {
+          "trades": 2,
+          "win_rate": 0.0,
+          "expectancy_r": -0.4745,
+          "profit_factor": null,
+          "avg_hold_bars": 8.5,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 1
+          }
+        },
+        "NVDA": {
+          "trades": 2,
+          "win_rate": 0.0,
+          "expectancy_r": -0.5937,
+          "profit_factor": null,
+          "avg_hold_bars": 9.0,
+          "exit_reasons": {
+            "time": 1,
+            "stop": 1
+          }
+        },
+        "META": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -0.6676,
+          "profit_factor": null,
+          "avg_hold_bars": 4.0,
+          "exit_reasons": {
+            "eod": 1
+          }
+        },
+        "TSLA": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": -0.3416,
+          "profit_factor": 0.328,
+          "avg_hold_bars": 8.0,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 1
+          }
+        },
+        "AVGO": {
+          "trades": 3,
+          "win_rate": 0.0,
+          "expectancy_r": -0.4059,
+          "profit_factor": null,
+          "avg_hold_bars": 11.0,
+          "exit_reasons": {
+            "time": 2,
+            "stop": 1
+          }
+        },
+        "ORCL": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 2.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "CRM": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "JPM": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 0.3126,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "V": {
+          "trades": 5,
+          "win_rate": 0.6,
+          "expectancy_r": 0.1844,
+          "profit_factor": 1.6715,
+          "avg_hold_bars": 6.0,
+          "exit_reasons": {
+            "stop": 2,
+            "time": 1,
+            "target": 1,
+            "eod": 1
+          }
+        },
+        "UNH": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.4995,
+          "profit_factor": 1.8735,
+          "avg_hold_bars": 13.33,
+          "exit_reasons": {
+            "target": 1,
+            "time": 1,
+            "stop": 1
+          }
+        },
+        "LLY": {
+          "trades": 6,
+          "win_rate": 0.5,
+          "expectancy_r": 0.2143,
+          "profit_factor": 1.402,
+          "avg_hold_bars": 5.5,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 2,
+            "time": 1,
+            "eod": 1
+          }
+        },
+        "XOM": {
+          "trades": 9,
+          "win_rate": 0.5556,
+          "expectancy_r": 0.5115,
+          "profit_factor": 2.6585,
+          "avg_hold_bars": 6.78,
+          "exit_reasons": {
+            "target": 4,
+            "time": 2,
+            "stop": 2,
+            "eod": 1
+          }
+        },
+        "COST": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 4.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "WMT": {
+          "trades": 6,
+          "win_rate": 0.1667,
+          "expectancy_r": -0.4853,
+          "profit_factor": 0.2821,
+          "avg_hold_bars": 6.0,
+          "exit_reasons": {
+            "stop": 4,
+            "time": 1,
+            "target": 1
+          }
+        },
+        "CAT": {
+          "trades": 10,
+          "win_rate": 0.7,
+          "expectancy_r": 0.6075,
+          "profit_factor": 2.2299,
+          "avg_hold_bars": 8.0,
+          "exit_reasons": {
+            "target": 6,
+            "stop": 3,
+            "time": 1
+          }
+        },
+        "GE": {
+          "trades": 7,
+          "win_rate": 0.5714,
+          "expectancy_r": 0.3788,
+          "profit_factor": 1.7456,
+          "avg_hold_bars": 9.29,
+          "exit_reasons": {
+            "time": 2,
+            "target": 3,
+            "stop": 2
+          }
+        },
+        "NFLX": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "AMD": {
+          "trades": 2,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 1.5,
+          "exit_reasons": {
+            "stop": 2
+          }
+        },
+        "MU": {
+          "trades": 7,
+          "win_rate": 0.5714,
+          "expectancy_r": 0.4286,
+          "profit_factor": 1.7177,
+          "avg_hold_bars": 5.14,
+          "exit_reasons": {
+            "target": 4,
+            "stop": 3
+          }
+        },
+        "PANW": {
+          "trades": 6,
+          "win_rate": 0.5,
+          "expectancy_r": 0.25,
+          "profit_factor": 1.3953,
+          "avg_hold_bars": 7.17,
+          "exit_reasons": {
+            "target": 3,
+            "stop": 3
+          }
+        },
+        "SHOP": {
+          "trades": 5,
+          "win_rate": 0.2,
+          "expectancy_r": -0.3642,
+          "profit_factor": 0.3983,
+          "avg_hold_bars": 5.8,
+          "exit_reasons": {
+            "stop": 3,
+            "target": 1,
+            "eod": 1
+          }
+        },
+        "COIN": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "UBER": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "DECK": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "ON": {
+          "trades": 8,
+          "win_rate": 0.625,
+          "expectancy_r": 0.405,
+          "profit_factor": 1.7131,
+          "avg_hold_bars": 6.25,
+          "exit_reasons": {
+            "target": 4,
+            "time": 1,
+            "stop": 3
+          }
+        },
+        "MRNA": {
+          "trades": 8,
+          "win_rate": 0.875,
+          "expectancy_r": 0.8188,
+          "profit_factor": 9.5092,
+          "avg_hold_bars": 8.88,
+          "exit_reasons": {
+            "target": 4,
+            "time": 2,
+            "stop": 1,
+            "eod": 1
+          }
+        },
+        "LULU": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        }
+      }
+    },
+    "trend-pullback-v2": {
+      "direction": "long",
+      "symbols_evaluated": 30,
+      "symbols_excluded": [],
+      "pooled": {
+        "trades": 83,
+        "win_rate": 0.5542168674698795,
+        "profit_factor": 1.435904046971758,
+        "expectancy_r": 0.24621979418561632,
+        "avg_win_r": 1.1141386372304354,
+        "avg_loss_r": -0.8868964731228973,
+        "avg_hold_bars": 9.795180722891565,
+        "exit_reasons": {
+          "target": 29,
+          "stop": 30,
+          "time": 23,
+          "eod": 1
+        }
+      },
+      "not_applied_filters": {
+        "market_cap_gt (not available offline)": 30,
+        "exchange_in (not available offline)": 30,
+        "country_in (not available offline)": 30,
+        "rs_rank_min (not available offline)": 30
+      },
+      "per_symbol": {
+        "AAPL": {
+          "trades": 8,
+          "win_rate": 0.375,
+          "expectancy_r": -0.0625,
+          "profit_factor": 0.7292,
+          "avg_hold_bars": 6.12,
+          "exit_reasons": {
+            "target": 3,
+            "stop": 5
+          }
+        },
+        "MSFT": {
+          "trades": 2,
+          "win_rate": 1.0,
+          "expectancy_r": 1.0868,
+          "profit_factor": null,
+          "avg_hold_bars": 12.0,
+          "exit_reasons": {
+            "time": 1,
+            "target": 1
+          }
+        },
+        "GOOGL": {
+          "trades": 6,
+          "win_rate": 0.5,
+          "expectancy_r": 0.287,
+          "profit_factor": 1.5581,
+          "avg_hold_bars": 9.5,
+          "exit_reasons": {
+            "time": 2,
+            "target": 2,
+            "stop": 2
+          }
+        },
+        "AMZN": {
+          "trades": 2,
+          "win_rate": 0.0,
+          "expectancy_r": -0.6864,
+          "profit_factor": null,
+          "avg_hold_bars": 13.0,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 1
+          }
+        },
+        "NVDA": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.529,
+          "profit_factor": 2.0517,
+          "avg_hold_bars": 10.33,
+          "exit_reasons": {
+            "time": 1,
+            "target": 1,
+            "stop": 1
+          }
+        },
+        "META": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -0.4614,
+          "profit_factor": null,
+          "avg_hold_bars": 6.0,
+          "exit_reasons": {
+            "eod": 1
+          }
+        },
+        "TSLA": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 0.699,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "AVGO": {
+          "trades": 2,
+          "win_rate": 1.0,
+          "expectancy_r": 0.8265,
+          "profit_factor": null,
+          "avg_hold_bars": 11.5,
+          "exit_reasons": {
+            "time": 1,
+            "target": 1
+          }
+        },
+        "ORCL": {
+          "trades": 2,
+          "win_rate": 0.0,
+          "expectancy_r": -0.6184,
+          "profit_factor": null,
+          "avg_hold_bars": 8.5,
+          "exit_reasons": {
+            "time": 1,
+            "stop": 1
+          }
+        },
+        "CRM": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 6.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "JPM": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.5096,
+          "profit_factor": 2.8426,
+          "avg_hold_bars": 10.67,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 1,
+            "target": 1
+          }
+        },
+        "V": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": -0.4114,
+          "profit_factor": 0.1657,
+          "avg_hold_bars": 10.5,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 1
+          }
+        },
+        "UNH": {
+          "trades": 5,
+          "win_rate": 0.6,
+          "expectancy_r": 0.5,
+          "profit_factor": 1.7021,
+          "avg_hold_bars": 8.8,
+          "exit_reasons": {
+            "target": 3,
+            "stop": 2
+          }
+        },
+        "LLY": {
+          "trades": 5,
+          "win_rate": 0.6,
+          "expectancy_r": 0.4047,
+          "profit_factor": 1.7668,
+          "avg_hold_bars": 10.6,
+          "exit_reasons": {
+            "time": 2,
+            "target": 2,
+            "stop": 1
+          }
+        },
+        "XOM": {
+          "trades": 4,
+          "win_rate": 0.75,
+          "expectancy_r": 0.875,
+          "profit_factor": 3.2668,
+          "avg_hold_bars": 8.25,
+          "exit_reasons": {
+            "target": 3,
+            "stop": 1
+          }
+        },
+        "COST": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 0.2602,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "WMT": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.2845,
+          "profit_factor": 1.2854,
+          "avg_hold_bars": 10.0,
+          "exit_reasons": {
+            "target": 1,
+            "stop": 1,
+            "time": 1
+          }
+        },
+        "CAT": {
+          "trades": 6,
+          "win_rate": 0.5,
+          "expectancy_r": 0.0338,
+          "profit_factor": 0.835,
+          "avg_hold_bars": 10.67,
+          "exit_reasons": {
+            "target": 1,
+            "time": 3,
+            "stop": 2
+          }
+        },
+        "GE": {
+          "trades": 4,
+          "win_rate": 0.5,
+          "expectancy_r": -0.0034,
+          "profit_factor": 0.9377,
+          "avg_hold_bars": 11.0,
+          "exit_reasons": {
+            "time": 1,
+            "stop": 2,
+            "target": 1
+          }
+        },
+        "NFLX": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "AMD": {
+          "trades": 3,
+          "win_rate": 0.3333,
+          "expectancy_r": -0.1667,
+          "profit_factor": 1.0025,
+          "avg_hold_bars": 9.0,
+          "exit_reasons": {
+            "stop": 2,
+            "target": 1
+          }
+        },
+        "MU": {
+          "trades": 5,
+          "win_rate": 0.8,
+          "expectancy_r": 0.3172,
+          "profit_factor": 2.899,
+          "avg_hold_bars": 11.0,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 3,
+            "target": 1
+          }
+        },
+        "PANW": {
+          "trades": 5,
+          "win_rate": 0.8,
+          "expectancy_r": 0.8122,
+          "profit_factor": 4.3006,
+          "avg_hold_bars": 11.2,
+          "exit_reasons": {
+            "target": 3,
+            "time": 1,
+            "stop": 1
+          }
+        },
+        "SHOP": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": 0.25,
+          "profit_factor": 1.5168,
+          "avg_hold_bars": 7.0,
+          "exit_reasons": {
+            "target": 1,
+            "stop": 1
+          }
+        },
+        "COIN": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "UBER": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "DECK": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "ON": {
+          "trades": 4,
+          "win_rate": 0.5,
+          "expectancy_r": 0.25,
+          "profit_factor": 1.0898,
+          "avg_hold_bars": 8.5,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 2
+          }
+        },
+        "MRNA": {
+          "trades": 3,
+          "win_rate": 0.3333,
+          "expectancy_r": 0.1644,
+          "profit_factor": 1.363,
+          "avg_hold_bars": 12.33,
+          "exit_reasons": {
+            "target": 1,
+            "time": 1,
+            "stop": 1
+          }
+        },
+        "LULU": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        }
+      }
+    },
+    "vcp-breakout": {
+      "direction": "long",
+      "symbols_evaluated": 30,
+      "symbols_excluded": [],
+      "pooled": {
+        "trades": 34,
+        "win_rate": 0.5294117647058824,
+        "profit_factor": 1.6341535381601788,
+        "expectancy_r": 0.27097221847491987,
+        "avg_win_r": 1.2534096034548927,
+        "avg_loss_r": -0.8342698396275495,
+        "avg_hold_bars": 7.970588235294118,
+        "exit_reasons": {
+          "target": 14,
+          "time": 7,
+          "stop": 12,
+          "eod": 1
+        }
+      },
+      "not_applied_filters": {
+        "market_cap_gt (not available offline)": 30,
+        "exchange_in (not available offline)": 30,
+        "country_in (not available offline)": 30,
+        "rs_rank_min (not available offline)": 30
+      },
+      "per_symbol": {
+        "AAPL": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "MSFT": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 10.0,
+          "exit_reasons": {
+            "target": 1
+          }
+        },
+        "GOOGL": {
+          "trades": 2,
+          "win_rate": 1.0,
+          "expectancy_r": 0.1587,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 2
+          }
+        },
+        "AMZN": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 13.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "NVDA": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "META": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -0.6676,
+          "profit_factor": null,
+          "avg_hold_bars": 4.0,
+          "exit_reasons": {
+            "eod": 1
+          }
+        },
+        "TSLA": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "AVGO": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 1.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "ORCL": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "CRM": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "JPM": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "V": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "UNH": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": 0.0022,
+          "profit_factor": 0.7866,
+          "avg_hold_bars": 14.0,
+          "exit_reasons": {
+            "time": 1,
+            "stop": 1
+          }
+        },
+        "LLY": {
+          "trades": 3,
+          "win_rate": 0.0,
+          "expectancy_r": -0.686,
+          "profit_factor": null,
+          "avg_hold_bars": 9.0,
+          "exit_reasons": {
+            "time": 1,
+            "stop": 2
+          }
+        },
+        "XOM": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.6667,
+          "profit_factor": 2.3775,
+          "avg_hold_bars": 2.67,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 1
+          }
+        },
+        "COST": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "WMT": {
+          "trades": 1,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 14.0,
+          "exit_reasons": {
+            "target": 1
+          }
+        },
+        "CAT": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": 0.25,
+          "profit_factor": 1.4765,
+          "avg_hold_bars": 6.5,
+          "exit_reasons": {
+            "target": 1,
+            "stop": 1
+          }
+        },
+        "GE": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -0.1865,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 1
+          }
+        },
+        "NFLX": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "AMD": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.6667,
+          "profit_factor": 3.0748,
+          "avg_hold_bars": 5.67,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 1
+          }
+        },
+        "MU": {
+          "trades": 2,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 7.5,
+          "exit_reasons": {
+            "target": 2
+          }
+        },
+        "PANW": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": 0.25,
+          "profit_factor": 1.4647,
+          "avg_hold_bars": 5.5,
+          "exit_reasons": {
+            "stop": 1,
+            "target": 1
+          }
+        },
+        "SHOP": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "COIN": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "UBER": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "DECK": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "ON": {
+          "trades": 4,
+          "win_rate": 0.75,
+          "expectancy_r": 0.5599,
+          "profit_factor": 2.4644,
+          "avg_hold_bars": 8.75,
+          "exit_reasons": {
+            "time": 1,
+            "target": 2,
+            "stop": 1
+          }
+        },
+        "MRNA": {
+          "trades": 5,
+          "win_rate": 0.4,
+          "expectancy_r": 0.1128,
+          "profit_factor": 1.4661,
+          "avg_hold_bars": 6.0,
+          "exit_reasons": {
+            "stop": 2,
+            "time": 1,
+            "target": 2
+          }
+        },
+        "LULU": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        }
+      }
+    },
+    "volatility-expansion": {
+      "direction": "long",
+      "symbols_evaluated": 30,
+      "symbols_excluded": [],
+      "pooled": {
+        "trades": 288,
+        "win_rate": 0.4895833333333333,
+        "profit_factor": 1.272164082927207,
+        "expectancy_r": 0.17110049629205484,
+        "avg_win_r": 1.1961805344431262,
+        "avg_loss_r": -0.8683163256093813,
+        "avg_hold_bars": 7.868055555555555,
+        "exit_reasons": {
+          "target": 98,
+          "stop": 117,
+          "time": 66,
+          "eod": 7
+        }
+      },
+      "not_applied_filters": {
+        "market_cap_gt (not available offline)": 30,
+        "exchange_in (not available offline)": 30,
+        "country_in (not available offline)": 30
+      },
+      "per_symbol": {
+        "AAPL": {
+          "trades": 10,
+          "win_rate": 0.3,
+          "expectancy_r": -0.1471,
+          "profit_factor": 0.5564,
+          "avg_hold_bars": 9.7,
+          "exit_reasons": {
+            "target": 1,
+            "stop": 5,
+            "time": 4
+          }
+        },
+        "MSFT": {
+          "trades": 11,
+          "win_rate": 0.3636,
+          "expectancy_r": -0.0965,
+          "profit_factor": 0.6535,
+          "avg_hold_bars": 7.91,
+          "exit_reasons": {
+            "stop": 6,
+            "target": 3,
+            "time": 2
+          }
+        },
+        "GOOGL": {
+          "trades": 16,
+          "win_rate": 0.5625,
+          "expectancy_r": 0.3808,
+          "profit_factor": 1.6064,
+          "avg_hold_bars": 7.25,
+          "exit_reasons": {
+            "target": 8,
+            "stop": 6,
+            "time": 2
+          }
+        },
+        "AMZN": {
+          "trades": 6,
+          "win_rate": 0.5,
+          "expectancy_r": 0.3285,
+          "profit_factor": 1.2716,
+          "avg_hold_bars": 10.67,
+          "exit_reasons": {
+            "time": 2,
+            "target": 2,
+            "stop": 2
+          }
+        },
+        "NVDA": {
+          "trades": 9,
+          "win_rate": 0.5556,
+          "expectancy_r": 0.3657,
+          "profit_factor": 1.955,
+          "avg_hold_bars": 8.67,
+          "exit_reasons": {
+            "target": 3,
+            "stop": 3,
+            "time": 3
+          }
+        },
+        "META": {
+          "trades": 10,
+          "win_rate": 0.5,
+          "expectancy_r": 0.23,
+          "profit_factor": 1.664,
+          "avg_hold_bars": 8.1,
+          "exit_reasons": {
+            "target": 3,
+            "stop": 4,
+            "time": 3
+          }
+        },
+        "TSLA": {
+          "trades": 8,
+          "win_rate": 0.25,
+          "expectancy_r": -0.1791,
+          "profit_factor": 0.5552,
+          "avg_hold_bars": 9.25,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 4,
+            "time": 2
+          }
+        },
+        "AVGO": {
+          "trades": 12,
+          "win_rate": 0.5,
+          "expectancy_r": 0.3408,
+          "profit_factor": 1.6066,
+          "avg_hold_bars": 8.0,
+          "exit_reasons": {
+            "target": 6,
+            "time": 2,
+            "stop": 4
+          }
+        },
+        "ORCL": {
+          "trades": 11,
+          "win_rate": 0.4545,
+          "expectancy_r": 0.0568,
+          "profit_factor": 0.8495,
+          "avg_hold_bars": 5.45,
+          "exit_reasons": {
+            "stop": 5,
+            "target": 4,
+            "time": 2
+          }
+        },
+        "CRM": {
+          "trades": 4,
+          "win_rate": 0.25,
+          "expectancy_r": -0.5989,
+          "profit_factor": 0.0745,
+          "avg_hold_bars": 9.0,
+          "exit_reasons": {
+            "stop": 2,
+            "time": 2
+          }
+        },
+        "JPM": {
+          "trades": 9,
+          "win_rate": 0.7778,
+          "expectancy_r": 0.368,
+          "profit_factor": 2.6141,
+          "avg_hold_bars": 10.89,
+          "exit_reasons": {
+            "target": 2,
+            "time": 5,
+            "stop": 2
+          }
+        },
+        "V": {
+          "trades": 9,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.1774,
+          "profit_factor": 1.6643,
+          "avg_hold_bars": 10.0,
+          "exit_reasons": {
+            "stop": 3,
+            "time": 4,
+            "target": 1,
+            "eod": 1
+          }
+        },
+        "UNH": {
+          "trades": 11,
+          "win_rate": 0.6364,
+          "expectancy_r": 0.3831,
+          "profit_factor": 2.2938,
+          "avg_hold_bars": 9.91,
+          "exit_reasons": {
+            "target": 4,
+            "stop": 3,
+            "time": 3,
+            "eod": 1
+          }
+        },
+        "LLY": {
+          "trades": 9,
+          "win_rate": 0.4444,
+          "expectancy_r": 0.0573,
+          "profit_factor": 1.0228,
+          "avg_hold_bars": 7.78,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 4,
+            "time": 2,
+            "eod": 1
+          }
+        },
+        "XOM": {
+          "trades": 9,
+          "win_rate": 0.5556,
+          "expectancy_r": 0.5115,
+          "profit_factor": 2.9424,
+          "avg_hold_bars": 6.44,
+          "exit_reasons": {
+            "stop": 2,
+            "target": 4,
+            "time": 2,
+            "eod": 1
+          }
+        },
+        "COST": {
+          "trades": 8,
+          "win_rate": 0.375,
+          "expectancy_r": -0.1239,
+          "profit_factor": 0.6309,
+          "avg_hold_bars": 6.5,
+          "exit_reasons": {
+            "stop": 4,
+            "target": 2,
+            "time": 1,
+            "eod": 1
+          }
+        },
+        "WMT": {
+          "trades": 12,
+          "win_rate": 0.5,
+          "expectancy_r": 0.0542,
+          "profit_factor": 1.0389,
+          "avg_hold_bars": 6.58,
+          "exit_reasons": {
+            "stop": 6,
+            "time": 1,
+            "target": 4,
+            "eod": 1
+          }
+        },
+        "CAT": {
+          "trades": 15,
+          "win_rate": 0.5333,
+          "expectancy_r": 0.4012,
+          "profit_factor": 1.5936,
+          "avg_hold_bars": 7.13,
+          "exit_reasons": {
+            "stop": 6,
+            "time": 1,
+            "target": 8
+          }
+        },
+        "GE": {
+          "trades": 13,
+          "win_rate": 0.4615,
+          "expectancy_r": 0.007,
+          "profit_factor": 0.934,
+          "avg_hold_bars": 8.69,
+          "exit_reasons": {
+            "target": 3,
+            "stop": 5,
+            "time": 5
+          }
+        },
+        "NFLX": {
+          "trades": 8,
+          "win_rate": 0.375,
+          "expectancy_r": 0.1139,
+          "profit_factor": 1.3055,
+          "avg_hold_bars": 11.0,
+          "exit_reasons": {
+            "stop": 3,
+            "time": 4,
+            "target": 1
+          }
+        },
+        "AMD": {
+          "trades": 13,
+          "win_rate": 0.5385,
+          "expectancy_r": 0.2338,
+          "profit_factor": 1.4264,
+          "avg_hold_bars": 6.38,
+          "exit_reasons": {
+            "stop": 6,
+            "target": 6,
+            "time": 1
+          }
+        },
+        "MU": {
+          "trades": 18,
+          "win_rate": 0.6111,
+          "expectancy_r": 0.4978,
+          "profit_factor": 1.9406,
+          "avg_hold_bars": 7.56,
+          "exit_reasons": {
+            "stop": 6,
+            "time": 3,
+            "target": 9
+          }
+        },
+        "PANW": {
+          "trades": 10,
+          "win_rate": 0.4,
+          "expectancy_r": 0.0,
+          "profit_factor": 0.9677,
+          "avg_hold_bars": 5.4,
+          "exit_reasons": {
+            "stop": 6,
+            "target": 4
+          }
+        },
+        "SHOP": {
+          "trades": 4,
+          "win_rate": 0.0,
+          "expectancy_r": -0.8303,
+          "profit_factor": null,
+          "avg_hold_bars": 4.0,
+          "exit_reasons": {
+            "stop": 3,
+            "eod": 1
+          }
+        },
+        "COIN": {
+          "trades": 7,
+          "win_rate": 0.2857,
+          "expectancy_r": -0.1692,
+          "profit_factor": 0.5894,
+          "avg_hold_bars": 9.71,
+          "exit_reasons": {
+            "time": 1,
+            "target": 2,
+            "stop": 4
+          }
+        },
+        "UBER": {
+          "trades": 3,
+          "win_rate": 0.3333,
+          "expectancy_r": 0.2082,
+          "profit_factor": 1.2308,
+          "avg_hold_bars": 10.67,
+          "exit_reasons": {
+            "target": 1,
+            "time": 2
+          }
+        },
+        "DECK": {
+          "trades": 4,
+          "win_rate": 0.5,
+          "expectancy_r": -0.2264,
+          "profit_factor": 0.4365,
+          "avg_hold_bars": 10.25,
+          "exit_reasons": {
+            "stop": 2,
+            "time": 2
+          }
+        },
+        "ON": {
+          "trades": 10,
+          "win_rate": 0.6,
+          "expectancy_r": 0.2764,
+          "profit_factor": 1.4345,
+          "avg_hold_bars": 6.4,
+          "exit_reasons": {
+            "time": 2,
+            "target": 4,
+            "stop": 4
+          }
+        },
+        "MRNA": {
+          "trades": 15,
+          "win_rate": 0.6,
+          "expectancy_r": 0.47,
+          "profit_factor": 2.425,
+          "avg_hold_bars": 5.73,
+          "exit_reasons": {
+            "stop": 5,
+            "target": 8,
+            "time": 2
+          }
+        },
+        "LULU": {
+          "trades": 4,
+          "win_rate": 0.25,
+          "expectancy_r": -0.1709,
+          "profit_factor": 0.6656,
+          "avg_hold_bars": 8.25,
+          "exit_reasons": {
+            "stop": 2,
+            "target": 1,
+            "time": 1
+          }
+        }
+      }
+    },
+    "volume-trend-accumulation": {
+      "direction": "long",
+      "symbols_evaluated": 30,
+      "symbols_excluded": [],
+      "pooled": {
+        "trades": 94,
+        "win_rate": 0.5212765957446809,
+        "profit_factor": 1.455246531203643,
+        "expectancy_r": 0.2140768613827534,
+        "avg_win_r": 1.231709078011322,
+        "avg_loss_r": -0.8940115522794656,
+        "avg_hold_bars": 8.148936170212766,
+        "exit_reasons": {
+          "stop": 38,
+          "time": 22,
+          "target": 32,
+          "eod": 2
+        }
+      },
+      "not_applied_filters": {
+        "market_cap_gt (not available offline)": 30,
+        "exchange_in (not available offline)": 30,
+        "eps_positive (not available offline)": 30,
+        "pe_max (not available offline)": 30,
+        "analyst_rating_in (not available offline)": 30
+      },
+      "per_symbol": {
+        "AAPL": {
+          "trades": 5,
+          "win_rate": 0.4,
+          "expectancy_r": -0.1528,
+          "profit_factor": 0.5631,
+          "avg_hold_bars": 10.8,
+          "exit_reasons": {
+            "stop": 2,
+            "time": 3
+          }
+        },
+        "MSFT": {
+          "trades": 4,
+          "win_rate": 0.75,
+          "expectancy_r": 0.875,
+          "profit_factor": 3.9058,
+          "avg_hold_bars": 10.5,
+          "exit_reasons": {
+            "target": 3,
+            "stop": 1
+          }
+        },
+        "GOOGL": {
+          "trades": 4,
+          "win_rate": 0.5,
+          "expectancy_r": 0.25,
+          "profit_factor": 1.4097,
+          "avg_hold_bars": 7.25,
+          "exit_reasons": {
+            "stop": 2,
+            "target": 2
+          }
+        },
+        "AMZN": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": 0.25,
+          "profit_factor": 0.9234,
+          "avg_hold_bars": 5.5,
+          "exit_reasons": {
+            "target": 1,
+            "stop": 1
+          }
+        },
+        "NVDA": {
+          "trades": 3,
+          "win_rate": 0.3333,
+          "expectancy_r": -0.257,
+          "profit_factor": 0.7112,
+          "avg_hold_bars": 6.0,
+          "exit_reasons": {
+            "stop": 2,
+            "time": 1
+          }
+        },
+        "META": {
+          "trades": 6,
+          "win_rate": 0.5,
+          "expectancy_r": 0.3054,
+          "profit_factor": 1.614,
+          "avg_hold_bars": 4.17,
+          "exit_reasons": {
+            "stop": 2,
+            "target": 3,
+            "eod": 1
+          }
+        },
+        "TSLA": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": 0.1515,
+          "profit_factor": 1.7139,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 2
+          }
+        },
+        "AVGO": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.6667,
+          "profit_factor": 2.9007,
+          "avg_hold_bars": 7.0,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 1
+          }
+        },
+        "ORCL": {
+          "trades": 3,
+          "win_rate": 0.3333,
+          "expectancy_r": 0.007,
+          "profit_factor": 1.0832,
+          "avg_hold_bars": 9.33,
+          "exit_reasons": {
+            "stop": 1,
+            "time": 1,
+            "target": 1
+          }
+        },
+        "CRM": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 6.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "JPM": {
+          "trades": 4,
+          "win_rate": 1.0,
+          "expectancy_r": 0.8913,
+          "profit_factor": null,
+          "avg_hold_bars": 15.0,
+          "exit_reasons": {
+            "time": 4
+          }
+        },
+        "V": {
+          "trades": 3,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.0947,
+          "profit_factor": 1.3054,
+          "avg_hold_bars": 11.0,
+          "exit_reasons": {
+            "time": 2,
+            "stop": 1
+          }
+        },
+        "UNH": {
+          "trades": 6,
+          "win_rate": 0.3333,
+          "expectancy_r": -0.1115,
+          "profit_factor": 0.6049,
+          "avg_hold_bars": 8.5,
+          "exit_reasons": {
+            "target": 1,
+            "stop": 3,
+            "time": 1,
+            "eod": 1
+          }
+        },
+        "LLY": {
+          "trades": 4,
+          "win_rate": 0.5,
+          "expectancy_r": -0.3629,
+          "profit_factor": 0.1626,
+          "avg_hold_bars": 11.75,
+          "exit_reasons": {
+            "stop": 2,
+            "time": 2
+          }
+        },
+        "XOM": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": 0.25,
+          "profit_factor": 1.3477,
+          "avg_hold_bars": 2.5,
+          "exit_reasons": {
+            "stop": 1,
+            "target": 1
+          }
+        },
+        "COST": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 4.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "WMT": {
+          "trades": 2,
+          "win_rate": 0.5,
+          "expectancy_r": 0.25,
+          "profit_factor": 0.9888,
+          "avg_hold_bars": 8.0,
+          "exit_reasons": {
+            "target": 1,
+            "stop": 1
+          }
+        },
+        "CAT": {
+          "trades": 5,
+          "win_rate": 0.4,
+          "expectancy_r": -0.0,
+          "profit_factor": 0.741,
+          "avg_hold_bars": 5.4,
+          "exit_reasons": {
+            "target": 2,
+            "stop": 3
+          }
+        },
+        "GE": {
+          "trades": 4,
+          "win_rate": 0.5,
+          "expectancy_r": 0.0697,
+          "profit_factor": 0.9937,
+          "avg_hold_bars": 7.25,
+          "exit_reasons": {
+            "stop": 2,
+            "target": 1,
+            "time": 1
+          }
+        },
+        "NFLX": {
+          "trades": 2,
+          "win_rate": 1.0,
+          "expectancy_r": 1.5,
+          "profit_factor": null,
+          "avg_hold_bars": 11.5,
+          "exit_reasons": {
+            "target": 2
+          }
+        },
+        "AMD": {
+          "trades": 7,
+          "win_rate": 0.5714,
+          "expectancy_r": 0.22,
+          "profit_factor": 1.0975,
+          "avg_hold_bars": 5.57,
+          "exit_reasons": {
+            "target": 3,
+            "stop": 3,
+            "time": 1
+          }
+        },
+        "MU": {
+          "trades": 4,
+          "win_rate": 0.75,
+          "expectancy_r": 0.875,
+          "profit_factor": 4.8224,
+          "avg_hold_bars": 7.25,
+          "exit_reasons": {
+            "target": 3,
+            "stop": 1
+          }
+        },
+        "PANW": {
+          "trades": 3,
+          "win_rate": 0.3333,
+          "expectancy_r": -0.2286,
+          "profit_factor": 0.8427,
+          "avg_hold_bars": 12.0,
+          "exit_reasons": {
+            "stop": 2,
+            "time": 1
+          }
+        },
+        "SHOP": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 1.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "COIN": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "UBER": {
+          "trades": 0,
+          "win_rate": 0.0,
+          "expectancy_r": 0.0,
+          "profit_factor": null,
+          "avg_hold_bars": 0.0,
+          "exit_reasons": {}
+        },
+        "DECK": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 6.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        },
+        "ON": {
+          "trades": 5,
+          "win_rate": 0.6,
+          "expectancy_r": 0.696,
+          "profit_factor": 4.1016,
+          "avg_hold_bars": 9.4,
+          "exit_reasons": {
+            "target": 3,
+            "stop": 1,
+            "time": 1
+          }
+        },
+        "MRNA": {
+          "trades": 6,
+          "win_rate": 0.6667,
+          "expectancy_r": 0.6101,
+          "profit_factor": 4.6909,
+          "avg_hold_bars": 7.83,
+          "exit_reasons": {
+            "stop": 1,
+            "target": 3,
+            "time": 2
+          }
+        },
+        "LULU": {
+          "trades": 1,
+          "win_rate": 0.0,
+          "expectancy_r": -1.0,
+          "profit_factor": null,
+          "avg_hold_bars": 2.0,
+          "exit_reasons": {
+            "stop": 1
+          }
+        }
+      }
+    }
+  }
+}

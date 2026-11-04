@@ -7,7 +7,15 @@ import { RotationFlows } from './RotationFlows';
 import { EducationPanel } from './EducationPanel';
 import { SectorFocusCard } from './SectorFocusCard';
 import { cn } from '@/lib/cn';
-import { RefreshCw, RotateCcw, Activity, TrendingUp, BookOpen, AlertTriangle, Layers } from 'lucide-react';
+import {
+  RefreshCw,
+  RotateCcw,
+  Activity,
+  TrendingUp,
+  BookOpen,
+  AlertTriangle,
+  Layers,
+} from 'lucide-react';
 
 type Tab = 'heatmap' | 'flows' | 'learn';
 
@@ -41,7 +49,11 @@ export function SectorRotationPage() {
       setRotationPhase(data.rotation_phase);
       setMarketRegime(data.market_regime);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load sector rotation data');
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to load sector rotation data'
+      );
     } finally {
       setIsLoading(false);
       setLastUpdated(new Date().toLocaleTimeString());
@@ -53,13 +65,21 @@ export function SectorRotationPage() {
   }, [loadData]);
 
   const changeKey = timeframe === '1D' ? 'change_1d' : 'change_1w';
-  const flowSignalKey = timeframe === '1D' ? 'flow_signal' as const : 'flow_signal_1w' as const;
-  const flowStrengthKey = timeframe === '1D' ? 'flow_strength' as const : 'flow_strength_1w' as const;
-  const sortedUp = [...sectors].sort((a, b) => ((b[changeKey] ?? 0)) - (a[changeKey] ?? 0));
-  const sortedDown = [...sectors].sort((a, b) => ((a[changeKey] ?? 0)) - (b[changeKey] ?? 0));
+  const flowSignalKey =
+    timeframe === '1D' ? ('flow_signal' as const) : ('flow_signal_1w' as const);
+  const flowStrengthKey =
+    timeframe === '1D'
+      ? ('flow_strength' as const)
+      : ('flow_strength_1w' as const);
+  const sortedUp = [...sectors].sort(
+    (a, b) => (b[changeKey] ?? 0) - (a[changeKey] ?? 0)
+  );
+  const sortedDown = [...sectors].sort(
+    (a, b) => (a[changeKey] ?? 0) - (b[changeKey] ?? 0)
+  );
   // Compute timeframe-aware leaders/laggards from same metric as Top 3
-  const frameLeaders = sortedUp.slice(0, 3).map(s => s.symbol);
-  const frameLaggards = sortedDown.slice(0, 3).map(s => s.symbol);
+  const frameLeaders = sortedUp.slice(0, 3).map((s) => s.symbol);
+  const frameLaggards = sortedDown.slice(0, 3).map((s) => s.symbol);
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-6 p-6">
@@ -70,7 +90,8 @@ export function SectorRotationPage() {
             Sector Rotation
           </h1>
           <p className="mt-1 text-sm text-text-muted">
-            Track smart money flows across 11 sectors. Identify rotation patterns and positioning.
+            Track smart money flows across 11 sectors. Identify rotation
+            patterns and positioning.
           </p>
         </div>
 
@@ -85,7 +106,7 @@ export function SectorRotationPage() {
                   'px-3 py-1.5 text-xs font-semibold transition-colors',
                   timeframe === tf
                     ? 'bg-accent text-white'
-                    : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
+                    : 'text-text-muted hover:bg-surface-hover hover:text-text-primary'
                 )}
               >
                 {tf}
@@ -95,7 +116,7 @@ export function SectorRotationPage() {
 
           {/* Last updated */}
           {lastUpdated && (
-            <span className="text-xs text-text-muted/60 tabular-nums whitespace-nowrap">
+            <span className="whitespace-nowrap text-xs tabular-nums text-text-muted/60">
               Updated {lastUpdated}
             </span>
           )}
@@ -104,7 +125,7 @@ export function SectorRotationPage() {
           <button
             onClick={loadData}
             disabled={isLoading}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-text-primary hover:bg-surface-hover transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-text-primary transition-colors hover:bg-surface-hover disabled:opacity-50"
           >
             <RotateCcw className={cn('h-3 w-3', isLoading && 'animate-spin')} />
             Refresh
@@ -117,7 +138,12 @@ export function SectorRotationPage() {
         <div className="flex items-center gap-2 rounded-xl border border-loss/30 bg-loss/5 px-4 py-3">
           <AlertTriangle className="h-4 w-4 text-loss" />
           <span className="text-sm text-loss">{error}</span>
-          <button onClick={loadData} className="ml-auto text-sm font-semibold text-accent hover:underline">Retry</button>
+          <button
+            onClick={loadData}
+            className="ml-auto text-sm font-semibold text-accent hover:underline"
+          >
+            Retry
+          </button>
         </div>
       )}
 
@@ -127,24 +153,26 @@ export function SectorRotationPage() {
       {/* Metrics row */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="rounded-xl border border-border bg-surface p-4">
-          <div className="flex items-center gap-2 text-xs text-text-muted mb-1">
+          <div className="mb-1 flex items-center gap-2 text-xs text-text-muted">
             <Layers className="h-3.5 w-3.5" /> Rotation Phase
           </div>
-          <div className="text-sm font-bold text-text-primary capitalize">
+          <div className="text-sm font-bold capitalize text-text-primary">
             {rotationPhase?.replace(/_/g, ' ') || 'Analyzing...'}
           </div>
-          <div className="mt-0.5 text-[10px] text-text-muted/60">trailing 1W basis</div>
+          <div className="mt-0.5 text-[10px] text-text-muted/60">
+            trailing 1W basis
+          </div>
         </div>
         <div className="rounded-xl border border-border bg-surface p-4">
-          <div className="flex items-center gap-2 text-xs text-text-muted mb-1">
+          <div className="mb-1 flex items-center gap-2 text-xs text-text-muted">
             <Activity className="h-3.5 w-3.5" /> Market Regime
           </div>
-          <div className="text-sm font-bold text-text-primary capitalize">
+          <div className="text-sm font-bold capitalize text-text-primary">
             {marketRegime?.replace(/_/g, ' ') || 'Analyzing...'}
           </div>
         </div>
         <div className="rounded-xl border border-border bg-surface p-4">
-          <div className="flex items-center gap-2 text-xs text-text-muted mb-1">
+          <div className="mb-1 flex items-center gap-2 text-xs text-text-muted">
             <TrendingUp className="h-3.5 w-3.5" /> Top Gainers
           </div>
           <div className="text-sm font-bold text-gain">
@@ -152,7 +180,7 @@ export function SectorRotationPage() {
           </div>
         </div>
         <div className="rounded-xl border border-border bg-surface p-4">
-          <div className="flex items-center gap-2 text-xs text-text-muted mb-1">
+          <div className="mb-1 flex items-center gap-2 text-xs text-text-muted">
             <TrendingUp className="h-3.5 w-3.5 rotate-180" /> Top Losers
           </div>
           <div className="text-sm font-bold text-loss">
@@ -170,22 +198,43 @@ export function SectorRotationPage() {
           <div className="space-y-2">
             {sortedUp.slice(0, 3).map((s, i) => (
               <div key={s.symbol} className="flex items-center gap-3">
-                <span className={cn(
-                  'w-5 text-xs font-bold',
-                  i === 0 ? 'text-accent' : i === 1 ? 'text-text-primary' : 'text-text-muted'
-                )}>{i + 1}</span>
-                <span className="flex-1 text-sm font-semibold text-text-primary">{s.symbol} — {s.name}</span>
-                  <div className="flex items-center gap-2">
-                  <span className={cn(
-                    'h-1.5 w-1.5 rounded-full',
-                    (s[flowSignalKey] === 'inflow' && s[flowStrengthKey] > 30) ? 'bg-gain animate-pulse' :
-                    s[flowSignalKey] === 'inflow' ? 'bg-gain' :
-                    s[flowSignalKey] === 'outflow' ? 'bg-loss' : 'bg-text-muted/30'
+                <span
+                  className={cn(
+                    'w-5 text-xs font-bold',
+                    i === 0
+                      ? 'text-accent'
+                      : i === 1
+                        ? 'text-text-primary'
+                        : 'text-text-muted'
                   )}
-                    title={s[flowSignalKey] === 'inflow' ? 'Smart money inflow' : s[flowSignalKey] === 'outflow' ? 'Smart money outflow' : 'Neutral'}
+                >
+                  {i + 1}
+                </span>
+                <span className="flex-1 text-sm font-semibold text-text-primary">
+                  {s.symbol} — {s.name}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      'h-1.5 w-1.5 rounded-full',
+                      s[flowSignalKey] === 'inflow' && s[flowStrengthKey] > 30
+                        ? 'animate-pulse bg-gain'
+                        : s[flowSignalKey] === 'inflow'
+                          ? 'bg-gain'
+                          : s[flowSignalKey] === 'outflow'
+                            ? 'bg-loss'
+                            : 'bg-text-muted/30'
+                    )}
+                    title={
+                      s[flowSignalKey] === 'inflow'
+                        ? 'Smart money inflow'
+                        : s[flowSignalKey] === 'outflow'
+                          ? 'Smart money outflow'
+                          : 'Neutral'
+                    }
                   />
-                  <span className="text-sm font-bold text-gain tabular-nums">
-                    +{(((s[changeKey] ?? 0)).toFixed(2))}%
+                  <span className="text-sm font-bold tabular-nums text-gain">
+                    +{(s[changeKey] ?? 0).toFixed(2)}%
                   </span>
                 </div>
               </div>
@@ -199,19 +248,34 @@ export function SectorRotationPage() {
           <div className="space-y-2">
             {sortedDown.slice(0, 3).map((s, i) => (
               <div key={s.symbol} className="flex items-center gap-3">
-                <span className="w-5 text-xs font-bold text-text-muted">{i + 1}</span>
-                <span className="flex-1 text-sm font-semibold text-text-primary">{s.symbol} — {s.name}</span>
+                <span className="w-5 text-xs font-bold text-text-muted">
+                  {i + 1}
+                </span>
+                <span className="flex-1 text-sm font-semibold text-text-primary">
+                  {s.symbol} — {s.name}
+                </span>
                 <div className="flex items-center gap-2">
-                  <span className={cn(
-                    'h-1.5 w-1.5 rounded-full',
-                    (s[flowSignalKey] === 'inflow' && s[flowStrengthKey] > 30) ? 'bg-gain animate-pulse' :
-                    s[flowSignalKey] === 'inflow' ? 'bg-gain' :
-                    s[flowSignalKey] === 'outflow' ? 'bg-loss' : 'bg-text-muted/30'
-                  )}
-                    title={s[flowSignalKey] === 'inflow' ? 'Smart money inflow' : s[flowSignalKey] === 'outflow' ? 'Smart money outflow' : 'Neutral'}
+                  <span
+                    className={cn(
+                      'h-1.5 w-1.5 rounded-full',
+                      s[flowSignalKey] === 'inflow' && s[flowStrengthKey] > 30
+                        ? 'animate-pulse bg-gain'
+                        : s[flowSignalKey] === 'inflow'
+                          ? 'bg-gain'
+                          : s[flowSignalKey] === 'outflow'
+                            ? 'bg-loss'
+                            : 'bg-text-muted/30'
+                    )}
+                    title={
+                      s[flowSignalKey] === 'inflow'
+                        ? 'Smart money inflow'
+                        : s[flowSignalKey] === 'outflow'
+                          ? 'Smart money outflow'
+                          : 'Neutral'
+                    }
                   />
-                  <span className="text-sm font-bold text-loss tabular-nums">
-                    {((s[changeKey] ?? 0)).toFixed(2)}%
+                  <span className="text-sm font-bold tabular-nums text-loss">
+                    {(s[changeKey] ?? 0).toFixed(2)}%
                   </span>
                 </div>
               </div>
@@ -222,11 +286,25 @@ export function SectorRotationPage() {
 
       {/* Tab navigation */}
       <div className="flex border-b border-border">
-        {([
-          { key: 'heatmap', label: 'Heatmap', icon: <Layers className="h-4 w-4" /> },
-          { key: 'flows', label: 'Rotation Flows', icon: <TrendingUp className="h-4 w-4" /> },
-          { key: 'learn', label: 'Learn', icon: <BookOpen className="h-4 w-4" /> },
-        ] as const).map((tab) => (
+        {(
+          [
+            {
+              key: 'heatmap',
+              label: 'Heatmap',
+              icon: <Layers className="h-4 w-4" />,
+            },
+            {
+              key: 'flows',
+              label: 'Rotation Flows',
+              icon: <TrendingUp className="h-4 w-4" />,
+            },
+            {
+              key: 'learn',
+              label: 'Learn',
+              icon: <BookOpen className="h-4 w-4" />,
+            },
+          ] as const
+        ).map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
@@ -234,7 +312,7 @@ export function SectorRotationPage() {
               'flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-semibold transition-colors',
               activeTab === tab.key
                 ? 'border-accent text-accent'
-                : 'border-transparent text-text-muted hover:text-text-primary hover:border-border'
+                : 'border-transparent text-text-muted hover:border-border hover:text-text-primary'
             )}
           >
             {tab.icon}
@@ -255,7 +333,9 @@ export function SectorRotationPage() {
               <div className="lg:col-span-2">
                 <SectorHeatMap
                   timeframe={timeframe}
-                  onSectorClick={(sym) => setSelectedSector(selectedSector === sym ? null : sym)}
+                  onSectorClick={(sym) =>
+                    setSelectedSector(selectedSector === sym ? null : sym)
+                  }
                 />
               </div>
               <div className="space-y-4">
@@ -268,7 +348,9 @@ export function SectorRotationPage() {
                 {!selectedSector && (
                   <div className="flex h-48 items-center justify-center rounded-xl border border-dashed border-border bg-surface/50">
                     <p className="text-center text-sm text-text-muted">
-                      Click a sector card<br />for detailed analysis
+                      Click a sector card
+                      <br />
+                      for detailed analysis
                     </p>
                   </div>
                 )}
@@ -276,13 +358,9 @@ export function SectorRotationPage() {
             </div>
           )}
 
-          {activeTab === 'flows' && (
-            <RotationFlows timeframe={timeframe} />
-          )}
+          {activeTab === 'flows' && <RotationFlows timeframe={timeframe} />}
 
-          {activeTab === 'learn' && (
-            <EducationPanel />
-          )}
+          {activeTab === 'learn' && <EducationPanel />}
         </>
       )}
     </div>

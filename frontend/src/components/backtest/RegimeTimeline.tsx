@@ -27,17 +27,30 @@ function RegimeStats({ result }: { result: RegimeResult }) {
   });
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       {result.regime_names.map((name, i) => {
         const count = counts[i] || 0;
         const pct = ((count / result.regime_labels.length) * 100).toFixed(1);
         return (
-          <div key={i} className={cn('rounded border px-3 py-2', REGIME_COLOR_CLASSES[i % REGIME_COLOR_CLASSES.length])}>
+          <div
+            key={i}
+            className={cn(
+              'rounded border px-3 py-2',
+              REGIME_COLOR_CLASSES[i % REGIME_COLOR_CLASSES.length]
+            )}
+          >
             <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: REGIME_COLORS[i % REGIME_COLORS.length] }} />
-              <span className="text-xs font-medium text-dark-200">{name}</span>
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{
+                  backgroundColor: REGIME_COLORS[i % REGIME_COLORS.length],
+                }}
+              />
+              <span className="text-dark-200 text-xs font-medium">{name}</span>
             </div>
-            <p className="text-[11px] text-dark-400 mt-1">{count} bars ({pct}%)</p>
+            <p className="text-dark-400 mt-1 text-[11px]">
+              {count} bars ({pct}%)
+            </p>
           </div>
         );
       })}
@@ -48,15 +61,19 @@ function RegimeStats({ result }: { result: RegimeResult }) {
 function RegimeBar({ result }: { result: RegimeResult }) {
   const maxBars = 200;
   const step = Math.max(1, Math.floor(result.regime_labels.length / maxBars));
-  const sampled = result.regime_labels.filter((_, i) => i % step === 0).slice(0, maxBars);
+  const sampled = result.regime_labels
+    .filter((_, i) => i % step === 0)
+    .slice(0, maxBars);
 
   return (
-    <div className="flex h-6 rounded overflow-hidden">
+    <div className="flex h-6 overflow-hidden rounded">
       {sampled.map((label, i) => (
         <div
           key={i}
           className="flex-1"
-          style={{ backgroundColor: REGIME_COLORS[label % REGIME_COLORS.length] }}
+          style={{
+            backgroundColor: REGIME_COLORS[label % REGIME_COLORS.length],
+          }}
           title={`${result.regime_names[label] || `Regime ${label}`}`}
         />
       ))}
@@ -66,7 +83,9 @@ function RegimeBar({ result }: { result: RegimeResult }) {
 
 export function RegimeTimeline({ runId, symbol }: RegimeTimelineProps) {
   const [showRegimes, setShowRegimes] = useState(false);
-  const [regimeMethod, setRegimeMethod] = useState<'hmm' | 'volatility_quantile'>('hmm');
+  const [regimeMethod, setRegimeMethod] = useState<
+    'hmm' | 'volatility_quantile'
+  >('hmm');
   const [nStates, setNStates] = useState(3);
 
   const { data: backtest } = useQuery({
@@ -93,41 +112,63 @@ export function RegimeTimeline({ runId, symbol }: RegimeTimelineProps) {
   }
 
   return (
-    <div className="space-y-3 rounded border border-dark-600 bg-dark-800 p-4">
+    <div className="border-dark-600 bg-dark-800 space-y-3 rounded border p-4">
       <div className="flex items-center justify-between">
-        <h4 className="text-xs font-semibold text-dark-200">Regime Detection</h4>
+        <h4 className="text-dark-200 text-xs font-semibold">
+          Regime Detection
+        </h4>
         {showRegimes && (
-          <button onClick={() => setShowRegimes(false)}
-            className="text-[10px] text-dark-400 hover:text-dark-200 transition-colors">
+          <button
+            onClick={() => setShowRegimes(false)}
+            className="text-dark-400 hover:text-dark-200 text-[10px] transition-colors"
+          >
             Hide
           </button>
         )}
       </div>
 
       <div className="flex items-center gap-3">
-        <select value={regimeMethod} onChange={(e) => setRegimeMethod(e.target.value as 'hmm' | 'volatility_quantile')}
-          className="rounded border border-dark-500 bg-dark-700 px-2 py-1 text-xs text-dark-50 focus:border-accent focus:outline-none">
+        <select
+          value={regimeMethod}
+          onChange={(e) =>
+            setRegimeMethod(e.target.value as 'hmm' | 'volatility_quantile')
+          }
+          className="border-dark-500 bg-dark-700 text-dark-50 rounded border px-2 py-1 text-xs focus:border-accent focus:outline-none"
+        >
           <option value="hmm">HMM (3-4 states)</option>
           <option value="volatility_quantile">Volatility Quantile</option>
         </select>
 
         <label className="flex items-center gap-1.5">
-          <span className="text-[10px] text-dark-400">States:</span>
-          <input type="number" value={nStates} onChange={(e) => setNStates(Number(e.target.value))}
-            min={2} max={4}
-            className="w-12 rounded border border-dark-500 bg-dark-700 px-2 py-1 text-xs text-dark-50 text-center focus:border-accent focus:outline-none" />
+          <span className="text-dark-400 text-[10px]">States:</span>
+          <input
+            type="number"
+            value={nStates}
+            onChange={(e) => setNStates(Number(e.target.value))}
+            min={2}
+            max={4}
+            className="border-dark-500 bg-dark-700 text-dark-50 w-12 rounded border px-2 py-1 text-center text-xs focus:border-accent focus:outline-none"
+          />
         </label>
 
-        <button onClick={handleDetect} disabled={mutation.isPending}
-          className={cn('ml-auto rounded px-3 py-1.5 text-xs font-medium transition-colors',
-            mutation.isPending ? 'cursor-not-allowed bg-dark-500 text-dark-300' : 'bg-accent text-white hover:bg-accent-dark'
-          )}>
+        <button
+          onClick={handleDetect}
+          disabled={mutation.isPending}
+          className={cn(
+            'ml-auto rounded px-3 py-1.5 text-xs font-medium transition-colors',
+            mutation.isPending
+              ? 'bg-dark-500 text-dark-300 cursor-not-allowed'
+              : 'bg-accent text-white hover:bg-accent-dark'
+          )}
+        >
           {mutation.isPending ? 'Detecting...' : 'Detect Regimes'}
         </button>
       </div>
 
       {mutation.isError && (
-        <p className="text-xs text-loss">Error: {(mutation.error as Error)?.message}</p>
+        <p className="text-xs text-loss">
+          Error: {(mutation.error as Error)?.message}
+        </p>
       )}
 
       {mutation.data && (

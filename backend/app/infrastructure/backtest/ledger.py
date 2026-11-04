@@ -59,6 +59,10 @@ class TradeLedger:
             exit_idx = int(record.get("exit_idx", entry_idx))
             direction = "Long" if record.get("direction", 1) == 1 else "Short"
 
+            # Map column index to symbol name (if ohlcv has columns as symbol names)
+            col_idx = int(record["column"])
+            symbol = self._idx_to_symbol(col_idx, ohlcv)
+
             # Compute MAE/MFE
             mae, mfe = MetricsComputer.compute_mae_mfe(
                 trade_entry_idx=entry_idx,
@@ -66,6 +70,7 @@ class TradeLedger:
                 entry_price=float(record["entry_price"]),
                 ohlcv=ohlcv,
                 direction=direction,
+                symbol=symbol,
             )
 
             # Compute hold duration
@@ -74,10 +79,6 @@ class TradeLedger:
             # Lookup signal metadata for this entry
             meta = signal_metadata.get(entry_idx, {})
             exit_reason = meta.get("exit_reason", "signal_close")
-
-            # Map column index to symbol name (if ohlcv has columns as symbol names)
-            col_idx = int(record["column"])
-            symbol = self._idx_to_symbol(col_idx, ohlcv)
 
             entry_time = ohlcv.index[entry_idx] if entry_idx < len(ohlcv) else ohlcv.index[-1]
             exit_time = ohlcv.index[exit_idx] if exit_idx < len(ohlcv) else ohlcv.index[-1]

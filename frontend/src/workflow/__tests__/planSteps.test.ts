@@ -5,7 +5,10 @@ import {
   scorePlanSteps,
   planStepGroups,
 } from '../planSteps';
-import { ADHERENCE_MAX_STEPS, PAPER_TRADE_PLAN_STEPS } from '../../types/workflow';
+import {
+  ADHERENCE_MAX_STEPS,
+  PAPER_TRADE_PLAN_STEPS,
+} from '../../types/workflow';
 
 describe('PLAN_STEP_DEFS', () => {
   it('has exactly the 13-step taxonomy (== ADHERENCE_MAX_STEPS)', () => {
@@ -16,11 +19,15 @@ describe('PLAN_STEP_DEFS', () => {
   it('matches the PAPER_TRADE_PLAN_STEPS category counts', () => {
     const count = (k: keyof typeof PAPER_TRADE_PLAN_STEPS) =>
       PLAN_STEP_DEFS.filter((s) => s.key === k).length;
-    expect(count('validation_gate')).toBe(PAPER_TRADE_PLAN_STEPS.validation_gate); // 5
+    expect(count('validation_gate')).toBe(
+      PAPER_TRADE_PLAN_STEPS.validation_gate
+    ); // 5
     expect(count('entry_tranches')).toBe(PAPER_TRADE_PLAN_STEPS.entry_tranches); // 3
     expect(count('stop_respected')).toBe(PAPER_TRADE_PLAN_STEPS.stop_respected); // 1
     expect(count('target_hits')).toBe(PAPER_TRADE_PLAN_STEPS.target_hits); // 3
-    expect(count('time_stop_honored')).toBe(PAPER_TRADE_PLAN_STEPS.time_stop_honored); // 1
+    expect(count('time_stop_honored')).toBe(
+      PAPER_TRADE_PLAN_STEPS.time_stop_honored
+    ); // 1
   });
 
   it('every def has a key, label, and group', () => {
@@ -65,7 +72,11 @@ describe('scorePlanSteps', () => {
 describe('planStepGroups', () => {
   it('returns the three groups in order with correct totals', () => {
     const groups = planStepGroups();
-    expect(groups.map((g) => g.group)).toEqual(['Validation Gate', 'Entry', 'Execution Discipline']);
+    expect(groups.map((g) => g.group)).toEqual([
+      'Validation Gate',
+      'Entry',
+      'Execution Discipline',
+    ]);
     expect(groups[0].steps).toHaveLength(5);
     expect(groups[1].steps).toHaveLength(3);
     expect(groups[2].steps).toHaveLength(5); // stop(1) + targets(3) + time stop(1)

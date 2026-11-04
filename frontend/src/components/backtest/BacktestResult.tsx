@@ -33,19 +33,13 @@ export function BacktestResult({ runId }: BacktestResultProps) {
     queryFn: () => fetchBacktest(runId),
   });
 
-  const {
-    data: trades,
-    isLoading: tradesLoading,
-  } = useQuery({
+  const { data: trades, isLoading: tradesLoading } = useQuery({
     queryKey: ['backtest', runId, 'trades'],
     queryFn: () => fetchTrades(runId),
     enabled: !!result,
   });
 
-  const {
-    data: equity,
-    isLoading: equityLoading,
-  } = useQuery({
+  const { data: equity, isLoading: equityLoading } = useQuery({
     queryKey: ['backtest', runId, 'equity'],
     queryFn: () => fetchEquity(runId),
     enabled: !!result,
@@ -93,11 +87,13 @@ export function BacktestResult({ runId }: BacktestResultProps) {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
-          <p className="text-loss mb-2">Error loading backtest</p>
-          <p className="text-xs text-dark-400">{(resultErr as Error)?.message}</p>
+          <p className="mb-2 text-loss">Error loading backtest</p>
+          <p className="text-dark-400 text-xs">
+            {(resultErr as Error)?.message}
+          </p>
           <button
             onClick={() => navigate('/backtest')}
-            className="mt-4 rounded bg-accent px-4 py-2 text-xs font-medium text-white hover:bg-accent-dark transition-colors"
+            className="mt-4 rounded bg-accent px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-accent-dark"
           >
             Back to Backtest
           </button>
@@ -117,10 +113,10 @@ export function BacktestResult({ runId }: BacktestResultProps) {
           ← Back
         </button>
         <div>
-          <h2 className="text-base font-semibold text-dark-50">
+          <h2 className="text-dark-50 text-base font-semibold">
             Backtest Result
           </h2>
-          <p className="text-[11px] text-dark-400">
+          <p className="text-dark-400 text-[11px]">
             Run ID: {runId}
             {result && (
               <>
@@ -156,9 +152,7 @@ export function BacktestResult({ runId }: BacktestResultProps) {
       {trades && !tradesLoading && <TradesTable trades={trades} />}
 
       {/* Regime Timeline */}
-      {result && (
-        <RegimeTimeline runId={runId} symbol={result.symbol} />
-      )}
+      {result && <RegimeTimeline runId={runId} symbol={result.symbol} />}
 
       {/* Report Download */}
       <ReportDownload runId={runId} />

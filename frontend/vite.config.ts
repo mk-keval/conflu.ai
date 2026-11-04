@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react-swc';
+import react from '@vitejs/plugin-react';
 import path from 'path';
 
 // Environment-aware proxy targets for Docker vs local development
@@ -46,5 +46,10 @@ export default defineConfig({
         ws: true,
       },
     },
+  },
+  test: {
+    exclude: ['tests/**', 'node_modules/**', '**/tests/**', '**/node_modules/**', '*.e2e.ts', '*.spec.ts'],
+    globals: true,
+    environment: 'jsdom',
   },
 });

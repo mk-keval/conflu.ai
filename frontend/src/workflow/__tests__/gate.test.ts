@@ -1,38 +1,25 @@
 import { describe, it, expect } from 'vitest';
 import {
   GATE_STEPS,
-  evaluateLiquidity,
-  evaluateStructure,
-  evaluateRiskReward,
-  evaluateEdge,
-  computeGate,
-  buildGateResults,
+  renderGateResult,
+  gateSummary,
   LIQUIDITY_MIN_AVG_DAILY_USD,
+  RISK_REWARD_PASS,
+  RISK_REWARD_CONDITIONAL,
   CONVICTION_HIGH,
   CONVICTION_LOW,
-  type GateInput,
 } from '../gate';
-import type { GateStepResult } from '../../types/workflow';
-
-const baseInput: GateInput = {
-  symbol: 'AAPL',
-  dailyTrend: 'bullish',
-  weeklyTrend: 'bullish',
-  entryLow: 100,
-  entryHigh: 102,
-  stopLoss: 96,
-  targets: [112, 120],
-  conviction: 8,
-  catalystBias: 'bullish',
-};
+import type { ValidationGate, GateStepResult } from '../../types/workflow';
 
 describe('GATE_STEPS', () => {
-  it('defines the 5 steps in the elite order', () => {
+  it('defines the 7 steps in the elite order (matches backend)', () => {
     expect(GATE_STEPS.map((s) => s.name)).toEqual([
       'Liquidity',
       'Structure',
+      'Positioning',
+      'Catalyst',
       'Risk/Reward',
-      'Edge Check',
+      'Portfolio Fit',
       'Conviction',
     ]);
   });
@@ -41,162 +28,222 @@ describe('GATE_STEPS', () => {
   });
 });
 
-describe('evaluateLiquidity', () => {
-  it('passes when ADV is above the floor', () => {
-    const r = evaluateLiquidity({ symbol: 'X', avgDailyVolumeUsd: 40_000_000 });
-    expect(r.passed).toBe(true);
-    expect(r.conditional).toBeUndefined();
+describe('renderGateResult', () => {
+  const createMockGate = (
+    overrides: Partial<ValidationGate> = {}
+  ): ValidationGate => ({
+    id: 'test-1',
+    symbol: 'AAPL',
+    overall: 'PASS',
+    stepResults: [
+      { name: 'Liquidity', passed: true, note: 'Liquidity OK' },
+      { name: 'Structure', passed: true, note: 'Structure OK' },
+      {
+        name: 'Positioning',
+        passed: true,
+        conditional: true,
+        note: 'Positioning conditional',
+      },
+      { name: 'Catalyst', passed: true, note: 'Catalyst OK' },
+      { name: 'Risk/Reward', passed: true, note: 'R/R OK' },
+      {
+        name: 'Portfolio Fit',
+        passed: true,
+        conditional: true,
+        note: 'Portfolio Fit conditional',
+      },
+      { name: 'Conviction', passed: true, note: 'Conviction OK' },
+    ],
+    convictionScore: 8,
+    dataGaps: ['Positioning', 'Portfolio Fit'],
+    evaluatedAt: '2026-09-22T12:00:00Z',
+    createdAt: '2026-09-22T12:00:00Z',
+    ...overrides,
   });
-  it('passes exactly at the floor', () => {
-    const r = evaluateLiquidity({ symbol: 'X', avgDailyVolumeUsd: LIQUIDITY_MIN_AVG_DAILY_USD });
-    expect(r.passed).toBe(true);
+
+  it('renders all 7 steps with correct status mapping', () => {
+    const gate = createMockGate();
+    const rendered = renderGateResult(gate);
+
+    expect(rendered.steps).toHaveLength(7);
+    expect(rendered.steps[0].name).toBe('Liquidity');
+    expect(rendered.steps[0].status).toBe('pass');
+    expect(rendered.steps[2].name).toBe('Positioning');
+    expect(rendered.steps[2].status).toBe('conditional');
+    expect(rendered.steps[5].name).toBe('Portfolio Fit');
+    expect(rendered.steps[5].status).toBe('conditional');
   });
-  it('is conditional between half and the floor', () => {
-    const r = evaluateLiquidity({ symbol: 'X', avgDailyVolumeUsd: 7_000_000 });
-    expect(r.passed).toBe(false);
-    expect(r.conditional).toBe(true);
+
+  it('maps passed=true, conditional=false → pass', () => {
+    const gate = createMockGate({
+      stepResults: [
+        { name: 'Liquidity', passed: true, note: 'OK' } as GateStepResult,
+      ],
+    });
+    const rendered = renderGateResult(gate);
+    expect(rendered.steps[0].status).toBe('pass');
   });
-  it('fails below half the floor', () => {
-    const r = evaluateLiquidity({ symbol: 'X', avgDailyVolumeUsd: 2_000_000 });
-    expect(r.passed).toBe(false);
-    expect(r.conditional).toBeFalsy();
+
+  it('maps passed=false, conditional=true → conditional', () => {
+    const gate = createMockGate({
+      stepResults: [
+        {
+          name: 'Liquidity',
+          passed: false,
+          conditional: true,
+          note: 'OK',
+        } as GateStepResult,
+      ],
+    });
+    const rendered = renderGateResult(gate);
+    expect(rendered.steps[0].status).toBe('conditional');
   });
-  it('is conditional when no volume data is present (honest unknown)', () => {
-    const r = evaluateLiquidity({ symbol: 'X' });
-    expect(r.passed).toBe(false);
-    expect(r.conditional).toBe(true);
+
+  it('maps passed=false, conditional=false → fail', () => {
+    const gate = createMockGate({
+      stepResults: [
+        {
+          name: 'Liquidity',
+          passed: false,
+          conditional: false,
+          note: 'OK',
+        } as GateStepResult,
+      ],
+    });
+    const rendered = renderGateResult(gate);
+    expect(rendered.steps[0].status).toBe('fail');
   });
-  it('uses volume ratio as a secondary signal', () => {
-    const r = evaluateLiquidity({ symbol: 'X', volumeRatio: 1.6 });
-    expect(r.passed).toBe(true);
-    expect(r.conditional).toBe(true);
+
+  it('includes question from GATE_STEPS', () => {
+    const gate = createMockGate();
+    const rendered = renderGateResult(gate);
+    expect(rendered.steps[0].question).toBe(GATE_STEPS[0].question);
+  });
+
+  it('passes through convictionScore, dataGaps, evaluatedAt', () => {
+    const gate = createMockGate({
+      convictionScore: 7,
+      dataGaps: ['Positioning'],
+      evaluatedAt: '2026-09-22T15:30:00Z',
+    });
+    const rendered = renderGateResult(gate);
+    expect(rendered.convictionScore).toBe(7);
+    expect(rendered.dataGaps).toEqual(['Positioning']);
+    expect(rendered.evaluatedAt).toBe('2026-09-22T15:30:00Z');
+  });
+
+  it('handles missing note gracefully', () => {
+    const gate = createMockGate({
+      stepResults: [{ name: 'Liquidity', passed: true } as GateStepResult],
+    });
+    const rendered = renderGateResult(gate);
+    expect(rendered.steps[0].note).toBe('');
   });
 });
 
-describe('evaluateStructure', () => {
-  it('passes on aligned bullish weekly + daily', () => {
-    const r = evaluateStructure(baseInput);
-    expect(r.passed).toBe(true);
+describe('gateSummary', () => {
+  const createMockGate = (
+    overrides: Partial<ValidationGate> = {}
+  ): ValidationGate => ({
+    id: 'test-1',
+    symbol: 'AAPL',
+    overall: 'PASS',
+    stepResults: [
+      { name: 'Liquidity', passed: true, note: 'OK' },
+      { name: 'Structure', passed: true, note: 'OK' },
+      { name: 'Positioning', passed: true, note: 'OK' },
+      { name: 'Catalyst', passed: true, note: 'OK' },
+      { name: 'Risk/Reward', passed: true, note: 'OK' },
+      { name: 'Portfolio Fit', passed: true, note: 'OK' },
+      { name: 'Conviction', passed: true, note: 'OK' },
+    ],
+    convictionScore: 8,
+    dataGaps: [],
+    evaluatedAt: '2026-09-22T12:00:00Z',
+    createdAt: '2026-09-22T12:00:00Z',
+    ...overrides,
   });
-  it('passes on aligned bearish weekly + daily', () => {
-    const r = evaluateStructure({ ...baseInput, dailyTrend: 'bearish', weeklyTrend: 'bearish' });
-    expect(r.passed).toBe(true);
+
+  it('returns PASS summary with step count and conviction', () => {
+    const gate = createMockGate({ overall: 'PASS', convictionScore: 8 });
+    const summary = gateSummary(gate);
+    expect(summary).toContain('PASS');
+    expect(summary).toContain('7/7');
+    expect(summary).toContain('8/10');
   });
-  it('is conditional on a counter-trend daily-vs-weekly', () => {
-    const r = evaluateStructure({ ...baseInput, dailyTrend: 'bullish', weeklyTrend: 'bearish' });
-    expect(r.passed).toBe(false);
-    expect(r.conditional).toBe(true);
+
+  it('returns CONDITIONAL summary with half-size note', () => {
+    const gate = createMockGate({
+      overall: 'CONDITIONAL',
+      convictionScore: 6,
+      stepResults: [
+        { name: 'Liquidity', passed: true, note: 'OK' },
+        { name: 'Structure', passed: true, note: 'OK' },
+        {
+          name: 'Positioning',
+          passed: false,
+          conditional: true,
+          note: 'Missing data',
+        },
+        { name: 'Catalyst', passed: true, note: 'OK' },
+        { name: 'Risk/Reward', passed: true, note: 'OK' },
+        {
+          name: 'Portfolio Fit',
+          passed: false,
+          conditional: true,
+          note: 'No journal',
+        },
+        { name: 'Conviction', passed: true, note: 'OK' },
+      ],
+    });
+    const summary = gateSummary(gate);
+    expect(summary).toContain('CONDITIONAL');
+    expect(summary).toContain('half-size');
+    expect(summary).toContain('5/7');
+    expect(summary).toContain('2 conditional');
+    expect(summary).toContain('6/10');
   });
-  it('is conditional when a timeframe trend is missing', () => {
-    const r = evaluateStructure({ ...baseInput, weeklyTrend: null });
-    expect(r.passed).toBe(false);
-    expect(r.conditional).toBe(true);
-  });
-  it('is conditional on mixed trends that are not clearly aligned', () => {
-    const r = evaluateStructure({ ...baseInput, dailyTrend: 'mixed', weeklyTrend: 'bullish' });
-    expect(r.passed).toBe(false);
-    expect(r.conditional).toBe(true);
+
+  it('returns FAIL summary', () => {
+    const gate = createMockGate({
+      overall: 'FAIL',
+      convictionScore: 3,
+      stepResults: [
+        { name: 'Liquidity', passed: true, note: 'OK' },
+        {
+          name: 'Structure',
+          passed: false,
+          conditional: false,
+          note: 'Failed',
+        },
+        { name: 'Positioning', passed: true, note: 'OK' },
+        { name: 'Catalyst', passed: true, note: 'OK' },
+        { name: 'Risk/Reward', passed: true, note: 'OK' },
+        { name: 'Portfolio Fit', passed: true, note: 'OK' },
+        { name: 'Conviction', passed: true, note: 'OK' },
+      ],
+    });
+    const summary = gateSummary(gate);
+    expect(summary).toContain('FAIL');
+    expect(summary).toContain('6/7');
+    expect(summary).toContain('3/10');
   });
 });
 
-describe('evaluateRiskReward', () => {
-  it('prefers the backend-computed R:R (pass at 2.5+)', () => {
-    const r = evaluateRiskReward({ ...baseInput, riskReward: 3.0 });
-    expect(r.passed).toBe(true);
+describe('Threshold constants (match backend)', () => {
+  it('LIQUIDITY_MIN_AVG_DAILY_USD is 10M', () => {
+    expect(LIQUIDITY_MIN_AVG_DAILY_USD).toBe(10_000_000);
   });
-  it('is conditional between 2.0 and 2.5', () => {
-    const r = evaluateRiskReward({ ...baseInput, riskReward: 2.2 });
-    expect(r.passed).toBe(false);
-    expect(r.conditional).toBe(true);
+  it('RISK_REWARD_PASS is 2.5', () => {
+    expect(RISK_REWARD_PASS).toBe(2.5);
   });
-  it('fails below 2.0', () => {
-    const r = evaluateRiskReward({ ...baseInput, riskReward: 1.4 });
-    expect(r.passed).toBe(false);
-    expect(r.conditional).toBeFalsy();
+  it('RISK_REWARD_CONDITIONAL is 2.0 (D1 tier)', () => {
+    expect(RISK_REWARD_CONDITIONAL).toBe(2.0);
   });
-  it('derives R:R from raw entry/stop/target when not provided', () => {
-    // entry 101, stop 96 => risk 5; target 112 => reward 11 => 2.2 : 1
-    const r = evaluateRiskReward({ ...baseInput, riskReward: null });
-    expect(r.passed).toBe(false);
-    expect(r.conditional).toBe(true);
+  it('CONVICTION_HIGH is 7', () => {
+    expect(CONVICTION_HIGH).toBe(7);
   });
-  it('is conditional when it cannot compute an R:R at all', () => {
-    const r = evaluateRiskReward({ symbol: 'X' });
-    expect(r.passed).toBe(false);
-    expect(r.conditional).toBe(true);
-  });
-});
-
-describe('evaluateEdge', () => {
-  it('passes on high conviction with a supportive catalyst', () => {
-    const r = evaluateEdge({ ...baseInput, conviction: CONVICTION_HIGH });
-    expect(r.passed).toBe(true);
-  });
-  it('is conditional when the catalyst signal is absent', () => {
-    const r = evaluateEdge({ ...baseInput, catalystBias: null });
-    expect(r.passed).toBe(true);
-    expect(r.conditional).toBe(true);
-  });
-  it('is conditional on moderate conviction', () => {
-    const r = evaluateEdge({ ...baseInput, conviction: 5 });
-    expect(r.passed).toBe(false);
-    expect(r.conditional).toBe(true);
-  });
-  it('fails on weak conviction', () => {
-    const r = evaluateEdge({ ...baseInput, conviction: CONVICTION_LOW - 1 });
-    expect(r.passed).toBe(false);
-    expect(r.conditional).toBeFalsy();
-  });
-  it('fails when the catalyst is explicitly against the trade', () => {
-    const r = evaluateEdge({ ...baseInput, conviction: CONVICTION_HIGH, catalystBias: 'cautious' });
-    expect(r.passed).toBe(false);
-  });
-});
-
-describe('computeGate', () => {
-  const passResult: GateStepResult[] = [
-    { name: 'Liquidity', passed: true },
-    { name: 'Structure', passed: true },
-    { name: 'Risk/Reward', passed: true },
-    { name: 'Edge Check', passed: true },
-    { name: 'Conviction', passed: true },
-  ];
-  it('passes only when every step is a hard pass', () => {
-    expect(computeGate(passResult).overall).toBe('PASS');
-  });
-  it('fails on any hard fail', () => {
-    const r = computeGate([{ ...passResult[0], passed: false }]);
-    expect(r.overall).toBe('FAIL');
-  });
-  it('is conditional when any step is conditional but none hard-fail', () => {
-    const r = computeGate([{ ...passResult[0], passed: false, conditional: true }]);
-    expect(r.overall).toBe('CONDITIONAL');
-  });
-});
-
-describe('buildGateResults', () => {
-  it('returns all 5 steps in order, ending with Conviction', () => {
-    const results = buildGateResults({ ...baseInput, avgDailyVolumeUsd: 50_000_000 }, 8);
-    expect(results.map((r) => r.name)).toEqual([
-      'Liquidity',
-      'Structure',
-      'Risk/Reward',
-      'Edge Check',
-      'Conviction',
-    ]);
-  });
-  it('maps a high conviction score to a passing Conviction step', () => {
-    const results = buildGateResults(baseInput, CONVICTION_HIGH);
-    expect(results[4].passed).toBe(true);
-  });
-  it('maps a low conviction score to a failing Conviction step', () => {
-    const results = buildGateResults(baseInput, 3);
-    expect(results[4].passed).toBe(false);
-  });
-  it('clamps conviction to 0-10', () => {
-    const high = buildGateResults(baseInput, 99)[4];
-    const low = buildGateResults(baseInput, -5)[4];
-    expect(high.passed).toBe(true);
-    expect(low.passed).toBe(false);
+  it('CONVICTION_LOW is 4', () => {
+    expect(CONVICTION_LOW).toBe(4);
   });
 });

@@ -21,7 +21,9 @@ export const ScreenerRow = React.memo(function ScreenerRow({
 }: ScreenerRowProps) {
   const renderCell = (col: ColumnDef) => {
     if (col.key === 'symbol') {
-      return <span className="font-medium text-accent-light">{data.symbol}</span>;
+      return (
+        <span className="font-medium text-accent-light">{data.symbol}</span>
+      );
     }
     if (col.key === 'score') {
       const score = data.score;
@@ -29,7 +31,11 @@ export const ScreenerRow = React.memo(function ScreenerRow({
         <span
           className={cn(
             'font-mono font-semibold',
-            score >= 80 ? 'text-gain' : score >= 50 ? 'text-yellow-400' : 'text-text-secondary'
+            score >= 80
+              ? 'text-gain'
+              : score >= 50
+                ? 'text-yellow-400'
+                : 'text-text-secondary'
           )}
         >
           {score.toFixed(1)}
@@ -38,7 +44,9 @@ export const ScreenerRow = React.memo(function ScreenerRow({
     }
     if (col.key === 'matched_filters') {
       return (
-        <span className="text-text-secondary">{data.matched_filters?.join(', ') || '—'}</span>
+        <span className="text-text-secondary">
+          {data.matched_filters?.join(', ') || '—'}
+        </span>
       );
     }
 
@@ -55,8 +63,8 @@ export const ScreenerRow = React.memo(function ScreenerRow({
       ) {
         return <span className="font-mono">{formatPct(value)}</span>;
       }
-        return <span className="font-mono">{value.toFixed(2)}</span>;
-      }
+      return <span className="font-mono">{value.toFixed(2)}</span>;
+    }
 
     return <span className="text-text-muted">—</span>;
   };

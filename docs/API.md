@@ -620,6 +620,277 @@ Get recent in-app alerts.
 
 ---
 
+---
+
+## Workflow API (`/api/v1/workflow`)
+
+Paper-trade journal and gate enforcement endpoints. Single source of truth: the SQLite journal at `data/paper_trades.db` (D-68; `CONFLU_CORE_PAPER_JOURNAL_PATH`). CSV in `docs/paper_trades/` is an import/export artifact only. Market dates (`date_entered`, `date_seen`, `run_date`) are **ET market dates**; `ran_at`/`created_at` are UTC ISO.
+
+### GET `/journal`
+Read all journal rows (open + closed).
+
+**Query Parameters:**
+- `limit` (optional, max 10000) — Max rows to return
+
+**Response:** `ApiResponse<JournalResponse>`
+```json
+{
+  "data": {
+    "rows": [...],
+    "count": 127
+  },
+  "meta": {...}
+}
+```
+
+### GET `/journal/open`
+Read open positions (rows with no `date_closed`).
+
+**Response:** `ApiResponse<OpenPositionsResponse>`
+```json
+{
+  "data": {
+    "positions": [...],
+    "count": 5,
+    "total_size_pct": 12.5,
+    "sector_exposure": {"Technology": 8.0, "Financials": 4.5}
+  }
+}
+```
+
+### GET `/journal/closed`
+Read closed trades (measurable sample for expectancy).
+
+**Response:** `ApiResponse<ClosedTradesResponse>`
+```json
+{
+  "data": {
+    "trades": [...],
+    "count": 42,
+    "win_rate": 0.64,
+    "expectancy_r": 0.47,
+    "profit_factor": 2.1
+  }
+}
+```
+
+### GET `/journal/capital`
+Available capital for new positions.
+
+**Query Parameters:**
+- `account_value` (optional, gt=0) — Explicit account value
+
+**Response:** `ApiResponse<AvailableCapitalResponse>`
+
+### POST `/paper-trades/enforce`
+**Touchpoint A** — Run gate enforcement and write paper trades.
+
+Fetches morning brief, evaluates candidates through 7-step gate, upserts accepted trades into the journal DB (entry-only; a same-day re-run updates entry fields and never touches exit columns). Rejections are persisted to the rejection log. Every run appends a `workflow_runs` row (`mode="enforce"`).
+
+**Request Body:**
+```json
+{
+  "min_conviction": 5,
+  "only": "AAPL,MSFT"  // optional comma-separated symbols
+}
+```
+
+**Response:** `ApiResponse<EnforceResponse>`
+```json
+{
+  "data": {
+    "accepted": [
+      {"symbol": "AAPL", "gate_verdict": "PASS", "entry_price": 228.5, "stop_loss": 222.1, "position_size_pct": 2.1, "target_1": 241.0, "target_2": 253.5}
+    ],
+    "rejected": [
+      {"symbol": "TSLA", "gate_verdict": "FAIL", "rejected": true, "failed_step": "Risk/Reward", "reason": "R/R floor not met: 1.8 < 2.5"}
+    ],
+    "message": "1 accepted, 1 rejected — journal updated (1 new, 0 updated); 1 earlier acceptance(s) kept"
+  }
+}
+```
+
+### POST `/paper-trades/sync-exits`
+**Touchpoint B** — Sync exits from OHLCV (infer + apply).
+
+Fetches daily OHLCV for open journal rows, infers exit (stop/target/time), writes exit data when `apply=true`. Rows entered today are skipped (`"entered today — exits start next session"`, not an error); for EOD entries the entry-day bar is excluded from MFE/MAE excursions. Every run appends a `workflow_runs` row (`mode="sync_exits"`).
+
+**Request Body:**
+```json
+{ "apply": false }
+```
+
+**Response:** `ApiResponse<SyncExitsResponse>`
+```json
+{
+  "data": {
+    "updated": 3,
+    "skipped": 1,
+    "items": [
+      {
+        "symbol": "AAPL",
+        "exit_date": "2026-09-27",
+        "exit_price": 241.0,
+        "exit_reason": "target_1",
+        "realized_r": 1.9,
+        "pnl_usd": 950.0,
+        "mfe_r": 2.1,
+        "mae_r": -0.3,
+        "plan_adherence": 1.0,
+        "applied": false
+      }
+    ],
+    "message": "3 exit(s) would be applied (1 skipped) — re-run with apply=true to persist"
+  }
+}
+```
+
+### POST `/paper-trades/run-close`
+**One-go after-close run** — Touchpoint A (enforce) then Touchpoint B (sync exits, applied) in a single call. This is the button to press after the close: it is impossible to forget half of the routine.
+
+Runs gate enforcement first (same behavior as `/paper-trades/enforce`), then syncs exits with `apply=true` by default. Entries logged by the enforce phase today are seen by the exit phase and skipped (`"entered today — exits start next session"` — skip, not error). Writes **one** `workflow_runs` row (`mode="run_close"`): `accepted`/`rejected` = entry phase counts, `updated`/`skipped` = exit phase counts.
+
+**Request Body:**
+```json
+{
+  "min_conviction": 5,
+  "only": "AAPL,MSFT",   // optional comma-separated symbols
+  "apply_exits": true    // false = preview exits only (entries still written)
+}
+```
+
+**Response:** `ApiResponse<RunCloseResponse>`
+```json
+{
+  "data": {
+    "run_id": 42,
+    "enforce": {
+      "accepted": [{"symbol": "AAPL", "gate_verdict": "PASS", "entry_price": 228.5, "stop_loss": 222.1, "position_size_pct": 2.1, "target_1": 241.0, "target_2": 253.5}],
+      "rejected": [],
+      "message": "1 accepted, 0 rejected — journal updated (1 new, 0 updated)"
+    },
+    "exits": {
+      "updated": 1,
+      "skipped": 1,
+      "items": [{"symbol": "MSFT", "exit_date": "2026-10-16", "exit_price": 512.0, "exit_reason": "target_1", "realized_r": 2.1, "pnl_usd": 840.0, "mfe_r": 2.3, "mae_r": -0.4, "plan_adherence": 1.0, "applied": true}],
+      "message": "1 exit(s) applied (1 skipped)"
+    },
+    "message": "1 accepted, 0 rejected — journal updated (1 new, 0 updated) | Exits: 1 exit(s) applied (1 skipped)"
+  }
+}
+```
+
+On failure the combined run still leaves a row: `status="error"` when the enforce phase fails (nothing written), `status="partial"` when entries were written but the exit phase failed afterwards. With `apply_exits=false` the row still logs the writes that happened (entries) and appends `"(exits preview only)"` to the message.
+
+### GET `/journal/rejections`
+The rejection log — why candidates did not become trades (gate/sizing failures), most-recent first.
+
+**Query Parameters:**
+- `limit` (default: 200, max 1000) — Max rows to return
+
+**Response:** `ApiResponse<JournalRejectionsResponse>`
+```json
+{
+  "data": {
+    "items": [
+      {"id": 12, "date_seen": "2026-10-16", "symbol": "TSLA", "sector": "Consumer Cyclical", "action": "WATCH", "conviction": 4, "failed_step": "Conviction", "gate_verdict": "FAIL", "reason": "below conviction floor", "notes": null, "created_at": "2026-10-16T20:15:02+00:00"}
+    ],
+    "count": 1
+  }
+}
+```
+
+### GET `/runs`
+Recent workflow runs — feeds the UI runs strip (green run / gray missed / red error).
+
+**Query Parameters:**
+- `limit` (default: 14, max 200) — Max rows to return
+
+**Response:** `ApiResponse<WorkflowRunsResponse>`
+```json
+{
+  "data": {
+    "items": [
+      {"id": 7, "run_date": "2026-10-16", "ran_at": "2026-10-16T21:02:11+00:00", "mode": "sync_exits", "apply": true,
+       "accepted": null, "rejected": null, "updated": 2, "skipped": 1, "status": "ok",
+       "message": "2 exit(s) applied (1 skipped)", "details": {"applied": ["AAPL", "MSFT"], "skipped": [{"symbol": "NVDA", "reason": "exit not reached"}]}}
+    ],
+    "count": 1
+  }
+}
+```
+
+### GET `/journal/export`
+Canonical CSV export of the journal DB (chronological; 29 columns + `template,regime,entry_timing`). Returns `text/csv` with `Content-Disposition: attachment` — the Excel-friendly output; the DB remains the store.
+
+### GET `/expectancy`
+Expectancy metrics per template/regime combination.
+
+**Query Parameters:**
+- `min_trades` (default: 30, ge=1) — Minimum trades for elite status
+
+**Response:** `ApiResponse<ExpectancyResponse>`
+```json
+{
+  "data": {
+    "items": [
+      {
+        "template": "trend-follower",
+        "regime": "strong_trend",
+        "n_trades": 42,
+        "win_rate": 0.62,
+        "expectancy_r": 0.47,
+        "profit_factor": 2.1,
+        "avg_r": 0.47,
+        "avg_win_r": 1.2,
+        "avg_loss_r": -0.8,
+        "max_win_r": 3.5,
+        "max_loss_r": -1.0,
+        "total_r": 19.7,
+        "is_elite": true,
+        "elite_min_trades": 30
+      }
+    ],
+    "elite_count": 3,
+    "total_combinations": 12
+  }
+}
+```
+
+### GET `/expectancy/elite`
+Only elite template/regime combinations (n≥min_trades, expectancy>0).
+
+**Response:** `ApiResponse<ExpectancyResponse>` (same shape, only elite items)
+
+### POST `/expectancy/rolling`
+Rolling expectancy for a specific filter (symbol/template/regime).
+
+**Request Body:**
+```json
+{
+  "symbol": "AAPL",
+  "template": "trend-follower",
+  "regime": "strong_trend",
+  "window": 30
+}
+```
+
+**Response:** `ApiResponse<RollingExpectancyResponse | null>`
+```json
+{
+  "data": {
+    "symbol": "AAPL",
+    "template": "trend-follower",
+    "regime": "strong_trend",
+    "window": 15,
+    "win_rate": 0.67,
+    "expectancy_r": 0.52,
+    "profit_factor": 2.4,
+    "total_r": 7.8
+  }
+}
+```
+
 ## Error Response Format
 All errors return:
 ```json

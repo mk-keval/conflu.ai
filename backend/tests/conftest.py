@@ -65,6 +65,21 @@ def in_memory_db() -> Generator[duckdb.DuckDBPyConnection, None, None]:
     con.close()
 
 
+@pytest.fixture(autouse=True)
+def _isolated_journal_db(tmp_path: Path) -> Generator[Path, None, None]:
+    """Point the paper-trade journal (D-68) at a per-test SQLite file.
+
+    Tests must never touch ``data/paper_trades.db``; explicit path override
+    also disables the store's first-boot CSV import, keeping tests hermetic.
+    """
+    from backend.app.domain.workflow import journal as journal_mod
+
+    db_path = tmp_path / "paper_trades.db"
+    journal_mod.set_db_path(db_path)
+    yield db_path
+    journal_mod.reset_db_path()
+
+
 @pytest.fixture
 def sample_ohlcv_row() -> dict[str, object]:
     """A single valid OHLCV data point for model construction tests."""

@@ -66,7 +66,15 @@ export const SCREEN_TEMPLATE_CONFIGS: Record<string, ScreenTemplateConfig> = {
         timeframe: '1D',
         negate: false,
         params: {
-          period: { key: 'period', label: 'EMA Period', type: 'number', defaultValue: 200, min: 10, max: 500, step: 10 },
+          period: {
+            key: 'period',
+            label: 'EMA Period',
+            type: 'number',
+            defaultValue: 200,
+            min: 10,
+            max: 500,
+            step: 10,
+          },
         },
       },
       {
@@ -77,7 +85,15 @@ export const SCREEN_TEMPLATE_CONFIGS: Record<string, ScreenTemplateConfig> = {
         timeframe: '1D',
         negate: false,
         params: {
-          threshold: { key: 'threshold', label: 'ADX Threshold', type: 'number', defaultValue: 25, min: 10, max: 50, step: 1 },
+          threshold: {
+            key: 'threshold',
+            label: 'ADX Threshold',
+            type: 'number',
+            defaultValue: 25,
+            min: 10,
+            max: 50,
+            step: 1,
+          },
         },
       },
       {
@@ -97,14 +113,23 @@ export const SCREEN_TEMPLATE_CONFIGS: Record<string, ScreenTemplateConfig> = {
         timeframe: '4h',
         negate: false,
         params: {
-          threshold: { key: 'threshold', label: 'RVOL Threshold', type: 'number', defaultValue: 1.2, min: 0.5, max: 5, step: 0.1 },
+          threshold: {
+            key: 'threshold',
+            label: 'RVOL Threshold',
+            type: 'number',
+            defaultValue: 1.2,
+            min: 0.5,
+            max: 5,
+            step: 0.1,
+          },
         },
       },
     ],
   },
   'trend-follower-mtf': {
     name: 'Trend Follower (Multi-Timeframe)',
-    description: 'EMA50 > EMA200 on daily, RSI > 60 daily, RSI > 550 > 55 weekly',
+    description:
+      'EMA50 > EMA200 on daily, RSI > 60 daily, RSI > 550 > 55 weekly',
     assetClasses: ['equities', 'crypto'],
     timeframes: ['1D', '4h', '1W'],
     filters: [
@@ -116,9 +141,31 @@ export const SCREEN_TEMPLATE_CONFIGS: Record<string, ScreenTemplateConfig> = {
         timeframe: '1D',
         negate: false,
         params: {
-          fast_period: { key: 'fast_period', label: 'Fast EMA', type: 'number', defaultValue: 50, min: 5, max: 100, step: 5 },
-          slow_period: { key: 'slow_period', label: 'Slow EMA', type: 'number', defaultValue: 200, min: 50, max: 500, step: 10 },
-          operator: { key: 'operator', label: 'Operator', type: 'select', defaultValue: 'gt', options: ['gt', 'lt'] },
+          fast_period: {
+            key: 'fast_period',
+            label: 'Fast EMA',
+            type: 'number',
+            defaultValue: 50,
+            min: 5,
+            max: 100,
+            step: 5,
+          },
+          slow_period: {
+            key: 'slow_period',
+            label: 'Slow EMA',
+            type: 'number',
+            defaultValue: 200,
+            min: 50,
+            max: 500,
+            step: 10,
+          },
+          operator: {
+            key: 'operator',
+            label: 'Operator',
+            type: 'select',
+            defaultValue: 'gt',
+            options: ['gt', 'lt'],
+          },
         },
       },
       {
@@ -129,8 +176,22 @@ export const SCREEN_TEMPLATE_CONFIGS: Record<string, ScreenTemplateConfig> = {
         timeframe: '1D',
         negate: false,
         params: {
-          threshold: { key: 'threshold', label: 'RSI Threshold', type: 'number', defaultValue: 60, min: 40, max: 80, step: 1 },
-          operator: { key: 'operator', label: 'Operator', type: 'select', defaultValue: 'gt', options: ['gt', 'lt'] },
+          threshold: {
+            key: 'threshold',
+            label: 'RSI Threshold',
+            type: 'number',
+            defaultValue: 60,
+            min: 40,
+            max: 80,
+            step: 1,
+          },
+          operator: {
+            key: 'operator',
+            label: 'Operator',
+            type: 'select',
+            defaultValue: 'gt',
+            options: ['gt', 'lt'],
+          },
         },
       },
       {
@@ -141,8 +202,22 @@ export const SCREEN_TEMPLATE_CONFIGS: Record<string, ScreenTemplateConfig> = {
         timeframe: '1W',
         negate: false,
         params: {
-          threshold: { key: 'threshold', label: 'RSI Threshold', type: 'number', defaultValue: 55, min: 40, max: 80, step: 1 },
-          operator: { key: 'operator', label: 'Operator', type: 'select', defaultValue: 'gt', options: ['gt', 'lt'] },
+          threshold: {
+            key: 'threshold',
+            label: 'RSI Threshold',
+            type: 'number',
+            defaultValue: 55,
+            min: 40,
+            max: 80,
+            step: 1,
+          },
+          operator: {
+            key: 'operator',
+            label: 'Operator',
+            type: 'select',
+            defaultValue: 'gt',
+            options: ['gt', 'lt'],
+          },
         },
       },
       {
@@ -153,12 +228,20 @@ export const SCREEN_TEMPLATE_CONFIGS: Record<string, ScreenTemplateConfig> = {
         timeframe: '4h',
         negate: false,
         params: {
-          threshold: { key: 'threshold', label: 'RVOL Threshold', type: 'number', defaultValue: 1.2, min: 0.5, max: 5, step: 0.1 },
+          threshold: {
+            key: 'threshold',
+            label: 'RVOL Threshold',
+            type: 'number',
+            defaultValue: 1.2,
+            min: 0.5,
+            max: 5,
+            step: 0.1,
+          },
         },
       },
     ],
   },
-  'breakout': {
+  breakout: {
     name: 'Breakout',
     description: 'Price breaking out with volume and momentum confirmation',
     assetClasses: ['equities', 'crypto'],
@@ -172,7 +255,15 @@ export const SCREEN_TEMPLATE_CONFIGS: Record<string, ScreenTemplateConfig> = {
         timeframe: '1D',
         negate: false,
         params: {
-          period: { key: 'period', label: 'EMA Period', type: 'number', defaultValue: 50, min: 10, max: 200, step: 10 },
+          period: {
+            key: 'period',
+            label: 'EMA Period',
+            type: 'number',
+            defaultValue: 50,
+            min: 10,
+            max: 200,
+            step: 10,
+          },
         },
       },
       {
@@ -183,7 +274,15 @@ export const SCREEN_TEMPLATE_CONFIGS: Record<string, ScreenTemplateConfig> = {
         timeframe: '1D',
         negate: false,
         params: {
-          threshold: { key: 'threshold', label: 'RVOL Threshold', type: 'number', defaultValue: 1.5, min: 0.5, max: 5, step: 0.1 },
+          threshold: {
+            key: 'threshold',
+            label: 'RVOL Threshold',
+            type: 'number',
+            defaultValue: 1.5,
+            min: 0.5,
+            max: 5,
+            step: 0.1,
+          },
         },
       },
       {
@@ -211,7 +310,15 @@ export const SCREEN_TEMPLATE_CONFIGS: Record<string, ScreenTemplateConfig> = {
         timeframe: '1D',
         negate: false,
         params: {
-          threshold: { key: 'threshold', label: 'RSI Threshold', type: 'number', defaultValue: 30, min: 10, max: 50, step: 1 },
+          threshold: {
+            key: 'threshold',
+            label: 'RSI Threshold',
+            type: 'number',
+            defaultValue: 30,
+            min: 10,
+            max: 50,
+            step: 1,
+          },
         },
       },
       {
@@ -231,7 +338,15 @@ export const SCREEN_TEMPLATE_CONFIGS: Record<string, ScreenTemplateConfig> = {
         timeframe: '1h',
         negate: false,
         params: {
-          threshold: { key: 'threshold', label: 'RVOL Threshold', type: 'number', defaultValue: 1.5, min: 0.5, max: 5, step: 0.1 },
+          threshold: {
+            key: 'threshold',
+            label: 'RVOL Threshold',
+            type: 'number',
+            defaultValue: 1.5,
+            min: 0.5,
+            max: 5,
+            step: 0.1,
+          },
         },
       },
     ],
@@ -250,7 +365,15 @@ export const SCREEN_TEMPLATE_CONFIGS: Record<string, ScreenTemplateConfig> = {
         timeframe: '1D',
         negate: false,
         params: {
-          threshold: { key: 'threshold', label: 'RSI Threshold', type: 'number', defaultValue: 25, min: 5, max: 40, step: 1 },
+          threshold: {
+            key: 'threshold',
+            label: 'RSI Threshold',
+            type: 'number',
+            defaultValue: 25,
+            min: 5,
+            max: 40,
+            step: 1,
+          },
         },
       },
       {
@@ -270,14 +393,21 @@ export const SCREEN_TEMPLATE_CONFIGS: Record<string, ScreenTemplateConfig> = {
         timeframe: '1D',
         negate: false,
         params: {
-          direction: { key: 'direction', label: 'Direction', type: 'select', defaultValue: 'bullish', options: ['bullish', 'bearish'] },
+          direction: {
+            key: 'direction',
+            label: 'Direction',
+            type: 'select',
+            defaultValue: 'bullish',
+            options: ['bullish', 'bearish'],
+          },
         },
       },
     ],
   },
   '52week-breakout': {
     name: '52-Week Breakout',
-    description: 'Stocks near 52-week highs with momentum and volume confirmation',
+    description:
+      'Stocks near 52-week highs with momentum and volume confirmation',
     assetClasses: ['equities'],
     timeframes: ['1D', '4h'],
     filters: [
@@ -289,7 +419,15 @@ export const SCREEN_TEMPLATE_CONFIGS: Record<string, ScreenTemplateConfig> = {
         timeframe: '1D',
         negate: false,
         params: {
-          period: { key: 'period', label: 'EMA Period', type: 'number', defaultValue: 200, min: 50, max: 500, step: 10 },
+          period: {
+            key: 'period',
+            label: 'EMA Period',
+            type: 'number',
+            defaultValue: 200,
+            min: 50,
+            max: 500,
+            step: 10,
+          },
         },
       },
       {
@@ -309,14 +447,23 @@ export const SCREEN_TEMPLATE_CONFIGS: Record<string, ScreenTemplateConfig> = {
         timeframe: '4h',
         negate: false,
         params: {
-          threshold: { key: 'threshold', label: 'RVOL Threshold', type: 'number', defaultValue: 1.2, min: 0.5, max: 5, step: 0.1 },
+          threshold: {
+            key: 'threshold',
+            label: 'RVOL Threshold',
+            type: 'number',
+            defaultValue: 1.2,
+            min: 0.5,
+            max: 5,
+            step: 0.1,
+          },
         },
       },
     ],
   },
   'low-vol-setup': {
     name: 'Low-Vol Setup',
-    description: 'Low volatility stocks with steady trend and tight Bollinger Bands',
+    description:
+      'Low volatility stocks with steady trend and tight Bollinger Bands',
     assetClasses: ['equities'],
     timeframes: ['1D'],
     filters: [
@@ -328,7 +475,15 @@ export const SCREEN_TEMPLATE_CONFIGS: Record<string, ScreenTemplateConfig> = {
         timeframe: '1D',
         negate: false,
         params: {
-          period: { key: 'period', label: 'EMA Period', type: 'number', defaultValue: 50, min: 10, max: 200, step: 10 },
+          period: {
+            key: 'period',
+            label: 'EMA Period',
+            type: 'number',
+            defaultValue: 50,
+            min: 10,
+            max: 200,
+            step: 10,
+          },
         },
       },
       {
@@ -339,7 +494,15 @@ export const SCREEN_TEMPLATE_CONFIGS: Record<string, ScreenTemplateConfig> = {
         timeframe: '1D',
         negate: false,
         params: {
-          threshold: { key: 'threshold', label: 'BB Width', type: 'number', defaultValue: 1.15, min: 1.05, max: 2.0, step: 0.05 },
+          threshold: {
+            key: 'threshold',
+            label: 'BB Width',
+            type: 'number',
+            defaultValue: 1.15,
+            min: 1.05,
+            max: 2.0,
+            step: 0.05,
+          },
         },
       },
       {
@@ -350,7 +513,15 @@ export const SCREEN_TEMPLATE_CONFIGS: Record<string, ScreenTemplateConfig> = {
         timeframe: '1D',
         negate: false,
         params: {
-          threshold: { key: 'threshold', label: 'RVOL Threshold', type: 'number', defaultValue: 1.0, min: 0.5, max: 5, step: 0.1 },
+          threshold: {
+            key: 'threshold',
+            label: 'RVOL Threshold',
+            type: 'number',
+            defaultValue: 1.0,
+            min: 0.5,
+            max: 5,
+            step: 0.1,
+          },
         },
       },
     ],
@@ -369,7 +540,15 @@ export const SCREEN_TEMPLATE_CONFIGS: Record<string, ScreenTemplateConfig> = {
         timeframe: '1D',
         negate: false,
         params: {
-          threshold: { key: 'threshold', label: 'RVOL Threshold', type: 'number', defaultValue: 2.0, min: 1, max: 10, step: 0.1 },
+          threshold: {
+            key: 'threshold',
+            label: 'RVOL Threshold',
+            type: 'number',
+            defaultValue: 2.0,
+            min: 1,
+            max: 10,
+            step: 0.1,
+          },
         },
       },
       {
@@ -380,7 +559,15 @@ export const SCREEN_TEMPLATE_CONFIGS: Record<string, ScreenTemplateConfig> = {
         timeframe: '1D',
         negate: false,
         params: {
-          percentile: { key: 'percentile', label: 'Percentile', type: 'number', defaultValue: 75, min: 50, max: 95, step: 5 },
+          percentile: {
+            key: 'percentile',
+            label: 'Percentile',
+            type: 'number',
+            defaultValue: 75,
+            min: 50,
+            max: 95,
+            step: 5,
+          },
         },
       },
       {

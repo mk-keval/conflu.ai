@@ -21,7 +21,10 @@ import { METRIC_LESSON_ALIASES } from '@/components/ticker-analysis/education';
 export const ALL_METRIC_LESSONS: Record<string, Lesson> = {
   ...getMetrics(),
   ...Object.fromEntries(
-    Object.entries(METRIC_LESSON_ALIASES).map(([alias, canonical]) => [alias, getMetrics()[canonical]])
+    Object.entries(METRIC_LESSON_ALIASES).map(([alias, canonical]) => [
+      alias,
+      getMetrics()[canonical],
+    ])
   ),
 };
 
@@ -44,16 +47,20 @@ export function getMetricCategories() {
 }
 
 /** Search lessons by key/label (case-insensitive). */
-export function searchMetrics(query: string): Array<{ key: string; lesson: Lesson; category: string }> {
+export function searchMetrics(
+  query: string
+): Array<{ key: string; lesson: Lesson; category: string }> {
   const q = query.toLowerCase();
   const results: Array<{ key: string; lesson: Lesson; category: string }> = [];
   for (const [key, lesson] of Object.entries(getMetrics())) {
     const cat = lesson.category ?? 'technical';
-    if (key.includes(q) || lesson.label.toLowerCase().includes(q)) results.push({ key, lesson, category: cat });
+    if (key.includes(q) || lesson.label.toLowerCase().includes(q))
+      results.push({ key, lesson, category: cat });
   }
   for (const [key, lesson] of Object.entries(getBacktestMetrics())) {
     const cat = lesson.category ?? 'backtest';
-    if (key.includes(q) || lesson.label.toLowerCase().includes(q)) results.push({ key, lesson, category: cat });
+    if (key.includes(q) || lesson.label.toLowerCase().includes(q))
+      results.push({ key, lesson, category: cat });
   }
   return results;
 }

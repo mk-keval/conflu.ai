@@ -14,16 +14,18 @@ function RecentRuns() {
 
   if (!recentRunIds.length) {
     return (
-      <div className="rounded border border-dashed border-dark-600 bg-dark-800 p-4 text-center text-xs text-dark-300">
-        <h3 className="mb-1 text-sm font-semibold text-dark-50">What is a backtest?</h3>
-        <p className="mb-2 max-w-md text-xs text-dark-400">
-          A backtest replays your rules against real historical data to see how they would have
-          performed. It proves nothing about the future — it filters out ideas that never worked at
-          all.
+      <div className="border-dark-600 bg-dark-800 text-dark-300 rounded border border-dashed p-4 text-center text-xs">
+        <h3 className="text-dark-50 mb-1 text-sm font-semibold">
+          What is a backtest?
+        </h3>
+        <p className="text-dark-400 mb-2 max-w-md text-xs">
+          A backtest replays your rules against real historical data to see how
+          they would have performed. It proves nothing about the future — it
+          filters out ideas that never worked at all.
         </p>
-        <p className="text-[10px] text-dark-400">
-          Run your first test using the form to the left: pick a symbol, timeframe, and strategy
-          parameters, then click Run.
+        <p className="text-dark-400 text-[10px]">
+          Run your first test using the form to the left: pick a symbol,
+          timeframe, and strategy parameters, then click Run.
         </p>
       </div>
     );
@@ -31,7 +33,7 @@ function RecentRuns() {
 
   return (
     <div>
-      <h3 className="mb-2 text-xs font-semibold text-dark-300">Recent Runs</h3>
+      <h3 className="text-dark-300 mb-2 text-xs font-semibold">Recent Runs</h3>
       <div className="space-y-1">
         {recentRunIds.map((runId) => (
           <RecentRunItem
@@ -72,11 +74,13 @@ function RecentRunItem({
           : 'border-dark-600 bg-dark-800 hover:border-dark-500'
       )}
     >
-      <p className="font-medium text-dark-50">
+      <p className="text-dark-50 font-medium">
         {data?.symbol ?? runId.slice(0, 8)}
-        {data?.timeframe && <span className="ml-1 text-dark-400">@{data.timeframe}</span>}
+        {data?.timeframe && (
+          <span className="text-dark-400 ml-1">@{data.timeframe}</span>
+        )}
       </p>
-      <p className="mt-0.5 text-[10px] text-dark-400">
+      <p className="text-dark-400 mt-0.5 text-[10px]">
         {data ? `${data.trades_count} trades` : 'Loading...'}
       </p>
     </button>
@@ -99,16 +103,16 @@ function BacktestContent() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex border-b border-dark-600 px-4">
+      <div className="border-dark-600 flex border-b px-4">
         {TABS.map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={cn(
-              'px-4 py-2 text-xs font-medium transition-colors border-b-2 -mb-px',
+              '-mb-px border-b-2 px-4 py-2 text-xs font-medium transition-colors',
               activeTab === tab
                 ? 'border-accent text-accent'
-                : 'border-transparent text-dark-400 hover:text-dark-200'
+                : 'text-dark-400 hover:text-dark-200 border-transparent'
             )}
           >
             {tab}
@@ -127,12 +131,12 @@ function BacktestContent() {
           </>
         )}
         {activeTab === 'Optimize' && (
-          <div className="w-full max-w-lg mx-auto">
+          <div className="mx-auto w-full max-w-lg">
             <OptimizationForm />
           </div>
         )}
         {activeTab === 'Compare' && (
-          <div className="w-full max-w-2xl mx-auto">
+          <div className="mx-auto w-full max-w-2xl">
             <ComparisonDashboard />
           </div>
         )}

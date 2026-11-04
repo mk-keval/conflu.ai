@@ -1,0 +1,3 @@
+date_entered,symbol,sector,action,entry_price,stop_loss,target_1,target_2,position_size_pct,confluence_count,signal_at_entry,notes
+2026-09-12,MU,Technology,STRONG BUY,971.6,883.17,1083.5,1089.12,9.4,4,Sector Rotation Holdings,⚠️ ⚠️ yfinance D/E 6.33 appears incorrect (likely missing equity data); excluding from analysis
+2026-09-12,INTC,Technology,STRONG BUY,102.56,84.71,141.45,141.9,9.4,3,Sector Rotation Holdings,"⚠️ 🚨 P/E 50.3 — extreme valuation, high expectations priced in"

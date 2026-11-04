@@ -20,7 +20,12 @@ export function useAlerts() {
   const handledAlertsRef = useRef<Set<string>>(new Set());
 
   // Fetch all alerts
-  const { data: alerts, isLoading, isError, error } = useQuery({
+  const {
+    data: alerts,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ['alerts'],
     queryFn: listAlerts,
     refetchInterval: 60_000,
@@ -95,7 +100,8 @@ export function useAlerts() {
   );
 
   const handleUpdate = useCallback(
-    (id: string, data: UpdateAlertRequest) => updateMutation.mutateAsync({ id, data }),
+    (id: string, data: UpdateAlertRequest) =>
+      updateMutation.mutateAsync({ id, data }),
     [updateMutation]
   );
 
@@ -105,7 +111,8 @@ export function useAlerts() {
   );
 
   const handleToggle = useCallback(
-    (id: string, isActive: boolean) => toggleMutation.mutateAsync({ id, isActive }),
+    (id: string, isActive: boolean) =>
+      toggleMutation.mutateAsync({ id, isActive }),
     [toggleMutation]
   );
 

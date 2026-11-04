@@ -15,6 +15,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { useMemo } from 'react';
+import api from '@/api/client';
 import {
   adherencePct,
   selectAdherence,
@@ -30,6 +31,7 @@ import type {
   GateVerdict,
   PaperTrade,
   PaperTradeOutcome,
+  PaperTradeStatus,
   RoutineStepSeq,
   ValidationGate,
 } from '../types/workflow';
@@ -70,11 +72,29 @@ interface WorkflowActions {
   // Daily Routine
   getRoutine: (date: string) => DailyRoutine | undefined;
   getOrCreateRoutine: (date: string) => DailyRoutine;
-  completeRoutineStep: (date: string, seq: RoutineStepSeq, data?: Record<string, unknown>) => void;
+  completeRoutineStep: (
+    date: string,
+    seq: RoutineStepSeq,
+    data?: Record<string, unknown>
+  ) => void;
   // Validation Gate
-  recordGate: (gate: Omit<ValidationGate, 'id' | 'createdAt'>) => ValidationGate;
-  // Paper Trades
-  openPaperTrade: (trade: Omit<PaperTrade, 'id' | 'status' | 'outcome' | 'adherencePct' | 'openedAt' | 'closedAt'>) => PaperTrade;
+  recordGate: (
+    gate: Omit<ValidationGate, 'id' | 'createdAt'>
+  ) => ValidationGate;
+  // Paper Trades (read-only, hydrated from backend journal)
+  // Paper trades are now sourced from the CSV journal via the backend API.
+  // Local mutations (openPaperTrade/closePaperTrade) are deprecated —
+  // the backend paper_trade_from_brief.py script writes to the CSV ledger.
+  // This store only reads/hydrates from the backend.
+  hydrateFromJournal: () => Promise<void>;
+  // Deprecated: kept for backward compatibility with existing components
+  // The backend paper_trade_from_brief.py is now the single writer.
+  openPaperTrade: (
+    trade: Omit<
+      PaperTrade,
+      'id' | 'status' | 'outcome' | 'adherencePct' | 'openedAt' | 'closedAt'
+    >
+  ) => PaperTrade;
   closePaperTrade: (
     id: string,
     outcome: Exclude<PaperTradeOutcome, 'open'>,
@@ -134,18 +154,88 @@ export const useWorkflowStore = create<WorkflowStore>()(
           id: newId(),
           createdAt: new Date().toISOString(),
         };
-        set((state) => ({ validationGates: [...state.validationGates, created] }));
+        set((state) => ({
+          validationGates: [...state.validationGates, created],
+        }));
         return created;
       },
 
-      // ── Paper Trades + adherence ──
+      // Hydrate paperTrades from CSV journal via backend API
+      // The backend paper_trade_from_brief.py is the single writer; this store only reads.
+      hydrateFromJournal: async () => {
+        try {
+          // Fetch open positions from the backend journal API
+          const response = await api.get('/api/v1/workflow/journal/open');
+          const openPositions = response.data.positions || [];
 
-      openPaperTrade: (trade) => {
+          // Fetch closed trades for adherence/expectancy calculations
+          const closedResponse = await api.get('/api/v1/workflow/journal/closed');
+          const closedTrades = closedResponse.data.trades || [];
+
+          // Convert journal rows to PaperTrade format for UI components
+          const paperTrades: PaperTrade[] = [
+            ...openPositions.map((row: any) => ({
+              id: `${row.date_entered}-${row.symbol}-open`,
+              symbol: row.symbol,
+              plan: {},
+              fills: {},
+              status: 'open' as PaperTradeStatus,
+              outcome: 'open' as PaperTradeOutcome,
+              stepsFollowed: 0,
+              stepsTotal: 13,
+              adherencePct: 0,
+              realizedR: row.realized_r ?? undefined,
+              entryPrice: row.entry_price ?? undefined,
+              stopLoss: row.stop_loss ?? undefined,
+              gateVerdict: row.gate_verdict as 'PASS' | 'FAIL' | 'CONDITIONAL' | undefined,
+              planAdherence: row.plan_adherence ?? undefined,
+              excludeFromStats:
+                row.exclude_from_stats === '1' ||
+                row.exclude_from_stats === 1 ||
+                row.exclude_from_stats === true,
+              openedAt: row.date_entered ?? new Date().toISOString(),
+              closedAt: null,
+            })),
+            ...closedTrades.map((row: any) => ({
+              id: `${row.date_entered}-${row.symbol}-closed`,
+              symbol: row.symbol,
+              plan: {},
+              fills: {},
+              status: 'closed' as PaperTradeStatus,
+              outcome: row.exit_reason as PaperTradeOutcome || 'flat',
+              stepsFollowed: Math.round((row.plan_adherence ?? 0) * 13),
+              stepsTotal: 13,
+              adherencePct: row.plan_adherence ?? 0,
+              realizedR: row.realized_r ?? undefined,
+              entryPrice: row.entry_price ?? undefined,
+              stopLoss: row.stop_loss ?? undefined,
+              gateVerdict: row.gate_verdict as 'PASS' | 'FAIL' | 'CONDITIONAL' | undefined,
+              planAdherence: row.plan_adherence ?? undefined,
+              excludeFromStats:
+                row.exclude_from_stats === '1' ||
+                row.exclude_from_stats === 1 ||
+                row.exclude_from_stats === true,
+              openedAt: row.date_entered ?? new Date().toISOString(),
+              closedAt: row.date_closed ?? new Date().toISOString(),
+            })),
+          ];
+
+          set({ paperTrades });
+        } catch (error) {
+          console.warn('Failed to hydrate from journal, using localStorage fallback:', error);
+          // Fallback: keep existing localStorage paperTrades
+        }
+      },
+
+      // ── Deprecated: Local paper trade mutations (backend is the source of truth) ──
+
+      openPaperTrade: (trade: Omit<PaperTrade, 'id' | 'status' | 'outcome' | 'adherencePct' | 'openedAt' | 'closedAt'>) => {
+        console.warn('openPaperTrade is deprecated — paper trades are now managed by the backend journal');
         const created: PaperTrade = {
           ...trade,
           id: newId(),
-          status: 'open',
-          outcome: 'open',
+          status: 'open' as PaperTradeStatus,
+          outcome: 'open' as PaperTradeOutcome,
           adherencePct: 0,
           openedAt: new Date().toISOString(),
           closedAt: null,
@@ -154,14 +244,15 @@ export const useWorkflowStore = create<WorkflowStore>()(
         return created;
       },
 
-      closePaperTrade: (id, outcome, stepsFollowed, stepsTotal) => {
+      closePaperTrade: (id: string, outcome: Exclude<PaperTradeOutcome, 'open'>, stepsFollowed: number, stepsTotal: number) => {
+        console.warn('closePaperTrade is deprecated — paper trades are now managed by the backend journal');
         const now = new Date().toISOString();
         set((state) => ({
           paperTrades: state.paperTrades.map((t) =>
             t.id === id
               ? {
                   ...t,
-                  status: 'closed',
+                  status: 'closed' as PaperTradeStatus,
                   outcome,
                   stepsFollowed,
                   stepsTotal,
@@ -186,6 +277,13 @@ export const useWorkflowStore = create<WorkflowStore>()(
           ? localStorage
           : memoryStorage()
       ),
+      // Only persist dailyRoutines and validationGates to localStorage.
+      // paperTrades are hydrated from the backend journal on each session.
+      partialize: (state) => ({
+        dailyRoutines: state.dailyRoutines,
+        validationGates: state.validationGates,
+        // paperTrades intentionally excluded — sourced from backend journal
+      }),
     }
   )
 );
@@ -201,11 +299,16 @@ export const useWorkflowStore = create<WorkflowStore>()(
  */
 export function useAdherence(): { rolling: RollingAdherence; streak: number } {
   const paperTrades = useWorkflowStore((s) => s.paperTrades);
-  return useMemo(() => selectAdherence(paperTrades, ADHERENCE_WINDOW), [paperTrades]);
+  return useMemo(
+    () => selectAdherence(paperTrades, ADHERENCE_WINDOW),
+    [paperTrades]
+  );
 }
 
 /** Latest validation gate for a symbol (most recent attempt), if any. */
-export function latestGateForSymbol(symbol: string): ValidationGate | undefined {
+export function latestGateForSymbol(
+  symbol: string
+): ValidationGate | undefined {
   const gates = useWorkflowStore.getState().validationGates;
   for (let i = gates.length - 1; i >= 0; i--) {
     if (gates[i].symbol === symbol) return gates[i];

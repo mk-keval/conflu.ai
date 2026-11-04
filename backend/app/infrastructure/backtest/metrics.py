@@ -90,6 +90,7 @@ class MetricsComputer:
         entry_price: float,
         ohlcv: pd.DataFrame,
         direction: str,
+        symbol: str | None = None,
     ) -> tuple[float, float]:
         """Compute MAE (Maximum Adverse Excursion) and MFE (Maximum Favorable Excursion).
 
@@ -105,8 +106,11 @@ class MetricsComputer:
             trade_entry_idx: Bar index of trade entry.
             trade_exit_idx: Bar index of trade exit.
             entry_price: Price at entry.
-            ohlcv: DataFrame with 'high' and 'low' columns.
+            ohlcv: DataFrame with 'high' and 'low' columns (single symbol)
+                   or symbol-specific columns like 'AAPL_high', 'AAPL_low' (multi-symbol).
             direction: 'Long' or 'Short'.
+            symbol: Optional symbol name for multi-symbol OHLCV. If provided,
+                   extracts high/low for that symbol.
 
         Returns:
             Tuple of (mae, mfe). Both are non-negative floats.
@@ -114,8 +118,21 @@ class MetricsComputer:
         start = max(0, trade_entry_idx)
         end = min(len(ohlcv) - 1, trade_exit_idx)
 
-        high = float(ohlcv.iloc[start : end + 1]["high"].max())
-        low = float(ohlcv.iloc[start : end + 1]["low"].min())
+        # Handle multi-symbol OHLCV with symbol-specific columns
+        if symbol is not None:
+            high_col = f"{symbol}_high"
+            low_col = f"{symbol}_low"
+            if high_col in ohlcv.columns and low_col in ohlcv.columns:
+                high = float(ohlcv.iloc[start : end + 1][high_col].max())
+                low = float(ohlcv.iloc[start : end + 1][low_col].min())
+            else:
+                # Fallback to generic high/low if symbol-specific not found
+                high = float(ohlcv.iloc[start : end + 1]["high"].max())
+                low = float(ohlcv.iloc[start : end + 1]["low"].min())
+        else:
+            # Single symbol OHLCV with generic high/low columns
+            high = float(ohlcv.iloc[start : end + 1]["high"].max())
+            low = float(ohlcv.iloc[start : end + 1]["low"].min())
 
         if direction == "Long":
             mfe = max(0.0, high - entry_price)

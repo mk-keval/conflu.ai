@@ -7,12 +7,15 @@ from typing import Any
 from backend.app.domain.ticker_analysis.models import FundamentalAnalysis
 
 
-def analyze(info: dict[str, Any]) -> FundamentalAnalysis:
+def analyze(info: dict[str, Any], symbol: str | None = None) -> FundamentalAnalysis:
     """Analyse fundamental metrics from yfinance info dict.
 
     Uses yfinance Ticker.info fields: marketCap, trailingPE, trailingEps,
     profitMargins, debtToEquity, revenueGrowth, freeCashflow,
     dividendYield, returnOnEquity, priceToBook, etc.
+
+    If `symbol` is provided, fetches quarterly balance sheet to recalculate
+    D/E from actual equity data (yfinance .info debtToEquity is often bogus).
     """
     findings: list[str] = []
     score = 0.0
@@ -23,6 +26,23 @@ def analyze(info: dict[str, Any]) -> FundamentalAnalysis:
     eps = info.get("trailingEps") or info.get("forwardEps")
     margin = info.get("profitMargins")
     dte = info.get("debtToEquity")
+
+    # ── Fetch quarterly balance sheet for equity data ──
+    # yfinance .info debtToEquity is often wrong (missing equity denominator).
+    # quarterly_balance_sheet has "Stockholders Equity" which is reliable.
+    total_equity = None
+    total_debt = info.get("totalDebt")
+    if symbol and total_debt:
+        try:
+            import yfinance as yf
+            qbs = yf.Ticker(symbol).quarterly_balance_sheet
+            if qbs is not None:
+                for idx in qbs.index:
+                    if "stockholders equity" in str(idx).lower():
+                        total_equity = float(qbs.loc[idx].iloc[0])
+                        break
+        except Exception:
+            pass  # Silently fall back to .info dte
     rev_growth = info.get("revenueGrowth")
     fcf = info.get("freeCashflow")
     div_yield = info.get("dividendYield")
@@ -610,16 +630,16 @@ def analyze(info: dict[str, Any]) -> FundamentalAnalysis:
         # when totalStockholderEquity is None. Flag and attempt recalculation.
         # Also catch moderate bogus values (e.g., NVDA 6.55) that are too high for non-financials.
         if dte > 5 and not is_financial:
-            # Try to recalculate from raw balance sheet data
-            total_debt = info.get("totalDebt")
-            total_equity = info.get("totalStockholderEquity")
-            if total_debt and total_equity and total_equity > 0:
-                recalculated = total_debt / total_equity
+            # Use quarterly balance sheet equity if available (more recent than .info)
+            # Fall back to .info totalStockholderEquity
+            equity = total_equity or info.get("totalStockholderEquity")
+            if total_debt and equity and equity > 0:
+                recalculated = total_debt / equity
                 if recalculated < 20:  # Sanity check on recalculated value
                     findings.append(f"⚠️ yfinance D/E {dte:.2f} appears incorrect; recalculated to {recalculated:.2f} from balance sheet")
                     dte = recalculated
                 else:
-                    findings.append(f"⚠️ yfinance D/E {dte:.2f} appears incorrect (likely missing equity data); excluding from analysis")
+                    findings.append(f"⚠️ yfinance D/E {dte:.2f} appears incorrect (recalculated {recalculated:.2f} still too high); excluding from analysis")
                     dte = None
             else:
                 findings.append(f"⚠️ yfinance D/E {dte:.2f} appears incorrect (likely missing equity data); excluding from analysis")

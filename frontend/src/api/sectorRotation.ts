@@ -1,11 +1,18 @@
 import { apiGet } from './client';
-import type { MarketRegimeResponse, SectorRotationResponse, SectorDetail, RotationHistoryPoint } from '@/types/sector';
+import type {
+  MarketRegimeResponse,
+  SectorRotationResponse,
+  SectorDetail,
+  RotationHistoryPoint,
+} from '@/types/sector';
 
 export async function fetchSectorRotation(): Promise<SectorRotationResponse> {
   return apiGet<SectorRotationResponse>('/api/v1/sector-rotation');
 }
 
-export async function fetchSectorDetail(symbol: string): Promise<SectorDetail | null> {
+export async function fetchSectorDetail(
+  symbol: string
+): Promise<SectorDetail | null> {
   return apiGet<SectorDetail | null>(`/api/v1/sector-rotation/${symbol}`);
 }
 
@@ -18,5 +25,7 @@ export async function fetchMarketRegime(): Promise<MarketRegimeResponse> {
 }
 
 export async function fetchSectorFocus() {
-  return apiGet<import('@/types/sector').SectorFocusSnapshot>('/api/v1/sectors/focus');
+  return apiGet<import('@/types/sector').SectorFocusSnapshot>(
+    '/api/v1/sectors/focus'
+  );
 }

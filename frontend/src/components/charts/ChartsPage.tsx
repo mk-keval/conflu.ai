@@ -15,7 +15,8 @@ import type { IChartApi } from 'lightweight-charts';
 
 function ChartsContent() {
   const [searchParams] = useSearchParams();
-  const { selectedSymbol, activeTimeframes, activeIndicators, setSymbol } = useChartStore();
+  const { selectedSymbol, activeTimeframes, activeIndicators, setSymbol } =
+    useChartStore();
 
   // Sync symbol from URL search params into the chart store on mount.
   // This handles navigation from TickerAnalysisPage ("View Chart" link) and
@@ -26,7 +27,7 @@ function ChartsContent() {
     if (urlSymbol && urlSymbol.toUpperCase() !== selectedSymbol) {
       setSymbol(urlSymbol.toUpperCase());
     }
-  }, []);  // Only on mount — avoid re-sync on every store change
+  }, []); // Only on mount — avoid re-sync on every store change
   const chartRefs = useRef<Map<string, IChartApi>>(new Map());
 
   const handleChartReady = useCallback(
@@ -57,8 +58,17 @@ function ChartsContent() {
 
   // Single indicator query for all active indicators (backend supports comma-separated)
   const indicatorQuery = useQuery({
-    queryKey: ['indicators', selectedSymbol, { timeframe: activeTimeframes[0], indicators: activeIndicators }] as const,
-    queryFn: () => fetchIndicators(selectedSymbol, activeTimeframes[0], activeIndicators.join(',')),
+    queryKey: [
+      'indicators',
+      selectedSymbol,
+      { timeframe: activeTimeframes[0], indicators: activeIndicators },
+    ] as const,
+    queryFn: () =>
+      fetchIndicators(
+        selectedSymbol,
+        activeTimeframes[0],
+        activeIndicators.join(',')
+      ),
     staleTime: STALE_TIMES.indicators,
     enabled: activeIndicators.length > 0,
   });
@@ -73,7 +83,14 @@ function ChartsContent() {
 
   // Build indicator data map
   const indicatorData = useMemo(() => {
-    const map: Record<string, { symbol: string; timeframe: string; indicators: Record<string, Array<{ timestamp: string; value: number }>> }> = {};
+    const map: Record<
+      string,
+      {
+        symbol: string;
+        timeframe: string;
+        indicators: Record<string, Array<{ timestamp: string; value: number }>>;
+      }
+    > = {};
     if (indicatorQuery.data) {
       map[activeTimeframes[0]] = indicatorQuery.data;
     }
@@ -92,8 +109,10 @@ function ChartsContent() {
 
   // True when every timeframe returned zero candles (likely invalid symbol)
   const symbolNotFound = useMemo(
-    () => ohlcvResults.length > 0 && emptyTimeframes.length === activeTimeframes.length,
-    [emptyTimeframes, activeTimeframes, ohlcvResults.length],
+    () =>
+      ohlcvResults.length > 0 &&
+      emptyTimeframes.length === activeTimeframes.length,
+    [emptyTimeframes, activeTimeframes, ohlcvResults.length]
   );
 
   const isLoading = ohlcvResults.some((r) => r.isLoading);
@@ -102,11 +121,13 @@ function ChartsContent() {
   const indicatorValues = useMemo(() => {
     const acc: Record<string, number | null> = {};
     if (indicatorQuery.data) {
-      Object.entries(indicatorQuery.data.indicators).forEach(([key, points]) => {
-        if (points.length > 0) {
-          acc[key] = points[points.length - 1].value;
+      Object.entries(indicatorQuery.data.indicators).forEach(
+        ([key, points]) => {
+          if (points.length > 0) {
+            acc[key] = points[points.length - 1].value;
+          }
         }
-      });
+      );
     }
     return acc;
   }, [indicatorQuery.data]);
@@ -131,7 +152,10 @@ function ChartsContent() {
         {symbolNotFound && (
           <div className="mx-4 mt-4 flex items-center gap-2 rounded border border-loss/30 bg-loss/5 px-3 py-2 text-xs text-loss">
             <span className="font-medium">Symbol not found:</span>
-            <span>{selectedSymbol} — no data available. Check the ticker or try a different symbol.</span>
+            <span>
+              {selectedSymbol} — no data available. Check the ticker or try a
+              different symbol.
+            </span>
           </div>
         )}
         {indicatorErrors.length > 0 && (
@@ -143,12 +167,16 @@ function ChartsContent() {
         <div className="grid grid-cols-2 gap-4 overflow-auto p-4">
           {activeTimeframes.map((tf, i) => {
             const ohlcvData = ohlcvResults[i]?.data || [];
-            const isEmpty = ohlcvResults[i]?.isSuccess && (!ohlcvData || ohlcvData.length === 0);
+            const isEmpty =
+              ohlcvResults[i]?.isSuccess &&
+              (!ohlcvData || ohlcvData.length === 0);
             return (
               <div key={tf} className="relative">
                 {isEmpty && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center rounded border border-dark-600 bg-dark-900/80">
-                    <span className="text-xs text-dark-400">No data for {tf}</span>
+                  <div className="border-dark-600 bg-dark-900/80 absolute inset-0 z-10 flex items-center justify-center rounded border">
+                    <span className="text-dark-400 text-xs">
+                      No data for {tf}
+                    </span>
                   </div>
                 )}
                 <ChartPane

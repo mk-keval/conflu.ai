@@ -11,3 +11,6 @@ export { RegimeTimeline } from './RegimeTimeline';
 export { ReportDownload } from './ReportDownload';
 export { TradesTable } from './TradesTable';
 export { TradeDetail } from './TradeDetail';
+export { FilterSweepForm } from './FilterSweepForm';
+export { FilterSweepResults } from './FilterSweepResults';
+export { FilterSweepPage } from './FilterSweepPage';

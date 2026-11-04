@@ -1,0 +1,779 @@
+{
+  "trend-follower-v2": {
+    "template": "trend-follower-v2",
+    "valid_symbols": 0,
+    "total_symbols": 10,
+    "details": {
+      "AAPL": {
+        "error": "Signal generation failed"
+      },
+      "MSFT": {
+        "error": "Signal generation failed"
+      },
+      "GOOGL": {
+        "error": "Signal generation failed"
+      },
+      "AMZN": {
+        "error": "Signal generation failed"
+      },
+      "NVDA": {
+        "error": "Signal generation failed"
+      },
+      "META": {
+        "error": "Signal generation failed"
+      },
+      "TSLA": {
+        "error": "Signal generation failed"
+      },
+      "AVGO": {
+        "error": "Signal generation failed"
+      },
+      "ORCL": {
+        "error": "Signal generation failed"
+      },
+      "CRM": {
+        "error": "Signal generation failed"
+      }
+    }
+  },
+  "trend-pullback-v2": {
+    "template": "trend-pullback-v2",
+    "valid_symbols": 0,
+    "total_symbols": 10,
+    "details": {
+      "AAPL": {
+        "error": "Signal generation failed"
+      },
+      "MSFT": {
+        "error": "Signal generation failed"
+      },
+      "GOOGL": {
+        "error": "Signal generation failed"
+      },
+      "AMZN": {
+        "error": "Signal generation failed"
+      },
+      "NVDA": {
+        "error": "Signal generation failed"
+      },
+      "META": {
+        "error": "Signal generation failed"
+      },
+      "TSLA": {
+        "error": "Signal generation failed"
+      },
+      "AVGO": {
+        "error": "Signal generation failed"
+      },
+      "ORCL": {
+        "error": "Signal generation failed"
+      },
+      "CRM": {
+        "error": "Signal generation failed"
+      }
+    }
+  },
+  "vcp-breakout": {
+    "template": "vcp-breakout",
+    "valid_symbols": 0,
+    "total_symbols": 10,
+    "details": {
+      "AAPL": {
+        "error": "Signal generation failed"
+      },
+      "MSFT": {
+        "error": "Signal generation failed"
+      },
+      "GOOGL": {
+        "error": "Signal generation failed"
+      },
+      "AMZN": {
+        "error": "Signal generation failed"
+      },
+      "NVDA": {
+        "error": "Signal generation failed"
+      },
+      "META": {
+        "error": "Signal generation failed"
+      },
+      "TSLA": {
+        "error": "Signal generation failed"
+      },
+      "AVGO": {
+        "error": "Signal generation failed"
+      },
+      "ORCL": {
+        "error": "Signal generation failed"
+      },
+      "CRM": {
+        "error": "Signal generation failed"
+      }
+    }
+  },
+  "rsi2-reversion": {
+    "template": "rsi2-reversion",
+    "valid_symbols": 0,
+    "total_symbols": 10,
+    "details": {
+      "AAPL": {
+        "error": "Signal generation failed"
+      },
+      "MSFT": {
+        "error": "Signal generation failed"
+      },
+      "GOOGL": {
+        "error": "Signal generation failed"
+      },
+      "AMZN": {
+        "error": "Signal generation failed"
+      },
+      "NVDA": {
+        "error": "Signal generation failed"
+      },
+      "META": {
+        "error": "Signal generation failed"
+      },
+      "TSLA": {
+        "error": "Signal generation failed"
+      },
+      "AVGO": {
+        "error": "Signal generation failed"
+      },
+      "ORCL": {
+        "error": "Signal generation failed"
+      },
+      "CRM": {
+        "error": "Signal generation failed"
+      }
+    }
+  },
+  "institutional-quality-v2": {
+    "template": "institutional-quality-v2",
+    "valid_symbols": 0,
+    "total_symbols": 10,
+    "details": {
+      "AAPL": {
+        "error": "Signal generation failed"
+      },
+      "MSFT": {
+        "error": "Signal generation failed"
+      },
+      "GOOGL": {
+        "error": "Signal generation failed"
+      },
+      "AMZN": {
+        "error": "Signal generation failed"
+      },
+      "NVDA": {
+        "error": "Signal generation failed"
+      },
+      "META": {
+        "error": "Signal generation failed"
+      },
+      "TSLA": {
+        "error": "Signal generation failed"
+      },
+      "AVGO": {
+        "error": "Signal generation failed"
+      },
+      "ORCL": {
+        "error": "Signal generation failed"
+      },
+      "CRM": {
+        "error": "Signal generation failed"
+      }
+    }
+  },
+  "trend-follower": {
+    "template": "trend-follower",
+    "valid_symbols": 0,
+    "total_symbols": 10,
+    "details": {
+      "AAPL": {
+        "error": "Signal generation failed"
+      },
+      "MSFT": {
+        "error": "Signal generation failed"
+      },
+      "GOOGL": {
+        "error": "Signal generation failed"
+      },
+      "AMZN": {
+        "error": "Signal generation failed"
+      },
+      "NVDA": {
+        "error": "Signal generation failed"
+      },
+      "META": {
+        "error": "Signal generation failed"
+      },
+      "TSLA": {
+        "error": "Signal generation failed"
+      },
+      "AVGO": {
+        "error": "Signal generation failed"
+      },
+      "ORCL": {
+        "error": "Signal generation failed"
+      },
+      "CRM": {
+        "error": "Signal generation failed"
+      }
+    }
+  },
+  "high-conviction-stack": {
+    "template": "high-conviction-stack",
+    "valid_symbols": 0,
+    "total_symbols": 10,
+    "details": {
+      "AAPL": {
+        "error": "Signal generation failed"
+      },
+      "MSFT": {
+        "error": "Signal generation failed"
+      },
+      "GOOGL": {
+        "error": "Signal generation failed"
+      },
+      "AMZN": {
+        "error": "Signal generation failed"
+      },
+      "NVDA": {
+        "error": "Signal generation failed"
+      },
+      "META": {
+        "error": "Signal generation failed"
+      },
+      "TSLA": {
+        "error": "Signal generation failed"
+      },
+      "AVGO": {
+        "error": "Signal generation failed"
+      },
+      "ORCL": {
+        "error": "Signal generation failed"
+      },
+      "CRM": {
+        "error": "Signal generation failed"
+      }
+    }
+  },
+  "bull-flag-continuation": {
+    "template": "bull-flag-continuation",
+    "valid_symbols": 0,
+    "total_symbols": 10,
+    "details": {
+      "AAPL": {
+        "error": "Signal generation failed"
+      },
+      "MSFT": {
+        "error": "Signal generation failed"
+      },
+      "GOOGL": {
+        "error": "Signal generation failed"
+      },
+      "AMZN": {
+        "error": "Signal generation failed"
+      },
+      "NVDA": {
+        "error": "Signal generation failed"
+      },
+      "META": {
+        "error": "Signal generation failed"
+      },
+      "TSLA": {
+        "error": "Signal generation failed"
+      },
+      "AVGO": {
+        "error": "Signal generation failed"
+      },
+      "ORCL": {
+        "error": "Signal generation failed"
+      },
+      "CRM": {
+        "error": "Signal generation failed"
+      }
+    }
+  },
+  "52week-breakout": {
+    "template": "52week-breakout",
+    "valid_symbols": 0,
+    "total_symbols": 10,
+    "details": {
+      "AAPL": {
+        "error": "Signal generation failed"
+      },
+      "MSFT": {
+        "error": "Signal generation failed"
+      },
+      "GOOGL": {
+        "error": "Signal generation failed"
+      },
+      "AMZN": {
+        "error": "Signal generation failed"
+      },
+      "NVDA": {
+        "error": "Signal generation failed"
+      },
+      "META": {
+        "error": "Signal generation failed"
+      },
+      "TSLA": {
+        "error": "Signal generation failed"
+      },
+      "AVGO": {
+        "error": "Signal generation failed"
+      },
+      "ORCL": {
+        "error": "Signal generation failed"
+      },
+      "CRM": {
+        "error": "Signal generation failed"
+      }
+    }
+  },
+  "short-squeeze": {
+    "template": "short-squeeze",
+    "valid_symbols": 0,
+    "total_symbols": 10,
+    "details": {
+      "AAPL": {
+        "error": "Signal generation failed"
+      },
+      "MSFT": {
+        "error": "Signal generation failed"
+      },
+      "GOOGL": {
+        "error": "Signal generation failed"
+      },
+      "AMZN": {
+        "error": "Signal generation failed"
+      },
+      "NVDA": {
+        "error": "Signal generation failed"
+      },
+      "META": {
+        "error": "Signal generation failed"
+      },
+      "TSLA": {
+        "error": "Signal generation failed"
+      },
+      "AVGO": {
+        "error": "Signal generation failed"
+      },
+      "ORCL": {
+        "error": "Signal generation failed"
+      },
+      "CRM": {
+        "error": "Signal generation failed"
+      }
+    }
+  },
+  "statistical-mean-reversion": {
+    "template": "statistical-mean-reversion",
+    "valid_symbols": 0,
+    "total_symbols": 10,
+    "details": {
+      "AAPL": {
+        "error": "Signal generation failed"
+      },
+      "MSFT": {
+        "error": "Signal generation failed"
+      },
+      "GOOGL": {
+        "error": "Signal generation failed"
+      },
+      "AMZN": {
+        "error": "Signal generation failed"
+      },
+      "NVDA": {
+        "error": "Signal generation failed"
+      },
+      "META": {
+        "error": "Signal generation failed"
+      },
+      "TSLA": {
+        "error": "Signal generation failed"
+      },
+      "AVGO": {
+        "error": "Signal generation failed"
+      },
+      "ORCL": {
+        "error": "Signal generation failed"
+      },
+      "CRM": {
+        "error": "Signal generation failed"
+      }
+    }
+  },
+  "mean-reversion": {
+    "template": "mean-reversion",
+    "valid_symbols": 0,
+    "total_symbols": 10,
+    "details": {
+      "AAPL": {
+        "error": "Signal generation failed"
+      },
+      "MSFT": {
+        "error": "Signal generation failed"
+      },
+      "GOOGL": {
+        "error": "Signal generation failed"
+      },
+      "AMZN": {
+        "error": "Signal generation failed"
+      },
+      "NVDA": {
+        "error": "Signal generation failed"
+      },
+      "META": {
+        "error": "Signal generation failed"
+      },
+      "TSLA": {
+        "error": "Signal generation failed"
+      },
+      "AVGO": {
+        "error": "Signal generation failed"
+      },
+      "ORCL": {
+        "error": "Signal generation failed"
+      },
+      "CRM": {
+        "error": "Signal generation failed"
+      }
+    }
+  },
+  "volatility-expansion": {
+    "template": "volatility-expansion",
+    "valid_symbols": 0,
+    "total_symbols": 10,
+    "details": {
+      "AAPL": {
+        "error": "Signal generation failed"
+      },
+      "MSFT": {
+        "error": "Signal generation failed"
+      },
+      "GOOGL": {
+        "error": "Signal generation failed"
+      },
+      "AMZN": {
+        "error": "Signal generation failed"
+      },
+      "NVDA": {
+        "error": "Signal generation failed"
+      },
+      "META": {
+        "error": "Signal generation failed"
+      },
+      "TSLA": {
+        "error": "Signal generation failed"
+      },
+      "AVGO": {
+        "error": "Signal generation failed"
+      },
+      "ORCL": {
+        "error": "Signal generation failed"
+      },
+      "CRM": {
+        "error": "Signal generation failed"
+      }
+    }
+  },
+  "volume-trend-accumulation": {
+    "template": "volume-trend-accumulation",
+    "valid_symbols": 0,
+    "total_symbols": 10,
+    "details": {
+      "AAPL": {
+        "error": "Signal generation failed"
+      },
+      "MSFT": {
+        "error": "Signal generation failed"
+      },
+      "GOOGL": {
+        "error": "Signal generation failed"
+      },
+      "AMZN": {
+        "error": "Signal generation failed"
+      },
+      "NVDA": {
+        "error": "Signal generation failed"
+      },
+      "META": {
+        "error": "Signal generation failed"
+      },
+      "TSLA": {
+        "error": "Signal generation failed"
+      },
+      "AVGO": {
+        "error": "Signal generation failed"
+      },
+      "ORCL": {
+        "error": "Signal generation failed"
+      },
+      "CRM": {
+        "error": "Signal generation failed"
+      }
+    }
+  },
+  "quality-trend-fundamentals": {
+    "template": "quality-trend-fundamentals",
+    "valid_symbols": 0,
+    "total_symbols": 10,
+    "details": {
+      "AAPL": {
+        "error": "Signal generation failed"
+      },
+      "MSFT": {
+        "error": "Signal generation failed"
+      },
+      "GOOGL": {
+        "error": "Signal generation failed"
+      },
+      "AMZN": {
+        "error": "Signal generation failed"
+      },
+      "NVDA": {
+        "error": "Signal generation failed"
+      },
+      "META": {
+        "error": "Signal generation failed"
+      },
+      "TSLA": {
+        "error": "Signal generation failed"
+      },
+      "AVGO": {
+        "error": "Signal generation failed"
+      },
+      "ORCL": {
+        "error": "Signal generation failed"
+      },
+      "CRM": {
+        "error": "Signal generation failed"
+      }
+    }
+  },
+  "trend-leader": {
+    "template": "trend-leader",
+    "valid_symbols": 0,
+    "total_symbols": 10,
+    "details": {
+      "AAPL": {
+        "error": "Signal generation failed"
+      },
+      "MSFT": {
+        "error": "Signal generation failed"
+      },
+      "GOOGL": {
+        "error": "Signal generation failed"
+      },
+      "AMZN": {
+        "error": "Signal generation failed"
+      },
+      "NVDA": {
+        "error": "Signal generation failed"
+      },
+      "META": {
+        "error": "Signal generation failed"
+      },
+      "TSLA": {
+        "error": "Signal generation failed"
+      },
+      "AVGO": {
+        "error": "Signal generation failed"
+      },
+      "ORCL": {
+        "error": "Signal generation failed"
+      },
+      "CRM": {
+        "error": "Signal generation failed"
+      }
+    }
+  },
+  "institutional-swing-quality": {
+    "template": "institutional-swing-quality",
+    "valid_symbols": 0,
+    "total_symbols": 10,
+    "details": {
+      "AAPL": {
+        "error": "Signal generation failed"
+      },
+      "MSFT": {
+        "error": "Signal generation failed"
+      },
+      "GOOGL": {
+        "error": "Signal generation failed"
+      },
+      "AMZN": {
+        "error": "Signal generation failed"
+      },
+      "NVDA": {
+        "error": "Signal generation failed"
+      },
+      "META": {
+        "error": "Signal generation failed"
+      },
+      "TSLA": {
+        "error": "Signal generation failed"
+      },
+      "AVGO": {
+        "error": "Signal generation failed"
+      },
+      "ORCL": {
+        "error": "Signal generation failed"
+      },
+      "CRM": {
+        "error": "Signal generation failed"
+      }
+    }
+  },
+  "institutional-trend-follower-mtf": {
+    "template": "institutional-trend-follower-mtf",
+    "valid_symbols": 0,
+    "total_symbols": 10,
+    "details": {
+      "AAPL": {
+        "error": "Signal generation failed"
+      },
+      "MSFT": {
+        "error": "Signal generation failed"
+      },
+      "GOOGL": {
+        "error": "Signal generation failed"
+      },
+      "AMZN": {
+        "error": "Signal generation failed"
+      },
+      "NVDA": {
+        "error": "Signal generation failed"
+      },
+      "META": {
+        "error": "Signal generation failed"
+      },
+      "TSLA": {
+        "error": "Signal generation failed"
+      },
+      "AVGO": {
+        "error": "Signal generation failed"
+      },
+      "ORCL": {
+        "error": "Signal generation failed"
+      },
+      "CRM": {
+        "error": "Signal generation failed"
+      }
+    }
+  },
+  "low-vol-setup": {
+    "template": "low-vol-setup",
+    "valid_symbols": 0,
+    "total_symbols": 10,
+    "details": {
+      "AAPL": {
+        "error": "Signal generation failed"
+      },
+      "MSFT": {
+        "error": "Signal generation failed"
+      },
+      "GOOGL": {
+        "error": "Signal generation failed"
+      },
+      "AMZN": {
+        "error": "Signal generation failed"
+      },
+      "NVDA": {
+        "error": "Signal generation failed"
+      },
+      "META": {
+        "error": "Signal generation failed"
+      },
+      "TSLA": {
+        "error": "Signal generation failed"
+      },
+      "AVGO": {
+        "error": "Signal generation failed"
+      },
+      "ORCL": {
+        "error": "Signal generation failed"
+      },
+      "CRM": {
+        "error": "Signal generation failed"
+      }
+    }
+  },
+  "distribution": {
+    "template": "distribution",
+    "valid_symbols": 0,
+    "total_symbols": 10,
+    "details": {
+      "AAPL": {
+        "error": "Signal generation failed"
+      },
+      "MSFT": {
+        "error": "Signal generation failed"
+      },
+      "GOOGL": {
+        "error": "Signal generation failed"
+      },
+      "AMZN": {
+        "error": "Signal generation failed"
+      },
+      "NVDA": {
+        "error": "Signal generation failed"
+      },
+      "META": {
+        "error": "Signal generation failed"
+      },
+      "TSLA": {
+        "error": "Signal generation failed"
+      },
+      "AVGO": {
+        "error": "Signal generation failed"
+      },
+      "ORCL": {
+        "error": "Signal generation failed"
+      },
+      "CRM": {
+        "error": "Signal generation failed"
+      }
+    }
+  },
+  "breakdown": {
+    "template": "breakdown",
+    "valid_symbols": 0,
+    "total_symbols": 10,
+    "details": {
+      "AAPL": {
+        "error": "Signal generation failed"
+      },
+      "MSFT": {
+        "error": "Signal generation failed"
+      },
+      "GOOGL": {
+        "error": "Signal generation failed"
+      },
+      "AMZN": {
+        "error": "Signal generation failed"
+      },
+      "NVDA": {
+        "error": "Signal generation failed"
+      },
+      "META": {
+        "error": "Signal generation failed"
+      },
+      "TSLA": {
+        "error": "Signal generation failed"
+      },
+      "AVGO": {
+        "error": "Signal generation failed"
+      },
+      "ORCL": {
+        "error": "Signal generation failed"
+      },
+      "CRM": {
+        "error": "Signal generation failed"
+      }
+    }
+  }
+}

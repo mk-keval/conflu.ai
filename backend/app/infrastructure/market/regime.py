@@ -125,7 +125,7 @@ def _fetch_sector_breadth() -> dict[str, Any]:
     for sym in SECTOR_SYMBOLS:
         try:
             ticker = yf.Ticker(sym)
-            df = ticker.history(period="1w", interval="1d")
+            df = ticker.history(period="5d", interval="1d")
             if len(df) >= 2:
                 rtn = (float(df["Close"].iloc[-1]) - float(df["Close"].iloc[0])) / float(df["Close"].iloc[0]) * 100
                 if rtn > 0:
@@ -308,15 +308,14 @@ def _score_yield_curve(
     return score, round(spread, 2), status
 
 
-def _score_sector_breadth() -> tuple[float, float, str]:
-    """Score from sector breadth — % of sectors with positive 1W return.
+def _score_breadth(breadth: dict[str, Any]) -> tuple[float, float, str]:
+    """Score from a pre-computed sector-breadth snapshot.
 
-    High breadth = broad market participation = healthy
-    Low breadth = narrow leadership = fragile
+    Kept separate from :func:`_score_sector_breadth` so historical replays can
+    slice sector frames as of a past day and reuse the exact same scoring.
     """
-    breadth = _get_or_fetch_breadth()
-    total = breadth["total"]
-    positive = breadth["positive"]
+    total = int(breadth.get("total") or 0)
+    positive = int(breadth.get("positive") or 0)
 
     pct = (positive / total * 100) if total > 0 else 50.0
 
@@ -339,6 +338,15 @@ def _score_sector_breadth() -> tuple[float, float, str]:
     return score, round(pct, 1), status
 
 
+def _score_sector_breadth() -> tuple[float, float, str]:
+    """Score from sector breadth — % of sectors with positive 1W return.
+
+    High breadth = broad market participation = healthy
+    Low breadth = narrow leadership = fragile
+    """
+    return _score_breadth(_get_or_fetch_breadth())
+
+
 def _composite_to_label(score: float) -> tuple[str, str]:
     """Convert composite score to regime label + hex color."""
     if score >= 80:
@@ -357,19 +365,23 @@ def _composite_to_label(score: float) -> tuple[str, str]:
 # ── Core computation ──
 
 
-def compute_market_regime_sync() -> MarketRegimeResponse | None:
-    """Compute the market regime snapshot synchronously.
+def compute_regime_from_frames(
+    macro: dict[str, pd.DataFrame],
+    breadth: dict[str, Any],
+    *,
+    now: datetime | None = None,
+    data_fetched_at: datetime | None = None,
+) -> MarketRegimeResponse | None:
+    """Compute a regime snapshot from pre-fetched frames.
 
-    Pure-sync implementation of the regime endpoint. The actual computation
-    (fetch, score, weight, label) never awaits — only the HTTP wrapper does.
-    This lets internal callers (e.g. morning brief) reuse the exact same logic
-    without event-loop gymnastics.
+    ``macro`` maps symbol -> daily bars ending at the as-of date; ``breadth``
+    is the ``{"positive": n, "total": n}`` snapshot used by the live scorer.
+    Passing frames in (instead of fetching) lets the historical replay reuse
+    the exact scoring/weighting model with data available on that date.
     """
     try:
-        now = datetime.now(UTC)
+        now = now or datetime.now(UTC)
         start = datetime.now(UTC)
-
-        macro = _get_or_fetch_macro()
 
         vix_score, vix_value, vix_status = _score_vix(macro.get(VIX_SYM))
         risk_score, risk_spread, risk_status = _score_risk_appetite(
@@ -381,7 +393,7 @@ def compute_market_regime_sync() -> MarketRegimeResponse | None:
         yield_score, yield_spread, yield_status = _score_yield_curve(
             macro.get(TLT_SYM), macro.get(SHY_SYM)
         )
-        breadth_score, breadth_pct, breadth_status = _score_sector_breadth()
+        breadth_score, breadth_pct, breadth_status = _score_breadth(breadth)
 
         weights = {
             "vix": 0.30,
@@ -450,7 +462,31 @@ def compute_market_regime_sync() -> MarketRegimeResponse | None:
                 status=yield_status,
             ),
             timestamp=now.isoformat(),
-            data_fetched_at=datetime.fromtimestamp(_MACRO_CACHE_TIME, UTC).isoformat(),
+            data_fetched_at=(data_fetched_at or now).isoformat(),
+        )
+    except Exception:
+        log.exception("market_regime_compute_failed")
+        return None
+
+
+def compute_market_regime_sync() -> MarketRegimeResponse | None:
+    """Compute the market regime snapshot synchronously.
+
+    Pure-sync implementation of the regime endpoint. The actual computation
+    (fetch, score, weight, label) never awaits — only the HTTP wrapper does.
+    This lets internal callers (e.g. morning brief) reuse the exact same logic
+    without event-loop gymnastics.
+    """
+    try:
+        macro = _get_or_fetch_macro()
+        breadth = _get_or_fetch_breadth()
+        fetched_at = (
+            datetime.fromtimestamp(_MACRO_CACHE_TIME, UTC)
+            if _MACRO_CACHE_TIME
+            else None
+        )
+        return compute_regime_from_frames(
+            macro, breadth, data_fetched_at=fetched_at
         )
     except Exception:
         log.exception("market_regime_compute_failed")

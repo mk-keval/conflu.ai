@@ -9,6 +9,10 @@ import type {
   WatchlistAnalyzeResponse,
   AlertPreferences,
   InAppAlert,
+  ExpectancyItem,
+  ExpectancyResponse,
+  RollingExpectancyRequest,
+  RollingExpectancyResponse,
 } from '@/types/professional';
 
 // ── Raw backend shapes (snake_case, as returned by the API) ──
@@ -194,7 +198,9 @@ function mapMorningBrief(raw: RawMorningBrief): MorningBriefResponse {
   };
 }
 
-function mapSimplifiedVerdict(raw: RawSimplifiedVerdict): SimplifiedVerdictResponse {
+function mapSimplifiedVerdict(
+  raw: RawSimplifiedVerdict
+): SimplifiedVerdictResponse {
   return {
     symbol: raw.symbol ?? '',
     action: raw.action ?? 'WATCH',
@@ -234,7 +240,9 @@ function mapEducation(raw: RawEducationResponse): EducationResponse {
   };
 }
 
-function mapWatchlistAnalyze(raw: RawWatchlistAnalyzeResponse): WatchlistAnalyzeResponse {
+function mapWatchlistAnalyze(
+  raw: RawWatchlistAnalyzeResponse
+): WatchlistAnalyzeResponse {
   return {
     items: (raw.items ?? []).map((item) => ({
       symbol: item.symbol,
@@ -252,7 +260,9 @@ function mapWatchlistAnalyze(raw: RawWatchlistAnalyzeResponse): WatchlistAnalyze
   };
 }
 
-function mapPositionSizeResponse(raw: RawPositionSizeResponse): PositionSizeResponse {
+function mapPositionSizeResponse(
+  raw: RawPositionSizeResponse
+): PositionSizeResponse {
   return {
     positionSize: raw.position_size,
     shares: raw.shares,
@@ -294,19 +304,28 @@ function mapInAppAlert(raw: RawInAppAlert): InAppAlert {
 /** Get the complete morning brief (regime, market internals, sector rotation, top 9 picks).
  *  Unwraps ApiResponse envelope and maps snake_case to camelCase. */
 export async function fetchMorningBrief(): Promise<MorningBriefResponse> {
-  const raw = await apiGet<RawMorningBrief>('/api/v1/professional/morning-brief');
+  const raw = await apiGet<RawMorningBrief>(
+    '/api/v1/professional/morning-brief'
+  );
   return mapMorningBrief(raw);
 }
 
 /** Get simplified verdict for a single ticker.
  *  Unwraps ApiResponse envelope and maps snake_case to camelCase. */
-export async function fetchSimplifiedVerdict(symbol: string): Promise<SimplifiedVerdictResponse> {
-  const raw = await apiGet<RawSimplifiedVerdict>(`/api/v1/professional/verdict/${symbol}`);
+export async function fetchSimplifiedVerdict(
+  symbol: string
+): Promise<SimplifiedVerdictResponse> {
+  const raw = await apiGet<RawSimplifiedVerdict>(
+    `/api/v1/professional/verdict/${symbol}`
+  );
   return mapSimplifiedVerdict(raw);
 }
 
 /** Get plain-English explanation for a metric. */
-export async function explainMetric(metric: string, symbol?: string): Promise<EducationResponse> {
+export async function explainMetric(
+  metric: string,
+  symbol?: string
+): Promise<EducationResponse> {
   const params = new URLSearchParams();
   if (symbol) params.set('symbol', symbol);
   const raw = await apiGet<RawEducationResponse>(
@@ -316,14 +335,19 @@ export async function explainMetric(metric: string, symbol?: string): Promise<Ed
 }
 
 /** Batch analyze a watchlist. */
-export async function analyzeWatchlist(symbols: string[]): Promise<WatchlistAnalyzeResponse> {
-  const raw = await apiPost<RawWatchlistAnalyzeResponse>('/api/v1/professional/watchlist/analyze', { symbols });
+export async function analyzeWatchlist(
+  symbols: string[]
+): Promise<WatchlistAnalyzeResponse> {
+  const raw = await apiPost<RawWatchlistAnalyzeResponse>(
+    '/api/v1/professional/watchlist/analyze',
+    { symbols }
+  );
   return mapWatchlistAnalyze(raw);
 }
 
 /** Calculate position size from trade parameters. */
 export async function calculatePositionSize(
-  params: PositionSizeRequest,
+  params: PositionSizeRequest
 ): Promise<PositionSizeResponse> {
   const queryParams = new URLSearchParams({
     symbol: params.symbol,
@@ -332,9 +356,12 @@ export async function calculatePositionSize(
     stop_loss: String(params.stopLoss),
     conviction: params.conviction,
   });
-  if (params.maxPositionPct) queryParams.set('max_position_pct', String(params.maxPositionPct));
-  if (params.maxSectorPct) queryParams.set('max_sector_pct', String(params.maxSectorPct));
-  if (params.riskPerTradePct) queryParams.set('risk_per_trade_pct', String(params.riskPerTradePct));
+  if (params.maxPositionPct)
+    queryParams.set('max_position_pct', String(params.maxPositionPct));
+  if (params.maxSectorPct)
+    queryParams.set('max_sector_pct', String(params.maxSectorPct));
+  if (params.riskPerTradePct)
+    queryParams.set('risk_per_trade_pct', String(params.riskPerTradePct));
   const raw = await apiGet<RawPositionSizeResponse>(
     `/api/v1/professional/position-size?${queryParams.toString()}`
   );
@@ -343,21 +370,143 @@ export async function calculatePositionSize(
 
 /** Get alert preferences. */
 export async function fetchAlertPreferences(): Promise<AlertPreferences> {
-  const raw = await apiGet<RawAlertPreferences>('/api/v1/professional/alerts/preferences');
+  const raw = await apiGet<RawAlertPreferences>(
+    '/api/v1/professional/alerts/preferences'
+  );
   return mapAlertPreferences(raw);
 }
 
 /** Update alert preferences. */
-export async function updateAlertPreferences(prefs: Partial<AlertPreferences>): Promise<AlertPreferences> {
-  const raw = await apiPut<RawAlertPreferences>('/api/v1/professional/alerts/preferences', prefs);
+export async function updateAlertPreferences(
+  prefs: Partial<AlertPreferences>
+): Promise<AlertPreferences> {
+  const raw = await apiPut<RawAlertPreferences>(
+    '/api/v1/professional/alerts/preferences',
+    prefs
+  );
   return mapAlertPreferences(raw);
 }
 
 /** Get recent in-app alerts. */
-export async function fetchAlerts(limit?: number, unreadOnly?: boolean): Promise<InAppAlert[]> {
+export async function fetchAlerts(
+  limit?: number,
+  unreadOnly?: boolean
+): Promise<InAppAlert[]> {
   const params = new URLSearchParams();
   if (limit) params.set('limit', String(limit));
   if (unreadOnly) params.set('unread_only', 'true');
-  const raw = await apiGet<RawInAppAlert[]>(`/api/v1/professional/alerts?${params.toString()}`);
+  const raw = await apiGet<RawInAppAlert[]>(
+    `/api/v1/professional/alerts?${params.toString()}`
+  );
   return raw.map(mapInAppAlert);
+}
+
+// ── Expectancy Tracking (Sec.2E verification) ──
+
+interface RawExpectancyItem {
+  template: string;
+  regime: string;
+  n_trades: number;
+  win_rate: number;
+  expectancy_r: number;
+  profit_factor: number | null;
+  avg_r: number;
+  avg_win_r: number;
+  avg_loss_r: number;
+  max_win_r: number;
+  max_loss_r: number;
+  total_r: number;
+  is_elite: boolean;
+  elite_min_trades: number;
+}
+
+interface RawExpectancyResponse {
+  items: RawExpectancyItem[];
+  elite_count: number;
+  total_combinations: number;
+}
+
+function mapExpectancyItem(raw: RawExpectancyItem): ExpectancyItem {
+  return {
+    template: raw.template,
+    regime: raw.regime,
+    nTrades: raw.n_trades,
+    winRate: raw.win_rate,
+    expectancyR: raw.expectancy_r,
+    profitFactor: raw.profit_factor,
+    avgR: raw.avg_r,
+    avgWinR: raw.avg_win_r,
+    avgLossR: raw.avg_loss_r,
+    maxWinR: raw.max_win_r,
+    maxLossR: raw.max_loss_r,
+    totalR: raw.total_r,
+    isElite: raw.is_elite,
+    eliteMinTrades: raw.elite_min_trades,
+  };
+}
+
+function mapExpectancyResponse(raw: RawExpectancyResponse): ExpectancyResponse {
+  return {
+    items: (raw.items ?? []).map(mapExpectancyItem),
+    eliteCount: raw.elite_count,
+    totalCombinations: raw.total_combinations,
+  };
+}
+
+interface RawRollingExpectancyResponse {
+  symbol?: string;
+  template?: string;
+  regime?: string;
+  window: number;
+  win_rate: number;
+  expectancy_r: number;
+  profit_factor: number | null;
+  total_r: number;
+}
+
+function mapRollingExpectancyResponse(
+  raw: RawRollingExpectancyResponse | null
+): RollingExpectancyResponse | null {
+  if (!raw) return null;
+  return {
+    symbol: raw.symbol,
+    template: raw.template,
+    regime: raw.regime,
+    window: raw.window,
+    winRate: raw.win_rate,
+    expectancyR: raw.expectancy_r,
+    profitFactor: raw.profit_factor,
+    totalR: raw.total_r,
+  };
+}
+
+/** Get expectancy metrics per template/regime combination. */
+export async function fetchExpectancy(
+  minTrades: number = 30
+): Promise<ExpectancyResponse> {
+  const raw = await apiGet<RawExpectancyResponse>(
+    `/api/v1/workflow/expectancy?min_trades=${minTrades}`
+  );
+  return mapExpectancyResponse(raw);
+}
+
+/** Get only elite template/regime combinations (n>=minTrades and expectancy>0). */
+export async function fetchEliteExpectancy(
+  minTrades: number = 30
+): Promise<ExpectancyResponse> {
+  const raw = await apiGet<RawExpectancyResponse>(
+    `/api/v1/workflow/expectancy/elite?min_trades=${minTrades}`
+  );
+  return mapExpectancyResponse(raw);
+}
+
+/** Get rolling expectancy for a specific symbol/template/regime. */
+export async function fetchRollingExpectancy(
+  request: RollingExpectancyRequest
+): Promise<RollingExpectancyResponse | null> {
+  const raw = await apiPost<RawRollingExpectancyResponse>(
+    '/api/v1/workflow/expectancy/rolling',
+    request
+  );
+  return mapRollingExpectancyResponse(raw);
 }

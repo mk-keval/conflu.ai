@@ -5,8 +5,13 @@ interface ResizeObserverResult {
   height: number;
 }
 
-export function useResizeObserver(ref: RefObject<HTMLElement | null>): ResizeObserverResult {
-  const [size, setSize] = useState<ResizeObserverResult>({ width: 0, height: 0 });
+export function useResizeObserver(
+  ref: RefObject<HTMLElement | null>
+): ResizeObserverResult {
+  const [size, setSize] = useState<ResizeObserverResult>({
+    width: 0,
+    height: 0,
+  });
 
   useEffect(() => {
     const element = ref.current;

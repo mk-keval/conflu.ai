@@ -1,4 +1,10 @@
-import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
+import {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { HelpCircle, BookOpen, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -41,7 +47,9 @@ export function EducationTooltip({
 }: EducationTooltipProps) {
   const [open, setOpen] = useState(false);
   const [deepDive, setDeepDive] = useState(false);
-  const [coords, setCoords] = useState<{ left: number; top: number } | null>(null);
+  const [coords, setCoords] = useState<{ left: number; top: number } | null>(
+    null
+  );
   const tooltipRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLSpanElement>(null);
 
@@ -56,8 +64,13 @@ export function EducationTooltip({
     let left = r.left + r.width / 2;
     let top = r.top - pad;
     if (position === 'bottom') top = r.bottom + pad;
-    else if (position === 'left') { left = r.left - pad; top = r.top + r.height / 2; }
-    else if (position === 'right') { left = r.right + pad; top = r.top + r.height / 2; }
+    else if (position === 'left') {
+      left = r.left - pad;
+      top = r.top + r.height / 2;
+    } else if (position === 'right') {
+      left = r.right + pad;
+      top = r.top + r.height / 2;
+    }
     setCoords({ left, top });
   }, [position]);
 
@@ -85,7 +98,11 @@ export function EducationTooltip({
       const path = e.composedPath() as Node[];
       const tip = tooltipRef.current;
       const trigger = triggerRef.current;
-      if (!tip || !trigger || (!path.includes(tip) && !path.includes(trigger))) {
+      if (
+        !tip ||
+        !trigger ||
+        (!path.includes(tip) && !path.includes(trigger))
+      ) {
         setOpen(false);
         setDeepDive(false);
       }
@@ -120,35 +137,42 @@ export function EducationTooltip({
         role="tooltip"
         style={{ left: coords.left, top: coords.top }}
         className={cn(
-          'fixed z-[9999] p-3 rounded-lg border border-border bg-surface shadow-xl backdrop-blur-sm',
+          'fixed z-[9999] rounded-lg border border-border bg-surface p-3 shadow-xl backdrop-blur-sm',
           deepDive
-            ? 'w-96 max-h-96 overflow-y-auto text-sm text-text-primary'
+            ? 'max-h-96 w-96 overflow-y-auto text-sm text-text-primary'
             : 'w-72 text-sm text-text-primary',
           'animate-in fade-in duration-100',
           translateClasses[position]
         )}
       >
         {/* Metric label */}
-        <div className="font-semibold text-xs text-accent uppercase tracking-wider mb-1">
+        <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-accent">
           {metricLabel || lesson?.label || toTitleCase(metricKey)}
           {metricValue && (
-            <span className="text-text-primary ml-1 normal-case font-mono">= {metricValue}</span>
+            <span className="ml-1 font-mono normal-case text-text-primary">
+              = {metricValue}
+            </span>
           )}
         </div>
 
         {!lesson ? (
-          <p className="text-text-muted text-xs">
-            Explanation coming soon — this metric isn't in our education library yet.
+          <p className="text-xs text-text-muted">
+            Explanation coming soon — this metric isn't in our education library
+            yet.
           </p>
         ) : !deepDive ? (
           <>
-            {lesson.oneLiner && <p className="text-text-primary mb-1">{lesson.oneLiner}</p>}
+            {lesson.oneLiner && (
+              <p className="mb-1 text-text-primary">{lesson.oneLiner}</p>
+            )}
             {metricValue != null && lesson.valueInterpretation && (
-              <p className="text-text-muted text-xs mb-1">{renderValueText(metricKey, metricValue)}</p>
+              <p className="mb-1 text-xs text-text-muted">
+                {renderValueText(metricKey, metricValue)}
+              </p>
             )}
             <button
               onClick={() => setDeepDive(true)}
-              className="mt-2 inline-flex items-center gap-1 text-xs text-accent hover:text-accent-light transition-colors"
+              className="mt-2 inline-flex items-center gap-1 text-xs text-accent transition-colors hover:text-accent-light"
             >
               <BookOpen className="h-3 w-3" />
               Deep dive
@@ -179,7 +203,7 @@ export function EducationTooltip({
             )}
             {lesson.commonMistakes && lesson.commonMistakes.length > 0 && (
               <Section title="Common mistakes">
-                <ul className="list-disc pl-4 space-y-0.5">
+                <ul className="list-disc space-y-0.5 pl-4">
                   {lesson.commonMistakes.map((m, i) => (
                     <li key={i}>{m}</li>
                   ))}
@@ -194,7 +218,10 @@ export function EducationTooltip({
             {lesson.related && lesson.related.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1">
                 {lesson.related.map((r) => (
-                  <span key={r} className="px-1.5 py-0.5 rounded bg-bg-muted text-2xs text-text-muted">
+                  <span
+                    key={r}
+                    className="bg-bg-muted text-2xs rounded px-1.5 py-0.5 text-text-muted"
+                  >
                     {toTitleCase(r)}
                   </span>
                 ))}
@@ -202,7 +229,7 @@ export function EducationTooltip({
             )}
             <button
               onClick={() => setDeepDive(false)}
-              className="mt-2 text-xs text-text-muted hover:text-accent transition-colors"
+              className="mt-2 text-xs text-text-muted transition-colors hover:text-accent"
             >
               Show less
             </button>
@@ -215,7 +242,11 @@ export function EducationTooltip({
   return (
     <span className="relative inline-flex items-center">
       {children ? (
-        <span ref={triggerRef} onClick={handleToggle} className="cursor-pointer">
+        <span
+          ref={triggerRef}
+          onClick={handleToggle}
+          className="cursor-pointer"
+        >
           {children}
         </span>
       ) : (
@@ -225,7 +256,7 @@ export function EducationTooltip({
           className={cn(
             'inline-flex items-center justify-center rounded-full transition-colors',
             compact ? 'h-3.5 w-3.5' : 'h-4 w-4',
-            'text-text-muted hover:text-accent hover:bg-accent/10'
+            'text-text-muted hover:bg-accent/10 hover:text-accent'
           )}
           aria-label={`Learn about ${metricLabel || lesson?.label || toTitleCase(metricKey)}`}
         >
@@ -237,10 +268,18 @@ export function EducationTooltip({
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="mb-2.5 last:mb-0">
-      <div className="text-2xs font-semibold text-text-muted uppercase tracking-wider mb-0.5">{title}</div>
+      <div className="text-2xs mb-0.5 font-semibold uppercase tracking-wider text-text-muted">
+        {title}
+      </div>
       {children}
     </div>
   );

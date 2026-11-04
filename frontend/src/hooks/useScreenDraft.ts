@@ -1,7 +1,10 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useScreenStore } from '@/store/screen';
 import { createScreen, updateScreen } from '@/api/screens';
-import type { CreateScreenRequest, UpdateScreenRequest } from '@/types/screener';
+import type {
+  CreateScreenRequest,
+  UpdateScreenRequest,
+} from '@/types/screener';
 
 const AUTO_SAVE_INTERVAL_MS = 30_000;
 
@@ -58,7 +61,13 @@ export function useScreenDraft() {
     } finally {
       setIsSaving(false);
     }
-  }, [draftFilterJson, selectedScreenId, setIsSaving, setLastSavedAt, setHasUnsavedChanges]);
+  }, [
+    draftFilterJson,
+    selectedScreenId,
+    setIsSaving,
+    setLastSavedAt,
+    setHasUnsavedChanges,
+  ]);
 
   const handleCreateNew = useCallback(
     async (data: CreateScreenRequest) => {

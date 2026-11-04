@@ -36,7 +36,7 @@ export function WorkflowBar() {
   if (currentIdx === -1) return null;
 
   return (
-    <div className="flex items-center gap-0.5 px-4 py-1.5 border-b border-border/30 bg-surface/5">
+    <div className="flex items-center gap-0.5 border-b border-border/30 bg-surface/5 px-4 py-1.5">
       {STEPS.map((step, i) => {
         const isComplete = i < currentIdx;
         const isCurrent = i === currentIdx;
@@ -49,18 +49,20 @@ export function WorkflowBar() {
               onClick={() => navigate(step.path)}
               disabled={isFuture}
               className={cn(
-                'flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded transition-colors',
-                isCurrent && 'text-accent bg-accent/10',
+                'flex items-center gap-1.5 rounded px-2 py-0.5 text-[11px] font-medium transition-colors',
+                isCurrent && 'bg-accent/10 text-accent',
                 isComplete && 'text-green-500 hover:text-green-400',
-                isFuture && 'text-text-muted/40 cursor-default',
+                isFuture && 'cursor-default text-text-muted/40'
               )}
             >
-              <span className={cn(
-                'flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold',
-                isCurrent && 'bg-accent/20 text-accent',
-                isComplete && 'bg-green-500/20 text-green-500',
-                isFuture && 'bg-border/30 text-text-muted/40',
-              )}>
+              <span
+                className={cn(
+                  'flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold',
+                  isCurrent && 'bg-accent/20 text-accent',
+                  isComplete && 'bg-green-500/20 text-green-500',
+                  isFuture && 'bg-border/30 text-text-muted/40'
+                )}
+              >
                 {isComplete ? <Check className="h-2.5 w-2.5" /> : i + 1}
               </span>
               {step.label}
@@ -68,10 +70,12 @@ export function WorkflowBar() {
 
             {/* Connector */}
             {i < STEPS.length - 1 && (
-              <span className={cn(
-                'w-4 h-px mx-0.5',
-                i < currentIdx ? 'bg-green-500/40' : 'bg-border/30'
-              )} />
+              <span
+                className={cn(
+                  'mx-0.5 h-px w-4',
+                  i < currentIdx ? 'bg-green-500/40' : 'bg-border/30'
+                )}
+              />
             )}
           </div>
         );

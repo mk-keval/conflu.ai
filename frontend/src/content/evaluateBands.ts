@@ -15,11 +15,11 @@
  */
 
 export type BandTransform =
-  | 'percent'      // append % (value already expressed as percent)
-  | 'ratio'        // 2-decimal + "x"
+  | 'percent' // append % (value already expressed as percent)
+  | 'ratio' // 2-decimal + "x"
   | 'compactNumber' // K/M/B abbreviation
-  | 'money'        // $ + thousands separators, 2 decimals
-  | 'plain';       // raw passthrough
+  | 'money' // $ + thousands separators, 2 decimals
+  | 'plain'; // raw passthrough
 
 export interface ValueBand {
   /** Condition string, e.g. "value >= 70" or "value == 'bullish'" */
@@ -94,13 +94,20 @@ export function evaluateCondition(condition: string, value: string): boolean {
   const rhsNum = Number(numRhs);
 
   switch (op) {
-    case '>': return num > rhsNum;
-    case '<': return num < rhsNum;
-    case '>=': return num >= rhsNum;
-    case '<=': return num <= rhsNum;
-    case '==': return Math.abs(num - rhsNum) < EPSILON;
-    case '!=': return Math.abs(num - rhsNum) >= EPSILON;
-    default: return false;
+    case '>':
+      return num > rhsNum;
+    case '<':
+      return num < rhsNum;
+    case '>=':
+      return num >= rhsNum;
+    case '<=':
+      return num <= rhsNum;
+    case '==':
+      return Math.abs(num - rhsNum) < EPSILON;
+    case '!=':
+      return Math.abs(num - rhsNum) >= EPSILON;
+    default:
+      return false;
   }
 }
 
@@ -111,7 +118,10 @@ export function evaluateBands(
 ): string {
   for (const band of interp.bands ?? []) {
     if (evaluateCondition(band.if, value)) {
-      return band.text.replaceAll('${value}', applyTransform(value, interp.transform));
+      return band.text.replaceAll(
+        '${value}',
+        applyTransform(value, interp.transform)
+      );
     }
   }
   return '';

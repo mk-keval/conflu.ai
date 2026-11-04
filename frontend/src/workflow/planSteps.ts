@@ -32,21 +32,86 @@ export interface PlanStepDef {
  */
 export const PLAN_STEP_DEFS: PlanStepDef[] = [
   // Validation Gate (5)
-  { key: 'validation_gate', group: 'Validation Gate', label: 'Liquidity check passed', help: 'Enough daily volume to get in/out without moving price' },
-  { key: 'validation_gate', group: 'Validation Gate', label: 'Structure aligned (W>D)', help: 'Weekly and daily trends agree with your direction' },
-  { key: 'validation_gate', group: 'Validation Gate', label: 'Risk/Reward reached 2.5R', help: 'Upside to target at least 2.5x the risk at the stop' },
-  { key: 'validation_gate', group: 'Validation Gate', label: 'Edge check (conviction + catalyst)', help: 'Positioning and a catalyst supported the entry' },
-  { key: 'validation_gate', group: 'Validation Gate', label: 'Conviction scored', help: 'You committed to a 0-10 conviction score' },
+  {
+    key: 'validation_gate',
+    group: 'Validation Gate',
+    label: 'Liquidity check passed',
+    help: 'Enough daily volume to get in/out without moving price',
+  },
+  {
+    key: 'validation_gate',
+    group: 'Validation Gate',
+    label: 'Structure aligned (W>D)',
+    help: 'Weekly and daily trends agree with your direction',
+  },
+  {
+    key: 'validation_gate',
+    group: 'Validation Gate',
+    label: 'Risk/Reward reached 2.5R',
+    help: 'Upside to target at least 2.5x the risk at the stop',
+  },
+  {
+    key: 'validation_gate',
+    group: 'Validation Gate',
+    label: 'Edge check (conviction + catalyst)',
+    help: 'Positioning and a catalyst supported the entry',
+  },
+  {
+    key: 'validation_gate',
+    group: 'Validation Gate',
+    label: 'Conviction scored',
+    help: 'You committed to a 0-10 conviction score',
+  },
   // Entry (3)
-  { key: 'entry_tranches', group: 'Entry', label: 'Entered tranche 1 (40%)', help: 'First piece filled at the trigger' },
-  { key: 'entry_tranches', group: 'Entry', label: 'Entered tranche 2 (30%)', help: 'Second piece filled at the trigger' },
-  { key: 'entry_tranches', group: 'Entry', label: 'Entered tranche 3 (30%)', help: 'Final piece filled at the trigger' },
+  {
+    key: 'entry_tranches',
+    group: 'Entry',
+    label: 'Entered tranche 1 (40%)',
+    help: 'First piece filled at the trigger',
+  },
+  {
+    key: 'entry_tranches',
+    group: 'Entry',
+    label: 'Entered tranche 2 (30%)',
+    help: 'Second piece filled at the trigger',
+  },
+  {
+    key: 'entry_tranches',
+    group: 'Entry',
+    label: 'Entered tranche 3 (30%)',
+    help: 'Final piece filled at the trigger',
+  },
   // Execution Discipline (stop respected 1, target hits 3, time stop 1)
-  { key: 'stop_respected', group: 'Execution Discipline', label: 'Stop respected (no lowering)', help: 'You did not widen the protective stop' },
-  { key: 'target_hits', group: 'Execution Discipline', label: 'Scaled out at target 1', help: 'Banked the first piece of profit' },
-  { key: 'target_hits', group: 'Execution Discipline', label: 'Scaled out at target 2', help: 'Banked the second piece of profit' },
-  { key: 'target_hits', group: 'Execution Discipline', label: 'Scaled out at target 3', help: 'Banked the final piece of profit' },
-  { key: 'time_stop_honored', group: 'Execution Discipline', label: 'Time stop honored', help: 'Exited when the thesis had its allotted days' },
+  {
+    key: 'stop_respected',
+    group: 'Execution Discipline',
+    label: 'Stop respected (no lowering)',
+    help: 'You did not widen the protective stop',
+  },
+  {
+    key: 'target_hits',
+    group: 'Execution Discipline',
+    label: 'Scaled out at target 1',
+    help: 'Banked the first piece of profit',
+  },
+  {
+    key: 'target_hits',
+    group: 'Execution Discipline',
+    label: 'Scaled out at target 2',
+    help: 'Banked the second piece of profit',
+  },
+  {
+    key: 'target_hits',
+    group: 'Execution Discipline',
+    label: 'Scaled out at target 3',
+    help: 'Banked the final piece of profit',
+  },
+  {
+    key: 'time_stop_honored',
+    group: 'Execution Discipline',
+    label: 'Time stop honored',
+    help: 'Exited when the thesis had its allotted days',
+  },
 ];
 
 /** Total checklist length — must equal the 13-step taxonomy. */
@@ -71,8 +136,15 @@ export function scorePlanSteps(completed: boolean[]): {
 }
 
 /** Group the defs by their UI group, preserving order. */
-export function planStepGroups(): Array<{ group: PlanStepGroup; steps: PlanStepDef[] }> {
-  const order: PlanStepGroup[] = ['Validation Gate', 'Entry', 'Execution Discipline'];
+export function planStepGroups(): Array<{
+  group: PlanStepGroup;
+  steps: PlanStepDef[];
+}> {
+  const order: PlanStepGroup[] = [
+    'Validation Gate',
+    'Entry',
+    'Execution Discipline',
+  ];
   return order.map((group) => ({
     group,
     steps: PLAN_STEP_DEFS.filter((s) => s.group === group),

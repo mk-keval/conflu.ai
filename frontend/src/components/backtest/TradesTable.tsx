@@ -8,7 +8,13 @@ interface TradesTableProps {
   trades: Trade[];
 }
 
-type SortKey = 'entry_time' | 'exit_time' | 'symbol' | 'pnl' | 'direction' | 'hold_duration_bars';
+type SortKey =
+  | 'entry_time'
+  | 'exit_time'
+  | 'symbol'
+  | 'pnl'
+  | 'direction'
+  | 'hold_duration_bars';
 type SortDir = 'asc' | 'desc';
 
 export function TradesTable({ trades }: TradesTableProps) {
@@ -57,20 +63,22 @@ export function TradesTable({ trades }: TradesTableProps) {
     return (
       <th
         className={cn(
-          'cursor-pointer px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider transition-colors hover:text-dark-50',
+          'hover:text-dark-50 cursor-pointer px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider transition-colors',
           active ? 'text-accent-light' : 'text-dark-400'
         )}
         onClick={() => toggleSort(sort)}
       >
         {label}
-        {active && <span className="ml-1">{sortDir === 'asc' ? '▲' : '▼'}</span>}
+        {active && (
+          <span className="ml-1">{sortDir === 'asc' ? '▲' : '▼'}</span>
+        )}
       </th>
     );
   }
 
   if (!trades.length) {
     return (
-      <div className="flex h-24 items-center justify-center rounded border border-dark-600 bg-dark-800 text-sm text-dark-400">
+      <div className="border-dark-600 bg-dark-800 text-dark-400 flex h-24 items-center justify-center rounded border text-sm">
         No trades recorded
       </div>
     );
@@ -78,30 +86,30 @@ export function TradesTable({ trades }: TradesTableProps) {
 
   return (
     <>
-      <div className="overflow-x-auto rounded border border-dark-600">
+      <div className="border-dark-600 overflow-x-auto rounded border">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-dark-600 bg-dark-800">
+            <tr className="border-dark-600 bg-dark-800 border-b">
               <SortHeader label="Symbol" sort="symbol" />
               <SortHeader label="Direction" sort="direction" />
               <SortHeader label="Entry" sort="entry_time" />
               <SortHeader label="Exit" sort="exit_time" />
-              <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-dark-400">
+              <th className="text-dark-400 px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider">
                 Entry $
               </th>
-              <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-dark-400">
+              <th className="text-dark-400 px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider">
                 Exit $
               </th>
               <SortHeader label="Size" sort="hold_duration_bars" />
               <SortHeader label="PnL" sort="pnl" />
-              <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-dark-400">
+              <th className="text-dark-400 px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider">
                 MAE
               </th>
-              <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-dark-400">
+              <th className="text-dark-400 px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider">
                 MFE
               </th>
               <SortHeader label="Bars" sort="hold_duration_bars" />
-              <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-dark-400">
+              <th className="text-dark-400 px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider">
                 Reason
               </th>
             </tr>
@@ -111,12 +119,15 @@ export function TradesTable({ trades }: TradesTableProps) {
               <tr
                 key={`${trade.run_id}-${trade.trade_index}`}
                 className={cn(
-                  'cursor-pointer border-b border-dark-700 transition-colors hover:bg-dark-700',
-                  selectedTrade?.trade_index === trade.trade_index && 'bg-dark-700'
+                  'border-dark-700 hover:bg-dark-700 cursor-pointer border-b transition-colors',
+                  selectedTrade?.trade_index === trade.trade_index &&
+                    'bg-dark-700'
                 )}
                 onClick={() => setSelectedTrade(trade)}
               >
-                <td className="px-2 py-2 font-medium text-dark-50">{trade.symbol}</td>
+                <td className="text-dark-50 px-2 py-2 font-medium">
+                  {trade.symbol}
+                </td>
                 <td className="px-2 py-2">
                   <span
                     className={cn(
@@ -129,15 +140,21 @@ export function TradesTable({ trades }: TradesTableProps) {
                     {trade.direction}
                   </span>
                 </td>
-                <td className="whitespace-nowrap px-2 py-2 text-dark-300">
+                <td className="text-dark-300 whitespace-nowrap px-2 py-2">
                   {formatDateTime(trade.entry_time)}
                 </td>
-                <td className="whitespace-nowrap px-2 py-2 text-dark-300">
+                <td className="text-dark-300 whitespace-nowrap px-2 py-2">
                   {formatDateTime(trade.exit_time)}
                 </td>
-                <td className="px-2 py-2 font-mono text-dark-200">{formatPrice(trade.entry_price)}</td>
-                <td className="px-2 py-2 font-mono text-dark-200">{formatPrice(trade.exit_price)}</td>
-                <td className="px-2 py-2 font-mono text-dark-200">{trade.size.toFixed(2)}</td>
+                <td className="text-dark-200 px-2 py-2 font-mono">
+                  {formatPrice(trade.entry_price)}
+                </td>
+                <td className="text-dark-200 px-2 py-2 font-mono">
+                  {formatPrice(trade.exit_price)}
+                </td>
+                <td className="text-dark-200 px-2 py-2 font-mono">
+                  {trade.size.toFixed(2)}
+                </td>
                 <td
                   className={cn(
                     'px-2 py-2 font-mono font-medium',
@@ -146,10 +163,16 @@ export function TradesTable({ trades }: TradesTableProps) {
                 >
                   {formatPnL(trade.pnl)}
                 </td>
-                <td className="px-2 py-2 font-mono text-dark-300">{formatPrice(trade.mae)}</td>
-                <td className="px-2 py-2 font-mono text-dark-300">{formatPrice(trade.mfe)}</td>
-                <td className="px-2 py-2 font-mono text-dark-300">{trade.hold_duration_bars}</td>
-                <td className="px-2 py-2 text-dark-400">{trade.exit_reason}</td>
+                <td className="text-dark-300 px-2 py-2 font-mono">
+                  {formatPrice(trade.mae)}
+                </td>
+                <td className="text-dark-300 px-2 py-2 font-mono">
+                  {formatPrice(trade.mfe)}
+                </td>
+                <td className="text-dark-300 px-2 py-2 font-mono">
+                  {trade.hold_duration_bars}
+                </td>
+                <td className="text-dark-400 px-2 py-2">{trade.exit_reason}</td>
               </tr>
             ))}
           </tbody>
@@ -157,7 +180,10 @@ export function TradesTable({ trades }: TradesTableProps) {
       </div>
 
       {selectedTrade && (
-        <TradeDetail trade={selectedTrade} onClose={() => setSelectedTrade(null)} />
+        <TradeDetail
+          trade={selectedTrade}
+          onClose={() => setSelectedTrade(null)}
+        />
       )}
     </>
   );

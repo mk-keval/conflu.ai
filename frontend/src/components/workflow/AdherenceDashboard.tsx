@@ -6,11 +6,13 @@
  *   - consistency streak (consecutive adherent trades >= ADHERENT_THRESHOLD)
  *   - a per-trade table (symbol, opened/closed, outcome, steps, adherence %)
  *   - one-click CSV export
+ *   - Expectancy Meter (Slice 3) — rolling expectancy/profit factor over closed trades
+ *   - Open Positions Tracker (Slice 3) — current R on open paper trades
  *
  * Pure, browser-free CSV logic lives in `workflow/adherenceExport.ts` so it is
  * unit-testable. This component is a thin read-only view: it derives everything
  * from `useWorkflowStore` + `useAdherence` and writes nothing (this tab is the
- * *scoreboard*; recording happens in the PaperTradeLogger).
+ * *scoreboard*; recording happens in the backend journal — D-68).
  */
 
 import { useMemo } from 'react';
@@ -24,10 +26,16 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { formatDate } from '@/lib/format';
-import { useWorkflowStore, useAdherence, ADHERENCE_WINDOW } from '@/store/workflowStore';
+import {
+  useWorkflowStore,
+  useAdherence,
+  ADHERENCE_WINDOW,
+} from '@/store/workflowStore';
 import { ADHERENT_THRESHOLD } from '@/workflow/adherence';
 import { buildAdherenceCsv } from '@/workflow/adherenceExport';
 import { TermLink } from '@/components/learn/TermLink';
+import { ExpectancyMeter } from './ExpectancyMeter';
+import { OpenPositionsTracker } from './OpenPositionsTracker';
 
 /** Human-friendly short label for a close outcome (matched to the logger). */
 const OUTCOME_LABEL: Record<string, string> = {
@@ -73,9 +81,16 @@ export function AdherenceDashboard() {
   const closedTrades = useMemo(
     () =>
       paperTrades
-        .filter((t) => t.status === 'closed' && t.closedAt != null)
+        .filter(
+          (t) =>
+            t.status === 'closed' &&
+            t.closedAt != null &&
+            !t.excludeFromStats
+        )
         .slice()
-        .sort((a, b) => (a.closedAt! < b.closedAt! ? 1 : a.closedAt! > b.closedAt! ? -1 : 0)),
+        .sort((a, b) =>
+          a.closedAt! < b.closedAt! ? 1 : a.closedAt! > b.closedAt! ? -1 : 0
+        ),
     [paperTrades]
   );
 
@@ -108,14 +123,15 @@ export function AdherenceDashboard() {
             Your Skill Score starts here
           </h2>
           <p className="mx-auto mt-2 max-w-md text-xs text-text-muted">
-            Log your first <span className="font-semibold text-text-primary">paper trade</span>{' '}
+            Log your first{' '}
+            <span className="font-semibold text-text-primary">paper trade</span>{' '}
             from the Execution Engine and your adherence meter will appear here.
             You build it one validated setup at a time.
           </p>
           <p className="mx-auto mt-3 max-w-md text-xs text-text-muted">
             This is your <TermLink text="adherence" /> score — the % of your{' '}
-            <TermLink text="trading plan" /> you actually followed. Consistency beats any single
-            win.
+            <TermLink text="trading plan" /> you actually followed. Consistency
+            beats any single win.
           </p>
         </div>
       )}
@@ -125,13 +141,15 @@ export function AdherenceDashboard() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {/* Rolling adherence meter */}
           <div className="rounded-xl border border-border/50 bg-surface/20 p-4 text-center">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-2">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
               <Activity className="mr-1 inline h-3 w-3" />
               Rolling {ADHERENCE_WINDOW}-trade adherence
             </div>
             <div className={meterClasses}>
               <div>
-                <div className="text-3xl font-bold">{adherence.rolling.pct}%</div>
+                <div className="text-3xl font-bold">
+                  {adherence.rolling.pct}%
+                </div>
                 {toWindow > 0 && (
                   <div className="text-[10px] text-text-muted">
                     over {toWindow} trade{toWindow === 1 ? '' : 's'}
@@ -148,7 +166,7 @@ export function AdherenceDashboard() {
 
           {/* Streak */}
           <div className="rounded-xl border border-border/50 bg-surface/20 p-4">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-2">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
               <Award className="mr-1 inline h-3 w-3" />
               Consistency streak
             </div>
@@ -156,39 +174,51 @@ export function AdherenceDashboard() {
               <span
                 className={cn(
                   'text-3xl font-bold',
-                  adherence.streak >= 3 ? 'text-green-400' : adherence.streak > 0 ? 'text-yellow-400' : 'text-text-muted'
+                  adherence.streak >= 3
+                    ? 'text-green-400'
+                    : adherence.streak > 0
+                      ? 'text-yellow-400'
+                      : 'text-text-muted'
                 )}
               >
                 {adherence.streak}
               </span>
               <span className="text-xs text-text-muted">
-                {adherence.streak === 1 ? 'trade' : 'trades'} at {ADHERENT_THRESHOLD}%+
+                {adherence.streak === 1 ? 'trade' : 'trades'} at{' '}
+                {ADHERENT_THRESHOLD}%+
               </span>
             </div>
             <p className="mt-2 text-[11px] text-text-muted">
-              Consecutive trades where you followed your plan at least {ADHERENT_THRESHOLD}%
-              of the time. The point of the daily routine is to keep this number climbing.
+              Consecutive trades where you followed your plan at least{' '}
+              {ADHERENT_THRESHOLD}% of the time. The point of the daily routine
+              is to keep this number climbing.
             </p>
           </div>
 
           {/* Quick stats */}
           <div className="rounded-xl border border-border/50 bg-surface/20 p-4">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-2">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
               <Target className="mr-1 inline h-3 w-3" />
               Trades logged
             </div>
             <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-bold text-text-primary">{paperTrades.length}</span>
+              <span className="text-3xl font-bold text-text-primary">
+                {paperTrades.length}
+              </span>
               <span className="text-xs text-text-muted">total print</span>
             </div>
             <div className="mt-2 space-y-1 text-[11px] text-text-muted">
               <div className="flex justify-between">
                 <span>Closed</span>
-                <span className="font-mono text-text-primary">{closedTrades.length}</span>
+                <span className="font-mono text-text-primary">
+                  {closedTrades.length}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>Open</span>
-                <span className="font-mono text-text-primary">{paperTrades.length - closedTrades.length}</span>
+                <span className="font-mono text-text-primary">
+                  {paperTrades.length - closedTrades.length}
+                </span>
               </div>
             </div>
             <button
@@ -204,18 +234,27 @@ export function AdherenceDashboard() {
         </div>
       )}
 
+      {/* ── Expectancy Meter (Slice 3) ── */}
+      {hasTrades && <ExpectancyMeter />}
+
+      {/* ── Open Positions Tracker (Slice 3) ── */}
+      {hasTrades && <OpenPositionsTracker />}
+
       {/* ── Per-trade table ── */}
       {hasTrades && (
         <div className="rounded-xl border border-border/50 bg-surface/20 p-4">
           <div className="mb-3 flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-accent" />
-            <h2 className="text-sm font-semibold text-text-primary">Trade-by-trade score</h2>
+            <h2 className="text-sm font-semibold text-text-primary">
+              Trade-by-trade score
+            </h2>
             <span className="text-[11px] text-text-muted">(newest first)</span>
           </div>
 
           {!hasClosed ? (
             <p className="text-xs text-text-muted">
-              No closed trades yet. Close a paper trade from the logger to see it scored here.
+              No closed trades yet. Close a paper trade from the logger to see
+              it scored here.
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -232,7 +271,9 @@ export function AdherenceDashboard() {
                 <tbody>
                   {closedTrades.map((trade) => (
                     <tr key={trade.id} className="border-t border-border/20">
-                      <td className="py-2 pr-3 font-mono font-semibold text-text-primary">{trade.symbol}</td>
+                      <td className="py-2 pr-3 font-mono font-semibold text-text-primary">
+                        {trade.symbol}
+                      </td>
                       <td className="py-2 pr-3 text-text-muted">
                         {trade.closedAt ? formatDate(trade.closedAt) : '—'}
                       </td>

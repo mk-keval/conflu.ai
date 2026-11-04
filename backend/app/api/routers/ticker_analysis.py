@@ -23,7 +23,7 @@ from fastapi import APIRouter, Depends, Query
 from backend.app.api.dependencies import get_ticker_analysis_engine
 from backend.app.api.schemas import ApiResponse, MetaInfo
 from backend.app.core.logging import get_logger
-from backend.app.domain.ticker_analysis.models import TickerAnalysisRequest
+from backend.app.domain.ticker_analysis.models import TickerAnalysisRequest, TickerAnalysisResponse
 from backend.app.domain.ticker_analysis.orchestrator import TickerAnalysisService
 
 router = APIRouter(prefix="/ticker", tags=["ticker"])
@@ -37,12 +37,13 @@ log = get_logger("conflu.api.ticker_analysis")
     "sentiment, and risk — and return a synthesized verdict (BUY/SELL/HOLD/WATCH) "
     "with entry zone, stop loss, targets, triggers, and thesis.",
     status_code=200,
+    response_model=ApiResponse[TickerAnalysisResponse],
 )
 async def analyze_ticker(
     symbol: str,
     request: TickerAnalysisRequest,
     engine: TickerAnalysisService = Depends(get_ticker_analysis_engine),
-) -> ApiResponse:
+) -> ApiResponse[TickerAnalysisResponse]:
     """Run the full ticker analysis pipeline for a single symbol.
 
     Uses:
@@ -60,7 +61,7 @@ async def analyze_ticker(
     result = await engine.analyze_async(request)
 
     return ApiResponse(
-        data=result.model_dump(mode="json") if hasattr(result, "model_dump") else result,
+        data=result,
         meta=MetaInfo(timestamp=datetime.now(UTC).isoformat()),
     )
 

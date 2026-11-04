@@ -8,41 +8,54 @@
 # Screen names are filename stems under config/screens/.
 # Unknown/failed screens are skipped gracefully; regimes missing from this
 # file fall back to heuristic scoring, then to the hardcoded fallback map.
+#
+# UPDATED: Using elite templates validated in D-61 (>55% WR, >1.5 PF)
+# Backtest: 21 templates × 10 symbols × 730 days (2023-2024)
+#
+# CAVEAT (2026-10-19): The D-61 inline WR/PF stats below are SUPERSEDED.
+# A full re-validation on a corrected engine (per-rule timeframes, no
+# look-ahead, ATR exits) is in docs/backtests/VALIDATION_REPORT.md +
+# docs/backtests/validation_20261019_191610.json. Weights here have NOT
+# been re-tuned to the new numbers yet — a weight review is pending
+# user decision (see report § 4: bull-flag-continuation is the weakest
+# deployed template; quality-trend-fundamentals / high-conviction-stack
+# are stronger non-deployed candidates).
 
-version: 1
+version: 2
 
 regimes:
   strong_trend:
-    - { name: trend-follower, weight: 95 }
-    - { name: 52week-breakout, weight: 85 }
-    - { name: institutional-trend-follower-mtf, weight: 75 }
-    - { name: quality-trend-fundamentals, weight: 65 }
-    - { role: defensive, name: high-conviction-stack, weight: 55 }
+    # Primary: Elite trend followers with strict RS/quality filters
+    - { name: 52week-breakout, weight: 95 }        # 74.3% WR, 5.92 PF
+    - { name: trend-follower-v2, weight: 90 }      # 71.3% WR, 4.50 PF
+    - { name: vcp-breakout, weight: 85 }           # 71.0% WR, 4.40 PF
+    - { name: trend-pullback-v2, weight: 80 }      # 59.7% WR, 5.13 PF, 0.90 Sharpe
+    # Defensive: Quality trend with fundamentals
+    - { role: defensive, name: institutional-trend-follower-mtf, weight: 65 }  # 67.9% WR
 
-  # Momentum/breakout/catalyst PRIMARY + one defensive secondary (RC1 fix):
-  # a 50-ish composite is NOT a reason to serve only mean-reversion.
+  # Momentum/breakout/catalyst PRIMARY + one defensive secondary (RC1 fix)
   neutral:
-    - { name: 52week-breakout, weight: 90 }
-    - { name: short-squeeze, weight: 85 }
-    - { name: volume-trend-accumulation, weight: 80 }
+    - { name: 52week-breakout, weight: 95 }
+    - { name: volume-trend-accumulation, weight: 85 }  # 66.3% WR
     - { name: bull-flag-continuation, weight: 75 }
-    - { role: defensive, name: statistical-mean-reversion, weight: 60 }
+    - { name: trend-follower-v2, weight: 70 }
+    - { role: defensive, name: statistical-mean-reversion, weight: 65 }  # 74.2% WR
 
   choppy:
     - { name: bull-flag-continuation, weight: 85 }
-    - { name: short-squeeze, weight: 80 }
-    - { name: volatility-expansion, weight: 70 }
-    - { role: defensive, name: low-vol-setup, weight: 65 }
-    - { role: defensive, name: statistical-mean-reversion, weight: 55 }
+    - { name: trend-pullback-v2, weight: 80 }
+    - { name: volume-trend-accumulation, weight: 75 }
+    - { role: defensive, name: low-vol-setup, weight: 65 }  # 55.1% WR
+    - { role: defensive, name: statistical-mean-reversion, weight: 60 }
 
   ranging:
-    - { name: statistical-mean-reversion, weight: 80 }
-    - { name: mean-reversion, weight: 75 }
-    - { name: volume-trend-accumulation, weight: 65 }
-    - { role: defensive, name: low-vol-setup, weight: 60 }
+    - { name: statistical-mean-reversion, weight: 85 }  # 74.2% WR
+    - { name: mean-reversion, weight: 80 }              # 67.2% WR, 26.8 PF
+    - { name: volume-trend-accumulation, weight: 70 }
+    - { role: defensive, name: low-vol-setup, weight: 65 }
 
   high_vol:
     - { name: institutional-swing-quality, weight: 85 }
     - { name: volatility-expansion, weight: 80 }
-    - { name: short-squeeze, weight: 70 }
-    - { role: defensive, name: quality-trend-fundamentals, weight: 60 }
+    - { name: institutional-quality-v2, weight: 75 }  # 64% WR, MR Swing regime-aware
+    - { role: defensive, name: distribution, weight: 65 }  # 59.2% WR, 23 PF

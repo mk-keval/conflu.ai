@@ -12,15 +12,13 @@
  * store can be introduced later without touching components (see D-A v2.1).
  */
 
-// ── Daily Routine ──
+// ── Daily Routine (Slice 3: 2 touchpoints) ──
 
-export type RoutineStepSeq = 1 | 2 | 3 | 4;
+export type RoutineStepSeq = 1 | 2;
 
 export type RoutineStepLabel =
-  | 'Pre-Market'
-  | 'Market Open'
-  | 'Mid-Day'
-  | 'After-Close Journal';
+  | 'Pre-Market (Touchpoint A)'
+  | 'After-Close (Touchpoint B)';
 
 export type RoutineStepStatus = 'pending' | 'completed';
 
@@ -54,8 +52,10 @@ export type GateVerdict = 'PASS' | 'FAIL' | 'CONDITIONAL';
 export type GateStepName =
   | 'Liquidity'
   | 'Structure'
+  | 'Positioning'
+  | 'Catalyst'
   | 'Risk/Reward'
-  | 'Edge Check'
+  | 'Portfolio Fit'
   | 'Conviction';
 
 export interface GateStepResult {
@@ -72,6 +72,10 @@ export interface ValidationGate {
   overall: GateVerdict;
   /** 0-10 conviction score produced by the final step. */
   convictionScore: number;
+  /** Steps where data was missing (CONDITIONAL due to missing inputs). */
+  dataGaps: string[];
+  /** ISO timestamp when the gate was evaluated. */
+  evaluatedAt: string;
   createdAt: string;
 }
 
@@ -99,6 +103,18 @@ export interface PaperTrade {
   stepsTotal: number;
   /** stepsFollowed / stepsTotal * 100, clamped to [0, 100]. */
   adherencePct: number;
+  /** Realized R-multiple for closed trades (from exit inference). */
+  realizedR?: number;
+  /** Entry price (for open position tracking). */
+  entryPrice?: number;
+  /** Stop loss price (for open position tracking). */
+  stopLoss?: number;
+  /** Gate verdict at entry (PASS/CONDITIONAL/FAIL). */
+  gateVerdict?: 'PASS' | 'FAIL' | 'CONDITIONAL';
+  /** Plan adherence score (0-1) for closed trades (from sync-exits). */
+  planAdherence?: number;
+  /** True for pre-instrumentation rows that must not enter the forward scorecard. */
+  excludeFromStats?: boolean;
   openedAt: string;
   closedAt: string | null;
 }

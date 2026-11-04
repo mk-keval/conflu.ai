@@ -46,6 +46,9 @@ export interface TVScoredTicker {
   risk_reward: number;
   rating: string;
   tv_data: TVDataFields;
+  // D-44: G14 — earnings binary risk (screener path only)
+  binary_risk?: boolean;
+  earnings_date?: string | null;
   /** Per-timeframe breakdown (populated for multi-TF screens only). */
   mtf_breakdown?: TVMTFBreakdown[];
   /** Elite signal enrichment from post-TV processing. */
