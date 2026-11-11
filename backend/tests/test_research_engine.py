@@ -378,5 +378,94 @@ def test_no_trade_enters_on_signal_date():
             assert t.entry_date > t.signal_date, f"Trade {t.symbol} entered on or before signal date"
 
 
+def _make_panel(symbol_lengths: dict[str, int], seed=7):
+    """Multi-symbol panel where symbols have different history lengths."""
+    np.random.seed(seed)
+    dates = pd.date_range("2020-01-01", periods=max(symbol_lengths.values()), freq="D")
+    data = {}
+    for symbol, n in symbol_lengths.items():
+        close = 100 + np.cumsum(np.random.randn(n) * 0.4)
+        high = close + np.abs(np.random.randn(n) * 0.3)
+        low = close - np.abs(np.random.randn(n) * 0.3)
+        open_ = close + np.random.randn(n) * 0.2
+        volume = np.abs(np.random.randn(n) * 100000 + 10_000_000)
+        df = pd.DataFrame(
+            {"open": open_, "high": high, "low": low, "close": close, "volume": volume},
+            index=dates[:n],
+        )
+        data[symbol] = add_indicators(df)
+    return data
+
+
+def test_data_end_closes_open_position():
+    """A position whose symbol's data ends is closed at that symbol's last close."""
+    data = _make_panel({"SHORT": 40, "LONG": 120})
+    signals = {s: pd.Series(False, index=df.index) for s, df in data.items()}
+    signals["SHORT"].iloc[10] = True
+
+    # Wide stop/target and a long hold guarantee the position outlives the data.
+    exit_rules = ExitRules(stop_atr=20.0, target_atr=20.0, max_hold_bars=1000)
+    portfolio_rules = PortfolioRules(
+        start_equity=100_000, risk_pct=0.5, max_positions=2, cost_bps_per_side=0
+    )
+
+    trades, equity = run_portfolio(data, signals, exit_rules, portfolio_rules, seed=42)
+
+    short_trades = [t for t in trades if t.symbol == "SHORT"]
+    assert len(short_trades) == 1
+    trade = short_trades[0]
+    assert trade.exit_reason == "data_end"
+    assert trade.censored is True
+    assert trade.exit_date == data["SHORT"].index[-1]
+
+    # The stranded position's cash must be returned to the equity curve.
+    expected = portfolio_rules.start_equity + sum(t.pnl_usd for t in trades)
+    assert equity.iloc[-1] == pytest.approx(expected, rel=1e-12)
+
+
+def test_final_bar_closes_all_positions():
+    """Open positions at the last bar are closed before the final equity mark."""
+    data = _make_panel({"ONLY": 60})
+    signals = {"ONLY": pd.Series(False, index=data["ONLY"].index)}
+    signals["ONLY"].iloc[50] = True
+
+    exit_rules = ExitRules(stop_atr=20.0, target_atr=20.0, max_hold_bars=1000)
+    portfolio_rules = PortfolioRules(
+        start_equity=100_000, risk_pct=0.5, max_positions=1, cost_bps_per_side=15
+    )
+
+    trades, equity = run_portfolio(data, signals, exit_rules, portfolio_rules, seed=42)
+
+    assert len(trades) == 1
+    assert trades[0].exit_reason == "eod_censored"
+    assert trades[0].censored is True
+    assert trades[0].exit_date == data["ONLY"].index[-1]
+    expected = portfolio_rules.start_equity + sum(t.pnl_usd for t in trades)
+    assert equity.iloc[-1] == pytest.approx(expected, rel=1e-12)
+
+
+def test_final_equity_reconciles_with_realized_pnl():
+    """final_equity == start_equity + sum(pnl_usd) even with ragged symbol ends."""
+    data = _make_panel({f"S{i}": 60 + i * 5 for i in range(10)})
+    signals = {}
+    for symbol, df in data.items():
+        sig = pd.Series(False, index=df.index)
+        sig.iloc[30::7] = True
+        signals[symbol] = sig
+
+    exit_rules = ExitRules(stop_atr=2.0, target_atr=3.0, max_hold_bars=15)
+    portfolio_rules = PortfolioRules(
+        start_equity=100_000, risk_pct=0.5, max_positions=5, cost_bps_per_side=15
+    )
+
+    trades, equity = run_portfolio(data, signals, exit_rules, portfolio_rules, seed=42)
+
+    assert len(trades) > 0
+    # Every opened position is closed and accounted for.
+    assert all(t.exit_price > 0 for t in trades)
+    expected = portfolio_rules.start_equity + sum(t.pnl_usd for t in trades)
+    assert equity.iloc[-1] == pytest.approx(expected, rel=1e-9)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

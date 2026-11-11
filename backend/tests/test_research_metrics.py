@@ -276,19 +276,26 @@ def test_metrics_to_dict():
 
 
 def test_alpha_beta():
-    """Test alpha/beta calculation."""
-    trades = _make_test_trades(20)
-    equity = _make_equity_curve(trades)
-    
-    # Create benchmark returns (SPY-like)
-    dates = equity.index
-    bench_returns = pd.Series(np.random.randn(len(dates)) * 0.01, index=dates)
-    
-    metrics = compute_metrics(trades, equity, benchmark_returns=bench_returns)
-    
-    # Alpha and beta should be computed
-    assert not np.isnan(metrics.alpha)
+    """Alpha/beta regress the benchmark returns as given (no re-differencing).
+
+    The strategy returns are exactly twice the benchmark, so beta must be 2 and
+    alpha ~0. One benchmark day is flat (0.0), which used to produce ``inf`` when
+    the already-computed returns were differenced again, leaving alpha/beta at 0.
+    """
+    dates = pd.bdate_range("2020-01-01", periods=300)
+    rng = np.random.default_rng(7)
+    bench = pd.Series(rng.normal(0.0004, 0.01, len(dates)), index=dates)
+    bench.iloc[0] = 0.0  # equity base, dropped as the first pct_change row
+    bench.iloc[100] = 0.0  # flat day: division by zero in the old path
+    equity = pd.Series(100000 * (1 + bench * 2).cumprod(), index=dates)
+
+    trades = _make_test_trades(5)
+    metrics = compute_metrics(trades, equity, benchmark_returns=bench)
+
     assert not np.isnan(metrics.beta)
+    assert not np.isnan(metrics.alpha)
+    assert abs(metrics.beta - 2.0) < 1e-6
+    assert abs(metrics.alpha) < 1e-6
 
 
 if __name__ == "__main__":

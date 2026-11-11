@@ -2,18 +2,22 @@
 """Research baseline backtest runner.
 
 Usage:
-    python scripts/run_research_baseline.py [--setup SETUP] [--universe UNIVERSE] [--start START] [--end END]
-    
-Runs baseline backtest for a given setup and compares against control distributions.
+    python scripts/run_research_baseline.py [--setup SETUP] [--universe UNIVERSE]
+        [--start START] [--end END] [--cache-dir DIR] [--tag TAG]
+
+Runs a baseline backtest for a setup and compares it against random, permuted
+and time-shifted control distributions. Writes a self-describing JSON artifact.
 """
 
 import argparse
+import hashlib
 import json
 import os
+import platform
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -22,7 +26,7 @@ import yaml
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from backend.app.research.data import download_daily, load_universe
+from backend.app.research.data import download_daily, load_universe, panel_span
 from backend.app.research.indicators import add_indicators
 from backend.app.research.setups import (
     SETUPS,
@@ -39,6 +43,10 @@ from backend.app.research.control import (
     compute_control_pvalues,
     summarize_control_results
 )
+
+# How far the actual panel may fall short of the requested span before the run
+# refuses to write an artifact. Holidays and weekends need a few days of slack.
+SPAN_TOLERANCE_DAYS = 10
 
 
 def load_setup_config(setup_name: str) -> dict:
@@ -63,6 +71,92 @@ def get_setup_function(setup_name: str):
     return SETUPS.get(setup_name)
 
 
+def _sha256_file(path: str) -> str | None:
+    """SHA-256 of a file, or None when it cannot be read."""
+    try:
+        digest = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1 << 20), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+    except OSError:
+        return None
+
+
+def _git_state() -> tuple[str | None, bool | None]:
+    """Return (HEAD revision, working-tree-dirty) when git is available."""
+    try:
+        root = Path(__file__).parent.parent
+        rev = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=root,
+            capture_output=True, text=True, timeout=10, check=True
+        ).stdout.strip()
+        status = subprocess.run(
+            ["git", "status", "--porcelain"], cwd=root,
+            capture_output=True, text=True, timeout=10, check=True
+        ).stdout.strip()
+        return rev or None, bool(status)
+    except Exception:
+        return None, None
+
+
+def _symbol_coverage(
+    data: dict[str, pd.DataFrame],
+    requested_end: str,
+    tolerance_days: int = SPAN_TOLERANCE_DAYS,
+) -> list[dict]:
+    """Per-symbol first/last bar, flagging symbols that end well before the request."""
+    end_ts = pd.Timestamp(requested_end)
+    rows = []
+    for symbol in sorted(data):
+        if symbol in ("SPY", "VIX"):
+            continue
+        df = data[symbol]
+        if not len(df):
+            continue
+        last = df.index[-1]
+        rows.append({
+            "symbol": symbol,
+            "first": df.index[0].strftime("%Y-%m-%d"),
+            "last": last.strftime("%Y-%m-%d"),
+            "bars": int(len(df)),
+            "ends_early": bool(last < end_ts - pd.Timedelta(days=tolerance_days)),
+        })
+    return rows
+
+
+def _validate_panel(
+    requested_start: str,
+    requested_end: str,
+    actual_start: pd.Timestamp | None,
+    actual_end: pd.Timestamp | None,
+    allow_partial: bool,
+) -> list[str]:
+    """Refuse to write an artifact whose panel does not cover the requested span."""
+    problems = []
+    if actual_start is None or actual_end is None:
+        problems.append("no price data loaded")
+    else:
+        if actual_start > pd.Timestamp(requested_start) + pd.Timedelta(days=SPAN_TOLERANCE_DAYS):
+            problems.append(
+                f"panel starts {actual_start.date()} but {requested_start} was requested"
+            )
+        if actual_end < pd.Timestamp(requested_end) - pd.Timedelta(days=SPAN_TOLERANCE_DAYS):
+            problems.append(
+                f"panel ends {actual_end.date()} but {requested_end} was requested"
+            )
+    if problems:
+        message = "; ".join(problems)
+        if allow_partial:
+            print(f"WARNING: partial panel accepted: {message}")
+        else:
+            raise RuntimeError(
+                f"Panel span check failed: {message}. "
+                "Use --allow-partial-panel to override (the artifact will be marked partial)."
+            )
+    return problems
+
+
 def run_backtest(
     setup_name: str,
     universe_path: str,
@@ -71,45 +165,59 @@ def run_backtest(
     exit_rules: ExitRules,
     portfolio_rules: PortfolioRules,
     cache_dir: str = ".cache/research",
-    output_dir: str = "docs/backtests/research"
-) -> tuple[list[Trade], pd.Series, dict[str, pd.DataFrame], dict[str, pd.Series], BacktestMetrics]:
-    """Run full backtest for a setup."""
-    
+    output_dir: str = "docs/backtests/research",
+    max_cache_age_hours: float = 20.0,
+    force_download: bool = False,
+) -> dict:
+    """Run a full backtest for a setup and return everything needed to document it."""
+
     print(f"\n{'='*60}")
     print(f"Running {setup_name} backtest")
     print(f"Universe: {universe_path}")
     print(f"Period: {start_date} to {end_date}")
+    print(f"Cache: {cache_dir}")
     print(f"{'='*60}")
-    
+
     # Load universe
     symbols = load_universe(universe_path)
     print(f"Loaded {len(symbols)} symbols from universe")
-    
+
     # Add SPY for benchmark
     if "SPY" not in symbols:
         symbols.append("SPY")
-    
+
     # Download data
     print("Downloading data...")
-    data, dropped = download_daily(symbols, start_date, end_date, cache_dir)
-    print(f"Downloaded data for {len(data)} symbols")
+    data, dropped, cache_stats = download_daily(
+        symbols, start_date, end_date, cache_dir,
+        max_age_hours=max_cache_age_hours,
+        force_download=force_download,
+    )
+    actual_start, actual_end = panel_span(data)
+    print(
+        f"Loaded {len(data)} symbols "
+        f"(cache hits={cache_stats['hits']}, downloads={cache_stats['downloaded']}, "
+        f"failed={cache_stats['failed']})"
+    )
     if dropped:
         print(f"Dropped {len(dropped)} symbols: {[d[0] for d in dropped]}")
-    
+    if actual_start is not None:
+        print(f"Actual panel span: {actual_start.date()} -> {actual_end.date()}")
+
     # Add indicators
     print("Adding indicators...")
     for symbol, df in data.items():
         data[symbol] = add_indicators(df)
     print("Indicators added")
-    
+
     # Get setup function
     setup_fn = get_setup_function(setup_name)
     if setup_fn is None:
         raise ValueError(f"Unknown setup: {setup_name}")
-    
+
     # Load config for eligibility
     config = load_setup_config(setup_name)
-    
+
     # Generate signals
     print("Generating signals...")
     signals = {}
@@ -117,38 +225,54 @@ def run_backtest(
         if symbol in ("SPY", "VIX"):
             signals[symbol] = pd.Series(False, index=df.index)
             continue
-            
+
         # Check eligibility
         if not eligible(df).any():
             signals[symbol] = pd.Series(False, index=df.index)
             continue
-            
+
         # Generate setup signals
         sig = setup_fn(df)
         signals[symbol] = sig
-        
+
         n_signals = sig.sum()
         if n_signals > 0:
             print(f"  {symbol}: {n_signals} signals")
-    
+
     total_signals = sum(s.sum() for s in signals.values())
     print(f"Total signals: {total_signals}")
-    
+
     # Run portfolio backtest
     print("Running portfolio backtest...")
     trades, equity = run_portfolio(data, signals, exit_rules, portfolio_rules, seed=42)
     print(f"Completed {len(trades)} trades")
-    
+
     # Compute metrics
-    # Get SPY returns for alpha/beta
     spy_returns = None
     if "SPY" in data:
         spy_returns = data["SPY"]["close"].pct_change()
-    
-    metrics = compute_metrics(trades, equity, benchmark_returns=spy_returns)
+
+    metrics = compute_metrics(
+        trades, equity,
+        benchmark_returns=spy_returns,
+        start_equity=portfolio_rules.start_equity,
+    )
     print_metrics(metrics, f"{setup_name} Backtest Results")
-    
-    return trades, equity, data, signals, metrics
+
+    return {
+        "trades": trades,
+        "equity": equity,
+        "data": data,
+        "signals": signals,
+        "metrics": metrics,
+        "dropped": dropped,
+        "cache_stats": cache_stats,
+        "actual_start": actual_start,
+        "actual_end": actual_end,
+        "requested_start": start_date,
+        "requested_end": end_date,
+        "n_universe_symbols": len(symbols),
+    }
 
 
 def run_controls(
@@ -165,7 +289,7 @@ def run_controls(
     print(f"Running Control Suite")
     print(f"Random: {n_random}, Permuted: {n_permuted}, Shifted: {n_shifted}")
     print(f"{'='*60}")
-    
+
     control_results = run_control_suite(
         data, signals, exit_rules, portfolio_rules,
         n_random=n_random,
@@ -173,7 +297,7 @@ def run_controls(
         n_shifted=n_shifted,
         base_seed=42
     )
-    
+
     # Summarize
     for ctype, results in control_results.items():
         if results:
@@ -185,29 +309,47 @@ def run_controls(
                   f"min={np.min(r_net_sums):.3f}, max={np.max(r_net_sums):.3f}")
             print(f"  Sharpe:     mean={np.mean(sharpes):.3f}, std={np.std(sharpes):.3f}")
             print(f"  Return %:   mean={np.mean(returns):.1f}%, std={np.std(returns):.1f}%")
-    
+
     return control_results
+
+
+def summarize_controls(control_results: dict[str, list]) -> dict:
+    """Compact control distribution summary for the artifact."""
+    summary = {}
+    for ctype, results in control_results.items():
+        if results:
+            summary[ctype] = {
+                "n_runs": len(results),
+                "r_net_sum_mean": float(np.mean([r.metrics.r_net_sum for r in results])),
+                "r_net_sum_std": float(np.std([r.metrics.r_net_sum for r in results])),
+                "sharpe_mean": float(np.mean([r.metrics.sharpe for r in results])),
+                "sharpe_std": float(np.std([r.metrics.sharpe for r in results])),
+                "return_mean": float(np.mean([r.metrics.total_return_pct for r in results])),
+                "return_std": float(np.std([r.metrics.total_return_pct for r in results])),
+            }
+    return summary
 
 
 def save_results(
     setup_name: str,
-    trades: list[Trade],
-    equity: pd.Series,
-    metrics: BacktestMetrics,
-    control_results: dict[str, list],
-    pvalues: dict[str, float],
-    output_dir: str = "docs/backtests/research"
+    result: dict,
+    control_summary: dict,
+    pvalues_r_net_sum: dict,
+    pvalues_sharpe: dict,
+    metadata: dict,
+    output_dir: str = "docs/backtests/research",
+    tag: str = "",
 ) -> str:
-    """Save results to JSON."""
+    """Save a self-describing results artifact to JSON."""
     os.makedirs(output_dir, exist_ok=True)
-    
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{setup_name}_{timestamp}.json"
+    suffix = f"_{tag}" if tag else ""
+    filename = f"{setup_name}_{timestamp}{suffix}.json"
     filepath = os.path.join(output_dir, filename)
-    
-    # Convert trades to serializable format
+
     trades_data = []
-    for t in trades:
+    for t in result["trades"]:
         trades_data.append({
             "symbol": t.symbol,
             "signal_date": t.signal_date.isoformat() if isinstance(t.signal_date, pd.Timestamp) else str(t.signal_date),
@@ -225,42 +367,107 @@ def save_results(
             "pnl_usd": float(t.pnl_usd),
             "censored": bool(t.censored)
         })
-    
-    # Equity curve
+
     equity_data = [
         {"date": d.isoformat(), "equity": float(e)}
-        for d, e in equity.items()
+        for d, e in result["equity"].items()
     ]
-    
-    # Control summary
-    control_summary = {}
-    for ctype, results in control_results.items():
-        if results:
-            control_summary[ctype] = {
-                "n_runs": len(results),
-                "r_net_sum_mean": float(np.mean([r.metrics.r_net_sum for r in results])),
-                "r_net_sum_std": float(np.std([r.metrics.r_net_sum for r in results])),
-                "sharpe_mean": float(np.mean([r.metrics.sharpe for r in results])),
-                "sharpe_std": float(np.std([r.metrics.sharpe for r in results])),
-                "return_mean": float(np.mean([r.metrics.total_return_pct for r in results])),
-                "return_std": float(np.std([r.metrics.total_return_pct for r in results])),
-            }
-    
-    result = {
+
+    payload = {
         "setup": setup_name,
         "timestamp": timestamp,
-        "metrics": metrics_to_dict(metrics),
+        "metrics": metrics_to_dict(result["metrics"]),
         "trades": trades_data,
         "equity_curve": equity_data,
         "control_summary": control_summary,
-        "p_values": pvalues
+        "p_values": pvalues_r_net_sum,
+        "p_value_metric": "r_net_sum",
+        "p_values_sharpe": pvalues_sharpe,
+        "run": metadata,
     }
-    
-    with open(filepath, 'w') as f:
-        json.dump(result, f, indent=2)
-    
+
+    with open(filepath, 'w', encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
+
     print(f"\nResults saved to: {filepath}")
     return filepath
+
+
+def _build_metadata(args, result: dict, exit_rules, portfolio_rules) -> dict:
+    """Everything a reader needs to judge the artifact without the source."""
+    metrics = result["metrics"]
+    rev, dirty = _git_state()
+    coverage = _symbol_coverage(result["data"], args.end)
+    start_equity = portfolio_rules.start_equity
+    pnl_all = float(metrics.pnl_usd_all)
+    final_equity = float(metrics.final_equity)
+    holds = bool(abs(final_equity - (start_equity + pnl_all)) <= 1e-6 * max(1.0, abs(start_equity)))
+
+    return {
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "script": "scripts/run_research_baseline.py",
+        "requested_span": {"start": result["requested_start"], "end": result["requested_end"]},
+        "actual_span": {
+            "start": result["actual_start"].strftime("%Y-%m-%d") if result["actual_start"] is not None else None,
+            "end": result["actual_end"].strftime("%Y-%m-%d") if result["actual_end"] is not None else None,
+        },
+        "universe": {
+            "path": args.universe,
+            "sha256": _sha256_file(args.universe),
+            "n_symbols_requested": result["n_universe_symbols"],
+            "n_symbols_loaded": len(result["data"]),
+            "symbols_dropped": [{"symbol": s, "reason": r} for s, r in result["dropped"]],
+        },
+        "cache": result["cache_stats"],
+        "rules": {
+            "start_equity": portfolio_rules.start_equity,
+            "risk_pct": portfolio_rules.risk_pct,
+            "max_positions": portfolio_rules.max_positions,
+            "max_position_pct": portfolio_rules.max_position_pct,
+            "cost_bps_per_side": portfolio_rules.cost_bps_per_side,
+            "stop_atr": exit_rules.stop_atr,
+            "target_atr": exit_rules.target_atr,
+            "max_hold_bars": exit_rules.max_hold_bars,
+            "candidate_seed": 42,
+        },
+        "controls": {
+            "random": args.n_random,
+            "permuted": args.n_permuted,
+            "shifted": args.n_shifted,
+        },
+        "invariant": {
+            "start_equity": start_equity,
+            "pnl_usd_all": pnl_all,
+            "final_equity": final_equity,
+            "holds": holds,
+            "expression": "final_equity == start_equity + sum(pnl_usd over all trades)",
+        },
+        "panel": {
+            "n_symbols": len(coverage),
+            "n_symbols_ending_early": sum(1 for row in coverage if row["ends_early"]),
+            "symbol_coverage": coverage,
+        },
+        "code": {"revision": rev, "dirty": dirty},
+        "environment": {
+            "python": platform.python_version(),
+            "pandas": pd.__version__,
+            "numpy": np.__version__,
+            "yfinance": _package_version("yfinance"),
+        },
+        "limitations": [
+            "Universe is the current S&P 500 snapshot: survivorship bias remains.",
+            "Trade-level Sharpe is annualised from per-trade R (sqrt(252)); it is not a daily equity Sharpe.",
+            "Censored trades (exit_reason data_end / eod_censored) are excluded from trade-level R statistics but included in equity and pnl_usd_all.",
+        ],
+    }
+
+
+def _package_version(name: str) -> str | None:
+    try:
+        from importlib.metadata import version
+        return version(name)
+    except Exception:
+        return None
 
 
 def main():
@@ -270,10 +477,10 @@ def main():
                         help="Setup name to test")
     parser.add_argument("--universe", default="config/replay_universe_sp500.txt",
                         help="Path to universe file")
-    parser.add_argument("--start", default="2015-01-01",
-                        help="Start date (YYYY-MM-DD)")
-    parser.add_argument("--end", default="2024-12-31",
-                        help="End date (YYYY-MM-DD)")
+    parser.add_argument("--start", default="2020-01-03",
+                        help="Start date (inclusive, YYYY-MM-DD)")
+    parser.add_argument("--end", default="2023-12-29",
+                        help="End date (inclusive, YYYY-MM-DD)")
     parser.add_argument("--stop-atr", type=float, default=2.0,
                         help="Stop loss ATR multiplier")
     parser.add_argument("--target-atr", type=float, default=3.0,
@@ -294,35 +501,27 @@ def main():
                         help="Number of time-shifted control runs")
     parser.add_argument("--cache-dir", default=".cache/research",
                         help="Cache directory")
+    parser.add_argument("--cache-max-age-hours", type=float, default=20.0,
+                        help="Reuse a span-matched cache entry younger than this")
+    parser.add_argument("--force-download", action="store_true",
+                        help="Ignore the cache and re-download every symbol")
     parser.add_argument("--output-dir", default="docs/backtests/research",
                         help="Output directory")
+    parser.add_argument("--tag", default="",
+                        help="Suffix for the artifact filename (e.g. clean)")
+    parser.add_argument("--allow-partial-panel", action="store_true",
+                        help="Write the artifact even if the panel misses the requested span")
     parser.add_argument("--no-controls", action="store_true",
                         help="Skip control suite")
-    
+
     args = parser.parse_args()
-    
-    # Print configuration
-    print(f"\n{'='*60}")
-    print(f"RESEARCH BASELINE BACKTEST")
-    print(f"{'='*60}")
-    print(f"Setup:         {args.setup}")
-    print(f"Universe:      {args.universe}")
-    print(f"Date Range:    {args.start} to {args.end}")
-    print(f"Stop ATR:      {args.stop_atr}")
-    print(f"Target ATR:    {args.target_atr}")
-    print(f"Max Hold:      {args.max_hold}")
-    print(f"Risk %:        {args.risk_pct}%")
-    print(f"Max Positions: {args.max_positions}")
-    print(f"Cost BPS:      {args.cost_bps}")
-    print(f"{'='*60}")
-    
-    # Create rules
+
     exit_rules = ExitRules(
         stop_atr=args.stop_atr,
         target_atr=args.target_atr,
         max_hold_bars=args.max_hold
     )
-    
+
     portfolio_rules = PortfolioRules(
         start_equity=100_000.0,
         risk_pct=args.risk_pct,
@@ -330,9 +529,23 @@ def main():
         max_position_pct=20.0,
         cost_bps_per_side=args.cost_bps
     )
-    
+
+    print(f"\n{'='*60}")
+    print(f"RESEARCH BASELINE BACKTEST")
+    print(f"{'='*60}")
+    print(f"Setup:         {args.setup}")
+    print(f"Universe:      {args.universe}")
+    print(f"Date Range:    {args.start} to {args.end} (inclusive)")
+    print(f"Stop ATR:      {args.stop_atr}")
+    print(f"Target ATR:    {args.target_atr}")
+    print(f"Max Hold:      {args.max_hold}")
+    print(f"Risk %:        {args.risk_pct}%")
+    print(f"Max Positions: {args.max_positions}")
+    print(f"Cost BPS:      {args.cost_bps}")
+    print(f"{'='*60}")
+
     # Run backtest
-    trades, equity, data, signals, metrics = run_backtest(
+    result = run_backtest(
         args.setup,
         args.universe,
         args.start,
@@ -340,64 +553,104 @@ def main():
         exit_rules,
         portfolio_rules,
         args.cache_dir,
-        args.output_dir
+        args.output_dir,
+        max_cache_age_hours=args.cache_max_age_hours,
+        force_download=args.force_download,
     )
-    
+
+    metrics = result["metrics"]
+
+    # Refuse to write an artifact that does not describe the requested panel.
+    span_problems = _validate_panel(
+        args.start, args.end, result["actual_start"], result["actual_end"],
+        allow_partial=args.allow_partial_panel,
+    )
+    if span_problems:
+        result["cache_stats"]["panel_warnings"] = span_problems
+
+    # Invariant: every position is closed, so equity must reconcile with realized P&L.
+    metadata = _build_metadata(args, result, exit_rules, portfolio_rules)
+    if not metadata["invariant"]["holds"]:
+        raise RuntimeError(
+            "Equity invariant failed: final_equity != start_equity + sum(pnl_usd). "
+            f"{metadata['invariant']}"
+        )
+
     # Run controls
-    pvalues = {}
+    pvalues_r = {}
+    pvalues_sharpe = {}
     control_results = {}
-    
+    control_summary = {}
+
     if not args.no_controls:
         control_results = run_controls(
-            data, signals, exit_rules, portfolio_rules,
+            result["data"], result["signals"], exit_rules, portfolio_rules,
             n_random=args.n_random,
             n_permuted=args.n_permuted,
             n_shifted=args.n_shifted
         )
-        
-        # Compute p-values
-        pvalues = compute_control_pvalues(metrics, control_results, "r_net_sum")
+        control_summary = summarize_controls(control_results)
+
+        pvalues_r = compute_control_pvalues(metrics, control_results, "r_net_sum")
+        pvalues_sharpe = compute_control_pvalues(metrics, control_results, "sharpe")
+
         print(f"\n{'='*60}")
         print(f"P-VALUES (vs R-net Sum)")
         print(f"{'='*60}")
-        for ctype, p in pvalues.items():
+        for ctype, p in pvalues_r.items():
             sig = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else ""
             print(f"  {ctype:12s}: p = {p:.4f} {sig}")
-        
-        pvalues_sharpe = compute_control_pvalues(metrics, control_results, "sharpe")
+
         print(f"\nP-VALUES (vs Sharpe)")
         print(f"{'='*60}")
         for ctype, p in pvalues_sharpe.items():
             sig = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else ""
             print(f"  {ctype:12s}: p = {p:.4f} {sig}")
-    
-    # Save results
+
     save_results(
         args.setup,
-        trades,
-        equity,
-        metrics,
-        control_results,
-        pvalues,
-        args.output_dir
+        result,
+        control_summary,
+        pvalues_r,
+        pvalues_sharpe,
+        metadata,
+        args.output_dir,
+        tag=args.tag,
     )
-    
+
     print(f"\n{'='*60}")
     print(f"BACKTEST COMPLETE")
     print(f"{'='*60}")
-    
-    # Return exit code based on significance
-    if pvalues:
-        min_p = min(pvalues.values())
-        if min_p < 0.05:
-            print("RESULT: Statistically significant vs controls (p < 0.05)")
+
+    # Exit code: 0 only when the result is significant AND favourable.
+    if pvalues_r:
+        best_control = min(pvalues_r, key=pvalues_r.get)
+        best_p = pvalues_r[best_control]
+        control_mean = control_summary[best_control]["r_net_sum_mean"]
+        favorable = metrics.r_net_sum > control_mean
+
+        if best_p < 0.05 and favorable:
+            print(
+                f"RESULT: significantly BETTER than {best_control} "
+                f"(p={best_p:.4f}, real r_net_sum={metrics.r_net_sum:.3f} "
+                f"vs control mean {control_mean:.3f})"
+            )
             return 0
-        else:
-            print("RESULT: NOT statistically significant vs controls (p >= 0.05)")
+        if best_p < 0.05:
+            print(
+                f"RESULT: significantly WORSE than {best_control} "
+                f"(p={best_p:.4f}, real r_net_sum={metrics.r_net_sum:.3f} "
+                f"vs control mean {control_mean:.3f})"
+            )
             return 1
-    else:
-        print("RESULT: No controls run")
-        return 0
+        print(
+            f"RESULT: NOT statistically significant vs controls "
+            f"(best p={best_p:.4f} on {best_control})"
+        )
+        return 1
+
+    print("RESULT: No controls run")
+    return 0
 
 
 if __name__ == "__main__":

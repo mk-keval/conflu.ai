@@ -60,11 +60,16 @@ class BacktestMetrics:
     alpha: float = 0.0
     beta: float = 0.0
 
+    # Realized P&L over every trade, including forced data-end/EOD closes.
+    # ``pnl_usd_sum`` above covers strategy exits only.
+    pnl_usd_all: float = 0.0
+
 
 def compute_metrics(
     trades: list[Trade],
     equity_curve: pd.Series,
-    benchmark_returns: pd.Series | None = None
+    benchmark_returns: pd.Series | None = None,
+    start_equity: float | None = None
 ) -> BacktestMetrics:
     """Compute comprehensive metrics from trades and equity curve.
     
@@ -72,6 +77,8 @@ def compute_metrics(
         trades: List of completed trades.
         equity_curve: Series of equity values indexed by date.
         benchmark_returns: Optional benchmark returns for alpha/beta.
+        start_equity: Configured starting equity. Defaults to the first equity
+            point when omitted.
         
     Returns:
         BacktestMetrics dataclass with all computed metrics.
@@ -102,7 +109,8 @@ def compute_metrics(
             avg_bars_held=0, median_bars_held=0,
             exit_reasons={}, n_censored=len(censored_trades), censored_pct=100,
             final_equity=equity_curve.iloc[-1] if len(equity_curve) > 0 else 0,
-            total_return_pct=0, cagr=0, volatility_annual=0
+            total_return_pct=0, cagr=0, volatility_annual=0,
+            pnl_usd_all=float(sum(t.pnl_usd for t in trades))
         )
     
     # R-metrics
@@ -165,14 +173,17 @@ def compute_metrics(
     
     # Equity curve stats
     final_equity = float(equity_curve.iloc[-1]) if len(equity_curve) > 0 else 0
-    start_equity = float(equity_curve.iloc[0]) if len(equity_curve) > 0 else 0
-    total_return_pct = (final_equity / start_equity - 1) * 100 if start_equity > 0 else 0
+    if start_equity is not None and start_equity > 0:
+        start_equity_value = float(start_equity)
+    else:
+        start_equity_value = float(equity_curve.iloc[0]) if len(equity_curve) > 0 else 0
+    total_return_pct = (final_equity / start_equity_value - 1) * 100 if start_equity_value > 0 else 0
     
     # CAGR
     n_days = len(equity_curve)
     if n_days > 1:
         years = n_days / 252.0
-        cagr = (final_equity / start_equity) ** (1 / years) - 1 if start_equity > 0 else 0
+        cagr = (final_equity / start_equity_value) ** (1 / years) - 1 if start_equity_value > 0 else 0
         cagr *= 100
     else:
         cagr = 0.0
@@ -188,18 +199,23 @@ def compute_metrics(
     alpha = 0.0
     beta = 0.0
     if benchmark_returns is not None and len(benchmark_returns) > 1:
-        # Align dates
+        # ``benchmark_returns`` is already a return series. Differencing it a
+        # second time yields inf on any flat close (division by zero), which
+        # silently left alpha/beta at zero; regress the returns as given.
         common_dates = equity_curve.index.intersection(benchmark_returns.index)
         if len(common_dates) > 10:
-            strat_rets = equity_curve.loc[common_dates].pct_change().dropna()
-            bench_rets = benchmark_returns.loc[common_dates].pct_change().dropna()
-            common = strat_rets.index.intersection(bench_rets.index)
-            if len(common) > 10:
-                s = strat_rets.loc[common]
-                b = bench_rets.loc[common]
+            strat_rets = equity_curve.loc[common_dates].pct_change()
+            bench_rets = benchmark_returns.loc[common_dates]
+            joined = pd.concat(
+                [strat_rets.rename("strat"), bench_rets.rename("bench")], axis=1
+            ).dropna()
+            joined = joined[np.isfinite(joined).all(axis=1)]
+            if len(joined) > 10:
+                s = joined["strat"]
+                b = joined["bench"]
                 cov = np.cov(s, b)[0, 1]
-                var_b = np.var(b)
-                if var_b > 0:
+                var_b = np.var(b, ddof=1)  # match np.cov's sample convention
+                if np.isfinite(var_b) and var_b > 0:
                     beta = float(cov / var_b)
                     # Annualized alpha
                     alpha = float((s.mean() - beta * b.mean()) * 252 * 100)
@@ -230,7 +246,8 @@ def compute_metrics(
         cagr=cagr,
         volatility_annual=volatility_annual,
         alpha=alpha,
-        beta=beta
+        beta=beta,
+        pnl_usd_all=float(sum(t.pnl_usd for t in trades))
     )
 
 
@@ -291,5 +308,6 @@ def metrics_to_dict(metrics: BacktestMetrics) -> dict:
         "cagr": metrics.cagr,
         "volatility_annual": metrics.volatility_annual,
         "alpha": metrics.alpha,
-        "beta": metrics.beta
+        "beta": metrics.beta,
+        "pnl_usd_all": metrics.pnl_usd_all
     }
