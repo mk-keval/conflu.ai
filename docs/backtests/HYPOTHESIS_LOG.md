@@ -41,6 +41,8 @@ else in this file is input to the review, never a verdict.
 | H-06 | 2026-10-21 | D-73 pending orders / T+1 fills | Measurement (pre-sample correction) | 5 orders to date | Four phantom fills voided; no same-day fills possible; fill rate becomes a diagnostic | Applied; sample restarted |
 | H-07 | 2026-10-28 | D-74 canonical P&L, plan provenance, phantom/P&L verifier | Measurement | 10 journal rows | CRS −$1,624.99 → −$30.01 net; 0 phantom fills; 0 P&L mismatches; 3 R:R provenance warnings | Applied; sample continues |
 | H-08 | 2026-10-22 → | **FWD-v0.1 forward sample** | **Confirmatory** | 1 closed / 2 open / 1 pending | Expectancy −1.00R, MFE gap +4.72R, net −$30.01 | **Active — not yet evidence** |
+| H-09 | 2026-10-30 | D-78 H-09: v0.1 vs v0.2 geometry on one signal stream | Exploratory (counterfactual) | 147 fills; v0.1 accepted 120; v0.2 accepted 103 (44 rejected) | v0.2 accepted −0.138R vs v0.1 accepted −0.050R; exit-only on 103 paired fills −0.138R vs −0.096R; rejected counterfactual +0.012R | Frozen; dry-run only; earliest full write 2026-11-24; never evidence |
+| H-10 | 2026-11-10 | D-79 research baseline: 4 setups vs random/permuted/shifted controls | Exploratory (in-sample) | 700 / 583 / 589 / 748 trades | No setup beat controls at p < 0.05 in the favorable direction; two had positive trade-level expectancy (+0.038R, +0.012R); the two significant p-values are unfavorable | **Invalid as recorded** — mixed cache panel + stranded-position equity bug; re-run required |
 
 ---
 
@@ -216,6 +218,79 @@ expectancy confirmed."
 
 ---
 
+### H-09 — D-78 H-09 replay: v0.1 vs v0.2 geometry (exploratory, frozen)
+
+**Backfilled 2026-11-11 from [D-78](../DECISIONS/D-78-h09-replay-freeze.md).**
+
+**Question:** on one signal stream, does the v0.2 geometry plus exit policy beat
+v0.1, or does it just reject more trades?
+
+**Design:** the D-71 entry stream over the frozen window 2026-08-20 to
+2026-10-19, planned twice on shared signal-close geometry (entry band, stop
+`C − 2.0×ATR`, D-73 limit fill). v0.1 reproduces the live midpoint gate and
+`infer_exit`; v0.2 applies the nearest structural T1 inside the family band,
+the family Plan-R floor and the D-77 exit policy. Only gate step 5 is replayable.
+
+**Result (dry run, censored):** 147 fills; v0.1 accepted 120, v0.2 accepted 103
+(44 rejected: target too close 15, too far 24, no structural objective 5).
+v0.2 accepted −0.138R vs v0.1 accepted −0.050R; exit-only on 103 paired fills
+−0.138R vs −0.096R; the 44 rejected plans' v0.1 counterfactual was +0.012R.
+
+**What it supports:** v0.2's exit policy did not add value on this window and
+v0.2 rejected marginally profitable v0.1 trades. **What it does not support:**
+any v0.2 verdict. Evidence label `exploratory_h09_not_evidence`; never the
+scorecard, D-75 bar, kill rule or `/expectancy`. Earliest full write:
+2026-11-24 (36-day horizon). Artifacts:
+`docs/backtests/h09_replay_20261030_150747.json` and `..._151453.json`.
+
+---
+
+### H-10 — D-79 research baseline: four setups vs controls (invalid as recorded)
+
+**Question:** does any of the four setup signal streams beat random, permuted or
+time-shifted controls on the S&P 500 snapshot?
+
+**Design:** standalone `backend/app/research` harness. Daily bars, signal at
+close, next-open entry, 2.0 ATR stop, 3.0 ATR target, 15-bar hold, 0.5% equity
+risk, 8 positions, 20% notional cap, 15 bps/side. Controls: random 2%/day
+(100 runs), permuted signal dates (50), time-shifted +20..+60 bars (5). p-value
+one-sided on `r_net_sum`.
+
+**Result as recorded:** trade-level mean net R and profit factor:
+
+| Setup | n | Win rate | Mean net R | PF | random p | permuted p | shifted p |
+|---|---|---|---|---|---|---|---|
+| statistical_mean_reversion | 700 | 49.0% | +0.038 | 1.076 | 0.524 | 0.286 | 0.476 |
+| breakout_52week | 583 | 43.9% | -0.047 | 0.915 | 0.143 | **0.048** | **0.048** |
+| low_vol_setup | 589 | 46.3% | -0.034 | 0.937 | **0.048** | 0.190 | 0.095 |
+| volume_trend_accumulation | 748 | 48.3% | +0.012 | 1.024 | 0.762 | 0.905 | 0.667 |
+
+**Why this row is invalid:**
+
+1. **Mixed cache panel.** `download_daily()` reused cache files without checking
+   the requested span. 440/498 files cover only 2020; 40 cover 2014-2024. The
+   artifact calendar is 2014-01-02 to 2024-12-30, not "2020-2023".
+   `low_vol_setup` and `volume_trend_accumulation` have no entries after 2020.
+2. **Stranded positions.** Open positions at a symbol's data end are never
+   closed, so the equity curve loses their value. Statistical mean reversion has
+   +$10,977 realized P&L but a final equity of $52,552 (-47.4%). The same cache
+   contains 395 post-2020 low-vol signals and 859 post-2020 volume-trend
+   signals, but both artifacts record zero post-2020 trades: the stranded
+   positions consumed the cash. All return/drawdown/CAGR/volatility/alpha/beta
+   fields are unusable.
+
+**What it supports (provisional only):** within each run the control comparison
+is like-for-like, so "no setup beat its controls at p < 0.05 in the favorable
+direction" is the least fragile reading. The two significant p-values are
+**unfavorable**. **What it does not support:** the committed return figures, the
+"all setups lose money vs buy-and-hold" claim, or any deployment/weight change.
+
+**Artifacts:** `docs/backtests/research/{setup}_20261110_*.json` (see the
+[artifact banner](research/README.md)). **Status:** invalid as recorded; re-run
+on one clean panel after the D-79 fixes, then replace this row.
+
+---
+
 ## Evidence hierarchy
 
 ```
@@ -280,3 +355,4 @@ artifact path, and the decision it does (not) justify.
 | Date | Change |
 |---|---|
 | 2026-10-28 | Created; consolidated D-61/D-70/D-71/what-ifs/D-73/D-74 and registered FWD-v0.1 |
+| 2026-11-11 | Backfilled H-09 (D-78 replay) and added H-10 (D-79 research baseline) as **invalid as recorded** (mixed cache panel + stranded-position equity bug); see D-79 |
