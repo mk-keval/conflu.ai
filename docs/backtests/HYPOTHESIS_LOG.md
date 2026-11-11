@@ -42,7 +42,7 @@ else in this file is input to the review, never a verdict.
 | H-07 | 2026-10-28 | D-74 canonical P&L, plan provenance, phantom/P&L verifier | Measurement | 10 journal rows | CRS −$1,624.99 → −$30.01 net; 0 phantom fills; 0 P&L mismatches; 3 R:R provenance warnings | Applied; sample continues |
 | H-08 | 2026-10-22 → | **FWD-v0.1 forward sample** | **Confirmatory** | 1 closed / 2 open / 1 pending | Expectancy −1.00R, MFE gap +4.72R, net −$30.01 | **Active — not yet evidence** |
 | H-09 | 2026-10-30 | D-78 H-09: v0.1 vs v0.2 geometry on one signal stream | Exploratory (counterfactual) | 147 fills; v0.1 accepted 120; v0.2 accepted 103 (44 rejected) | v0.2 accepted −0.138R vs v0.1 accepted −0.050R; exit-only on 103 paired fills −0.138R vs −0.096R; rejected counterfactual +0.012R | Frozen; dry-run only; earliest full write 2026-11-24; never evidence |
-| H-10 | 2026-11-10 | D-79 research baseline: 4 setups vs random/permuted/shifted controls | Exploratory (in-sample) | 700 / 583 / 589 / 748 trades | No setup beat controls at p < 0.05 in the favorable direction; two had positive trade-level expectancy (+0.038R, +0.012R); the two significant p-values are unfavorable | **Invalid as recorded** — mixed cache panel + stranded-position equity bug; re-run required |
+| H-10 | 2026-11-11 | D-80 research baseline re-run: 4 setups vs random/permuted/shifted controls | Exploratory (in-sample, clean panel) | 591 / 601 / 613 / 847 trades | `statistical_mean_reversion` only favorable signal (+0.037R, +21.93 R, +9.6%; p=0.020 permuted) but not established (p=0.079 random R sum, fails shifted control); `low_vol_setup` significantly worse; all trail SPY +57.0%; nothing survives multiple-comparison correction | **Exploratory** — valid for one 2020-2023 panel; never the scorecard, pass bar or kill rule. Supersedes the invalid D-79 row |
 
 ---
 
@@ -245,49 +245,54 @@ scorecard, D-75 bar, kill rule or `/expectancy`. Earliest full write:
 
 ---
 
-### H-10 — D-79 research baseline: four setups vs controls (invalid as recorded)
+### H-10 — D-80 research baseline re-run: four setups vs controls (exploratory, in-sample)
 
 **Question:** does any of the four setup signal streams beat random, permuted or
-time-shifted controls on the S&P 500 snapshot?
+time-shifted controls on one clean S&P 500 panel?
 
 **Design:** standalone `backend/app/research` harness. Daily bars, signal at
 close, next-open entry, 2.0 ATR stop, 3.0 ATR target, 15-bar hold, 0.5% equity
-risk, 8 positions, 20% notional cap, 15 bps/side. Controls: random 2%/day
-(100 runs), permuted signal dates (50), time-shifted +20..+60 bars (5). p-value
-one-sided on `r_net_sum`.
+risk, 8 positions, 20% notional cap, 15 bps/side. Window 2020-01-03 to
+2023-12-29 on the current S&P 500 snapshot (494 symbols loaded, 11 dropped with
+reasons). Controls: random 2%/day (100 runs), permuted signal dates (50),
+time-shifted +20..+60 bars (5). One-sided p-values on `r_net_sum` and on trade-R
+Sharpe. Two full runs on the same cache produced identical results.
 
-**Result as recorded:** trade-level mean net R and profit factor:
+**Result (valid for this panel):** trade-level, strategy exits only:
 
-| Setup | n | Win rate | Mean net R | PF | random p | permuted p | shifted p |
-|---|---|---|---|---|---|---|---|
-| statistical_mean_reversion | 700 | 49.0% | +0.038 | 1.076 | 0.524 | 0.286 | 0.476 |
-| breakout_52week | 583 | 43.9% | -0.047 | 0.915 | 0.143 | **0.048** | **0.048** |
-| low_vol_setup | 589 | 46.3% | -0.034 | 0.937 | **0.048** | 0.190 | 0.095 |
-| volume_trend_accumulation | 748 | 48.3% | +0.012 | 1.024 | 0.762 | 0.905 | 0.667 |
+| Setup | n | Win rate | Mean net R | R sum | PF | Return | Max DD | random p | permuted p | shifted p |
+|---|---|---|---|---|---|---|---|---|---|---|
+| statistical_mean_reversion | 591 | 47.9% | +0.037 | **+21.93** | 1.08 | **+9.6%** | -22.0% | 0.079 | **0.020** | 0.500 |
+| breakout_52week | 601 | 47.6% | +0.005 | +3.22 | 1.01 | -1.6% | -19.2% | 0.228 | 0.745 | 0.833 |
+| low_vol_setup | 613 | 42.4% | -0.117 | **-71.62** | 0.80 | -27.2% | -37.3% | **0.050** | 0.059 | 0.167 |
+| volume_trend_accumulation | 847 | 44.5% | -0.046 | -38.59 | 0.92 | -17.4% | -32.3% | 0.337 | 0.157 | 0.167 |
 
-**Why this row is invalid:**
+On trade-R Sharpe, `statistical_mean_reversion` also beats random (p = 0.050)
+and permuted (p = 0.020); `low_vol_setup` is worse than random (p = 0.020) and
+permuted (p = 0.020). Every setup underperformed **SPY buy-and-hold (+57.0%)**
+over the same window. Entries occur in every year for every setup
+(`low_vol_setup` 107/204/110/200, `volume_trend_accumulation` 212/234/203/205),
+so the D-79 dormancy signature is gone.
 
-1. **Mixed cache panel.** `download_daily()` reused cache files without checking
-   the requested span. 440/498 files cover only 2020; 40 cover 2014-2024. The
-   artifact calendar is 2014-01-02 to 2024-12-30, not "2020-2023".
-   `low_vol_setup` and `volume_trend_accumulation` have no entries after 2020.
-2. **Stranded positions.** Open positions at a symbol's data end are never
-   closed, so the equity curve loses their value. Statistical mean reversion has
-   +$10,977 realized P&L but a final equity of $52,552 (-47.4%). The same cache
-   contains 395 post-2020 low-vol signals and 859 post-2020 volume-trend
-   signals, but both artifacts record zero post-2020 trades: the stranded
-   positions consumed the cash. All return/drawdown/CAGR/volatility/alpha/beta
-   fields are unusable.
+**What it supports:** on one clean panel, no setup beat all three controls at
+p < 0.05 in the favorable direction. `statistical_mean_reversion` carries the
+only favorable single-control signal; `low_vol_setup` underperforms consistently
+(unfavorable significance, not an edge); `breakout_52week`'s "significantly
+worse" reading in D-79 was an artifact of the contaminated panel. **What it does
+not support:** any deployment, weight change or scorecard entry. This is not a
+verdict on the deployed templates (different exits, D-70/D-77), there is no
+holdout, the universe is the current index (survivorship), and nothing survives
+a 12-test Bonferroni threshold (smallest p = 0.0196 vs 0.0042). The shifted
+control cannot reach p < 0.05 with 5 runs (floor 0.167).
 
-**What it supports (provisional only):** within each run the control comparison
-is like-for-like, so "no setup beat its controls at p < 0.05 in the favorable
-direction" is the least fragile reading. The two significant p-values are
-**unfavorable**. **What it does not support:** the committed return figures, the
-"all setups lose money vs buy-and-hold" claim, or any deployment/weight change.
+**Evidence label:** `exploratory_research` — research harness only; never the
+scorecard, D-75 pass bar, kill rule or `/expectancy`.
 
-**Artifacts:** `docs/backtests/research/{setup}_20261110_*.json` (see the
-[artifact banner](research/README.md)). **Status:** invalid as recorded; re-run
-on one clean panel after the D-79 fixes, then replace this row.
+**Artifacts:** `docs/backtests/research/{setup}_20261111_*_clean.json`
+(code `821454e`, all invariants hold; see the
+[artifact README](research/README.md)). **Status:** clean re-run recorded;
+supersedes the invalid D-79 row. Re-running on the same cache reproduces it
+exactly.
 
 ---
 
@@ -356,3 +361,4 @@ artifact path, and the decision it does (not) justify.
 |---|---|
 | 2026-10-28 | Created; consolidated D-61/D-70/D-71/what-ifs/D-73/D-74 and registered FWD-v0.1 |
 | 2026-11-11 | Backfilled H-09 (D-78 replay) and added H-10 (D-79 research baseline) as **invalid as recorded** (mixed cache panel + stranded-position equity bug); see D-79 |
+| 2026-11-11 | Replaced H-10 with the **D-80 clean re-run** on one consistent 2020-2023 panel (cache + equity defects fixed); D-79 row retained as audit trail, superseded; see D-80 |

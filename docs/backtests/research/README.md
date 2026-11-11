@@ -1,49 +1,75 @@
 # Research Backtest Artifacts
 
-**Status: the JSON files in this directory are a harness smoke test, not valid
-evidence.** See [D-79](../../DECISIONS/D-79-research-baseline-harness.md) and
+**Status: the `*_clean.json` files are valid for the panel and window described
+below — one run of the current S&P 500 snapshot over 2020-01-03..2023-12-29.**
+They are **exploratory**: no result here enters the D-75 pass bar, the kill rule,
+the forward scorecard or any FWD-v0.2 verdict. See
+[D-80](../../DECISIONS/D-80-research-baseline-remediation.md) and
 [H-10](../HYPOTHESIS_LOG.md).
 
-## Why the committed results are invalid
+The `*_20261110_*.json` files are **superseded** and kept only as the audit trail
+for the two defects fixed in D-80. Do not cite them.
 
-Two defects were found during documentation on 2026-11-11:
+## Provenance of the clean files
 
-1. **Mixed data panel.** `download_daily()` reused cache files without checking
-   that they covered the requested dates. 440 of 498 cached symbols covered only
-   2020, while 40 covered 2014-2024. The artifact equity calendar is
-   2014-01-02 to 2024-12-30, not the "2020-2023" in the commit message.
-   `low_vol_setup` and `volume_trend_accumulation` have no entries after 2020.
-2. **Stranded positions.** A position whose symbol's data ends is never exited;
-   its cash is not returned, so the equity curve records an artificial loss.
-   Example: `statistical_mean_reversion` has +$10,977 realized trade P&L but a
-   final equity of $52,552 (-47.4%). For `low_vol_setup` and
-   `volume_trend_accumulation` the stranded positions consumed the cash: the
-   cache contains 395 and 859 post-2020 signals respectively, but the artifacts
-   record zero post-2020 trades because no position could be sized.
-
-Do **not** cite the return, drawdown, CAGR, volatility or alpha/beta fields.
-Trade-level R, win rate, profit factor and exit reasons are internally
-consistent but were computed on the mixed panel.
+| Item | Value |
+|---|---|
+| Harness | `scripts/run_research_baseline.py` + `backend/app/research` |
+| Code revision | `821454e` (`dirty=false` in every artifact) |
+| Window | 2020-01-03 to 2023-12-29, inclusive |
+| Universe | `config/replay_universe_sp500.txt` (current snapshot), SHA-256 `a53242f2...9a729080` |
+| Symbols | 494 loaded (493 tradable + SPY); 11 dropped, each with a reason in the artifact |
+| Cache | span-keyed `.cache/research_clean`; 494 symbols downloaded once, then 494 hits per setup (11 always fail) |
+| Controls | random 2%/day (100 runs), permuted signal dates (50), time-shifted +20..+60 bars (5) |
+| Determinism | repeated full runs on the same cache produced identical metrics, exits and p-values (alpha/beta only changed when that path was fixed) |
 
 ## What the files are
 
-`{setup}_{YYYYmmdd_HHMMSS}.json` produced by
-`scripts/run_research_baseline.py`:
+`{setup}_{YYYYmmdd_HHMMSS}_clean.json`:
 
 | Field | Meaning |
 |---|---|
-| `setup` | Setup name |
-| `timestamp` | Run timestamp |
-| `metrics` | Trade-level and equity-curve metrics |
-| `trades` | Every trade with entry/exit, R, P&L and exit reason |
+| `setup`, `timestamp` | Setup name and run start |
+| `run` | Requested vs actual span, panel coverage, universe path + SHA, cache counters, rules, control seeds, equity invariant, code revision, library versions, declared limitations |
+| `metrics` | Trade-level and equity-curve metrics (**`win_rate` is a fraction**, e.g. `0.479`; `total_return_pct` and `max_drawdown_pct` are already percentages, e.g. `-22.0`) |
+| `trades` | Every trade with entry/exit, R, P&L, bars held, exit reason and `censored` flag |
 | `equity_curve` | Daily marked equity |
 | `control_summary` | Random / permuted / shifted control distributions |
-| `p_values` | One-sided p-values on `r_net_sum` per control |
+| `p_values`, `p_values_sharpe` | One-sided p-values per control on `r_net_sum` and on trade-R Sharpe |
 
-The quick-run files (`statistical_mean_reversion_20261110_12*`,
-`*_1627*`, `*_1628*`) are 10-symbol, 2020-only runs from the harness bring-up.
+`metrics.pnl_usd_sum` covers strategy exits only; `metrics.pnl_usd_all` includes
+the forced `eod_censored` closes and reconciles with `final_equity`:
+`final_equity == 100000 + pnl_usd_all`.
 
-## How to re-run (after the fixes in D-79)
+## Headline result (trade-level, strategy exits only)
+
+| Setup | Trades | Win rate | Mean net R | R sum | PF | Return | Max DD |
+|---|---|---|---|---|---|---|---|
+| statistical_mean_reversion | 591 | 47.9% | +0.037 | **+21.93** | 1.08 | **+9.6%** | -22.0% |
+| breakout_52week | 601 | 47.6% | +0.005 | +3.22 | 1.01 | -1.6% | -19.2% |
+| low_vol_setup | 613 | 42.4% | -0.117 | **-71.62** | 0.80 | -27.2% | -37.3% |
+| volume_trend_accumulation | 847 | 44.5% | -0.046 | -38.59 | 0.92 | -17.4% | -32.3% |
+
+SPY buy-and-hold over the same window returned **+57.0%** (adjusted closes).
+All four setups underperformed the benchmark.
+
+Control p-values (`r_net_sum` / trade-R Sharpe). Small values mean the control
+was more extreme than the real result:
+
+| Setup | random | permuted | shifted |
+|---|---|---|---|
+| statistical_mean_reversion | 0.079 / **0.050** | **0.020** / **0.020** | 0.500 / 0.500 |
+| breakout_52week | 0.228 / 0.228 | 0.745 / 0.745 | 0.833 / 0.833 |
+| low_vol_setup | **0.050** / **0.020** | 0.059 / **0.020** | 0.167 / 0.167 |
+| volume_trend_accumulation | 0.337 / 0.327 | 0.157 / 0.137 | 0.167 / 0.167 |
+
+Read this as: `statistical_mean_reversion` is the only setup with a favorable
+single-control signal; `low_vol_setup` is significantly *worse* than its controls;
+nothing survives a Bonferroni correction across the 12 tests (smallest p = 0.0196,
+threshold 0.0042), and the shifted control cannot reach p < 0.05 with 5 runs
+(floor 1/6 = 0.167).
+
+## How to re-run
 
 ```bash
 python scripts/run_research_baseline.py \
@@ -51,21 +77,38 @@ python scripts/run_research_baseline.py \
   --universe config/replay_universe_sp500.txt \
   --start 2020-01-03 --end 2023-12-29 \
   --cache-dir .cache/research_clean \
-  --output-dir docs/backtests/research
+  --output-dir .cache/artifacts_clean \
+  --tag clean --n-random 100 --n-permuted 50 --n-shifted 5
 ```
 
-Use a **fresh cache directory** until the cache-range fix lands. Check the
-artifact's actual span before interpreting anything.
+The cache is keyed by `SYMBOL__{start}__{end}`, so re-requesting the same window
+is fast and cannot mix spans. The runner refuses to write when the actual panel
+is more than 10 days short of the request (unless `--allow-partial-panel`), and
+exits `0` only when a control p-value is < 0.05 **and** the real metric is better
+than that control's mean.
 
-## Baseline summary (as recorded; do not cite the return figures)
+## Superseded files
 
-| Setup | Trades | Win rate | Mean net R | Profit factor | random p | permuted p | shifted p |
-|---|---|---|---|---|---|---|---|
-| statistical_mean_reversion | 700 | 49.0% | +0.038 | 1.076 | 0.524 | 0.286 | 0.476 |
-| breakout_52week | 583 | 43.9% | -0.047 | 0.915 | 0.143 | 0.048 | 0.048 |
-| low_vol_setup | 589 | 46.3% | -0.034 | 0.937 | 0.048 | 0.190 | 0.095 |
-| volume_trend_accumulation | 748 | 48.3% | +0.012 | 1.024 | 0.762 | 0.905 | 0.667 |
+`statistical_mean_reversion_20261110_*.json`, `breakout_52week_20261110_204613.json`,
+`low_vol_setup_20261110_211920.json`, `volume_trend_accumulation_20261110_215337.json`.
+They were produced with a cache that served mixed spans and an engine that never
+closed positions stranded at a symbol's data end. Keep them as an audit trail;
+do not cite their returns, drawdowns, CAGR, volatility or alpha/beta.
 
-The two significant p-values are **unfavorable** (controls were better). No
-setup beat its controls at p < 0.05 in the favorable direction on the recorded
-panel.
+## Known limitations
+
+- **Survivorship:** the universe is the *current* index membership. Companies
+  removed from the index are absent, and recent listings that did not trade in
+  2020 are dropped (FDXF, GEV, HONA, KVUE, Q, RDDT, SNDK, SOLV, VYLR; VLTO has
+  61 bars; VIX is no longer served by Yahoo).
+- **One window, no holdout.** 2020-2023 includes the crash and recovery; there is
+  no walk-forward split or out-of-sample period.
+- **Fixed research exits.** 2.0 ATR stop, 3.0 ATR target, 15-bar time stop — not
+  the deployed template geometry (D-70/D-77). A weak result here does not retire
+  a screen from the live mix.
+- **Trade-R Sharpe.** `sharpe` annualizes per-trade R by `sqrt(252)`; it is not a
+  daily equity Sharpe. Compare only at similar trade counts (591-847 here).
+- **Alpha/beta** are annualized percentage alpha and beta regressed on SPY daily
+  returns, informational only; they are not a buy-and-hold spread.
+- **Shifted control** is capped at p = 0.167 with 5 runs and can never establish
+  superiority; raise `--n-shifted` above 20 if that test matters.
