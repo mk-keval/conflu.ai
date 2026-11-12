@@ -190,3 +190,81 @@ regression. No cache download was needed.
   `analyze_integrity`, `analyze_exit_mix`, `render_markdown`) have **no unit tests** — the
   task allowed only 2-3 tests and they went to the pure numeric helpers.
 - Gate for T5: **open** (T0 and T1 both pass).
+
+---
+
+## T5 — Validity notes (docs only)
+
+- **Date:** 2026-11-12
+- **What changed and why:** added a factual comparison of the four research setups against
+  their deployed YAML counterparts, plus notes on naming, control design, the provenance of the
+  `74.3% WR, 5.92 PF` claim and the known simplifications. No code, YAML or artifact was
+  touched; this task exists so the gap between the research harness and the live screens is
+  written down next to the numbers that the baseline report publishes.
+- **Files touched:**
+  - `docs/backtests/research/VALIDITY_NOTES.md` (new)
+  - `docs/backtests/research/README.md` (one pointer line only)
+  - `docs/SESSIONS/research-harden-d82-1og.md` (this file)
+
+### Commands and exact output
+
+Provenance lookup for the `74.3% WR, 5.92 PF` comment at `config/regime_screens.yaml:29`:
+
+```text
+$ git log -S"74.3% WR, 5.92 PF" --oneline -- config/regime_screens.yaml
+a8d7983 fix: Ticker analysis data accuracy fixes (D-65)
+
+$ git log -S"74.3 | 5.92" --oneline -- docs/DECISIONS/D-61-elite-template-deployment.md
+a8d7983 fix: Ticker analysis data accuracy fixes (D-65)
+
+$ Select-String -Path config/regime_screens.yaml -Pattern '74\.3'
+29: - { name: 52week-breakout, weight: 95 }        # 74.3% WR, 5.92 PF
+
+$ Select-String -Path docs/DECISIONS/D-61-elite-template-deployment.md -Pattern '74\.3'
+43: | **52week-breakout** | 74.3% | 5.92 | 0.51 | 10/10 | 55.9 |
+
+$ Select-String -Path docs/backtests/VALIDATION_REPORT.md -Pattern '52week|52-week'
+53: | *52week-breakout* | ? | 30 | 53.3% | 1.57 | +0.193 | +1.22 | -0.98 | 7.1 |
+71: **Deployed but thin:** 52week-breakout carries the top weight in `strong_trend`
+    (95) and `neutral` (95) on only 30 trades (PF 1.57).
+```
+
+Confirmed the price-adjustment simplification the task named:
+
+```text
+$ Select-String -Path backend/app/research/data.py -Pattern "auto_adjust|yf.download"
+backend\app\research\data.py:204:                df = yf.download(
+backend\app\research\data.py:208:                    auto_adjust=True,
+```
+
+The D-61 run file named in its method section exists:
+
+```text
+$ Test-Path backtest_results_20260926_060935.json
+True
+```
+
+No tests or ruff were run for T5 because it changes no Python. `docs/backtests/research/README.md`
+received exactly one added line (the `VALIDITY_NOTES.md` pointer).
+
+### Findings recorded (summary)
+
+- Liquidity gates differ for every setup: the research harness uses `close >= 10` and
+  `adv_usd20 >= 20,000,000`; the deployed YAMLs use `close_above 5.0` plus volume / market-cap
+  rules, and `low-vol-setup.yaml` has no liquidity gate at all.
+- Only `low_vol_setup` matches its YAML rule-for-rule on technicals. The other three differ by
+  fundamentals, VWAP, 4h timeframes, OBV or `close > sma20`.
+- `breakout_52week` has no 52-week-high condition in **either** the research setup or the
+  deployed YAML.
+- `volume_trend_accumulation` has no accumulation measure in research; `obv_rising` exists only
+  in the deployed YAML.
+- The 74.3% / 5.92 pair comes from D-61 (`docs/DECISIONS/D-61-elite-template-deployment.md:43`,
+  commit `a8d7983`), is marked SUPERSEDED there and CAVEATed in the regime file, and is not
+  reproducible under the current harness (D-82 baseline: 47.2% WR, PF 0.98).
+
+### Outcome
+
+- Tests: not applicable (docs only).
+- Ruff: not applicable (docs only).
+- Skipped: nothing. No file was renamed; the proposed names are stated in the note only.
+- Gate for T2: **open** (T0, T1, T5 all complete).

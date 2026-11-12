@@ -9,6 +9,8 @@ scorecard or any FWD-v0.2 verdict. The generated summary is
 [D-80](../../DECISIONS/D-80-research-baseline-remediation.md) and
 [H-10](../HYPOTHESIS_LOG.md).
 
+Validity caveats for these setups — research conditions vs deployed YAML, setup naming, control design and known simplifications — are in [`VALIDITY_NOTES.md`](VALIDITY_NOTES.md).
+
 The 13 older artifacts are **superseded** and moved to
 [`invalid_20261110/`](invalid_20261110/), kept only as the audit trail for the defects
 fixed in D-80 and D-81. Do not cite them.
