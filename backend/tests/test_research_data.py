@@ -7,7 +7,12 @@ import pandas as pd
 import pytest
 
 import backend.app.research.data as data_mod
-from backend.app.research.data import download_daily, load_universe, panel_span
+from backend.app.research.data import (
+    coverage_report,
+    download_daily,
+    load_universe,
+    panel_span,
+)
 
 
 def _frame(start, end_exclusive, symbol="AAA"):
@@ -60,6 +65,8 @@ def test_cache_is_keyed_by_requested_span(tmp_path, fake_yf):
     # Second call must download again rather than reuse the 2020 file.
     assert len(_aaa_calls(fake_yf)) == 2
     assert data_long["AAA"].index.max().year == 2023
+    # Two distinct cache files exist, one per requested span.
+    assert len(list(tmp_path.glob("AAA__*.csv.gz"))) == 2
     # AAA, SPY and VIX are all re-downloaded for the wider span.
     assert stats_long["downloaded"] == 3
     # The short span is still a separate, valid entry.
@@ -143,3 +150,41 @@ def test_load_universe_normalises_symbols(tmp_path):
     path.write_text("# comment\nbrk.b\nAAPL\n\n", encoding="utf-8")
 
     assert load_universe(str(path)) == ["BRK-B", "AAPL"]
+
+
+def _ohlcv(index):
+    return pd.DataFrame(
+        {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1_000_000},
+        index=index,
+    )
+
+
+def test_coverage_report_flags_symbols_that_end_early():
+    """A symbol whose data stops mid-window is flagged; benchmarks are ignored."""
+    full = pd.bdate_range("2020-01-01", "2020-12-31")
+    short = pd.bdate_range("2020-01-01", "2020-06-30")
+    data = {
+        "AAA": _ohlcv(full),
+        "BBB": _ohlcv(short),
+        "SPY": _ohlcv(short),
+        "^VIX": _ohlcv(short),
+    }
+
+    report = coverage_report(data, "2020-01-01", "2020-12-31")
+
+    assert report["n_symbols"] == 2
+    assert report["early_end"] == ["BBB"]
+    assert "SPY" not in report["early_end"]
+    assert "^VIX" not in report["early_end"]
+
+
+def test_coverage_report_late_start_is_informational():
+    """A symbol listing >400 days after the start is reported, not treated as missing."""
+    full = pd.bdate_range("2020-01-01", "2020-12-31")
+    late = pd.bdate_range("2021-06-01", "2021-12-31")
+    data = {"AAA": _ohlcv(full), "NEW": _ohlcv(late)}
+
+    report = coverage_report(data, "2020-01-01", "2020-12-31")
+
+    assert report["late_start"] == ["NEW"]
+    assert "AAA" not in report["late_start"]

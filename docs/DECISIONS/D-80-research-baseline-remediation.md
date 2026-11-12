@@ -1,5 +1,13 @@
 # D-80: Research Baseline Remediation - Span-Keyed Cache, Data-End Closes, Self-Describing Artifacts
 
+> **Results superseded by [D-81](D-81-research-baseline-v2-honesty-and-controls.md)
+> (2026-11-12).** The cache, `data_end` and equity-invariant fixes recorded here stand
+> and are still enforced. The 2020-2023 re-run below is **no longer the citable
+> baseline**: four further measurement defects were found (look-ahead position sizing,
+> missing-bar equity marking, a mismatched random control, and a sign-flipped p-value),
+> and all four setups were re-run on 2015-01-01..2026-11-11. Do not cite the return,
+> drawdown, CAGR or p-value figures in this record.
+
 **Date:** 2026-11-11
 **Status:** Accepted and implemented. The clean re-run recorded here **supersedes the
 D-79 baseline results**; the D-79 artifacts remain in the repository only as an audit

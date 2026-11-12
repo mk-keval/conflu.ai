@@ -1,5 +1,11 @@
 # 2026-11-11 - D-79 Remediation + Clean Baseline Re-Run (D-80)
 
+> **Results superseded 2026-11-12 by [D-81](../DECISIONS/D-81-research-baseline-v2-honesty-and-controls.md).**
+> The span-keyed cache, `data_end` closes and equity-invariant fixes recorded here stand
+> and are still enforced. The 2020-2023 return/drawdown/p-value figures are historical;
+> the citable baseline is the 2015-2026 re-run in
+> [the D-81 session log](2026-11-12_research-baseline-v2-d81.md).
+
 **Branch:** `research/baseline-backtesting`
 **Commit documented:** `821454e` - `fix(research): enforce span-keyed cache and close stranded positions (D-79)`
 **Decision:** [D-80](../DECISIONS/D-80-research-baseline-remediation.md)

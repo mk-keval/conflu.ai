@@ -1,10 +1,11 @@
 # D-79: Research Backtesting Harness - Accepted Code, Committed Baseline Not Valid Evidence
 
-> **Superseded by [D-80](D-80-research-baseline-remediation.md) (2026-11-11).**
+> **Superseded by [D-80](D-80-research-baseline-remediation.md) (2026-11-11), whose
+> results were in turn superseded by
+> [D-81](D-81-research-baseline-v2-honesty-and-controls.md) (2026-11-12).**
 > The harness decision and the defect audit below stand. The four committed baseline
-> results are invalid and were replaced by the D-80 clean re-run on one 2020-2023
-> panel. Do not cite any return, drawdown, CAGR, volatility or alpha/beta figure from
-> this record; they are retained only as the audit trail for the two defects.
+> results are invalid and must not be cited. The citable baseline is the 2015-2026
+> D-81 re-run; the D-79 figures are retained only as the audit trail for the defects.
 
 **Date:** 2026-11-10 (documented 2026-11-11)
 **Status:** Harness **accepted** (code + tests). Committed baseline artifacts are

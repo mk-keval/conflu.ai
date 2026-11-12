@@ -467,5 +467,147 @@ def test_final_equity_reconciles_with_realized_pnl():
     assert equity.iloc[-1] == pytest.approx(expected, rel=1e-9)
 
 
+def _flat_frame(n, price=100.0, start="2020-01-01"):
+    """Flat OHLCV with ~2.0 ATR, so stop/target geometry is easy to reason about."""
+    dates = pd.date_range(start, periods=n, freq="D")
+    close = np.full(n, price)
+    df = pd.DataFrame(
+        {
+            "open": close,
+            "high": close + 1.0,
+            "low": close - 1.0,
+            "close": close,
+            "volume": np.full(n, 10_000_000.0),
+        },
+        index=dates,
+    )
+    return add_indicators(df)
+
+
+def test_position_closed_when_data_ends():
+    """A position outliving its symbol's data must be closed, freeing the slot.
+
+    Guards the D-79 defect where the position's value vanished from equity and
+    the position stayed open forever.
+    """
+    data = {"A": _flat_frame(20), "B": _flat_frame(40)}
+    signals = {s: pd.Series(False, index=df.index) for s, df in data.items()}
+    signals["A"].iloc[5] = True   # enters day 6
+    signals["B"].iloc[25] = True  # enters day 26, after A's data ends
+
+    exit_rules = ExitRules(stop_atr=50.0, target_atr=50.0, max_hold_bars=1000)
+    portfolio_rules = PortfolioRules(
+        start_equity=100_000, risk_pct=0.5, max_positions=1, cost_bps_per_side=0
+    )
+
+    trades, _ = run_portfolio(data, signals, exit_rules, portfolio_rules, seed=42)
+
+    a_trades = [t for t in trades if t.symbol == "A"]
+    assert len(a_trades) == 1
+    assert a_trades[0].exit_reason == "data_end"
+    assert a_trades[0].censored is True
+    assert a_trades[0].exit_date == data["A"].index[-1]
+    # The freed slot must be usable: B gets a trade despite max_positions=1.
+    assert any(t.symbol == "B" for t in trades)
+
+
+def test_reconciliation_on_random_data():
+    """final_equity must equal start_equity + sum(pnl_usd) on noisy data."""
+    np.random.seed(1)
+    dates = pd.date_range("2020-01-01", periods=200, freq="D")
+    data = {}
+    signals = {}
+    for i in range(5):
+        close = 100 + np.cumsum(np.random.randn(200) * 0.5)
+        open_ = close + np.random.randn(200) * 0.2
+        df = pd.DataFrame(
+            {
+                "open": open_,
+                "high": np.maximum(close, open_) + np.abs(np.random.randn(200) * 0.3),
+                "low": np.minimum(close, open_) - np.abs(np.random.randn(200) * 0.3),
+                "close": close,
+                "volume": np.abs(np.random.randn(200) * 100_000 + 10_000_000),
+            },
+            index=dates,
+        )
+        df = add_indicators(df)
+        sym = f"R{i}"
+        data[sym] = df
+        rng = np.random.default_rng(1)
+        signals[sym] = pd.Series(rng.random(200) < 0.05, index=df.index)
+
+    exit_rules = ExitRules(stop_atr=2.0, target_atr=3.0, max_hold_bars=15)
+    portfolio_rules = PortfolioRules(
+        start_equity=100_000, risk_pct=0.5, max_positions=8, cost_bps_per_side=15
+    )
+
+    trades, equity = run_portfolio(data, signals, exit_rules, portfolio_rules, seed=42)
+
+    expected = portfolio_rules.start_equity + sum(t.pnl_usd for t in trades)
+    assert abs(equity.iloc[-1] - expected) < 0.01
+
+
+def test_missing_bar_does_not_drop_equity():
+    """An open position with no bar today is marked at its last close, not zero."""
+    full = _flat_frame(30)
+    missing = full.drop(full.index[8])
+    data = {"HELD": missing, "OTHER": full}
+
+    signals = {s: pd.Series(False, index=df.index) for s, df in data.items()}
+    signals["HELD"].iloc[2] = True  # enters day 3
+
+    exit_rules = ExitRules(stop_atr=50.0, target_atr=50.0, max_hold_bars=1000)
+    portfolio_rules = PortfolioRules(
+        start_equity=100_000, risk_pct=0.5, max_positions=1, cost_bps_per_side=0
+    )
+
+    _, equity = run_portfolio(data, signals, exit_rules, portfolio_rules, seed=42)
+
+    day7 = full.index[7]
+    day9 = full.index[9]
+    assert equity.loc[day9] == pytest.approx(equity.loc[day7], rel=0.005)
+
+
+def test_sizing_uses_previous_close_equity():
+    """New entries must size off the PREVIOUS day's equity, never today's close."""
+    n = 30
+    dates = pd.date_range("2020-01-01", periods=n, freq="D")
+    close_a = np.full(n, 100.0)
+    close_a[5:10] = [120.0, 140.0, 160.0, 180.0, 200.0]
+    close_a[10:] = 120.0  # -40% from the 200 peak on B's entry day
+    frame_a = pd.DataFrame(
+        {
+            "open": close_a,
+            "high": close_a + 1.0,
+            "low": close_a - 1.0,
+            "close": close_a,
+            "volume": np.full(n, 10_000_000.0),
+        },
+        index=dates,
+    )
+    data = {"A": add_indicators(frame_a), "B": _flat_frame(n)}
+
+    signals = {s: pd.Series(False, index=df.index) for s, df in data.items()}
+    signals["A"].iloc[2] = True   # enters day 3, held through day 10
+    signals["B"].iloc[9] = True   # enters day 10, when A's close collapses
+
+    exit_rules = ExitRules(stop_atr=2.0, target_atr=100.0, max_hold_bars=1000)
+    portfolio_rules = PortfolioRules(
+        start_equity=100_000, risk_pct=0.5, max_positions=2,
+        max_position_pct=100, cost_bps_per_side=0,
+    )
+
+    trades, equity = run_portfolio(data, signals, exit_rules, portfolio_rules, seed=42)
+
+    b_trades = [t for t in trades if t.symbol == "B"]
+    assert len(b_trades) == 1
+    b = b_trades[0]
+    previous_date = data["B"].index[9]
+    expected = int(
+        np.floor(equity.loc[previous_date] * 0.005 / (b.entry_price - b.stop))
+    )
+    assert b.shares == expected
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

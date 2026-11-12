@@ -6,6 +6,8 @@ from typing import Dict, List
 import numpy as np
 import pandas as pd
 
+NON_TRADABLE = frozenset({"SPY", "^VIX", "VIX"})
+
 
 @dataclass
 class ExitRules:
@@ -55,7 +57,7 @@ def _candidates_by_date(
     """
     by_date: dict[pd.Timestamp, list[str]] = {}
     for symbol, signal_series in signals.items():
-        if symbol in ("SPY", "VIX") or symbol not in data:
+        if symbol in NON_TRADABLE or symbol not in data:
             continue
         df = data[symbol]
         if len(df) < 2:
@@ -98,30 +100,29 @@ def run_portfolio(
     Positions that outlive their symbol's data are closed at that symbol's last
     close with ``exit_reason="data_end"`` and ``censored=True``.
     """
-    # Get all dates from all symbols (excluding SPY, VIX)
+    # Get all dates from all symbols (excluding benchmarks)
     all_dates = set()
     for sym, df in data.items():
-        if sym not in ("SPY", "VIX"):
+        if sym not in NON_TRADABLE:
             all_dates.update(df.index)
     all_dates = sorted(all_dates)
+    idx = pd.DatetimeIndex(all_dates)
+
+    # Forward-filled closes let a symbol with a missing bar still be marked.
+    tradable = [s for s in data if s not in NON_TRADABLE and len(data[s])]
+    close_ff = {s: data[s]["close"].reindex(idx).ffill() for s in tradable}
+    last_bar = {s: data[s].index[-1] for s in tradable}
+    last_close = {s: float(data[s]["close"].iloc[-1]) for s in tradable}
 
     # Convert to Series for easier lookup
-    date_to_ordinal = {d: i for i, d in enumerate(all_dates)}
     candidates_by_date = _candidates_by_date(data, signals)
 
     # Initialize state
     cash = rules.start_equity
+    last_equity = rules.start_equity
     positions = {}  # symbol -> entry metadata
     trades = []
     equity_curve = []
-
-    def mark_price(symbol: str, date: pd.Timestamp) -> float | None:
-        """Last available close on or before ``date``."""
-        idx = data[symbol].index
-        i = idx.searchsorted(date, side="right") - 1
-        if i < 0:
-            return None
-        return float(data[symbol]["close"].iloc[i])
 
     def close_position(
         symbol: str,
@@ -171,20 +172,19 @@ def run_portfolio(
         for symbol, pos in positions.items():
             if symbol not in data:
                 continue
-            df = data[symbol]
 
+            # Data ended while holding: close at the last available close so the
+            # cash is returned and equity does not record a permanent loss.
+            if date > last_bar[symbol]:
+                positions_to_close.append((
+                    symbol, pos, last_close[symbol], "data_end",
+                    last_bar[symbol], idx.get_loc(last_bar[symbol]) - pos["entry_bar_idx"], True,
+                ))
+                continue
+
+            df = data[symbol]
             if date not in df.index:
-                # No bar today. If this symbol's data has ended, the position
-                # can never be exited by the strategy again: close it at the
-                # symbol's last close so the cash is returned and the equity
-                # curve does not record a permanent artificial loss (D-79).
-                last_date = df.index[-1]
-                if date > last_date:
-                    positions_to_close.append((
-                        symbol, pos, float(df["close"].iloc[-1]), "data_end",
-                        last_date, date_to_ordinal[last_date] - pos["entry_bar_idx"], True,
-                    ))
-                continue  # Otherwise it is just a gap; leave the position open
+                continue  # A gap, not the end of the series: leave it open
 
             bar = df.loc[date]
             bars_held = d_idx - pos["entry_bar_idx"]
@@ -260,12 +260,9 @@ def run_portfolio(
                 if risk_per_share <= 0:
                     continue
 
-                # Equity at previous close (mark-to-market)
-                equity_prev = cash
-                for sym, pos in positions.items():
-                    px = mark_price(sym, date)
-                    if px is not None:
-                        equity_prev += pos["shares"] * px
+                # Equity at the PREVIOUS close. Sizing off today's close would be
+                # look-ahead: the entry price is today's open.
+                equity_prev = last_equity
 
                 # Position sizing
                 shares = int(np.floor(equity_prev * (rules.risk_pct / 100) / risk_per_share))
@@ -337,26 +334,36 @@ def run_portfolio(
         # ============ D) FINAL BAR: close whatever is still open ============
         if d_idx == len(all_dates) - 1:
             for symbol, pos in list(positions.items()):
-                df = data[symbol]
-                exit_date = df.index[-1]
                 close_position(
-                    symbol, pos, float(df["close"].iloc[-1]), "eod_censored",
-                    exit_date, date_to_ordinal.get(exit_date, d_idx) - pos["entry_bar_idx"], True,
+                    symbol, pos, float(close_ff[symbol].iloc[-1]), "eod_censored",
+                    date, d_idx - pos["entry_bar_idx"], True,
                 )
+            assert not positions
 
         # ============ E) MARK EQUITY AT CLOSE ============
-        equity = cash
-        for symbol, pos in positions.items():
-            px = mark_price(symbol, date)
-            if px is not None:
-                equity += pos["shares"] * px
-
+        # Forward-filled closes: a symbol with no bar today is still marked at
+        # its last known close instead of vanishing from the equity curve.
+        equity = cash + sum(
+            pos["shares"] * float(close_ff[sym].iloc[d_idx])
+            for sym, pos in positions.items()
+        )
         equity_curve.append((date, equity))
+        last_equity = equity
+
+    equity_curve[-1] = (all_dates[-1], cash)
 
     equity_series = pd.Series(
         [e for _, e in equity_curve],
         index=pd.DatetimeIndex([d for d, _ in equity_curve]),
         name="equity"
     )
+
+    # Every position is closed, so cash must equal start equity plus realized
+    # P&L. A mismatch means a position's value silently disappeared; fail loudly.
+    expected = rules.start_equity + sum(t.pnl_usd for t in trades)
+    if abs(cash - expected) > 0.5:
+        raise RuntimeError(
+            f"Equity reconciliation failed: cash={cash:.2f} expected={expected:.2f}"
+        )
 
     return trades, equity_series

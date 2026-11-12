@@ -5,9 +5,16 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from backend.app.research.engine import run_portfolio, ExitRules, PortfolioRules, Trade
+from backend.app.research.engine import (
+    run_portfolio,
+    ExitRules,
+    PortfolioRules,
+    Trade,
+    NON_TRADABLE,
+)
 from backend.app.research.metrics import compute_metrics, BacktestMetrics
 from backend.app.research.data import download_daily, load_universe
+from backend.app.research.setups import eligible
 
 
 @dataclass
@@ -41,7 +48,7 @@ def random_signals(
     signals = {}
     
     for symbol, df in data.items():
-        if symbol in ("SPY", "VIX"):
+        if symbol in NON_TRADABLE:
             signals[symbol] = pd.Series(False, index=df.index)
             continue
             
@@ -78,7 +85,7 @@ def permuted_signals(
     signals = {}
     
     for symbol, df in data.items():
-        if symbol in ("SPY", "VIX"):
+        if symbol in NON_TRADABLE:
             signals[symbol] = pd.Series(False, index=df.index)
             continue
             
@@ -122,7 +129,7 @@ def time_shifted_signals(
     signals = {}
     
     for symbol, df in data.items():
-        if symbol in ("SPY", "VIX"):
+        if symbol in NON_TRADABLE:
             signals[symbol] = pd.Series(False, index=df.index)
             continue
             
@@ -150,11 +157,79 @@ def time_shifted_signals(
     return signals
 
 
+def matched_random_signals(
+    data: dict[str, pd.DataFrame],
+    real_signals: dict[str, pd.Series],
+    seed: int,
+    elig: pd.DataFrame | None = None,
+) -> dict[str, pd.Series]:
+    """Random control matched to the strategy's daily entry count.
+
+    For every date on which the strategy fires, the control fires the same
+    number of signals on a random sample of symbols that are liquid and have
+    valid indicators on that date. This replaces the old control, which fired
+    on 2% of every symbol every day regardless of eligibility.
+
+    Args:
+        data: Market data.
+        real_signals: Real signals to match.
+        seed: Random seed.
+        elig: Optional precomputed eligibility frame (columns = tradable
+            symbols, index = union of all dates).
+
+    Returns:
+        Dict of symbol -> boolean Series reindexed to that symbol's own index.
+        Non-tradable symbols get an all-False Series.
+    """
+    tradable = sorted(s for s in data if s not in NON_TRADABLE)
+
+    if elig is None:
+        union = pd.DatetimeIndex(
+            sorted({d for s in tradable for d in data[s].index})
+        )
+        elig = pd.DataFrame(
+            {
+                s: eligible(data[s]).reindex(union, fill_value=False).astype(bool)
+                for s in tradable
+            },
+            index=union,
+        )
+
+    index = elig.index
+    counts = pd.Series(0, index=index, dtype=int)
+    for symbol in tradable:
+        real_sig = real_signals.get(symbol)
+        if real_sig is None:
+            continue
+        aligned = real_sig.reindex(index, fill_value=False).fillna(False).astype(bool)
+        counts = counts + aligned.astype(int)
+
+    rng = np.random.default_rng(seed)
+    marks = pd.DataFrame(False, index=index, columns=tradable, dtype=bool)
+
+    for date in index[counts.to_numpy() > 0]:
+        pool = elig.columns[elig.loc[date].to_numpy(dtype=bool)].tolist()
+        k = min(int(counts.loc[date]), len(pool))
+        if k <= 0:
+            continue
+        chosen = rng.choice(pool, size=k, replace=False)
+        marks.loc[date, chosen] = True
+
+    signals = {}
+    for symbol, df in data.items():
+        if symbol in NON_TRADABLE:
+            signals[symbol] = pd.Series(False, index=df.index)
+        else:
+            signals[symbol] = marks[symbol].reindex(df.index, fill_value=False)
+    return signals
+
+
 def run_control_suite(
     data: dict[str, pd.DataFrame],
     real_signals: dict[str, pd.Series],
     exit_rules: ExitRules,
     portfolio_rules: PortfolioRules,
+    n_matched: int = 30,
     n_random: int = 100,
     n_permuted: int = 50,
     n_shifted: int = 5,
@@ -167,20 +242,48 @@ def run_control_suite(
         real_signals: Real signals from setups.
         exit_rules: Exit rules.
         portfolio_rules: Portfolio rules.
+        n_matched: Number of matched-random runs (same daily entry count as
+            the strategy, random eligible symbol).
         n_random: Number of random signal runs.
         n_permuted: Number of permuted signal runs.
         n_shifted: Number of time-shifted runs (positive shifts).
         base_seed: Base seed for reproducibility.
         
     Returns:
-        Dict with 'random', 'permuted', 'shifted' lists of ControlResult.
+        Dict with 'matched_random', 'random', 'permuted', 'shifted' lists.
     """
     results = {
+        "matched_random": [],
         "random": [],
         "permuted": [],
         "shifted": []
     }
-    
+
+    # Eligibility depends only on the panel, so build it once.
+    tradable = sorted(s for s in data if s not in NON_TRADABLE)
+    union = pd.DatetimeIndex(sorted({d for s in tradable for d in data[s].index}))
+    elig = pd.DataFrame(
+        {
+            s: eligible(data[s]).reindex(union, fill_value=False).astype(bool)
+            for s in tradable
+        },
+        index=union,
+    )
+
+    # Matched random signals (same entry count per day, random eligible symbol)
+    for i in range(n_matched):
+        seed = base_seed + 30000 + i
+        signals = matched_random_signals(data, real_signals, seed, elig=elig)
+        trades, equity = run_portfolio(data, signals, exit_rules, portfolio_rules, seed=seed)
+        metrics = compute_metrics(trades, equity)
+        results["matched_random"].append(ControlResult(
+            name=f"matched_random_{i}",
+            seed=seed,
+            trades=trades,
+            equity=equity,
+            metrics=metrics
+        ))
+
     # Random signals
     for i in range(n_random):
         seed = base_seed + i
@@ -232,12 +335,17 @@ def compute_control_pvalues(
     control_results: dict[str, list[ControlResult]],
     metric_name: str = "r_net_sum"
 ) -> dict[str, float]:
-    """Compute p-values vs control distributions.
+    """Compute one-sided p-values vs control distributions.
+
+    The p-value always answers the same question: how often does a control do
+    at least as well as the real strategy? It is ``p_raw = mean(control >=
+    real)`` followed by the finite-sample correction ``p = (p_raw*n + 1)/(n +
+    1)``. The direction is never flipped for negative results.
     
     Args:
         real_metrics: Metrics from real signals.
         control_results: Results from control suite.
-        metric_name: Which metric to test (e.g., 'r_net_sum', 'sharpe', 'total_return_pct').
+        metric_name: Which metric to test (e.g., 'r_net_mean', 'sharpe').
         
     Returns:
         Dict of control_type -> p_value.
@@ -253,12 +361,8 @@ def compute_control_pvalues(
         control_values = [getattr(r.metrics, metric_name) for r in results]
         control_values = np.array(control_values)
         
-        # One-sided p-value: proportion of control >= real (for positive metrics)
-        # If real is negative, we'd test proportion <= real
-        if real_value >= 0:
-            p = np.mean(control_values >= real_value)
-        else:
-            p = np.mean(control_values <= real_value)
+        # One-sided: proportion of controls at least as good as the real result.
+        p = np.mean(control_values >= real_value)
             
         # Add 1/(n+1) correction for finite samples
         n = len(control_values)

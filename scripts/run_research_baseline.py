@@ -16,6 +16,7 @@ import os
 import platform
 import subprocess
 import sys
+from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 
@@ -26,7 +27,12 @@ import yaml
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from backend.app.research.data import download_daily, load_universe, panel_span
+from backend.app.research.data import (
+    download_daily,
+    load_universe,
+    panel_span,
+    coverage_report,
+)
 from backend.app.research.indicators import add_indicators
 from backend.app.research.setups import (
     SETUPS,
@@ -36,7 +42,13 @@ from backend.app.research.setups import (
     low_vol_setup,
     volume_trend_accumulation
 )
-from backend.app.research.engine import run_portfolio, ExitRules, PortfolioRules, Trade
+from backend.app.research.engine import (
+    run_portfolio,
+    ExitRules,
+    PortfolioRules,
+    Trade,
+    NON_TRADABLE,
+)
 from backend.app.research.metrics import compute_metrics, print_metrics, metrics_to_dict, BacktestMetrics
 from backend.app.research.control import (
     run_control_suite,
@@ -109,7 +121,7 @@ def _symbol_coverage(
     end_ts = pd.Timestamp(requested_end)
     rows = []
     for symbol in sorted(data):
-        if symbol in ("SPY", "VIX"):
+        if symbol in NON_TRADABLE:
             continue
         df = data[symbol]
         if not len(df):
@@ -168,6 +180,7 @@ def run_backtest(
     output_dir: str = "docs/backtests/research",
     max_cache_age_hours: float = 20.0,
     force_download: bool = False,
+    max_universe_symbols: int | None = None,
 ) -> dict:
     """Run a full backtest for a setup and return everything needed to document it."""
 
@@ -180,6 +193,8 @@ def run_backtest(
 
     # Load universe
     symbols = load_universe(universe_path)
+    if max_universe_symbols is not None:
+        symbols = symbols[:max_universe_symbols]
     print(f"Loaded {len(symbols)} symbols from universe")
 
     # Add SPY for benchmark
@@ -194,11 +209,22 @@ def run_backtest(
         force_download=force_download,
     )
     actual_start, actual_end = panel_span(data)
+    coverage = coverage_report(data, start_date, end_date)
     print(
         f"Loaded {len(data)} symbols "
         f"(cache hits={cache_stats['hits']}, downloads={cache_stats['downloaded']}, "
         f"failed={cache_stats['failed']})"
     )
+    print(
+        f"Coverage: n_symbols={coverage['n_symbols']}, "
+        f"early_end={len(coverage['early_end'])}, "
+        f"late_start={len(coverage['late_start'])}"
+    )
+    if len(coverage["early_end"]) > 0.05 * max(1, coverage["n_symbols"]):
+        raise RuntimeError(
+            "Data coverage check failed: too many symbols end early: "
+            f"{coverage['early_end'][:10]}"
+        )
     if dropped:
         print(f"Dropped {len(dropped)} symbols: {[d[0] for d in dropped]}")
     if actual_start is not None:
@@ -222,7 +248,7 @@ def run_backtest(
     print("Generating signals...")
     signals = {}
     for symbol, df in data.items():
-        if symbol in ("SPY", "VIX"):
+        if symbol in NON_TRADABLE:
             signals[symbol] = pd.Series(False, index=df.index)
             continue
 
@@ -246,6 +272,15 @@ def run_backtest(
     print("Running portfolio backtest...")
     trades, equity = run_portfolio(data, signals, exit_rules, portfolio_rules, seed=42)
     print(f"Completed {len(trades)} trades")
+
+    # Every position is closed, so equity must reconcile with realized P&L.
+    expected = portfolio_rules.start_equity + sum(t.pnl_usd for t in trades)
+    if abs(float(equity.iloc[-1]) - expected) > 0.5:
+        raise RuntimeError(
+            f"Equity reconciliation failed: final_equity={float(equity.iloc[-1]):.2f} "
+            f"expected={expected:.2f}"
+        )
+    print("Reconciliation: OK")
 
     # Compute metrics
     spy_returns = None
@@ -280,6 +315,7 @@ def run_controls(
     signals: dict[str, pd.Series],
     exit_rules: ExitRules,
     portfolio_rules: PortfolioRules,
+    n_matched: int = 30,
     n_random: int = 100,
     n_permuted: int = 50,
     n_shifted: int = 5
@@ -287,11 +323,15 @@ def run_controls(
     """Run control suite."""
     print(f"\n{'='*60}")
     print(f"Running Control Suite")
-    print(f"Random: {n_random}, Permuted: {n_permuted}, Shifted: {n_shifted}")
+    print(
+        f"Matched: {n_matched}, Random: {n_random}, "
+        f"Permuted: {n_permuted}, Shifted: {n_shifted}"
+    )
     print(f"{'='*60}")
 
     control_results = run_control_suite(
         data, signals, exit_rules, portfolio_rules,
+        n_matched=n_matched,
         n_random=n_random,
         n_permuted=n_permuted,
         n_shifted=n_shifted,
@@ -320,8 +360,11 @@ def summarize_controls(control_results: dict[str, list]) -> dict:
         if results:
             summary[ctype] = {
                 "n_runs": len(results),
+                "n_trades_mean": float(np.mean([r.metrics.n_trades for r in results])),
                 "r_net_sum_mean": float(np.mean([r.metrics.r_net_sum for r in results])),
                 "r_net_sum_std": float(np.std([r.metrics.r_net_sum for r in results])),
+                "r_net_mean_mean": float(np.mean([r.metrics.r_net_mean for r in results])),
+                "r_net_mean_std": float(np.std([r.metrics.r_net_mean for r in results])),
                 "sharpe_mean": float(np.mean([r.metrics.sharpe for r in results])),
                 "sharpe_std": float(np.std([r.metrics.sharpe for r in results])),
                 "return_mean": float(np.mean([r.metrics.total_return_pct for r in results])),
@@ -334,9 +377,10 @@ def save_results(
     setup_name: str,
     result: dict,
     control_summary: dict,
-    pvalues_r_net_sum: dict,
+    pvalues_r_net_mean: dict,
     pvalues_sharpe: dict,
     metadata: dict,
+    run_info: dict,
     output_dir: str = "docs/backtests/research",
     tag: str = "",
 ) -> str:
@@ -380,10 +424,11 @@ def save_results(
         "trades": trades_data,
         "equity_curve": equity_data,
         "control_summary": control_summary,
-        "p_values": pvalues_r_net_sum,
-        "p_value_metric": "r_net_sum",
+        "p_values": pvalues_r_net_mean,
+        "p_value_metric": "r_net_mean",
         "p_values_sharpe": pvalues_sharpe,
         "run": metadata,
+        "run_info": run_info,
     }
 
     with open(filepath, 'w', encoding="utf-8") as f:
@@ -431,6 +476,7 @@ def _build_metadata(args, result: dict, exit_rules, portfolio_rules) -> dict:
             "candidate_seed": 42,
         },
         "controls": {
+            "matched_random": args.n_matched,
             "random": args.n_random,
             "permuted": args.n_permuted,
             "shifted": args.n_shifted,
@@ -470,6 +516,18 @@ def _package_version(name: str) -> str | None:
         return None
 
 
+def _git_commit_short() -> str:
+    """Short HEAD revision, or ``"unknown"`` when git is unavailable."""
+    try:
+        return subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=Path(__file__).parent.parent,
+            capture_output=True, text=True, timeout=10, check=True,
+        ).stdout.strip() or "unknown"
+    except Exception:
+        return "unknown"
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run research baseline backtest")
     parser.add_argument("--setup", default="statistical_mean_reversion",
@@ -477,9 +535,9 @@ def main():
                         help="Setup name to test")
     parser.add_argument("--universe", default="config/replay_universe_sp500.txt",
                         help="Path to universe file")
-    parser.add_argument("--start", default="2020-01-03",
+    parser.add_argument("--start", default="2015-01-01",
                         help="Start date (inclusive, YYYY-MM-DD)")
-    parser.add_argument("--end", default="2023-12-29",
+    parser.add_argument("--end", default=datetime.now().strftime("%Y-%m-%d"),
                         help="End date (inclusive, YYYY-MM-DD)")
     parser.add_argument("--stop-atr", type=float, default=2.0,
                         help="Stop loss ATR multiplier")
@@ -493,11 +551,13 @@ def main():
                         help="Max concurrent positions")
     parser.add_argument("--cost-bps", type=float, default=15.0,
                         help="Cost basis points per side")
-    parser.add_argument("--n-random", type=int, default=100,
+    parser.add_argument("--n-matched", type=int, default=30,
+                        help="Number of matched-random control runs")
+    parser.add_argument("--n-random", type=int, default=0,
                         help="Number of random control runs")
-    parser.add_argument("--n-permuted", type=int, default=50,
+    parser.add_argument("--n-permuted", type=int, default=10,
                         help="Number of permuted control runs")
-    parser.add_argument("--n-shifted", type=int, default=5,
+    parser.add_argument("--n-shifted", type=int, default=2,
                         help="Number of time-shifted control runs")
     parser.add_argument("--cache-dir", default=".cache/research",
                         help="Cache directory")
@@ -513,8 +573,28 @@ def main():
                         help="Write the artifact even if the panel misses the requested span")
     parser.add_argument("--no-controls", action="store_true",
                         help="Skip control suite")
+    parser.add_argument("--quick", action="store_true",
+                        help="Fast smoke run: 40 symbols, 2019-2020, separate cache")
+    parser.add_argument("--quick-setup", metavar="SETUP", default=None,
+                        help="Alias for --quick with a setup name")
 
     args = parser.parse_args()
+
+    if args.quick_setup is not None:
+        if args.quick_setup not in SETUPS:
+            parser.error(f"unknown setup: {args.quick_setup}")
+        args.quick = True
+        args.setup = args.quick_setup
+
+    if args.quick:
+        args.start = "2019-01-01"
+        args.end = "2020-12-31"
+        args.n_matched = 3
+        args.n_random = 0
+        args.n_permuted = 2
+        args.n_shifted = 1
+        args.cache_dir = ".cache/research_quick"
+        args.output_dir = ".cache/research_quick/out"
 
     exit_rules = ExitRules(
         stop_atr=args.stop_atr,
@@ -556,6 +636,7 @@ def main():
         args.output_dir,
         max_cache_age_hours=args.cache_max_age_hours,
         force_download=args.force_download,
+        max_universe_symbols=40 if args.quick else None,
     )
 
     metrics = result["metrics"]
@@ -576,6 +657,26 @@ def main():
             f"{metadata['invariant']}"
         )
 
+    run_info = {
+        "start": args.start,
+        "end": args.end,
+        "universe_path": args.universe,
+        "n_symbols_used": len(
+            [s for s in result["data"] if s not in NON_TRADABLE]
+        ),
+        "dropped": [[s, r] for s, r in result["dropped"]],
+        "exit_rules": asdict(exit_rules),
+        "portfolio_rules": asdict(portfolio_rules),
+        "controls": {
+            "n_matched": args.n_matched,
+            "n_random": args.n_random,
+            "n_permuted": args.n_permuted,
+            "n_shifted": args.n_shifted,
+        },
+        "git_commit": _git_commit_short(),
+        "quick": bool(args.quick),
+    }
+
     # Run controls
     pvalues_r = {}
     pvalues_sharpe = {}
@@ -585,27 +686,28 @@ def main():
     if not args.no_controls:
         control_results = run_controls(
             result["data"], result["signals"], exit_rules, portfolio_rules,
+            n_matched=args.n_matched,
             n_random=args.n_random,
             n_permuted=args.n_permuted,
             n_shifted=args.n_shifted
         )
         control_summary = summarize_controls(control_results)
 
-        pvalues_r = compute_control_pvalues(metrics, control_results, "r_net_sum")
+        pvalues_r = compute_control_pvalues(metrics, control_results, "r_net_mean")
         pvalues_sharpe = compute_control_pvalues(metrics, control_results, "sharpe")
 
         print(f"\n{'='*60}")
-        print(f"P-VALUES (vs R-net Sum)")
+        print(f"P-VALUES (vs R-net Mean)")
         print(f"{'='*60}")
         for ctype, p in pvalues_r.items():
             sig = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else ""
-            print(f"  {ctype:12s}: p = {p:.4f} {sig}")
+            print(f"  {ctype:14s}: p = {p:.4f} {sig}")
 
-        print(f"\nP-VALUES (vs Sharpe)")
+        print(f"\nP-VALUES (vs Sharpe, informational)")
         print(f"{'='*60}")
         for ctype, p in pvalues_sharpe.items():
             sig = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else ""
-            print(f"  {ctype:12s}: p = {p:.4f} {sig}")
+            print(f"  {ctype:14s}: p = {p:.4f} {sig}")
 
     save_results(
         args.setup,
@@ -614,6 +716,7 @@ def main():
         pvalues_r,
         pvalues_sharpe,
         metadata,
+        run_info,
         args.output_dir,
         tag=args.tag,
     )
@@ -622,34 +725,34 @@ def main():
     print(f"BACKTEST COMPLETE")
     print(f"{'='*60}")
 
-    # Exit code: 0 only when the result is significant AND favourable.
+    # INFO only: a completed run is a successful run. Significance never
+    # changes the exit code.
     if pvalues_r:
         best_control = min(pvalues_r, key=pvalues_r.get)
         best_p = pvalues_r[best_control]
-        control_mean = control_summary[best_control]["r_net_sum_mean"]
-        favorable = metrics.r_net_sum > control_mean
+        control_mean = control_summary[best_control]["r_net_mean_mean"]
+        favorable = metrics.r_net_mean > control_mean
 
         if best_p < 0.05 and favorable:
             print(
-                f"RESULT: significantly BETTER than {best_control} "
-                f"(p={best_p:.4f}, real r_net_sum={metrics.r_net_sum:.3f} "
+                f"INFO: significantly BETTER than {best_control} "
+                f"(p={best_p:.4f}, real r_net_mean={metrics.r_net_mean:.3f} "
                 f"vs control mean {control_mean:.3f})"
             )
-            return 0
-        if best_p < 0.05:
+        elif best_p < 0.05:
             print(
-                f"RESULT: significantly WORSE than {best_control} "
-                f"(p={best_p:.4f}, real r_net_sum={metrics.r_net_sum:.3f} "
+                f"INFO: significantly WORSE than {best_control} "
+                f"(p={best_p:.4f}, real r_net_mean={metrics.r_net_mean:.3f} "
                 f"vs control mean {control_mean:.3f})"
             )
-            return 1
-        print(
-            f"RESULT: NOT statistically significant vs controls "
-            f"(best p={best_p:.4f} on {best_control})"
-        )
-        return 1
+        else:
+            print(
+                f"INFO: NOT statistically significant vs controls "
+                f"(best p={best_p:.4f} on {best_control})"
+            )
+    else:
+        print("INFO: No controls run")
 
-    print("RESULT: No controls run")
     return 0
 
 

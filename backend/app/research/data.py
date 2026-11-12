@@ -151,7 +151,7 @@ def download_daily(
 
     # Always include SPY and VIX for benchmark. Sorted so the panel (and the
     # engine's per-date shuffle) is reproducible across processes.
-    all_symbols = sorted(set(symbols + ["SPY", "VIX"]))
+    all_symbols = sorted(set(symbols + ["SPY", "^VIX"]))
 
     data = {}
     dropped = []
@@ -256,13 +256,49 @@ def download_daily(
 
 def panel_span(
     data: dict[str, pd.DataFrame],
-    exclude: tuple[str, ...] = ("SPY", "VIX"),
+    exclude: tuple[str, ...] = ("SPY", "^VIX", "VIX"),
 ) -> tuple[pd.Timestamp | None, pd.Timestamp | None]:
     """Return the (first, last) trading date of the tradable panel."""
     frames = [df for sym, df in data.items() if sym not in exclude and len(df)]
     if not frames:
         return None, None
     return min(df.index.min() for df in frames), max(df.index.max() for df in frames)
+
+
+def coverage_report(
+    data: dict[str, pd.DataFrame],
+    start: str,
+    end: str,
+    tolerance_days: int = 10,
+) -> dict:
+    """Summarise how well the panel covers the requested span.
+
+    Returns ``{"n_symbols": N, "late_start": [...], "early_end": [...]}`` where
+    ``early_end`` lists tradable symbols whose last bar is more than
+    ``tolerance_days`` before ``end`` (a coverage problem) and ``late_start``
+    lists symbols whose first bar is more than 400 days after ``start``
+    (informational: newer listings). Pure function, no printing.
+    """
+    start_ts = pd.Timestamp(start)
+    end_ts = pd.Timestamp(end)
+    late_cutoff = start_ts + pd.Timedelta(days=400)
+    late_start: list[str] = []
+    early_end: list[str] = []
+    n_symbols = 0
+
+    for symbol in sorted(data):
+        if symbol in ("SPY", "^VIX", "VIX"):
+            continue
+        df = data[symbol]
+        if not len(df):
+            continue
+        n_symbols += 1
+        if df.index[0] > late_cutoff:
+            late_start.append(symbol)
+        if df.index[-1] < end_ts - pd.Timedelta(days=tolerance_days):
+            early_end.append(symbol)
+
+    return {"n_symbols": n_symbols, "late_start": late_start, "early_end": early_end}
 
 
 def add_benchmark(data: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
