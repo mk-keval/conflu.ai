@@ -1,5 +1,7 @@
 """Tests for research engine."""
 
+from dataclasses import replace
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -401,7 +403,8 @@ def test_data_end_closes_open_position():
     """A position whose symbol's data ends is closed at that symbol's last close."""
     data = _make_panel({"SHORT": 40, "LONG": 120})
     signals = {s: pd.Series(False, index=df.index) for s, df in data.items()}
-    signals["SHORT"].iloc[10] = True
+    # Enter after the 14-bar ATR warm-up so the trade has a real stop.
+    signals["SHORT"].iloc[20] = True
 
     # Wide stop/target and a long hold guarantee the position outlives the data.
     exit_rules = ExitRules(stop_atr=20.0, target_atr=20.0, max_hold_bars=1000)
@@ -490,10 +493,10 @@ def test_position_closed_when_data_ends():
     Guards the D-79 defect where the position's value vanished from equity and
     the position stayed open forever.
     """
-    data = {"A": _flat_frame(20), "B": _flat_frame(40)}
+    data = {"A": _flat_frame(30), "B": _flat_frame(60)}
     signals = {s: pd.Series(False, index=df.index) for s, df in data.items()}
-    signals["A"].iloc[5] = True   # enters day 6
-    signals["B"].iloc[25] = True  # enters day 26, after A's data ends
+    signals["A"].iloc[20] = True  # enters day 21, after the ATR warm-up
+    signals["B"].iloc[45] = True  # enters day 46, after A's data ends
 
     exit_rules = ExitRules(stop_atr=50.0, target_atr=50.0, max_hold_bars=1000)
     portfolio_rules = PortfolioRules(
@@ -570,11 +573,11 @@ def test_missing_bar_does_not_drop_equity():
 
 def test_sizing_uses_previous_close_equity():
     """New entries must size off the PREVIOUS day's equity, never today's close."""
-    n = 30
+    n = 40
     dates = pd.date_range("2020-01-01", periods=n, freq="D")
     close_a = np.full(n, 100.0)
-    close_a[5:10] = [120.0, 140.0, 160.0, 180.0, 200.0]
-    close_a[10:] = 120.0  # -40% from the 200 peak on B's entry day
+    close_a[20:26] = [120.0, 140.0, 160.0, 180.0, 200.0, 180.0]
+    close_a[26:] = 120.0  # -40% from the 200 peak on B's entry day
     frame_a = pd.DataFrame(
         {
             "open": close_a,
@@ -588,8 +591,8 @@ def test_sizing_uses_previous_close_equity():
     data = {"A": add_indicators(frame_a), "B": _flat_frame(n)}
 
     signals = {s: pd.Series(False, index=df.index) for s, df in data.items()}
-    signals["A"].iloc[2] = True   # enters day 3, held through day 10
-    signals["B"].iloc[9] = True   # enters day 10, when A's close collapses
+    signals["A"].iloc[15] = True  # enters day 16, after the ATR warm-up, held past day 31
+    signals["B"].iloc[30] = True  # enters day 31, when A's close collapses
 
     exit_rules = ExitRules(stop_atr=2.0, target_atr=100.0, max_hold_bars=1000)
     portfolio_rules = PortfolioRules(
@@ -602,11 +605,147 @@ def test_sizing_uses_previous_close_equity():
     b_trades = [t for t in trades if t.symbol == "B"]
     assert len(b_trades) == 1
     b = b_trades[0]
-    previous_date = data["B"].index[9]
+    previous_date = data["B"].index[30]
     expected = int(
         np.floor(equity.loc[previous_date] * 0.005 / (b.entry_price - b.stop))
     )
     assert b.shares == expected
+
+
+def _atr_panel(symbols, n, price=20.0, atr=1.0):
+    """Flat OHLCV panel with a constant, pre-computed ATR (no indicator warm-up)."""
+    dates = pd.date_range("2020-01-06", periods=n, freq="B")
+    data = {}
+    for symbol in symbols:
+        data[symbol] = pd.DataFrame(
+            {
+                "open": np.full(n, price),
+                "high": np.full(n, price + 0.5),
+                "low": np.full(n, price - 0.5),
+                "close": np.full(n, price),
+                "volume": np.full(n, 1_000_000.0),
+                "atr14": np.full(n, atr),
+            },
+            index=dates,
+        )
+    return dates, data
+
+
+def test_same_day_exit_does_not_free_a_slot_by_default():
+    """An exit on D frees its slot from D+1, never for entries on D."""
+    dates, data = _atr_panel([f"S{i}" for i in range(9)], n=10)
+    # S0 stops on bar 4; S8 signals on bar 3 so it would enter on bar 4.
+    data["S0"].loc[dates[4], "low"] = 17.0
+    signals = {s: pd.Series(False, index=df.index) for s, df in data.items()}
+    for symbol in [f"S{i}" for i in range(8)]:
+        signals[symbol].iloc[0] = True
+    signals["S8"].iloc[3] = True
+
+    exit_rules = ExitRules(stop_atr=2.0, target_atr=3.0, max_hold_bars=15)
+    strict = PortfolioRules(
+        start_equity=100_000, risk_pct=0.5, max_positions=8,
+        max_position_pct=100, cost_bps_per_side=0,
+    )
+    recycling = replace(strict, allow_same_day_recycling=True)
+
+    strict_trades, _ = run_portfolio(data, signals, exit_rules, strict, seed=42)
+    assert len([t for t in strict_trades if t.entry_date == dates[1]]) == 8
+    assert not any(t.symbol == "S8" for t in strict_trades)
+    stopped = [t for t in strict_trades if t.symbol == "S0"]
+    assert len(stopped) == 1
+    assert stopped[0].exit_date == dates[4]
+    assert stopped[0].exit_reason == "stop"
+
+    recycled_trades, _ = run_portfolio(data, signals, exit_rules, recycling, seed=42)
+    s8_trades = [t for t in recycled_trades if t.symbol == "S8"]
+    assert len(s8_trades) == 1
+    assert s8_trades[0].entry_date == dates[4]
+
+
+def _random_signal_panel(n_symbols=6, n=120, seed=11):
+    """Random-walk panel with independent random entry signals."""
+    rng = np.random.default_rng(seed)
+    dates = pd.date_range("2020-01-01", periods=n, freq="B")
+    data = {}
+    signals = {}
+    for i in range(n_symbols):
+        close = 50 * np.exp(np.cumsum(rng.normal(0, 0.01, n)))
+        open_ = close * (1 + rng.normal(0, 0.002, n))
+        high = np.maximum(close, open_) * (1 + np.abs(rng.normal(0, 0.004, n)))
+        low = np.minimum(close, open_) * (1 - np.abs(rng.normal(0, 0.004, n)))
+        df = pd.DataFrame(
+            {
+                "open": open_,
+                "high": high,
+                "low": low,
+                "close": close,
+                "volume": rng.integers(500_000, 2_000_000, n).astype(float),
+            },
+            index=dates,
+        )
+        symbol = f"R{i}"
+        data[symbol] = add_indicators(df)
+        signals[symbol] = pd.Series(rng.random(n) < 0.06, index=dates)
+    return dates, data, signals
+
+
+@pytest.mark.parametrize("recycling", [False, True])
+def test_position_and_cash_bounds_hold(recycling):
+    """At the open of every day: positions <= max_positions and cash >= 0."""
+    dates, data, signals = _random_signal_panel()
+    exit_rules = ExitRules(stop_atr=2.0, target_atr=3.0, max_hold_bars=15)
+    rules = PortfolioRules(
+        start_equity=100_000, risk_pct=2.0, max_positions=3,
+        max_position_pct=50, cost_bps_per_side=15,
+        allow_same_day_recycling=recycling,
+    )
+
+    trades, _ = run_portfolio(data, signals, exit_rules, rules, seed=42)
+    assert trades
+
+    for date in dates:
+        held = sum(1 for t in trades if t.entry_date <= date <= t.exit_date)
+        assert held <= rules.max_positions, f"{held} positions held on {date}"
+
+    cost = rules.cost_bps_per_side / 10_000
+    cash = rules.start_equity
+    for date in dates:
+        entries = [t for t in trades if t.entry_date == date]
+        earlier_exits = [t for t in trades if t.exit_date == date and t.entry_date < date]
+        same_day_exits = [t for t in trades if t.exit_date == date and t.entry_date == date]
+
+        # Mirror the engine's intra-day order for the mode under test.
+        if recycling:
+            for t in earlier_exits:
+                cash += t.shares * t.exit_price * (1 - cost)
+        for t in entries:
+            cash -= t.shares * t.entry_price * (1 + cost)
+            assert cash >= -0.01, f"cash went negative on {date}: {cash:.2f}"
+        if not recycling:
+            for t in earlier_exits:
+                cash += t.shares * t.exit_price * (1 - cost)
+        for t in same_day_exits:
+            cash += t.shares * t.exit_price * (1 - cost)
+
+    assert cash >= -0.01
+
+
+@pytest.mark.parametrize("recycling", [False, True])
+def test_reconciliation_holds_in_both_modes(recycling):
+    """final_equity == start_equity + sum(pnl_usd) with and without recycling."""
+    _, data, signals = _random_signal_panel(seed=3)
+    exit_rules = ExitRules(stop_atr=2.0, target_atr=3.0, max_hold_bars=15)
+    rules = PortfolioRules(
+        start_equity=100_000, risk_pct=1.0, max_positions=4,
+        max_position_pct=40, cost_bps_per_side=15,
+        allow_same_day_recycling=recycling,
+    )
+
+    trades, equity = run_portfolio(data, signals, exit_rules, rules, seed=42)
+
+    assert trades
+    expected = rules.start_equity + sum(t.pnl_usd for t in trades)
+    assert equity.iloc[-1] == pytest.approx(expected, rel=1e-12)
 
 
 if __name__ == "__main__":

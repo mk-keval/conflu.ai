@@ -470,6 +470,7 @@ def _build_metadata(args, result: dict, exit_rules, portfolio_rules) -> dict:
             "max_positions": portfolio_rules.max_positions,
             "max_position_pct": portfolio_rules.max_position_pct,
             "cost_bps_per_side": portfolio_rules.cost_bps_per_side,
+            "allow_same_day_recycling": portfolio_rules.allow_same_day_recycling,
             "stop_atr": exit_rules.stop_atr,
             "target_atr": exit_rules.target_atr,
             "max_hold_bars": exit_rules.max_hold_bars,
@@ -551,6 +552,8 @@ def main():
                         help="Max concurrent positions")
     parser.add_argument("--cost-bps", type=float, default=15.0,
                         help="Cost basis points per side")
+    parser.add_argument("--allow-same-day-recycling", action="store_true",
+                        help="Let an exit on date D free a slot/cash for entries on D (pre-D-82 behaviour)")
     parser.add_argument("--n-matched", type=int, default=30,
                         help="Number of matched-random control runs")
     parser.add_argument("--n-random", type=int, default=0,
@@ -607,7 +610,8 @@ def main():
         risk_pct=args.risk_pct,
         max_positions=args.max_positions,
         max_position_pct=20.0,
-        cost_bps_per_side=args.cost_bps
+        cost_bps_per_side=args.cost_bps,
+        allow_same_day_recycling=args.allow_same_day_recycling,
     )
 
     print(f"\n{'='*60}")

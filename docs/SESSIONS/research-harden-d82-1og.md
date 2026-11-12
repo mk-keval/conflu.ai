@@ -268,3 +268,102 @@ received exactly one added line (the `VALIDITY_NOTES.md` pointer).
 - Ruff: not applicable (docs only).
 - Skipped: nothing. No file was renamed; the proposed names are stated in the note only.
 - Gate for T2: **open** (T0, T1, T5 all complete).
+
+---
+
+## T2 — Entry/exit ordering and indicator warm-up
+
+- **Date:** 2026-11-12
+- **What changed and why:** four behavioural fixes.
+  1. `engine.PortfolioRules` gains `allow_same_day_recycling` (default **False**). Entry
+     prices are today's open and exits happen during the day, so a slot or the cash
+     released by an exit on date D must not fund entries on date D. The default now
+     collects exits before the entry step (they still happen at the right price/date, and
+     close the position) but applies them **after** sizing and opening today's entries.
+     `--allow-same-day-recycling` restores the old ordering for side-by-side comparison.
+  2. `indicators.py` masks every recursive indicator for its warm-up via `min_periods`,
+     instead of emitting values that are built from one or two bars. ADX and the MACD
+     signal are computed from the **unmasked** recursions and only then hidden, so no
+     later value moves.
+  3. `setups.eligible()` now requires `ema200` and `atr14` (previously any non-NaN value
+     of the unmasked EMA/ATR series qualified), so the control universe no longer includes
+     bars before the 200-bar warm-up.
+  4. `run_research_baseline.py` exposes `--allow-same-day-recycling` and records the flag
+     in the artifact `rules` block.
+- **Files touched:**
+  - `backend/app/research/engine.py`
+  - `backend/app/research/indicators.py`
+  - `backend/app/research/setups.py`
+  - `scripts/run_research_baseline.py`
+  - `backend/tests/test_research_engine.py`
+  - `backend/tests/test_research_indicators.py`
+  - `backend/tests/test_research_setups.py`
+  - `docs/SESSIONS/research-harden-d82-1og.md` (this file)
+
+### Commands and exact output
+
+Full research test set at the **start** of T2:
+
+```text
+$ pytest backend/tests/test_research_data.py backend/tests/test_research_engine.py backend/tests/test_research_metrics.py backend/tests/test_research_setups.py backend/tests/test_research_indicators.py backend/tests/test_research_control.py backend/tests/test_research_diagnostics.py -q
+.............................................................                    [100%]
+61 passed in 4.78s
+LASTEXIT=0
+```
+
+Tests after the code changes (before the new tests were added), which showed the
+warm-up-related expectations that had to be updated:
+
+```text
+$ pytest backend/tests/test_research_engine.py backend/tests/test_research_setups.py -q
+... E assert elig.iloc[60:].all() ... FAILED backend/tests/test_research_setups.py::test_eligible
+1 failed, 26 passed
+```
+
+The old `test_eligible` assumed eligibility from bar 60, which was only possible because
+`ema200` had no warm-up. It was **strengthened**, not weakened: `n` 100 -> 260, and it now
+asserts no eligible bar before 199 and every bar from 199 onward eligible. Similarly the
+three existing engine tests that entered trades at bars 2-10 were moved after the 14-bar
+ATR warm-up (otherwise the engine skips them for `atr = NaN`); their assertions are
+unchanged or stricter.
+
+New tests added:
+
+- `test_same_day_exit_does_not_free_a_slot_by_default` — 8 slots full, one stops on
+  bar 4, a 9th candidate would enter on bar 4: default mode never enters the 9th;
+  recycling mode enters it on bar 4. Also asserts the stop's date and reason.
+- `test_position_and_cash_bounds_hold[False/True]` — over a random panel, reconstructed
+  cash never goes negative (entry cash is debited before today's deferred exits are
+  credited in default mode) and the held count never exceeds `max_positions`.
+- `test_reconciliation_holds_in_both_modes[False/True]` — `final_equity == start_equity +
+  sum(pnl_usd)` in both orderings.
+- `test_warmup_is_masked_without_shifting_later_values` — `ema20/50/200`, `sma20`, `atr14`
+  and `macd_signal` are NaN for exactly their warm-up and match the unmasked recursion
+  from the first observable bar onward.
+
+End-of-task run (full research set) and ruff:
+
+```text
+$ ruff check backend/app/research/engine.py backend/app/research/indicators.py backend/app/research/setups.py scripts/run_research_baseline.py backend/tests/test_research_engine.py backend/tests/test_research_indicators.py backend/tests/test_research_setups.py
+All checks passed!
+RUFF_EXIT=0
+
+$ pytest backend/tests/test_research_data.py backend/tests/test_research_engine.py backend/tests/test_research_metrics.py backend/tests/test_research_setups.py backend/tests/test_research_indicators.py backend/tests/test_research_control.py backend/tests/test_research_diagnostics.py -q
+...................................................................               [100%]
+67 passed in 5.02s
+LASTEXIT=0
+```
+
+(The end count is 67, not 61, because T2 adds six test functions — three of them
+parametrised twice.)
+
+### Outcome
+
+- Tests: **pass** — 61 at start, 67 at end; no test deleted or weakened.
+- Ruff: **clean**.
+- Skipped: no baseline re-run (forbidden before T4). Therefore the numbers in the committed
+  `docs/backtests/research/DIAGNOSTICS.md` and `BASELINE_REPORT.md` are **stale as of this
+  commit**: they were produced before the same-day-recycling and warm-up fixes. They are
+  regenerated in T4, after T3's metric changes, so the reports and the code agree at the end
+  of the sequence.
+- Gate for T3: **open** (T2 passes).

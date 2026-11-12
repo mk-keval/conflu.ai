@@ -95,13 +95,17 @@ SETUPS = {
 
 def eligible(df: pd.DataFrame) -> pd.Series:
     """Return True where liquid AND all required indicators are not NaN.
-    
+
     Used by the random control to find eligible symbols per day.
+
+    Every indicator used by any setup is required, including ``ema200`` and
+    ``atr14``. Because those series are masked for warm-up (200 and 14 bars
+    respectively), this is False for at least the first 200 bars of any symbol.
     """
     liq = liquid(df)
     # Check that all indicators used by any setup are not NaN
     required_cols = [
-        "rsi14", "cci20", "atr_pct", "rvol10",
+        "rsi14", "cci20", "atr_pct", "rvol10", "atr14",
         "ema20", "ema50", "ema200", "macd", "macd_signal", "adx14",
         "bb_upper", "bb_lower", "sma20"
     ]

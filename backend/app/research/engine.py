@@ -23,6 +23,11 @@ class PortfolioRules:
     max_positions: int = 8
     max_position_pct: float = 20.0  # max percent of equity in one position
     cost_bps_per_side: float = 15.0  # basis points per side
+    # False: a slot or cash released by an exit on date D is only usable from
+    # D+1, because entries happen at the open and exits happen during the day.
+    # True restores the pre-D-82 behaviour, where same-day exits funded
+    # same-day entries.
+    allow_same_day_recycling: bool = False
 
 
 @dataclass
@@ -167,6 +172,11 @@ def run_portfolio(
 
     for d_idx, date in enumerate(all_dates):
         # ============ A) EXITS for existing positions ============
+        # Slots and cash released here are only spendable from the next bar
+        # unless ``allow_same_day_recycling`` is set: entries happen at the open
+        # and exits happen during the day, so using today's releases today is
+        # look-ahead. In the default mode the exits are collected now and
+        # applied after the entry step below.
         positions_to_close = []
 
         for symbol, pos in positions.items():
@@ -219,9 +229,12 @@ def run_portfolio(
                     (symbol, pos, exit_price, exit_reason, date, bars_held, False)
                 )
 
-        # Process exits
-        for symbol, pos, exit_price, exit_reason, exit_date, bars_held, censored in positions_to_close:
-            close_position(symbol, pos, exit_price, exit_reason, exit_date, bars_held, censored)
+        # Process exits. In recycling mode they run before entries, so the freed
+        # slot and cash are available today; otherwise they are deferred until
+        # after the entry step.
+        if rules.allow_same_day_recycling:
+            for symbol, pos, exit_price, exit_reason, exit_date, bars_held, censored in positions_to_close:
+                close_position(symbol, pos, exit_price, exit_reason, exit_date, bars_held, censored)
 
         # ============ B) ENTRIES ============
         # Candidates fired their signal on their own previous bar.
@@ -230,6 +243,8 @@ def run_portfolio(
             if symbol in data and symbol not in positions and date in data[symbol].index
         ]
 
+        # Default mode: exits are still deferred, so this count is the book as
+        # of the previous close and today's releases cannot fund today's entries.
         free_slots = rules.max_positions - len(positions)
         if free_slots > 0 and candidates:
             # Shuffle with date-dependent seed
@@ -292,6 +307,11 @@ def run_portfolio(
                     "shares": shares,
                     "entry_bar_idx": d_idx,
                 }
+
+        # Apply the exits collected in A) once today's entries have been sized.
+        if not rules.allow_same_day_recycling:
+            for symbol, pos, exit_price, exit_reason, exit_date, bars_held, censored in positions_to_close:
+                close_position(symbol, pos, exit_price, exit_reason, exit_date, bars_held, censored)
 
         # ============ C) SAME-DAY EXIT CHECK for new positions ============
         positions_to_close = []

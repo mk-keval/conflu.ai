@@ -80,6 +80,59 @@ def test_no_lookahead():
         assert np.isclose(v1, v2, rtol=1e-10, equal_nan=True), f"Lookahead detected in {col}: {v1} != {v2}"
 
 
+def test_warmup_is_masked_without_shifting_later_values():
+    """Indicators are NaN until warmed up, then match the unmasked recursion."""
+    np.random.seed(7)
+    n = 400
+    dates = pd.date_range("2020-01-01", periods=n, freq="D")
+    close = 100 + np.cumsum(np.random.randn(n) * 0.5)
+    df = pd.DataFrame(
+        {
+            "open": close,
+            "high": close + 1.0,
+            "low": close - 1.0,
+            "close": close,
+            "volume": np.full(n, 1_000_000.0),
+        },
+        index=dates,
+    )
+
+    result = add_indicators(df)
+
+    price = df["close"]
+    prev_close = price.shift(1)
+    true_range = pd.concat(
+        [
+            df["high"] - df["low"],
+            (df["high"] - prev_close).abs(),
+            (df["low"] - prev_close).abs(),
+        ],
+        axis=1,
+    ).max(axis=1)
+    macd_full = (
+        price.ewm(span=12, adjust=False).mean()
+        - price.ewm(span=26, adjust=False).mean()
+    )
+
+    # Each indicator must be hidden for exactly its warm-up, then match the
+    # unmasked recursion from the first observable bar onward.
+    cases = [
+        ("ema20", price.ewm(span=20, adjust=False).mean(), 20),
+        ("ema50", price.ewm(span=50, adjust=False).mean(), 50),
+        ("ema200", price.ewm(span=200, adjust=False).mean(), 200),
+        ("sma20", price.rolling(20).mean(), 20),
+        ("atr14", true_range.ewm(alpha=1 / 14, adjust=False).mean(), 14),
+        ("macd_signal", macd_full.ewm(span=9, adjust=False).mean(), 34),
+    ]
+    for column, unmasked, warmup in cases:
+        series = result[column]
+        assert series.iloc[:warmup - 1].isna().all(), f"{column} not masked"
+        assert series.iloc[warmup - 1:].notna().all(), f"{column} NaN after warm-up"
+        assert np.allclose(
+            series.iloc[warmup - 1:].to_numpy(), unmasked.iloc[warmup - 1:].to_numpy()
+        ), f"{column} masked recursion shifted later values"
+
+
 def test_adx14_bounds():
     """ADX14 always within [0, 100] where not NaN."""
     dates = pd.date_range("2020-01-01", periods=100, freq="D")

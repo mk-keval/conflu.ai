@@ -227,7 +227,7 @@ def test_no_signal_on_nan_indicators():
 
 def test_eligible():
     """Test eligible function."""
-    n = 100
+    n = 260
     dates = pd.date_range("2020-01-01", periods=n, freq="D")
     close = 100 + np.arange(n) * 0.1
     high = close + 0.5
@@ -241,10 +241,12 @@ def test_eligible():
     df = add_indicators(df)
     
     elig = eligible(df)
-    # Should be True after warmup period
-    assert elig.iloc[60:].all()
-    # Should be False early on (liquid fails + NaN indicators)
-    assert not elig.iloc[:50].any()
+    # The first 50 bars fail the liquidity gate; bars 50..198 fail the
+    # ema200 warm-up (200 observations are needed, so bar 199 is the first
+    # eligible bar).
+    assert not elig.iloc[:199].any()
+    # Should be True once every required indicator is warmed up.
+    assert elig.iloc[199:].all()
 
 
 if __name__ == "__main__":
