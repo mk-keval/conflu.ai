@@ -367,3 +367,117 @@ parametrised twice.)
   regenerated in T4, after T3's metric changes, so the reports and the code agree at the end
   of the sequence.
 - Gate for T3: **open** (T2 passes).
+
+---
+
+## T3 — Metrics and report correctness
+
+- **Date:** 2026-11-13
+- **What changed and why:** five correctness fixes so the real strategy and every control
+  are measured the same way and the headline ratios mean what their names say.
+  1. `control.compute_control_pvalues` now defaults to `metric_name="r_net_mean"` (it was
+     `r_net_sum`, which the report never used as its headline test).
+  2. One evaluation window. `metrics.trades_in_window(trades, since)` returns uncensored
+     trades with `exit_date >= since`. `run_research_baseline.py` sets
+     `EVAL_START = "2016-01-01"`, computes the real metrics on
+     `trades_in_window(trades, EVAL_START)`, passes `eval_start` through
+     `run_controls` -> `run_control_suite` (which applies the same filter to all four
+     control families), and records `run_info["eval_start"]`. Equity-based statistics stay
+     on the full curve. The reconciliation invariant is now computed from **all** trades
+     (`sum(t.pnl_usd)`), so windowing trade statistics cannot mask a cash break.
+  3. Sharpe/Sortino are computed from daily equity returns
+     (`equity.pct_change().dropna()`, `std(ddof=1)`, annualised by `sqrt(252)`), replacing
+     the per-trade `r_net_mean / r_net_std * sqrt(252)` version, which is not a Sharpe
+     ratio. Sortino uses the root-mean-square of negative daily returns as downside
+     deviation.
+  4. CAGR uses elapsed calendar years (`(last - first).days / 365.25`) in both
+     `metrics.py` and `make_baseline_report.account_stats`, instead of `len(curve)/252`.
+  5. The report adds a month-block bootstrap CI (resamples exit year-months with
+     replacement, 2000 resamples, seed 42, stdlib `random`). The main table shows
+     `95% CI (iid)` and `95% CI (block)`; the verdict rule now requires the **block**
+     lower bound > 0. A drawdown breach alone is relabelled
+     `REVIEW drawdown guard breached (not necessarily a bug)`; `SUSPECTED BUG` is kept for
+     reconciliation failure, PF > 2.5 and win rate > 65%. Sanity checks gain
+     `random-path drawdown scale: sqrt(n) * sd(R) * risk_pct`. Deviations record both the
+     post-D-81 verdict-rule change and the calendar-year CAGR.
+- **Files touched:**
+  - `backend/app/research/metrics.py`
+  - `backend/app/research/control.py`
+  - `scripts/run_research_baseline.py`
+  - `scripts/make_baseline_report.py`
+  - `backend/tests/test_research_metrics.py`
+  - `backend/tests/test_make_baseline_report.py` (new; the task wrote
+    `test_researcts/test_make_baseline_report.py`, read as this path)
+  - `docs/SESSIONS/research-harden-d82-1og.md` (this file)
+- **Test changes:** `test_cagr_calculation` previously built 504 **daily** bars and
+  asserted 9.54% by treating `504/252` as two years. Under the required calendar-year
+  formula that series spans 1.38 years, so the fixture was changed to
+  `2020-01-01 .. 2022-01-01` (same 20% return, same 9.54% +/- 0.5 assertion). No assertion
+  was loosened and no test was removed; the new semantics are additionally pinned by
+  `test_cagr_uses_calendar_years_not_bar_count`. Nothing else in an existing test changed.
+
+### Commands and exact output
+
+Full research test set at the **start** of T3 (clean tree, before the edits):
+
+```text
+$ pytest backend/tests/test_research_control.py backend/tests/test_research_data.py backend/tests/test_research_diagnostics.py backend/tests/test_research_engine.py backend/tests/test_research_indicators.py backend/tests/test_research_metrics.py backend/tests/test_research_setups.py -q
+...................................................................               [100%]
+67 passed in 6.11s
+LASTEXIT=0
+```
+
+New/extended tests:
+
+```text
+$ pytest backend/tests/test_research_metrics.py backend/tests/test_make_baseline_report.py -q
+..........................                                                                                                                                                                                [100%]
+26 passed in 0.97s
+LASTEXIT=0
+```
+
+End-of-task full set plus the new report test file:
+
+```text
+$ pytest backend/tests/test_research_control.py backend/tests/test_research_data.py backend/tests/test_research_diagnostics.py backend/tests/test_research_engine.py backend/tests/test_research_indicators.py backend/tests/test_research_metrics.py backend/tests/test_research_setups.py backend/tests/test_make_baseline_report.py -q
+..................................................................................                                                                                                                        [100%]
+82 passed in 5.86s
+LASTEXIT=0
+```
+
+Ruff on every touched file:
+
+```text
+$ ruff check backend/app/research scripts/run_research_baseline.py scripts/make_baseline_report.py backend/tests/test_research_control.py backend/tests/test_research_data.py backend/tests/test_research_diagnostics.py backend/tests/test_research_engine.py backend/tests/test_research_indicators.py backend/tests/test_research_metrics.py backend/tests/test_research_setups.py backend/tests/test_make_baseline_report.py
+All checks passed!
+LASTEXIT=0
+```
+
+CLI/import smoke checks and a report build into the **ignored** quick cache (the committed
+`docs/backtests/research/BASELINE_REPORT.md` is deliberately left untouched until T4):
+
+```text
+$ python scripts/run_research_baseline.py --help
+HELP_EXIT=0
+
+$ python -c "import scripts.run_research_baseline, scripts.make_baseline_report; print('imports OK')"
+imports OK
+IMPORT_EXIT=0
+
+$ python scripts/make_baseline_report.py --dir .cache/research_quick/out
+Wrote .cache/research_quick/out\BASELINE_REPORT.md (1 setups)
+REPORT_EXIT=0
+
+$ Select-String -Path .cache/research_quick/out/BASELINE_REPORT.md -Pattern "95% CI|random-path"
+| Setup | n | Win rate | Avg win R | Avg loss R | Expectancy net | 95% CI (iid) | 95% CI (block) | Expectancy gross | PF | CAGR | Max DD | Reconciliation |
+- random-path drawdown scale: 5.3%
+```
+
+### Outcome
+
+- Tests: **pass** — 67 at start, 82 at end (26 in the two metrics/report files).
+- Ruff: **clean**.
+- Baseline re-run: **not done** (forbidden before T4). `DIAGNOSTICS.md` and
+  `BASELINE_REPORT.md` in the repo are still the pre-T2/T3 numbers until T4.
+- Skipped: nothing else.
+- Gate for T4: **open** (T0, T1, T5, T2, T3 all complete).

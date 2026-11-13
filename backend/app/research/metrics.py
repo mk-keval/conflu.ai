@@ -65,6 +65,21 @@ class BacktestMetrics:
     pnl_usd_all: float = 0.0
 
 
+def trades_in_window(trades: list[Trade], since) -> list[Trade]:
+    """Uncensored trades whose exit date is on or after ``since``.
+
+    Evaluation windows are assigned by exit date: a trade belongs to the
+    period in which its P&L is realised. ``since`` may be a ``pd.Timestamp``,
+    a ``datetime.date`` or an ISO string.
+    """
+    since_ts = pd.Timestamp(since)
+    return [
+        trade
+        for trade in trades
+        if not trade.censored and pd.Timestamp(trade.exit_date) >= since_ts
+    ]
+
+
 def compute_metrics(
     trades: list[Trade],
     equity_curve: pd.Series,
@@ -133,13 +148,23 @@ def compute_metrics(
     pnl_usd_sum = float(np.sum(pnl_usd))
     pnl_usd_mean = float(np.mean(pnl_usd))
     
-    # Risk-adjusted
-    sharpe = r_net_mean / r_net_std * np.sqrt(252) if r_net_std > 0 else 0
-    
-    # Sortino (downside deviation)
-    downside = r_nets[r_nets < 0]
-    downside_std = float(np.std(downside, ddof=1)) if len(downside) > 1 else 0.0
-    sortino = r_net_mean / downside_std * np.sqrt(252) if downside_std > 0 else 0
+    # Risk-adjusted. Trade R values are not a daily return series, so a
+    # per-trade mean/std scaled by sqrt(252) is not a Sharpe ratio. Use the
+    # daily equity-return series instead; annualise with 252 trading days.
+    daily_returns = (
+        equity_curve.pct_change().replace([np.inf, -np.inf], np.nan).dropna()
+        if len(equity_curve) > 1
+        else pd.Series(dtype=float)
+    )
+    mean_daily = float(daily_returns.mean()) if len(daily_returns) else 0.0
+    std_daily = float(daily_returns.std(ddof=1)) if len(daily_returns) > 1 else 0.0
+    sharpe = mean_daily / std_daily * np.sqrt(252) if std_daily > 0 else 0.0
+
+    # Sortino: downside deviation from a 0% target (root mean square of the
+    # negative daily returns), same numerator and annualisation as Sharpe.
+    downside = daily_returns[daily_returns < 0]
+    downside_dev = float(np.sqrt(np.mean(np.square(downside)))) if len(downside) else 0.0
+    sortino = mean_daily / downside_dev * np.sqrt(252) if downside_dev > 0 else 0.0
     
     # Profit factor
     gross_profit = float(np.sum([t.r_net for t in winners]))
@@ -179,18 +204,22 @@ def compute_metrics(
         start_equity_value = float(equity_curve.iloc[0]) if len(equity_curve) > 0 else 0
     total_return_pct = (final_equity / start_equity_value - 1) * 100 if start_equity_value > 0 else 0
     
-    # CAGR
-    n_days = len(equity_curve)
-    if n_days > 1:
-        years = n_days / 252.0
-        cagr = (final_equity / start_equity_value) ** (1 / years) - 1 if start_equity_value > 0 else 0
-        cagr *= 100
+    # CAGR over elapsed calendar time, not bar count: an equity curve can have
+    # holidays, halts or missing dates, and 252 is a convention, not a count.
+    if len(equity_curve) > 1 and start_equity_value > 0:
+        first_ts = pd.Timestamp(equity_curve.index[0])
+        last_ts = pd.Timestamp(equity_curve.index[-1])
+        years = (last_ts - first_ts).total_seconds() / (365.25 * 24 * 3600)
+        cagr = (
+            ((final_equity / start_equity_value) ** (1 / years) - 1) * 100
+            if years > 0
+            else 0.0
+        )
     else:
         cagr = 0.0
     
     # Annualized volatility
-    if n_days > 1:
-        daily_returns = equity_curve.pct_change().dropna()
+    if len(daily_returns) > 1:
         volatility_annual = float(daily_returns.std() * np.sqrt(252) * 100)
     else:
         volatility_annual = 0.0

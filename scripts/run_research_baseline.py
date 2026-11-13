@@ -49,7 +49,13 @@ from backend.app.research.engine import (
     Trade,
     NON_TRADABLE,
 )
-from backend.app.research.metrics import compute_metrics, print_metrics, metrics_to_dict, BacktestMetrics
+from backend.app.research.metrics import (
+    compute_metrics,
+    print_metrics,
+    metrics_to_dict,
+    trades_in_window,
+    BacktestMetrics,
+)
 from backend.app.research.control import (
     run_control_suite,
     compute_control_pvalues,
@@ -59,6 +65,10 @@ from backend.app.research.control import (
 # How far the actual panel may fall short of the requested span before the run
 # refuses to write an artifact. Holidays and weekends need a few days of slack.
 SPAN_TOLERANCE_DAYS = 10
+
+# 2015 is indicator/universe warm-up. Trade statistics are evaluated from here
+# so the real strategy and every control share one evaluation window.
+EVAL_START = "2016-01-01"
 
 
 def load_setup_config(setup_name: str) -> dict:
@@ -288,11 +298,12 @@ def run_backtest(
         spy_returns = data["SPY"]["close"].pct_change()
 
     metrics = compute_metrics(
-        trades, equity,
+        trades_in_window(trades, EVAL_START), equity,
         benchmark_returns=spy_returns,
         start_equity=portfolio_rules.start_equity,
     )
     print_metrics(metrics, f"{setup_name} Backtest Results")
+    print(f"Evaluation window: closed trades with exit_date >= {EVAL_START}")
 
     return {
         "trades": trades,
@@ -318,7 +329,8 @@ def run_controls(
     n_matched: int = 30,
     n_random: int = 100,
     n_permuted: int = 50,
-    n_shifted: int = 5
+    n_shifted: int = 5,
+    eval_start: str | None = EVAL_START,
 ) -> dict[str, list]:
     """Run control suite."""
     print(f"\n{'='*60}")
@@ -327,6 +339,7 @@ def run_controls(
         f"Matched: {n_matched}, Random: {n_random}, "
         f"Permuted: {n_permuted}, Shifted: {n_shifted}"
     )
+    print(f"Evaluation window: closed trades with exit_date >= {eval_start}")
     print(f"{'='*60}")
 
     control_results = run_control_suite(
@@ -335,7 +348,8 @@ def run_controls(
         n_random=n_random,
         n_permuted=n_permuted,
         n_shifted=n_shifted,
-        base_seed=42
+        base_seed=42,
+        eval_start=eval_start,
     )
 
     # Summarize
@@ -440,12 +454,12 @@ def save_results(
 
 def _build_metadata(args, result: dict, exit_rules, portfolio_rules) -> dict:
     """Everything a reader needs to judge the artifact without the source."""
-    metrics = result["metrics"]
     rev, dirty = _git_state()
     coverage = _symbol_coverage(result["data"], args.end)
     start_equity = portfolio_rules.start_equity
-    pnl_all = float(metrics.pnl_usd_all)
-    final_equity = float(metrics.final_equity)
+    # Reconciliation covers every trade; trade-level metrics may be windowed.
+    pnl_all = float(sum(t.pnl_usd for t in result["trades"]))
+    final_equity = float(result["equity"].iloc[-1]) if len(result["equity"]) else 0.0
     holds = bool(abs(final_equity - (start_equity + pnl_all)) <= 1e-6 * max(1.0, abs(start_equity)))
 
     return {
@@ -503,7 +517,9 @@ def _build_metadata(args, result: dict, exit_rules, portfolio_rules) -> dict:
         },
         "limitations": [
             "Universe is the current S&P 500 snapshot: survivorship bias remains.",
-            "Trade-level Sharpe is annualised from per-trade R (sqrt(252)); it is not a daily equity Sharpe.",
+            "Sharpe/Sortino are computed from daily equity returns and annualised by sqrt(252); they are not per-trade ratios.",
+            "CAGR is computed over elapsed calendar years from the equity curve, not bar count.",
+            f"Trade statistics use one evaluation window: closed trades with exit_date >= {EVAL_START} (2015 is warm-up). Controls use the same window.",
             "Censored trades (exit_reason data_end / eod_censored) are excluded from trade-level R statistics but included in equity and pnl_usd_all.",
         ],
     }
@@ -679,6 +695,7 @@ def main():
         },
         "git_commit": _git_commit_short(),
         "quick": bool(args.quick),
+        "eval_start": EVAL_START,
     }
 
     # Run controls
@@ -693,7 +710,8 @@ def main():
             n_matched=args.n_matched,
             n_random=args.n_random,
             n_permuted=args.n_permuted,
-            n_shifted=args.n_shifted
+            n_shifted=args.n_shifted,
+            eval_start=EVAL_START,
         )
         control_summary = summarize_controls(control_results)
 

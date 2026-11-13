@@ -4,7 +4,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from backend.app.research.metrics import compute_metrics, print_metrics, metrics_to_dict, BacktestMetrics
+from backend.app.research.metrics import (
+    compute_metrics,
+    print_metrics,
+    metrics_to_dict,
+    trades_in_window,
+    BacktestMetrics,
+)
 from backend.app.research.engine import Trade
 
 
@@ -247,17 +253,89 @@ def test_max_drawdown():
 
 
 def test_cagr_calculation():
-    """Test CAGR calculation."""
-    # 2 years of data, 20% total return
-    dates = pd.date_range("2020-01-01", periods=504, freq="D")  # ~2 years
-    equity_vals = np.linspace(100000, 120000, 504)
+    """Test CAGR calculation over elapsed calendar years."""
+    # Two calendar years of data, 20% total return.
+    dates = pd.date_range("2020-01-01", "2022-01-01", freq="D")
+    equity_vals = np.linspace(100000, 120000, len(dates))
     equity = pd.Series(equity_vals, index=dates)
     
     trades = _make_test_trades(10)
     metrics = compute_metrics(trades, equity)
     
-    # CAGR = (1.2)^(1/2) - 1 = 9.54%
+    # CAGR = (1.2)^(1/2.0014) - 1 = 9.53%
     assert abs(metrics.cagr - 9.54) < 0.5
+
+
+def test_cagr_uses_calendar_years_not_bar_count():
+    """168 bars spanning one calendar year must not be treated as 168/252 years."""
+    dates = pd.date_range("2020-01-02", "2021-01-01", freq="D")
+    equity = pd.Series(np.linspace(100000, 110000, len(dates)), index=dates)
+
+    metrics = compute_metrics(_make_test_trades(5), equity)
+
+    expected = ((1.10) ** (1 / 1.0) - 1) * 100  # 365/365.25 ~= 1 year
+    assert abs(metrics.cagr - expected) < 0.1
+
+
+def test_trades_in_window_drops_warmup_and_censored():
+    """The evaluation window keeps uncensored trades exiting on or after `since`."""
+    base = pd.Timestamp("2015-12-31")
+
+    def _trade(exit_date, censored=False):
+        return Trade(
+            symbol="AAA",
+            signal_date=base,
+            entry_date=base,
+            entry_price=100.0,
+            stop=95.0,
+            target=105.0,
+            shares=10,
+            exit_date=pd.Timestamp(exit_date),
+            exit_price=100.0,
+            exit_reason="eod_censored" if censored else "target",
+            bars_held=1,
+            r_gross=1.0,
+            r_net=1.0,
+            pnl_usd=10.0,
+            censored=censored,
+        )
+
+    trades = [
+        _trade("2015-12-31"),
+        _trade("2016-01-04"),
+        _trade("2017-01-04", censored=True),
+        _trade("2016-06-01"),
+    ]
+    kept = trades_in_window(trades, "2016-01-01")
+
+    assert [t.exit_date.strftime("%Y-%m-%d") for t in kept] == [
+        "2016-01-04",
+        "2016-06-01",
+    ]
+
+
+def test_sharpe_from_daily_equity_returns():
+    """Sharpe is the annualised mean/std of daily equity returns."""
+    equity = pd.Series(
+        [100000, 101000, 98980, 101949.4, 101949.4, 102968.894],
+        index=pd.date_range("2020-01-01", periods=6, freq="D"),
+    )
+    metrics = compute_metrics(_make_test_trades(5), equity)
+
+    daily = equity.pct_change().dropna()
+    expected = daily.mean() / daily.std(ddof=1) * np.sqrt(252)
+    assert abs(metrics.sharpe - expected) < 1e-9
+
+
+def test_sharpe_zero_for_constant_equity():
+    """A flat equity curve has zero volatility: Sharpe and Sortino are 0, not nan."""
+    equity = pd.Series(
+        [100000.0] * 10, index=pd.date_range("2020-01-01", periods=10, freq="D")
+    )
+    metrics = compute_metrics(_make_test_trades(5), equity)
+
+    assert metrics.sharpe == 0.0
+    assert metrics.sortino == 0.0
 
 
 def test_metrics_to_dict():

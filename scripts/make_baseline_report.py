@@ -69,6 +69,34 @@ def bootstrap_ci(values, n_resamples=2000, seed=42):
     return (low, high)
 
 
+def block_bootstrap_ci(trades, n_resamples=2000, seed=42):
+    """95% percentile CI resampling exit year-months (blocks) with replacement.
+
+    Trades are not independent: exits cluster in time. Resampling whole
+    year-month blocks keeps that correlation, so the interval is wider and
+    stricter than the iid bootstrap when a few months dominate.
+    """
+    blocks = {}
+    for t in trades:
+        month = str(t.get("exit_date", ""))[:7]
+        blocks.setdefault(month, []).append(float(t["r_net"]))
+    if sum(len(block) for block in blocks.values()) < 2 or not blocks:
+        return (float("nan"), float("nan"))
+
+    months = list(blocks.values())
+    rng = random.Random(seed)
+    means = []
+    for _ in range(n_resamples):
+        pooled = []
+        for _ in range(len(months)):
+            pooled.extend(months[rng.randrange(len(months))])
+        means.append(sum(pooled) / len(pooled))
+    means.sort()
+    low = means[int(0.025 * n_resamples)]
+    high = means[int(0.975 * n_resamples) - 1]
+    return (low, high)
+
+
 def trade_stats(payload, since="2016-01-01"):
     """Trade-level statistics from closed trades with exit_date >= since."""
     all_trades = payload.get("trades", [])
@@ -91,6 +119,7 @@ def trade_stats(payload, since="2016-01-01"):
         "avg_loss_r": statistics.mean(losses) if losses else 0.0,
         "expectancy_net": statistics.mean(r) if n else 0.0,
         "ci95": bootstrap_ci(r),
+        "ci95_block": block_bootstrap_ci(trades),
         "expectancy_gross": (
             statistics.mean(float(t["r_gross"]) for t in trades) if n else 0.0
         ),
@@ -115,7 +144,10 @@ def account_stats(payload, start_equity):
         return {"cagr": 0.0, "max_dd": 0.0, "final": values[-1] if values else 0.0}
 
     final = values[-1]
-    years = len(values) / 252.0
+    # CAGR over elapsed calendar time, matching metrics.py (not len/252).
+    first_date = datetime.strptime(str(curve[0]["date"])[:10], "%Y-%m-%d")
+    last_date = datetime.strptime(str(curve[-1]["date"])[:10], "%Y-%m-%d")
+    years = (last_date - first_date).days / 365.25
     cagr = ((final / start_equity) ** (1 / years) - 1) if years > 0 and start_equity else 0.0
 
     peak = values[0]
@@ -181,6 +213,16 @@ def _pct(value, digits=1):
     return f"{value * 100:.{digits}f}%"
 
 
+def _drawdown_scale(row):
+    """sqrt(n) * sd(R) * risk_pct: random-path drawdown scale, in percent of equity."""
+    r = [float(t["r_net"]) for t in row["stats"]["trades"]]
+    if len(r) < 2:
+        return "n/a"
+    risk_pct = float(row["run_info"].get("portfolio_rules", {}).get("risk_pct", 0.5))
+    sd = statistics.stdev(r)
+    return f"{math.sqrt(len(r)) * sd * risk_pct:.1f}%"
+
+
 def verdict(row, stats, per_year):
     """Apply the pre-registered verdict rules verbatim. No opinions."""
     if stats["n"] < 100:
@@ -190,17 +232,21 @@ def verdict(row, stats, per_year):
         not row["account"]["reconciles"]
         or stats["profit_factor"] > 2.5
         or stats["win_rate"] > 0.65
-        or row["account"]["max_dd"] < -0.40
     ):
         return "SUSPECTED BUG investigate before trusting"
+
+    if row["account"]["max_dd"] < -0.40:
+        return "REVIEW drawdown guard breached (not necessarily a bug)"
 
     p = row["p_matched"]
     qualifying = [y for y in per_year if y["n"] >= 10]
     profitable = sum(1 for y in qualifying if y["expectancy_net"] > 0)
     share = profitable / len(qualifying) if qualifying else 0.0
 
+    # Block CI lower bound, not the iid one: exits cluster in time, so the
+    # month-block interval is the stricter test (rule changed after D-81).
     if (
-        stats["ci95"][0] > 0
+        stats["ci95_block"][0] > 0
         and p is not None
         and p <= 0.05
         and qualifying
@@ -281,18 +327,19 @@ def build_report(artifacts):
     add("## Main table")
     add("")
     add(
-        "| Setup | n | Win rate | Avg win R | Avg loss R | Expectancy net | 95% CI | "
-        "Expectancy gross | PF | CAGR | Max DD | Reconciliation |"
+        "| Setup | n | Win rate | Avg win R | Avg loss R | Expectancy net | 95% CI (iid) | "
+        "95% CI (block) | Expectancy gross | PF | CAGR | Max DD | Reconciliation |"
     )
-    add("|---|---|---|---|---|---|---|---|---|---|---|---|")
+    add("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for row in rows:
         s = row["stats"]
         a = row["account"]
         ci = f"[{_fmt(s['ci95'][0], 3)}, {_fmt(s['ci95'][1], 3)}]"
+        ci_block = f"[{_fmt(s['ci95_block'][0], 3)}, {_fmt(s['ci95_block'][1], 3)}]"
         add(
             f"| {row['setup']} | {s['n']} | {_pct(s['win_rate'])} | "
             f"{_fmt(s['avg_win_r'], 3)} | {_fmt(s['avg_loss_r'], 3)} | "
-            f"{_fmt(s['expectancy_net'], 3)} | {ci} | "
+            f"{_fmt(s['expectancy_net'], 3)} | {ci} | {ci_block} | "
             f"{_fmt(s['expectancy_gross'], 3)} | {_fmt(s['profit_factor'])} | "
             f"{_pct(a['cagr'])} | {_pct(a['max_dd'])} | "
             f"{'PASS' if a['reconciles'] else 'FAIL'} |"
@@ -366,6 +413,7 @@ def build_report(artifacts):
         add(f"- Stop-gap share: {_pct(s['stop_gap_share'])}")
         add(f"- data_end trades: {s['data_end_count']} (info)")
         add(f"- data-coverage early_end: {coverage}")
+        add(f"- random-path drawdown scale: {_drawdown_scale(row)}")
         add("")
 
     add("## Deviations")
@@ -384,6 +432,15 @@ def build_report(artifacts):
         "- Artifacts without `run_info` are ignored; older artifacts are quarantined in "
         "`invalid_20261110/`."
     )
+    add(
+        "- The verdict rule uses the 95% month-block bootstrap CI lower bound (changed "
+        "after seeing D-81 results); the iid CI is shown for reference only."
+    )
+    add(
+        "- A drawdown breach alone is labelled REVIEW, not SUSPECTED BUG: a -40% drawdown "
+        "can be a legitimate outcome of the configured risk, not a code fault."
+    )
+    add("- CAGR uses elapsed calendar years from the equity curve, not `len(curve)/252`.")
     add("")
 
     add("## Verdict")

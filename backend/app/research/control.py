@@ -12,7 +12,11 @@ from backend.app.research.engine import (
     Trade,
     NON_TRADABLE,
 )
-from backend.app.research.metrics import compute_metrics, BacktestMetrics
+from backend.app.research.metrics import (
+    compute_metrics,
+    trades_in_window,
+    BacktestMetrics,
+)
 from backend.app.research.data import download_daily, load_universe
 from backend.app.research.setups import eligible
 
@@ -233,7 +237,8 @@ def run_control_suite(
     n_random: int = 100,
     n_permuted: int = 50,
     n_shifted: int = 5,
-    base_seed: int = 42
+    base_seed: int = 42,
+    eval_start=None,
 ) -> dict[str, list[ControlResult]]:
     """Run full control suite.
     
@@ -248,6 +253,9 @@ def run_control_suite(
         n_permuted: Number of permuted signal runs.
         n_shifted: Number of time-shifted runs (positive shifts).
         base_seed: Base seed for reproducibility.
+        eval_start: Optional evaluation-window start. When set, every control's
+            trade metrics are computed on ``trades_in_window(trades, eval_start)``,
+            the same rule applied to the real strategy.
         
     Returns:
         Dict with 'matched_random', 'random', 'permuted', 'shifted' lists.
@@ -258,6 +266,11 @@ def run_control_suite(
         "permuted": [],
         "shifted": []
     }
+
+    def _metrics(trades, equity):
+        if eval_start is not None:
+            trades = trades_in_window(trades, eval_start)
+        return compute_metrics(trades, equity)
 
     # Eligibility depends only on the panel, so build it once.
     tradable = sorted(s for s in data if s not in NON_TRADABLE)
@@ -275,7 +288,7 @@ def run_control_suite(
         seed = base_seed + 30000 + i
         signals = matched_random_signals(data, real_signals, seed, elig=elig)
         trades, equity = run_portfolio(data, signals, exit_rules, portfolio_rules, seed=seed)
-        metrics = compute_metrics(trades, equity)
+        metrics = _metrics(trades, equity)
         results["matched_random"].append(ControlResult(
             name=f"matched_random_{i}",
             seed=seed,
@@ -289,7 +302,7 @@ def run_control_suite(
         seed = base_seed + i
         signals = random_signals(data, signal_prob=0.02, seed=seed)
         trades, equity = run_portfolio(data, signals, exit_rules, portfolio_rules, seed=seed)
-        metrics = compute_metrics(trades, equity)
+        metrics = _metrics(trades, equity)
         results["random"].append(ControlResult(
             name=f"random_{i}",
             seed=seed,
@@ -303,7 +316,7 @@ def run_control_suite(
         seed = base_seed + 10000 + i
         signals = permuted_signals(data, real_signals, seed=seed)
         trades, equity = run_portfolio(data, signals, exit_rules, portfolio_rules, seed=seed)
-        metrics = compute_metrics(trades, equity)
+        metrics = _metrics(trades, equity)
         results["permuted"].append(ControlResult(
             name=f"permuted_{i}",
             seed=seed,
@@ -318,7 +331,7 @@ def run_control_suite(
         seed = base_seed + 20000 + i
         signals = time_shifted_signals(data, real_signals, shift_bars=shift)
         trades, equity = run_portfolio(data, signals, exit_rules, portfolio_rules, seed=seed)
-        metrics = compute_metrics(trades, equity)
+        metrics = _metrics(trades, equity)
         results["shifted"].append(ControlResult(
             name=f"shifted_{shift}bars",
             seed=seed,
@@ -333,7 +346,7 @@ def run_control_suite(
 def compute_control_pvalues(
     real_metrics: BacktestMetrics,
     control_results: dict[str, list[ControlResult]],
-    metric_name: str = "r_net_sum"
+    metric_name: str = "r_net_mean"
 ) -> dict[str, float]:
     """Compute one-sided p-values vs control distributions.
 
