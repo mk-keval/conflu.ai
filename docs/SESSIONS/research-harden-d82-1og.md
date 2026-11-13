@@ -481,3 +481,135 @@ $ Select-String -Path .cache/research_quick/out/BASELINE_REPORT.md -Pattern "95%
   `BASELINE_REPORT.md` in the repo are still the pre-T2/T3 numbers until T4.
 - Skipped: nothing else.
 - Gate for T4: **open** (T0, T1, T5, T2, T3 all complete).
+
+---
+
+## T4 — Re-run the baseline under the fixed harness
+
+- **Date:** 2026-11-13
+- **Precondition:** clean tree at `7ed0135` (T2 `bd93d02` and T3 `7ed0135` both committed).
+  The artifacts therefore record `run.code.dirty = false` and `run.code.revision = 7ed0135`.
+- **What changed and why:** nothing in code. This is the first baseline produced by the
+  D-82 engine (no same-day recycling, masked warm-up) and the D-82 metrics (one evaluation
+  window, daily-equity Sharpe, calendar-year CAGR, month-block CI). Runs use the defaults
+  2015-01-01 -> today, 30 matched / 0 random / 10 permuted / 2 shifted and reuse
+  `.cache/research`.
+- **Files touched (new/changed):**
+  - `docs/backtests/research/statistical_mean_reversion_20261113_093317.json` (new)
+  - `docs/backtests/research/breakout_52week_20261113_093833.json` (new)
+  - `docs/backtests/research/low_vol_setup_20261113_094423.json` (new)
+  - `docs/backtests/research/volume_trend_accumulation_20261113_095014.json` (new)
+  - `docs/backtests/research/BASELINE_REPORT.md` (regenerated)
+  - `docs/SESSIONS/research-harden-d82-1og.md` (this file)
+- **Panel / cache:** requested `2015-01-01..2026-11-13`; actual `2015-01-02..2026-11-12`;
+  501 tradable symbols; `early_end=0`, `late_start=37`; 2 dropped (`KVUE`: 1 row,
+  `VYLR`: 31 rows). The first run downloaded 503 and failed 2; the next three were served
+  from cache (`cache hits=503, downloads=0, failed=2`). Universe SHA-256 begins
+  `a53242f23d15d485`.
+
+### Commands and exact output
+
+```text
+$ python scripts/run_research_baseline.py --setup statistical_mean_reversion
+...
+  permuted      : p = 0.2727
+  shifted       : p = 0.6667
+Results saved to: docs/backtests/research\statistical_mean_reversion_20261113_093317.json
+
+============================================================
+BACKTEST COMPLETE
+============================================================
+INFO: NOT statistically significant vs controls (best p=0.2727 on permuted)
+EXIT=0
+
+$ python scripts/run_research_baseline.py --setup breakout_52week
+...
+  permuted      : p = 0.9091
+  shifted       : p = 0.3333
+Results saved to: docs/backtests/research\breakout_52week_20261113_093833.json
+
+============================================================
+BACKTEST COMPLETE
+============================================================
+INFO: NOT statistically significant vs controls (best p=0.3333 on shifted)
+EXIT=0
+
+$ python scripts/run_research_baseline.py --setup low_vol_setup
+...
+  permuted      : p = 0.7273
+  shifted       : p = 0.6667
+Results saved to: docs/backtests/research\low_vol_setup_20261113_094423.json
+
+============================================================
+BACKTEST COMPLETE
+============================================================
+INFO: NOT statistically significant vs controls (best p=0.3871 on matched_random)
+EXIT=0
+
+$ python scripts/run_research_baseline.py --setup volume_trend_accumulation
+...
+  permuted      : p = 0.9091
+  shifted       : p = 0.6667
+Results saved to: docs/backtests/research\volume_trend_accumulation_20261113_095014.json
+
+============================================================
+BACKTEST COMPLETE
+============================================================
+INFO: NOT statistically significant vs controls (best p=1.0000 on matched_random)
+EXIT=0
+
+$ python scripts/make_baseline_report.py
+Wrote docs/backtests/research\BASELINE_REPORT.md (4 setups)
+REPORT_EXIT=0
+```
+
+Every run printed `Reconciliation: OK`:
+
+```text
+statistical_mean_reversion: Completed 1843 trades; Reconciliation: OK
+breakout_52week:            Completed 1714 trades; Reconciliation: OK
+low_vol_setup:              Completed 1873 trades; Reconciliation: OK
+volume_trend_accumulation:  Completed 2277 trades; Reconciliation: OK
+```
+
+### Verbatim from `BASELINE_REPORT.md`
+
+Main table:
+
+| Setup | n | Win rate | Avg win R | Avg loss R | Expectancy net | 95% CI (iid) | 95% CI (block) | Expectancy gross | PF | CAGR | Max DD | Reconciliation |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| breakout_52week | 1684 | 48.6% | 1.084 | -0.959 | 0.033 | [-0.022, 0.087] | [-0.044, 0.112] | 0.106 | 1.07 | 1.5% | -21.1% | PASS |
+| low_vol_setup | 1746 | 48.4% | 1.121 | -0.998 | 0.028 | [-0.027, 0.084] | [-0.061, 0.120] | 0.119 | 1.05 | 1.6% | -31.6% | PASS |
+| statistical_mean_reversion | 1680 | 50.1% | 1.015 | -0.920 | 0.049 | [-0.003, 0.099] | [-0.027, 0.130] | 0.111 | 1.11 | 2.4% | -23.4% | PASS |
+| volume_trend_accumulation | 2120 | 47.0% | 1.088 | -0.973 | -0.004 | [-0.053, 0.044] | [-0.076, 0.069] | 0.068 | 0.99 | -0.6% | -35.6% | PASS |
+
+Control comparison:
+
+| Setup | Control runs | Control trades (mean) | Control expectancy (mean +/- std) | Strategy expectancy | p (matched_random) |
+|---|---|---|---|---|---|
+| breakout_52week | 30 | 1667.7 | 0.045 +/- 0.028 | 0.033 | 0.6452 |
+| low_vol_setup | 30 | 1783.2 | 0.022 +/- 0.022 | 0.028 | 0.3871 |
+| statistical_mean_reversion | 30 | 1870.1 | 0.035 +/- 0.023 | 0.049 | 0.2903 |
+| volume_trend_accumulation | 30 | 2042.1 | 0.049 +/- 0.021 | -0.004 | 1.0000 |
+
+Mechanical verdicts:
+
+- **breakout_52week**: NO EVIDENCE OF EDGE
+- **low_vol_setup**: NO EVIDENCE OF EDGE
+- **statistical_mean_reversion**: NO EVIDENCE OF EDGE
+- **volume_trend_accumulation**: NO EVIDENCE OF EDGE
+
+Artifact p-value sets (`matched_random` / `permuted` / `shifted`): 0.6452 / 1.0000 /
+0.3333 (breakout), 0.3871 / 0.8182 / 0.6667 (low_vol), 0.2903 / 0.2727 / 1.0000 (SMR),
+1.0000 / 1.0000 / 1.0000 (volume).
+
+### Outcome
+
+- All four runs: **exit 0**, `Reconciliation: OK`, `invariant.holds = true`,
+  `code.dirty = false`.
+- Report: regenerated from the four new artifacts; `PASS` reconciliation in all four.
+- No drawdown breach this run: worst max DD is -35.6% (volume), so the relabelled
+  `REVIEW` path is not exercised by these artifacts.
+- Skipped: none. No tests/ruff were needed for this task (no code change); T0-T3 already
+  record this tree's test and lint results.
+- Gate for T6: **open** (T0, T1, T5, T2, T3, T4 complete).

@@ -1,8 +1,8 @@
 # Research Baseline Report
 
-- Run date: 2026-11-12 09:30
-- Git commit: `dcc9565`
-- Window: 2015-01-01 -> 2026-11-11
+- Run date: 2026-11-13 09:50
+- Git commit: `7ed0135`
+- Window: 2015-01-01 -> 2026-11-13
 - Symbols used: 501
 - Dropped symbols: 2
 - Costs: 15.0 bps per side
@@ -13,12 +13,12 @@
 
 ## Main table
 
-| Setup | n | Win rate | Avg win R | Avg loss R | Expectancy net | 95% CI | Expectancy gross | PF | CAGR | Max DD | Reconciliation |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| breakout_52week | 1876 | 47.2% | 1.086 | -0.986 | -0.008 | [-0.059, 0.046] | 0.064 | 0.98 | -1.6% | -36.0% | PASS |
-| low_vol_setup | 1982 | 47.5% | 1.132 | -1.025 | 0.000 | [-0.052, 0.051] | 0.092 | 1.00 | -0.7% | -43.0% | PASS |
-| statistical_mean_reversion | 1860 | 47.7% | 1.012 | -0.926 | -0.001 | [-0.051, 0.050] | 0.060 | 1.00 | -0.9% | -35.2% | PASS |
-| volume_trend_accumulation | 2373 | 47.8% | 1.108 | -0.982 | 0.018 | [-0.028, 0.063] | 0.091 | 1.03 | 0.2% | -37.8% | PASS |
+| Setup | n | Win rate | Avg win R | Avg loss R | Expectancy net | 95% CI (iid) | 95% CI (block) | Expectancy gross | PF | CAGR | Max DD | Reconciliation |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| breakout_52week | 1684 | 48.6% | 1.084 | -0.959 | 0.033 | [-0.022, 0.087] | [-0.044, 0.112] | 0.106 | 1.07 | 1.5% | -21.1% | PASS |
+| low_vol_setup | 1746 | 48.4% | 1.121 | -0.998 | 0.028 | [-0.027, 0.084] | [-0.061, 0.120] | 0.119 | 1.05 | 1.6% | -31.6% | PASS |
+| statistical_mean_reversion | 1680 | 50.1% | 1.015 | -0.920 | 0.049 | [-0.003, 0.099] | [-0.027, 0.130] | 0.111 | 1.11 | 2.4% | -23.4% | PASS |
+| volume_trend_accumulation | 2120 | 47.0% | 1.088 | -0.973 | -0.004 | [-0.053, 0.044] | [-0.076, 0.069] | 0.068 | 0.99 | -0.6% | -35.6% | PASS |
 
 ## Per-year tables
 
@@ -26,74 +26,74 @@
 
 | Year | n | Expectancy net | PF |
 |---|---|---|---|
-| 2016 | 140 | 0.036 | 1.08 |
-| 2017 | 193 | 0.026 | 1.05 |
-| 2018 | 177 | -0.193 | 0.69 |
-| 2019 | 146 | 0.024 | 1.05 |
-| 2020 | 184 | -0.195 | 0.69 |
-| 2021 | 194 | 0.061 | 1.12 |
-| 2022 | 96 | -0.078 | 0.85 |
-| 2023 | 154 | 0.140 | 1.32 |
-| 2024 | 229 | -0.015 | 0.97 |
-| 2025 | 197 | 0.046 | 1.09 |
-| 2026 | 166 | 0.057 | 1.11 |
+| 2016 | 126 | 0.064 | 1.14 |
+| 2017 | 180 | 0.159 | 1.38 |
+| 2018 | 153 | -0.109 | 0.81 |
+| 2019 | 144 | 0.009 | 1.02 |
+| 2020 | 155 | -0.060 | 0.89 |
+| 2021 | 174 | 0.065 | 1.14 |
+| 2022 | 89 | 0.003 | 1.01 |
+| 2023 | 139 | 0.125 | 1.29 |
+| 2024 | 200 | -0.098 | 0.83 |
+| 2025 | 169 | 0.124 | 1.28 |
+| 2026 | 155 | 0.089 | 1.17 |
 
 ### low_vol_setup
 
 | Year | n | Expectancy net | PF |
 |---|---|---|---|
-| 2016 | 198 | 0.000 | 1.00 |
-| 2017 | 201 | 0.269 | 1.65 |
-| 2018 | 201 | -0.096 | 0.83 |
-| 2019 | 176 | 0.276 | 1.67 |
-| 2020 | 134 | 0.018 | 1.03 |
-| 2021 | 207 | 0.031 | 1.06 |
-| 2022 | 110 | -0.269 | 0.60 |
-| 2023 | 201 | -0.235 | 0.63 |
-| 2024 | 216 | 0.146 | 1.29 |
-| 2025 | 188 | -0.124 | 0.80 |
-| 2026 | 150 | -0.153 | 0.74 |
+| 2016 | 175 | 0.050 | 1.10 |
+| 2017 | 179 | 0.258 | 1.65 |
+| 2018 | 172 | -0.132 | 0.77 |
+| 2019 | 155 | 0.286 | 1.70 |
+| 2020 | 121 | 0.088 | 1.18 |
+| 2021 | 176 | 0.185 | 1.44 |
+| 2022 | 105 | -0.280 | 0.59 |
+| 2023 | 173 | -0.284 | 0.57 |
+| 2024 | 185 | 0.293 | 1.68 |
+| 2025 | 165 | -0.115 | 0.81 |
+| 2026 | 140 | -0.197 | 0.67 |
 
 ### statistical_mean_reversion
 
 | Year | n | Expectancy net | PF |
 |---|---|---|---|
-| 2016 | 163 | -0.043 | 0.92 |
-| 2017 | 177 | 0.028 | 1.06 |
-| 2018 | 211 | -0.257 | 0.57 |
-| 2019 | 159 | 0.250 | 1.72 |
-| 2020 | 131 | -0.015 | 0.97 |
-| 2021 | 142 | 0.084 | 1.21 |
-| 2022 | 164 | -0.036 | 0.93 |
-| 2023 | 178 | 0.114 | 1.28 |
-| 2024 | 184 | -0.067 | 0.87 |
-| 2025 | 185 | 0.003 | 1.01 |
-| 2026 | 166 | 0.010 | 1.02 |
+| 2016 | 148 | -0.064 | 0.88 |
+| 2017 | 173 | 0.183 | 1.48 |
+| 2018 | 184 | -0.145 | 0.74 |
+| 2019 | 146 | 0.300 | 1.97 |
+| 2020 | 116 | 0.114 | 1.23 |
+| 2021 | 135 | 0.150 | 1.39 |
+| 2022 | 150 | -0.054 | 0.89 |
+| 2023 | 158 | 0.143 | 1.36 |
+| 2024 | 163 | -0.046 | 0.91 |
+| 2025 | 162 | -0.023 | 0.95 |
+| 2026 | 145 | 0.041 | 1.08 |
 
 ### volume_trend_accumulation
 
 | Year | n | Expectancy net | PF |
 |---|---|---|---|
-| 2016 | 218 | -0.054 | 0.90 |
-| 2017 | 203 | 0.066 | 1.14 |
-| 2018 | 247 | -0.135 | 0.77 |
-| 2019 | 188 | 0.212 | 1.55 |
-| 2020 | 224 | -0.075 | 0.86 |
-| 2021 | 233 | 0.124 | 1.27 |
-| 2022 | 206 | -0.273 | 0.58 |
-| 2023 | 200 | 0.054 | 1.11 |
-| 2024 | 238 | 0.216 | 1.47 |
-| 2025 | 225 | -0.013 | 0.97 |
-| 2026 | 191 | 0.100 | 1.21 |
+| 2016 | 190 | 0.018 | 1.04 |
+| 2017 | 192 | 0.096 | 1.21 |
+| 2018 | 214 | -0.124 | 0.79 |
+| 2019 | 161 | 0.173 | 1.45 |
+| 2020 | 191 | -0.061 | 0.89 |
+| 2021 | 208 | 0.021 | 1.04 |
+| 2022 | 189 | -0.279 | 0.57 |
+| 2023 | 184 | 0.074 | 1.16 |
+| 2024 | 215 | 0.055 | 1.10 |
+| 2025 | 204 | -0.072 | 0.87 |
+| 2026 | 172 | 0.102 | 1.22 |
 
 ## Control comparison
 
 | Setup | Control runs | Control trades (mean) | Control expectancy (mean +/- std) | Strategy expectancy | p (matched_random) |
 |---|---|---|---|---|---|
-| breakout_52week | 30 | 1979.0 | 0.014 +/- 0.023 | -0.008 | 0.9355 |
-| low_vol_setup | 30 | 2156.9 | 0.006 +/- 0.017 | 0.000 | 0.6774 |
-| statistical_mean_reversion | 30 | 2260.1 | 0.006 +/- 0.024 | -0.001 | 0.6129 |
-| volume_trend_accumulation | 30 | 2468.3 | 0.019 +/- 0.027 | 0.018 | 0.7742 |
+| breakout_52week | 30 | 1667.7 | 0.045 +/- 0.028 | 0.033 | 0.6452 |
+| low_vol_setup | 30 | 1783.2 | 0.022 +/- 0.022 | 0.028 | 0.3871 |
+| statistical_mean_reversion | 30 | 1870.1 | 0.035 +/- 0.023 | 0.049 | 0.2903 |
+| volume_trend_accumulation | 30 | 2042.1 | 0.049 +/- 0.021 | -0.004 | 1.0000 |
 
 The p-value is the fraction of matched-random controls that do at least as well as the real strategy (`mean(control >= real)`), with the finite-sample correction `(p_raw*n + 1)/(n + 1)`; it is never direction-flipped for negative results.
 
@@ -104,36 +104,40 @@ The p-value is the fraction of matched-random controls that do at least as well 
 - Reconciliation: PASS
 - No trade enters on or before its signal: PASS
 - Max bars held <= max_hold (15): PASS (max 15)
-- Stop-gap share: 6.7%
+- Stop-gap share: 6.1%
 - data_end trades: 0 (info)
 - data-coverage early_end: 0
+- random-path drawdown scale: 23.3%
 
 ### low_vol_setup
 
 - Reconciliation: PASS
 - No trade enters on or before its signal: PASS
 - Max bars held <= max_hold (15): PASS (max 15)
-- Stop-gap share: 6.0%
+- Stop-gap share: 5.2%
 - data_end trades: 0 (info)
 - data-coverage early_end: 0
+- random-path drawdown scale: 24.1%
 
 ### statistical_mean_reversion
 
 - Reconciliation: PASS
 - No trade enters on or before its signal: PASS
 - Max bars held <= max_hold (15): PASS (max 15)
-- Stop-gap share: 6.1%
+- Stop-gap share: 5.6%
 - data_end trades: 0 (info)
 - data-coverage early_end: 0
+- random-path drawdown scale: 22.1%
 
 ### volume_trend_accumulation
 
 - Reconciliation: PASS
 - No trade enters on or before its signal: PASS
 - Max bars held <= max_hold (15): PASS (max 15)
-- Stop-gap share: 5.4%
+- Stop-gap share: 5.7%
 - data_end trades: 0 (info)
 - data-coverage early_end: 0
+- random-path drawdown scale: 25.9%
 
 ## Deviations
 
@@ -142,10 +146,13 @@ The p-value is the fraction of matched-random controls that do at least as well 
 - The p-value metric is per-trade expectancy (`r_net_mean`), not R sum.
 - The matched-random control fires the same number of entries per day as the strategy, on random liquid symbols with valid indicators.
 - Artifacts without `run_info` are ignored; older artifacts are quarantined in `invalid_20261110/`.
+- The verdict rule uses the 95% month-block bootstrap CI lower bound (changed after seeing D-81 results); the iid CI is shown for reference only.
+- A drawdown breach alone is labelled REVIEW, not SUSPECTED BUG: a -40% drawdown can be a legitimate outcome of the configured risk, not a code fault.
+- CAGR uses elapsed calendar years from the equity curve, not `len(curve)/252`.
 
 ## Verdict
 
 - **breakout_52week**: NO EVIDENCE OF EDGE
-- **low_vol_setup**: SUSPECTED BUG investigate before trusting
+- **low_vol_setup**: NO EVIDENCE OF EDGE
 - **statistical_mean_reversion**: NO EVIDENCE OF EDGE
 - **volume_trend_accumulation**: NO EVIDENCE OF EDGE
