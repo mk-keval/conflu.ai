@@ -42,7 +42,8 @@ else in this file is input to the review, never a verdict.
 | H-07 | 2026-10-28 | D-74 canonical P&L, plan provenance, phantom/P&L verifier | Measurement | 10 journal rows | CRS −$1,624.99 → −$30.01 net; 0 phantom fills; 0 P&L mismatches; 3 R:R provenance warnings | Applied; sample continues |
 | H-08 | 2026-10-22 → | **FWD-v0.1 forward sample** | **Confirmatory** | 1 closed / 2 open / 1 pending | Expectancy −1.00R, MFE gap +4.72R, net −$30.01 | **Active — not yet evidence** |
 | H-09 | 2026-10-30 | D-78 H-09: v0.1 vs v0.2 geometry on one signal stream | Exploratory (counterfactual) | 147 fills; v0.1 accepted 120; v0.2 accepted 103 (44 rejected) | v0.2 accepted −0.138R vs v0.1 accepted −0.050R; exit-only on 103 paired fills −0.138R vs −0.096R; rejected counterfactual +0.012R | Frozen; dry-run only; earliest full write 2026-11-24; never evidence |
-| H-10 | 2026-11-12 | D-81 research baseline v2: 4 setups vs matched-random/permuted/shifted controls | Exploratory (in-sample, 2015-2026) | 1876 / 1982 / 1860 / 2373 closed trades | No setup beat the matched control (p 0.61-0.94); mechanical verdicts NO EVIDENCE OF EDGE for `breakout_52week`, `statistical_mean_reversion`, `volume_trend_accumulation`; `low_vol_setup` flagged SUSPECTED BUG (max DD -43.0% vs -40% guard) | **Exploratory** — valid for one 2015-2026 panel; never the scorecard, pass bar or kill rule. Supersedes the D-80 2020-2023 row |
+| H-10 | 2026-11-12 | D-81 research baseline v2: 4 setups vs matched-random/permuted/shifted controls | Exploratory (in-sample, 2015-2026) | 1876 / 1982 / 1860 / 2373 closed trades | No setup beat the matched control (p 0.61-0.94); mechanical verdicts NO EVIDENCE OF EDGE for `breakout_52week`, `statistical_mean_reversion`, `volume_trend_accumulation`; `low_vol_setup` flagged SUSPECTED BUG (max DD -43.0% vs -40% guard) | **Superseded by H-11 (D-82)** — valid only for the D-81 engine/window; the D-82 run replaces it. Never the scorecard, pass bar or kill rule |
+| H-11 | 2026-11-13 | D-82 research baseline v3: same four setups under a realistic engine (no same-day recycling, masked warm-up, one evaluation window, block-bootstrap CI) | Exploratory (in-sample, 2015-2026) | 1684 / 1746 / 1680 / 2120 closed trades | No setup beat the matched control (p 0.29–1.00); max DD worst -35.6%; mechanical verdicts NO EVIDENCE OF EDGE for all four; `low_vol_setup` no longer flagged | **Exploratory** — valid for one 2015-2026 panel and the D-82 contract; never the scorecard, pass bar or kill rule. Supersedes H-10 |
 
 ---
 
@@ -293,6 +294,69 @@ scorecard, D-75 pass bar, kill rule or `/expectancy`.
 the D-80 2020-2023 row, which is retained in the D-80 record as history. The 13
 superseded artifacts are quarantined under `research/invalid_20261110/`.
 
+**Superseded 2026-11-13 by [D-82](../DECISIONS/D-82-research-baseline-v3-engine-realism.md)
+/ H-11.** The D-81 guarantees stand; the D-81 *result table* is no longer current because
+same-day slot recycling, unmasked indicator warm-up, two different samples and a
+per-trade-R Sharpe/bar-count CAGR were still in the harness.
+
+---
+
+### H-11 — D-82 research baseline v3: same four setups under a realistic engine (exploratory, in-sample)
+
+**Question:** once the engine stops allowing same-day slot recycling, masks indicator
+warm-up, and measures the strategy and every control over one declared evaluation window,
+does any of the four setups beat a size-matched random control?
+
+**Design:** standalone `backend/app/research` harness. Daily bars, signal at close,
+next-open entry, 2.0 ATR stop, 3.0 ATR target, 15-bar hold, 0.5% equity risk, 8 positions,
+20% notional cap, 15 bps/side, **no same-day recycling**. Entries size off previous-close
+equity (no look-ahead), open positions are marked with forward-filled closes, and every
+position is closed (`data_end` / `eod_censored`) with a hard `final_equity == start_equity
++ sum(pnl_usd)` check. Every indicator is masked at its own window; `eligible()` requires
+`atr14`. Window 2015-01-01..2026-11-13 on the current S&P 500 snapshot (501 tradable
+symbols; 2 dropped with reasons). Trade statistics and all four control families use
+uncensored trades with exit date >= 2016-01-01 (`EVAL_START`); equity statistics use the
+full curve; reconciliation uses all trades. Controls: 30 matched-random runs, 10
+permuted-date runs, 2 time-shifted runs, all applying `eligible()`. One-sided p-values on
+`r_net_mean` with `(k+1)/(n+1)`; direction never flipped. The 95% CI is a month-block
+bootstrap and the verdict uses its lower bound.
+
+**Result (valid for this panel):**
+
+| Setup | n | Win rate | Expectancy net | PF | CAGR | Max DD | matched p | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| breakout_52week | 1684 | 48.6% | 0.033 | 1.07 | 1.5% | -21.1% | 0.6452 | NO EVIDENCE OF EDGE |
+| low_vol_setup | 1746 | 48.4% | 0.028 | 1.05 | 1.6% | -31.6% | 0.3871 | NO EVIDENCE OF EDGE |
+| statistical_mean_reversion | 1680 | 50.1% | 0.049 | 1.11 | 2.4% | -23.4% | 0.2903 | NO EVIDENCE OF EDGE |
+| volume_trend_accumulation | 2120 | 47.0% | -0.004 | 0.99 | -0.6% | -35.6% | 1.0000 | NO EVIDENCE OF EDGE |
+
+All four accounts reconcile. Matched control trade counts (1668-2042) are close to the
+strategies' closed counts (1680-2120). Shadow controls: permuted p-values 1.0000 / 0.8182 /
+0.2727 / 1.0000; shifted 0.3333 / 0.6667 / 1.0000 / 1.0000 (breakout / low_vol / SMR /
+volume). Their floors are 0.091 and 0.333 at 10 and 2 runs.
+
+**What it supports:** on one clean 2015-2026 panel under the D-82 contract, no setup beat
+the matched random control at p <= 0.05; the smallest p is 0.2903. `low_vol_setup` is no
+longer flagged — its D-81 flag was the -40% drawdown guard, and its D-82 max drawdown is
+-31.6%. **What it does not support:** any deployment, weight change or scorecard entry.
+This is not a verdict on the deployed templates (different exits, D-70/D-77), there is no
+holdout, the universe is the current index (survivorship), and the matched control cannot
+reach p < 0.032 with 30 runs. The artifacts predate the T6(a) control-eligibility fix, so
+their control p-values do not include that gate; the effect was not re-measured (T6 forbids
+re-running the baseline).
+
+**Evidence label:** `exploratory_research` — research harness only; never the scorecard,
+D-75 pass bar, kill rule or `/expectancy`.
+
+**Artifacts:** `docs/backtests/research/{setup}_20261113_*.json` (revision `7ed0135`;
+`dirty = false` for the first run and `dirty = true` for the other three, because the
+preceding run's artifact was untracked — no source file differed; `eval_start =
+2016-01-01`; all invariants hold) and the generated
+[`BASELINE_REPORT.md`](research/BASELINE_REPORT.md); see the
+[artifact README](research/README.md). **Status:** 2015-2026 re-run recorded; supersedes
+H-10. The D-81 artifacts stay in place as the previous baseline and must not be cited as
+current.
+
 ---
 
 ## Evidence hierarchy
@@ -362,3 +426,4 @@ artifact path, and the decision it does (not) justify.
 | 2026-11-11 | Backfilled H-09 (D-78 replay) and added H-10 (D-79 research baseline) as **invalid as recorded** (mixed cache panel + stranded-position equity bug); see D-79 |
 | 2026-11-11 | Replaced H-10 with the **D-80 clean re-run** on one consistent 2020-2023 panel (cache + equity defects fixed); D-79 row retained as audit trail, superseded; see D-80 |
 | 2026-11-12 | Replaced H-10 with the **D-81 v2 re-run** on 2015-2026 (no-look-ahead sizing, forward-filled marking, matched-random control, one-sided p-value); D-80 2020-2023 result retained as superseded history; 13 old artifacts quarantined under `research/invalid_20261110/` |
+| 2026-11-13 | Added H-11 (D-82 v3 re-run: no same-day recycling, masked indicator warm-up, one evaluation window, daily-equity Sharpe, calendar CAGR, block-bootstrap CI, drawdown breach relabelled REVIEW, control eligibility); D-81 row retained as superseded; four new `*_20261113_*.json` artifacts |

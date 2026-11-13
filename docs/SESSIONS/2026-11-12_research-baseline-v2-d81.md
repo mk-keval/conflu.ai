@@ -1,13 +1,22 @@
 # 2026-11-12 - Research Baseline v2: Sizing, Marking, Matched Control, 2015-2026 Re-Run (D-81)
 
 **Branch:** `research/baseline-backtesting`
-**Commit documented:** Uncommitted. HEAD is `dcc9565`; the artifacts record
-`run.code.dirty = true`.
+**Commit documented:** Committed as `90bfea5`. The D-81 artifacts themselves were produced
+one commit earlier, on `dcc9565`, and record `run.code.dirty = true`.
 **Decision:** [D-81](../DECISIONS/D-81-research-baseline-v2-honesty-and-controls.md)
+**Superseded:** the D-81 result tables are superseded 2026-11-13 by
+[D-82](../DECISIONS/D-82-research-baseline-v3-engine-realism.md) / H-11. The D-81 harness
+guarantees stand.
 **Supersedes:** [D-80](../DECISIONS/D-80-research-baseline-remediation.md) results (the
 cache, data-end and invariant fixes stand)
 **Experiment:** H-10 in [`docs/backtests/HYPOTHESIS_LOG.md`](../backtests/HYPOTHESIS_LOG.md)
 **Documented:** 2026-11-12
+
+> **Results superseded 2026-11-13 by D-82.** Same window and universe, but D-82 removed
+> same-day slot recycling, masked indicator warm-up, put the strategy and every control on
+> one evaluation window, replaced the per-trade-R Sharpe and bar-count CAGR with
+> daily-equity Sharpe and calendar CAGR, and switched the verdict to a block-bootstrap CI.
+> Cite the D-82 table; keep this note for the defect history.
 
 ---
 
@@ -134,10 +143,11 @@ Tests: `test_pvalue_negative_real_is_not_flipped`,
 | Exits | 2.0 ATR stop, 3.0 ATR target, 15-bar time stop |
 | Portfolio | $100,000 start, 0.5% risk, 8 positions, 20% notional cap, 15 bps/side |
 | Controls | 30 matched-random, 10 permuted, 2 shifted; 0 unmatched random |
-| Code | HEAD `dcc9565`, dirty |
+| Code | HEAD `dcc9565`, dirty (committed as `90bfea5`) |
 
 Trade statistics in the report exclude censored trades (forced `data_end` /
-`eod_censored` closes) and exits before 2016-01-01 (2015 is indicator warm-up). Account
+`eod_censored` closes) and exits before 2016-01-01 (a report-window filter; real indicator
+masking landed in D-82). Account
 statistics include every trade.
 
 ---
@@ -234,6 +244,7 @@ docs/backtests/research/invalid_20261110/     (13 quarantined artifacts + README
 4. Optional: store `coverage_report` counts in `run_info` so future artifacts carry them
    directly (the report currently falls back to `run.panel`).
 5. Commit the uncommitted code, tests, artifacts, quarantine and docs when approved.
+   *(Done: committed as `90bfea5`; the artifact-producing run was `dcc9565` dirty.)*
 
 ---
 

@@ -1,12 +1,14 @@
 # D-81: Research Baseline v2 - Look-Ahead Sizing, Forward-Fill Marking, Matched-Random Control, and a 2015-2026 Re-Run
 
 **Date:** 2026-11-12
-**Status:** Accepted and implemented. **The 2015-2026 re-run recorded here supersedes the
-D-80 baseline results.** The D-80 cache, data-end and invariant fixes stand and are still
-enforced in the harness.
+**Status:** Accepted and implemented. **Results superseded 2026-11-13 by
+[D-82](D-82-research-baseline-v3-engine-realism.md) / H-11.** The four D-81 defects and
+every D-81 harness guarantee remain in force. The 2015-2026 re-run recorded here superseded
+the D-80 baseline results; its own result table is now the previous baseline and must not be
+cited as current.
 **Branch:** `research/baseline-backtesting`
-**Commit:** Uncommitted at the time of writing. The artifacts record HEAD `dcc9565` with
-`run.code.dirty = true`.
+**Commit:** The work was committed as `90bfea5` (the D-81 artifacts themselves were produced
+one commit earlier, on `dcc9565` with `run.code.dirty = true`).
 **Related:** D-80 (span-keyed cache, data-end closes, invariant), D-79 (harness + defect
 audit), H-10 in [`docs/backtests/HYPOTHESIS_LOG.md`](../backtests/HYPOTHESIS_LOG.md),
 D-70 (honest engine), D-74 (measurement integrity), D-75 (pass bar), D-76 (sample
@@ -154,8 +156,8 @@ Supporting changes:
 | Exits | 2.0 ATR stop, 3.0 ATR target, 15-bar time stop |
 | Portfolio | $100,000 start, 0.5% risk, 8 positions, 20% notional cap, 15 bps/side |
 | Controls | 30 matched-random, 10 permuted dates, 2 time-shifted +20..+60 bars; 0 unmatched random |
-| Report statistics | Closed trades only (`censored == false`), exit date >= 2016-01-01 (2015 is warm-up) |
-| Code | HEAD `dcc9565`, working tree dirty |
+| Report statistics | Closed trades only (`censored == false`), exit date >= 2016-01-01. **This was a report-window filter only** — indicator warm-up was not masked in the engine until D-82 |
+| Code | HEAD `dcc9565`, working tree dirty (committed as `90bfea5`) |
 
 ## Results (valid for this panel and window)
 

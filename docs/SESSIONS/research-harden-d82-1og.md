@@ -779,3 +779,140 @@ LASTEXIT=0
 - Baseline re-run: **not done** (forbidden in T6).
 - Skipped: nothing. The workflow itself is only exercised once pushed to GitHub; it was
   not run on Actions from this machine, and no push was made (per task rules).
+
+---
+
+## T7 — D-82 documentation (docs only)
+
+- **Date:** 2026-11-13
+- **What changed and why:** documented D-82 and made the earlier research docs point at it.
+  - Created `docs/DECISIONS/D-82-research-baseline-v3-engine-realism.md` (context, eight
+    defects + fixes + tests, verification, D-81-vs-D-82 table, deviations, gaps,
+    follow-ups).
+  - Created `docs/SESSIONS/2026-11-13_research-baseline-v3-d82.md`, modelled on the D-81
+    session note.
+  - Added the H-11 row, the H-11 section and a change-log row to
+    `docs/backtests/HYPOTHESIS_LOG.md`; marked the H-10 row superseded.
+  - Rewrote `docs/backtests/research/README.md` for the `*_20261113_*.json` artifacts:
+    provenance, D-82 measurement contract, dual-CI headline table, matched-control table,
+    D-81-vs-D-82 comparison, re-run command (including the new clean-tree refusal), CI,
+    superseded files and updated limitations.
+  - Edited `docs/DECISIONS/D-81-research-baseline-v2-honesty-and-controls.md`: superseded
+    banner, commit line corrected (the work was committed as `90bfea5`; the artifacts were
+    produced at `dcc9565` dirty), and the "2015 is warm-up" row corrected to say it was a
+    report-window filter only (real masking landed in D-82).
+  - Edited `docs/SESSIONS/2026-11-12_research-baseline-v2-d81.md`: same commit
+    correction, a superseded banner, and the warm-up parenthetical corrected. The "58
+    passed" figure is left intact — it is accurate for that note's six-module run.
+  - Updated `docs/DECISIONS/index.md`, `docs/index.md` and root `INDEX.md` (D-82 entry,
+    D-81 marked results-superseded, research artifacts bullet, H-11 bullet, new session
+    line).
+- **Files touched:** the nine docs above plus this work log. No code, test, artifact or
+  report file was changed in T7.
+
+### Finding 1 — three artifacts say `dirty = true`, not `false`
+
+The T4 entry above claims all four artifacts record `run.code.dirty = false`. Reading the
+artifacts back shows that only `statistical_mean_reversion` (the first run) does:
+
+```text
+breakout_52week_20261113_093833.json 7ed0135 dirty=True eval_start=2016-01-01 recycle=False invariant=True
+low_vol_setup_20261113_094423.json 7ed0135 dirty=True eval_start=2016-01-01 recycle=False invariant=True
+statistical_mean_reversion_20261113_093317.json 7ed0135 dirty=False eval_start=2016-01-01 recycle=False invariant=True
+volume_trend_accumulation_20261113_095014.json 7ed0135 dirty=True eval_start=2016-01-01 recycle=False invariant=True
+```
+
+Cause: each run writes its JSON into `docs/backtests/research/`. The tree started clean,
+but the clean-tree guard only landed in T6(b) (`d3941e2`), so runs 2-4 saw the preceding
+run's untracked artifact in `git status --porcelain` and recorded `dirty = true`. All four
+ran at revision `7ed0135`, and `f07b576` contains only the four JSONs, the regenerated
+report and the work log, so no source file differed between runs.
+
+Action: the D-82 decision doc, session note, H-11 entry, research README and the three
+index entries now state the flag per artifact instead of claiming `dirty = false` for all
+four. The artifacts and `BASELINE_REPORT.md` were **not** edited and the baseline was
+**not** re-run. The T4 entry above is left as written (this is an append-only log); this
+paragraph is the correction of record.
+
+### Finding 2 — pre-existing broken link in `docs/DECISIONS/index.md`
+
+The relative-link scan reports one broken target,
+`D-60-filter-sweep-backtest-framework-gate-enforcement.md`. It is present at `HEAD`
+(`235f674`) and the file does not exist anywhere under `docs/DECISIONS/`. It is unrelated
+to T7 and outside T7's file list, so it was not touched.
+
+### Commands and exact output
+
+```text
+$ git status --porcelain
+ M INDEX.md
+ M docs/DECISIONS/D-81-research-baseline-v2-honesty-and-controls.md
+ M docs/DECISIONS/index.md
+ M docs/SESSIONS/2026-11-12_research-baseline-v2-d81.md
+ M docs/backtests/HYPOTHESIS_LOG.md
+ M docs/backtests/research/README.md
+ M docs/index.md
+?? docs/DECISIONS/D-82-research-baseline-v3-engine-realism.md
+?? docs/SESSIONS/2026-11-13_research-baseline-v3-d82.md
+```
+
+```text
+$ Select-String -Path docs/backtests/HYPOTHESIS_LOG.md -Pattern "^\| H-11|^### H-11"
+46: | H-11 | 2026-11-13 | D-82 research baseline v3: same four setups under
+304: ### H-11 - D-82 research baseline v3: same four setups under a realistic
+```
+
+```text
+$ foreach ($f in @('INDEX.md','docs/index.md','docs/DECISIONS/index.md')) { ... 'D-82' count ... }
+INDEX.md : 2
+docs/index.md : 8
+docs/DECISIONS/index.md : 2
+```
+
+```text
+$ python -c "...artifacts: revision, dirty, eval_start, recycle, invariant..."
+breakout_52week_20261113_093833.json 7ed0135 dirty=True eval_start=2016-01-01 recycle=False invariant=True
+low_vol_setup_20261113_094423.json 7ed0135 dirty=True eval_start=2016-01-01 recycle=False invariant=True
+statistical_mean_reversion_20261113_093317.json 7ed0135 dirty=False eval_start=2016-01-01 recycle=False invariant=True
+volume_trend_accumulation_20261113_095014.json 7ed0135 dirty=True eval_start=2016-01-01 recycle=False invariant=True
+```
+
+```text
+$ python -c "...relative-link scan over the 9 edited docs..."
+FILES_CHECKED 9
+BROKEN_LINKS 1
+BROKEN ('docs/DECISIONS/index.md', 'D-60-filter-sweep-backtest-framework-gate-enforcement.md')
+```
+
+```text
+$ pytest -q backend/tests/test_research_control.py backend/tests/test_research_data.py backend/tests/test_research_diagnostics.py backend/tests/test_research_engine.py backend/tests/test_research_indicators.py backend/tests/test_research_metrics.py backend/tests/test_research_runner.py backend/tests/test_research_setups.py backend/tests/test_make_baseline_report.py
+89 passed in 5.76s
+TEST_EXIT=0
+
+$ ruff check backend/app/research scripts/run_research_baseline.py scripts/make_baseline_report.py scripts/research_diagnostics.py
+All checks passed!
+RUFF_EXIT=0
+```
+
+```text
+$ git diff --stat
+ INDEX.md                                                         |   3 ++-
+ docs/DECISIONS/D-81-research-baseline-v2-honesty-and-controls.md |  16 ++++++++------
+ docs/DECISIONS/index.md                                          |   3 ++-
+ docs/SESSIONS/2026-11-12_research-baseline-v2-d81.md             |  19 ++++++++++++----
+ docs/backtests/HYPOTHESIS_LOG.md                                 |  67 ++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ docs/backtests/research/README.md                                | 165 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++----------------------------------------------
+ docs/index.md                                                    |  14 +++++++-----
+ 7 files changed, 211 insertions(+), 76 deletions(-)
+```
+
+### Outcome
+
+- Docs: **complete**. Decision record, session note, H-11, README, D-81 corrections and
+  three indexes all point at D-82; both self-check greps and the link scan were run.
+- Tests/ruff: **unchanged** (89 passed, ruff clean) — T7 changed no code.
+- Baseline re-run: **not done** (forbidden in T6, and T7 is docs only).
+- Committed: docs only (nine files) in one commit.
+- Skipped: the pre-existing D-60 broken link (out of scope); the CI workflow was not
+  exercised on GitHub (nothing was pushed).
+
