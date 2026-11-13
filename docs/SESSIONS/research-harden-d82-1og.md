@@ -666,3 +666,61 @@ LASTEXIT=0
 - Baseline re-run: **not done** (forbidden in T6). The committed v3 artifacts were produced
   before this control-eligibility change, so their control p-values do not include it.
 - Skipped: nothing.
+
+---
+
+## T6(b) — Refuse to run on a dirty working tree
+
+- **Date:** 2026-11-13
+- **What changed and why:** a run started on a dirty tree writes
+  `run.code.dirty = true` and a HEAD that does not contain the code that produced it,
+  which makes the artifact unreproducible. `main()` now calls `_require_clean_tree()`
+  immediately after argument parsing and exits with a message before any download,
+  signal generation or file write. `--allow-dirty` accepts a dirty run explicitly.
+  Unknown git state (git unavailable, e.g. a source tarball) does not block.
+- **Files touched:**
+  - `scripts/run_research_baseline.py`
+  - `backend/tests/test_research_runner.py` (new)
+  - `docs/SESSIONS/research-harden-d82-1og.md` (this file)
+- **Tests:** `_require_clean_tree` dirty/clean/allow/unknown, plus an end-to-end
+  `main()` test that patches `_git_state` and asserts `SystemExit` before any work.
+
+### Commands and exact output
+
+```text
+$ pytest backend/tests/test_research_runner.py -q
+.....                                                                                                                                                                                                     [100%]
+5 passed in 1.20s
+PYTEST_EXIT=0
+
+$ ruff check scripts/run_research_baseline.py backend/tests/test_research_runner.py
+All checks passed!
+RUFF_EXIT=0
+```
+
+End-to-end refusal on the actually-dirty tree of this task:
+
+```text
+$ python scripts/run_research_baseline.py --setup low_vol_setup
+Working tree is dirty (HEAD 1fcac93). Commit or stash your changes, or pass --allow-dirty to record code.dirty = true in the artifact.
+DIRTY_RUN_EXIT=1
+```
+
+Full research set plus the report tests:
+
+```text
+$ pytest backend/tests/test_research_control.py backend/tests/test_research_data.py backend/tests/test_research_diagnostics.py backend/tests/test_research_engine.py backend/tests/test_research_indicators.py backend/tests/test_research_metrics.py backend/tests/test_research_runner.py backend/tests/test_research_setups.py backend/tests/test_make_baseline_report.py -q
+.........................................................................................                                                                                                                 [100%]
+89 passed in 5.34s
+LASTEXIT=0
+
+$ python scripts/run_research_baseline.py --help
+HELP_EXIT=0
+```
+
+### Outcome
+
+- Tests: **pass** (5 in the runner module, 89 across the set).
+- Ruff: **clean**.
+- Baseline re-run: **not done** (forbidden in T6).
+- Skipped: nothing.

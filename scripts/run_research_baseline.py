@@ -122,6 +122,23 @@ def _git_state() -> tuple[str | None, bool | None]:
         return None, None
 
 
+def _require_clean_tree(allow_dirty: bool, state=None) -> None:
+    """Refuse a run whose artifacts would be recorded as dirty.
+
+    ``state`` is a ``(revision, dirty)`` pair; when omitted it is read from git.
+    A run on a dirty tree records ``run.code.dirty = true``, which makes the
+    artifact hard to reproduce; ``--allow-dirty`` accepts that explicitly.
+    Unknown git state (git unavailable) does not block.
+    """
+    rev, dirty = _git_state() if state is None else state
+    if dirty is True and not allow_dirty:
+        raise SystemExit(
+            "Working tree is dirty (HEAD {rev}). Commit or stash your changes, "
+            "or pass --allow-dirty to record code.dirty = true in the artifact."
+            .format(rev=(rev or "unknown")[:7])
+        )
+
+
 def _symbol_coverage(
     data: dict[str, pd.DataFrame],
     requested_end: str,
@@ -592,12 +609,17 @@ def main():
                         help="Write the artifact even if the panel misses the requested span")
     parser.add_argument("--no-controls", action="store_true",
                         help="Skip control suite")
+    parser.add_argument("--allow-dirty", action="store_true",
+                        help="Run even when the git working tree is dirty (artifact records dirty=true)")
     parser.add_argument("--quick", action="store_true",
                         help="Fast smoke run: 40 symbols, 2019-2020, separate cache")
     parser.add_argument("--quick-setup", metavar="SETUP", default=None,
                         help="Alias for --quick with a setup name")
 
     args = parser.parse_args()
+
+    # An artifact is only reproducible from a clean tree; refuse by default.
+    _require_clean_tree(args.allow_dirty)
 
     if args.quick_setup is not None:
         if args.quick_setup not in SETUPS:
