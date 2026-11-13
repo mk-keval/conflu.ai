@@ -6,7 +6,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from backend.app.research.control import compute_control_pvalues, matched_random_signals
+from backend.app.research.control import (
+    compute_control_pvalues,
+    matched_random_signals,
+    permuted_signals,
+    time_shifted_signals,
+)
 from backend.app.research.indicators import add_indicators
 from backend.app.research.setups import eligible
 
@@ -71,6 +76,34 @@ def test_matched_random_respects_eligibility():
     assert not out["ILLIQ"].any()
     # The two signals are re-homed onto the only eligible symbol.
     assert out["LIQ"].sum() == 2
+
+
+def test_permuted_signals_only_fire_on_eligible_dates():
+    """Permuted dates respect eligible(): no pre-warm-up or illiquid signals."""
+    data = {"AAA": _frame()}
+    elig = eligible(data["AAA"]).to_numpy(dtype=bool)
+    # The real signals sit on pre-warm-up bars; they must be re-homed onto
+    # eligible dates, never left where the strategy could not trade.
+    real = _signals(data, {"AAA": [5, 6]})
+
+    out = permuted_signals(data, real, seed=3)
+
+    assert out["AAA"].sum() == 2
+    assert not out["AAA"].to_numpy()[~elig].any()
+
+
+def test_time_shifted_signals_drop_ineligible_destinations():
+    """A shift into the warm-up window is dropped; an eligible shift is kept."""
+    data = {"AAA": _frame()}
+    elig = eligible(data["AAA"]).to_numpy(dtype=bool)
+    # 10 + 20 = 30 (pre-warm-up, dropped); 200 + 20 = 220 (eligible, kept).
+    real = _signals(data, {"AAA": [10, 200]})
+
+    out = time_shifted_signals(data, real, shift_bars=20)
+
+    assert bool(out["AAA"].iloc[220])
+    assert out["AAA"].sum() == 1
+    assert not out["AAA"].to_numpy()[~elig].any()
 
 
 def _control(values):

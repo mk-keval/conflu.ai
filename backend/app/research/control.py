@@ -76,7 +76,12 @@ def permuted_signals(
     seed: int = 42
 ) -> dict[str, pd.Series]:
     """Generate signals by permuting real signal dates (preserves frequency).
-    
+
+    Permutation happens only across dates on which the symbol passes
+    ``eligible()``. A permuted signal on an ineligible bar (pre-warm-up or
+    illiquid) is not a decision the strategy could have made, so it must not
+    become a control trade.
+
     Args:
         data: Dict of symbol -> DataFrame with OHLCV and indicators.
         real_signals: Real signals to permute.
@@ -100,14 +105,18 @@ def permuted_signals(
             signals[symbol] = pd.Series(False, index=df.index)
             continue
         
-        # Permute signal dates across available dates (after warmup)
-        available_dates = df.index[30:]  # After warmup
-        if len(available_dates) < len(signal_dates):
-            # Not enough dates, just use what we have
-            permuted = rng.choice(available_dates, size=len(signal_dates), replace=False)
-        else:
-            permuted = rng.choice(available_dates, size=len(signal_dates), replace=False)
-        
+        # Permute only across eligible dates (liquidity + indicator warm-up).
+        available_dates = df.index[eligible(df).to_numpy(dtype=bool)]
+        if len(available_dates) == 0:
+            signals[symbol] = pd.Series(False, index=df.index)
+            continue
+
+        permuted = rng.choice(
+            available_dates,
+            size=min(len(signal_dates), len(available_dates)),
+            replace=False,
+        )
+
         sig = pd.Series(False, index=df.index)
         sig.loc[permuted] = True
         signals[symbol] = sig
@@ -121,7 +130,11 @@ def time_shifted_signals(
     shift_bars: int = 20
 ) -> dict[str, pd.Series]:
     """Generate signals by time-shifting real signals (breaks temporal relationship).
-    
+
+    A shifted date is kept only when it is on or after the symbol's
+    ``eligible()`` warm-up. Shifting a signal into the pre-warm-up window would
+    create a trade the strategy could not have taken.
+
     Args:
         data: Dict of symbol -> DataFrame with OHLCV and indicators.
         real_signals: Real signals to shift.
@@ -144,14 +157,15 @@ def time_shifted_signals(
             signals[symbol] = pd.Series(False, index=df.index)
             continue
         
-        # Shift dates
+        # Shift dates, keeping only destinations the symbol is eligible on.
         date_to_idx = {d: i for i, d in enumerate(df.index)}
+        tradable = eligible(df).to_numpy(dtype=bool)
         shifted_dates = []
         
         for d in signal_dates:
             if d in date_to_idx:
                 new_idx = date_to_idx[d] + shift_bars
-                if 0 <= new_idx < len(df.index):
+                if 0 <= new_idx < len(df.index) and tradable[new_idx]:
                     shifted_dates.append(df.index[new_idx])
         
         sig = pd.Series(False, index=df.index)

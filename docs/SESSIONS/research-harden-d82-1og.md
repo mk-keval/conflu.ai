@@ -613,3 +613,56 @@ Artifact p-value sets (`matched_random` / `permuted` / `shifted`): 0.6452 / 1.00
 - Skipped: none. No tests/ruff were needed for this task (no code change); T0-T3 already
   record this tree's test and lint results.
 - Gate for T6: **open** (T0, T1, T5, T2, T3, T4 complete).
+
+---
+
+## T6(a) — Controls apply eligibility; dead branch removed
+
+- **Date:** 2026-11-13
+- **What changed and why:** `permuted_signals` and `time_shifted_signals` now place
+  signals only on dates where `eligible(df)` is true, the same gate the real strategy and
+  the matched-random control use. Before this, permutation sampled from `df.index[30:]`
+  and shifting kept any in-range destination, so a control could trade a pre-warm-up bar
+  (where every setup indicator is NaN) or an illiquid name - an opportunity the strategy
+  never had. The `if len(available_dates) < len(signal_dates)` / `else` branch in
+  `permuted_signals` was dead code (both arms were the same call) and is deleted; the
+  single call now sizes with `min(...)` instead of raising in the rare short-pool case.
+- **Impact check:** `gitnexus_impact` (upstream) for both functions: risk **LOW**,
+  1 direct caller (`run_control_suite`) -> `run_controls` -> `main`; signatures unchanged.
+- **Files touched:**
+  - `backend/app/research/control.py`
+  - `backend/tests/test_research_control.py`
+  - `docs/SESSIONS/research-harden-d82-1og.md` (this file)
+- **New tests:**
+  - `test_permuted_signals_only_fire_on_eligible_dates` — real signals placed on
+    pre-warm-up bars are re-homed onto eligible dates; no permuted signal lands on an
+    ineligible bar; the count is preserved.
+  - `test_time_shifted_signals_drop_ineligible_destinations` — shifting bar 10 by +20
+    lands at bar 30 (pre-warm-up) and is dropped; shifting bar 200 by +20 lands at 220 and
+    is kept.
+
+### Commands and exact output
+
+```text
+$ pytest backend/tests/test_research_control.py -q
+.......                                                                                                                                                                                                   [100%]
+7 passed in 1.60s
+PYTEST_EXIT=0
+
+$ ruff check backend/app/research/control.py backend/tests/test_research_control.py
+All checks passed!
+RUFF_EXIT=0
+
+$ pytest backend/tests/test_research_control.py backend/tests/test_research_data.py backend/tests/test_research_diagnostics.py backend/tests/test_research_engine.py backend/tests/test_research_indicators.py backend/tests/test_research_metrics.py backend/tests/test_research_setups.py backend/tests/test_make_baseline_report.py -q
+....................................................................................                                                                                                                      [100%]
+84 passed in 6.44s
+LASTEXIT=0
+```
+
+### Outcome
+
+- Tests: **pass** (7 in the control module, 84 across the research set + report tests).
+- Ruff: **clean**.
+- Baseline re-run: **not done** (forbidden in T6). The committed v3 artifacts were produced
+  before this control-eligibility change, so their control p-values do not include it.
+- Skipped: nothing.
