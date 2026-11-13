@@ -724,3 +724,58 @@ HELP_EXIT=0
 - Ruff: **clean**.
 - Baseline re-run: **not done** (forbidden in T6).
 - Skipped: nothing.
+
+---
+
+## T6(c) — CI runs the research tests and ruff on every push
+
+- **Date:** 2026-11-13
+- **What changed and why:** new workflow `.github/workflows/research.yml`. The existing
+  `ci.yml` only runs `pytest backend/tests/` and `ruff check backend/`, and neither picks
+  up `scripts/*.py`; the research tests are also named `test_research_*.py` plus
+  `test_make_baseline_report.py`, so a regression in the D-82 guardrails (control
+  eligibility, clean-tree refusal, block-bootstrap CI) would not be caught by the main CI
+  job. The workflow runs on every `push`, every `pull_request` and on manual dispatch,
+  installs `".[dev,test]"` exactly like the main CI job (`uv pip install --system`), then:
+  1. `ruff check backend/app/research scripts/run_research_baseline.py scripts/make_baseline_report.py scripts/research_diagnostics.py`
+  2. `pytest -v` on the nine research/report test files, listed explicitly
+     (a glob would be fine in bash but the explicit list matches what T0-T6 ran).
+- **Files touched:**
+  - `.github/workflows/research.yml` (new)
+  - `docs/SESSIONS/research-harden-d82-1og.md` (this file)
+- **Notes:** the test files are *not* in the ruff step because `pyproject.toml` excludes
+  `**/tests/**` and `**/test_*.py` from ruff; adding them there would silently check
+  nothing. The workflow deliberately does **not** run the baseline: it downloads 500+
+  symbols and takes ~12 minutes per setup, so the artifacts stay a manual, deliberate act.
+
+### Commands and exact output
+
+Workflow YAML parses, and the folded `run:` strings are what the runner will execute:
+
+```text
+$ python -c "import yaml,json; d=yaml.safe_load(open('.github/workflows/research.yml',encoding='utf-8')); print(json.dumps(d['on'] if 'on' in d else d[True])); [print('STEP:', repr(s['run'])) for s in d['jobs']['research']['steps'] if 'run' in s and 'pytest' in s['run'] or ('run' in s and 'ruff' in s['run'])]"
+{"push": null, "pull_request": null, "workflow_dispatch": null}
+STEP: 'ruff check backend/app/research scripts/run_research_baseline.py scripts/make_baseline_report.py scripts/research_diagnostics.py'
+STEP: 'pytest -v backend/tests/test_research_control.py backend/tests/test_research_data.py backend/tests/test_research_diagnostics.py backend/tests/test_research_engine.py backend/tests/test_research_indicators.py backend/tests/test_research_metrics.py backend/tests/test_research_runner.py backend/tests/test_research_setups.py backend/tests/test_make_baseline_report.py'
+YAML_EXIT=0
+```
+
+The same two commands run locally, in this tree:
+
+```text
+$ ruff check backend/app/research scripts/run_research_baseline.py scripts/make_baseline_report.py scripts/research_diagnostics.py
+All checks passed!
+RUFF_EXIT=0
+
+$ pytest -v backend/tests/test_research_control.py backend/tests/test_research_data.py backend/tests/test_research_diagnostics.py backend/tests/test_research_engine.py backend/tests/test_research_indicators.py backend/tests/test_research_metrics.py backend/tests/test_research_runner.py backend/tests/test_research_setups.py backend/tests/test_make_baseline_report.py
+... (89 lines of PASSED) ...
+============================================================================================== 89 passed in 5.52s ==============================================================================================
+LASTEXIT=0
+```
+
+### Outcome
+
+- Workflow: **valid YAML**, both steps pass locally (ruff clean, 89 passed).
+- Baseline re-run: **not done** (forbidden in T6).
+- Skipped: nothing. The workflow itself is only exercised once pushed to GitHub; it was
+  not run on Actions from this machine, and no push was made (per task rules).

@@ -1,0 +1,46 @@
+name: Research Harness
+
+# The research backtesting harness is not covered by the main CI job: its tests
+# are named test_research_*.py plus test_make_baseline_report.py and its scripts
+# are outside backend/. Run them on every push and PR so the D-82 guardrails
+# (eligibility, clean-tree refusal, block-bootstrap CI) cannot silently regress.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  research:
+    name: Research tests & lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install uv
+      - run: uv pip install --system ".[dev,test]"
+      - name: Ruff (research harness)
+        run: >-
+          ruff check
+          backend/app/research
+          scripts/run_research_baseline.py
+          scripts/make_baseline_report.py
+          scripts/research_diagnostics.py
+      - name: Research tests
+        run: >-
+          pytest -v
+          backend/tests/test_research_control.py
+          backend/tests/test_research_data.py
+          backend/tests/test_research_diagnostics.py
+          backend/tests/test_research_engine.py
+          backend/tests/test_research_indicators.py
+          backend/tests/test_research_metrics.py
+          backend/tests/test_research_runner.py
+          backend/tests/test_research_setups.py
+          backend/tests/test_make_baseline_report.py
