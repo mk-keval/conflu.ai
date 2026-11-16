@@ -1180,4 +1180,168 @@ amend).
 - Baseline artifacts: **not** re-run; the v3 artifacts and `BASELINE_REPORT.md` are unchanged.
 - Skipped: nothing.
 
+---
+
+## T9 — Ablation and fresh diagnostics
+
+- **Date:** 2026-11-16
+- **Preconditions met:** T8 committed (`7628660`), working tree clean before the first run.
+- **What changed and why:** no engine, indicator or control code changed. The task isolates
+  the one D-82 rule that removes entries funded by the same day's exits
+  (`allow_same_day_recycling`, default `false` since `bd93d02`) by re-running each setup with
+  the old behaviour. `DIAGNOSTICS.md` was regenerated so it reflects the D-82 engine instead
+  of the D-81 artifacts. `ABLATION.md` records the comparison and seed noise; the README and
+  D-82 decision record point at it.
+- **Files touched:**
+  - `docs/backtests/research/{breakout_52week_20261116_174053_recycle_on,
+    low_vol_setup_20261116_174638_recycle_on,
+    statistical_mean_reversion_20261116_175221_recycle_on,
+    volume_trend_accumulation_20261116_175828_recycle_on}.json` (new)
+  - `docs/backtests/research/DIAGNOSTICS.md` (regenerated; header names artifacts + engine)
+  - `docs/backtests/research/ABLATION.md` (new)
+  - `docs/backtests/research/README.md` (pointer; stale D-81-diagnostics wording corrected)
+  - `docs/DECISIONS/D-82-research-baseline-v3-engine-realism.md` (pointer; follow-up 4 closed)
+  - `docs/SESSIONS/research-harden-d82-1og.md` (this file)
+- **Existing artifacts:** not edited. The four `*_20261113_*.json` v3 artifacts,
+  `*_20261111_21*.json` D-81 artifacts and `BASELINE_REPORT.md` are unchanged.
+
+### Commands and exact output
+
+Ablation, one setup at a time, all other flags default (`--start 2015-01-01`, `--end` = today
+= 2026-11-16; matched 30, permuted 10, shifted 2):
+
+```text
+$ python scripts/run_research_baseline.py --setup breakout_52week --allow-same-day-recycling --tag recycle_on   # final lines
+  permuted      : p = 1.0000 
+  shifted       : p = 0.6667 
+
+P-VALUES (vs Sharpe, informational)
+============================================================
+  matched_random: p = 0.8065 
+  random        : p = 1.0000 
+  permuted      : p = 1.0000 
+  shifted       : p = 0.3333 
+
+Results saved to: docs/backtests/research\breakout_52week_20261116_174053_recycle_on.json
+
+============================================================
+BACKTEST COMPLETE
+============================================================
+INFO: NOT statistically significant vs controls (best p=0.6667 on shifted)
+EXIT=0
+
+$ python scripts/run_research_baseline.py --setup low_vol_setup --allow-same-day-recycling --tag recycle_on   # final lines
+  permuted      : p = 0.9091 
+  shifted       : p = 0.6667 
+
+P-VALUES (vs Sharpe, informational)
+============================================================
+  matched_random: p = 0.6774 
+  random        : p = 1.0000 
+  permuted      : p = 0.9091 
+  shifted       : p = 0.6667 
+
+Results saved to: docs/backtests/research\low_vol_setup_20261116_174638_recycle_on.json
+
+============================================================
+BACKTEST COMPLETE
+============================================================
+INFO: NOT statistically significant vs controls (best p=0.6667 on shifted)
+EXIT=0
+
+$ python scripts/run_research_baseline.py --setup statistical_mean_reversion --allow-same-day-recycling --tag recycle_on   # final lines
+  permuted      : p = 0.8182 
+  shifted       : p = 1.0000 
+
+P-VALUES (vs Sharpe, informational)
+============================================================
+  matched_random: p = 0.6452 
+  random        : p = 1.0000 
+  permuted      : p = 0.8182 
+  shifted       : p = 1.0000 
+
+Results saved to: docs/backtests/research\statistical_mean_reversion_20261116_175221_recycle_on.json
+
+============================================================
+BACKTEST COMPLETE
+============================================================
+INFO: NOT statistically significant vs controls (best p=0.6129 on matched_random)
+EXIT=0
+
+$ python scripts/run_research_baseline.py --setup volume_trend_accumulation --allow-same-day-recycling --tag recycle_on   # final lines
+  permuted      : p = 1.0000 
+  shifted       : p = 0.6667 
+
+P-VALUES (vs Sharpe, informational)
+============================================================
+  matched_random: p = 0.9677 
+  random        : p = 1.0000 
+  permuted      : p = 1.0000 
+  shifted       : p = 0.6667 
+
+Results saved to: docs/backtests/research\volume_trend_accumulation_20261116_175828_recycle_on.json
+
+============================================================
+BACKTEST COMPLETE
+============================================================
+INFO: NOT statistically significant vs controls (best p=0.6667 on shifted)
+EXIT=0
+```
+
+Artifact `code.dirty` values (all from the amended T8 commit, `7628660`):
+
+```text
+$ python -c "...read run.code and run.rules from the new artifacts..."
+breakout_52week_20261116_174053_recycle_on.json rev=7628660 dirty=False recycle=True
+low_vol_setup_20261116_174638_recycle_on.json rev=7628660 dirty=False recycle=True
+statistical_mean_reversion_20261116_175221_recycle_on.json rev=7628660 dirty=False recycle=True
+volume_trend_accumulation_20261116_175828_recycle_on.json rev=7628660 dirty=False recycle=True
+```
+
+Diagnostics, defaults (all four setups, seeds 42..61), run after the ablation artifacts
+existed:
+
+```text
+$ python scripts/research_diagnostics.py   # final lines
+[volume_trend_accumulation] (b) cost sensitivity
+    cost  0.0 bps: n=2136 exp_net=+0.0850
+    cost  7.5 bps: n=2136 exp_net=+0.0446
+    cost 15.0 bps: n=2133 exp_net=+0.0062
+    cost 30.0 bps: n=2134 exp_net=-0.0667
+[volume_trend_accumulation] (d) exit mix
+    matched seed 30042: n=2042
+    matched seed 30043: n=2010
+    matched seed 30044: n=2056
+    matched seed 30045: n=2083
+    matched seed 30046: n=2053
+
+(c) data integrity scan
+
+Wrote docs/backtests/research/DIAGNOSTICS.md
+DIAG_EXIT=0
+```
+
+### Deviations and notes
+
+- The diagnostics script defaults to `--end 2026-11-11` (the last D-81 cache span) and
+  `--output-dir docs/backtests/research`. It was run with defaults, as the task listed only
+  setups and seeds. Because the recycle-on artifacts are the newest per setup, the script's
+  "newest artifact" columns use them; the refreshed header names all four files and commit
+  `7628660` so this is not implied.
+- The ablation runs used the default `--end` = today (2026-11-16), so their panel ends
+  2026-11-16 against 2026-11-12 for the v3 default artifacts. The ablation table and
+  provenance section state this.
+- The share denominator uses the published D-81 expectancy table
+  (-0.008 / 0.000 / -0.001 / +0.018); every |denominator| > 0.02 R, so no "not meaningful"
+  case applied.
+
+### Outcome
+
+- Ablation: **complete**, four new artifacts, one change at a time, existing artifacts
+  untouched.
+- Diagnostics: **regenerated** and committed with the four artifacts (`c608d15`).
+- Docs: `ABLATION.md` plus pointers in the research README and D-82 record (follow-up 4 closed).
+- Tests/ruff: **not run** — T9 changed no code (no engine/indicator/control or test file).
+- Skipped: nothing.
+
 

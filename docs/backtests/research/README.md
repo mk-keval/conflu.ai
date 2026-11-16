@@ -13,9 +13,10 @@ kill rule, the forward scorecard or any FWD-v0.2 verdict. The generated summary 
 Validity caveats for these setups — research conditions vs deployed YAML, setup naming, control design and known simplifications — are in [`VALIDITY_NOTES.md`](VALIDITY_NOTES.md).
 
 Sensitivity studies (seed, cost, data integrity, exit mix) are in
-[`DIAGNOSTICS.md`](DIAGNOSTICS.md). **They were computed from the D-81 artifacts** (window
-ending 2026-11-11) before the D-82 engine changes, so they explain the D-81 magnitudes and
-are not a D-82 table.
+[`DIAGNOSTICS.md`](DIAGNOSTICS.md); they were refreshed on 2026-11-16 under the D-82 engine
+(commit `7628660`), with artifact-derived columns taken from the same-day-recycling runs.
+The same-day-recycling ablation (D-82 default vs recycle on) is in
+[`ABLATION.md`](ABLATION.md).
 
 The **D-81** `*_20261111_21*.json` artifacts are **superseded**. They stay in this folder
 as the previous baseline and must not be cited as current. The 13 older D-79/D-80 artifacts
@@ -27,7 +28,7 @@ are quarantined in [`invalid_20261110/`](invalid_20261110/) and must not be cite
 |---|---|
 | Harness | `scripts/run_research_baseline.py` + `backend/app/research` |
 | Report generator | `scripts/make_baseline_report.py` (standard library only) |
-| Diagnostics | `scripts/research_diagnostics.py` (read-only; D-81 artifacts) |
+| Diagnostics | `scripts/research_diagnostics.py` (read-only; refreshed 2026-11-16, see above) |
 | Code revision | `7ed0135` in all four; the first run records `run.code.dirty = false`, the next three `dirty = true` (the preceding run's untracked artifact; no source difference) |
 | Window | requested 2015-01-01..2026-11-13; actual 2015-01-02..2026-11-12 |
 | Universe | `config/replay_universe_sp500.txt` (current snapshot), SHA-256 `a53242f2...9a729080` |
@@ -211,6 +212,9 @@ setup).
   descriptive only and cannot establish superiority at p < 0.05.
 - **No benchmark comparison in the report.** The generator records the account path but
   does not compute SPY buy-and-hold, so this folder makes no benchmark claim.
-- **`DIAGNOSTICS.md` describes the D-81 artifacts.** Regenerate it from the D-82 artifacts
-  on the next deliberate run.
+- **`DIAGNOSTICS.md` mixes two panels.** Refreshed on 2026-11-16: seed, cost and exit-mix
+  sections use the script's default 2015-01-01..2026-11-11 panel, while its
+  artifact-derived columns come from the `*_20261116_*_recycle_on.json` ablation runs. It is
+  a sensitivity study, not a baseline table. The ablation comparison is in
+  [`ABLATION.md`](ABLATION.md).
 - **`^VIX` is downloaded** as a benchmark but is not used by any verdict or p-value.

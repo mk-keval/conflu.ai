@@ -227,9 +227,10 @@ consistently. None of the four matched-control p-values reaches 0.05; the smalle
 - **`test_cagr_calculation`'s fixture was corrected** (504 daily bars → a true two-year
   span) because the old fixture encoded `len/252` as "two years". The assertion strength
   is unchanged (9.54% +/- 0.5).
-- **`DIAGNOSTICS.md` was computed from the D-81 artifacts** (2026-11-12, window ending
-  2026-11-11) before the D-82 engine changes. It explains the D-81 magnitudes and is not
-  a D-82 table; treat it as a sensitivity study on the previous baseline.
+- **`DIAGNOSTICS.md` was refreshed after this record was written** (2026-11-16, engine
+  `7628660`). Its seed/cost/exit-mix sections use the script's 2015-01-01..2026-11-11 panel,
+  and its artifact-derived columns come from the same-day-recycling ablation runs, not from
+  the four v3 artifacts.
 - **The v3 artifacts predate T6(a).** Their control p-values do not include the
   eligibility gate on permuted/shifted signals (see above). T6 forbids re-running the
   baseline, so this is recorded, not fixed.
@@ -270,6 +271,8 @@ consistently. None of the four matched-control p-values reaches 0.05; the smalle
   the previous baseline; they are marked superseded and must not be cited as current.
 - H-11 records the D-82 result; H-10 (D-81) stays as superseded history.
 - The research README, decision index, docs index and root index point at D-82.
+- The same-day-recycling ablation (D-82 default vs `--allow-same-day-recycling`) is in
+  [`ABLATION.md`](../backtests/research/ABLATION.md).
 - **No live behaviour changed.** The research package is not imported by the API, the
   gate, the journal, the scorecard or the forward loop. Nothing here enters the D-75 pass
   bar, the kill rule or any FWD-v0.2 verdict.
@@ -302,6 +305,7 @@ consistently. None of the four matched-control p-values reaches 0.05; the smalle
    support (its floor is 0.333).
 3. Add a walk-forward split (e.g. 2015-2020 fit / 2021-2026 test) before any setup is
    treated as more than exploratory.
-4. Re-generate `DIAGNOSTICS.md` from the D-82 artifacts when the baseline is next run.
+4. ~~Re-generate `DIAGNOSTICS.md` from the D-82 artifacts when the baseline is next run.~~
+   Done on 2026-11-16 under engine `7628660`; see `DIAGNOSTICS.md` and `ABLATION.md`.
 5. Consider a risk-setting study for `low_vol_setup`; its -31.6% drawdown is within the
    guard but still the second-worst path.
