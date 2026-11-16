@@ -105,32 +105,88 @@ def _sha256_file(path: str) -> str | None:
         return None
 
 
-def _git_state() -> tuple[str | None, bool | None]:
-    """Return (HEAD revision, working-tree-dirty) when git is available."""
+def _repo_root() -> Path:
+    """Repository root (the parent of ``scripts/``)."""
+    return Path(__file__).parent.parent
+
+
+def _repo_relative_dir(directory: str | None, root: Path) -> str | None:
+    """``directory`` as a repo-root-relative POSIX path, or None if outside."""
+    if not directory:
+        return None
     try:
-        root = Path(__file__).parent.parent
+        return Path(directory).resolve().relative_to(root.resolve()).as_posix()
+    except (OSError, ValueError):
+        return None
+
+
+def _is_within(path: str, directory: str) -> bool:
+    """True when repo-relative ``path`` is ``directory`` or lies beneath it."""
+    path = path.replace("\\", "/")
+    directory = directory.strip("/")
+    return path == directory or path.startswith(directory + "/")
+
+
+def _status_has_dirt(status: str, output_dir: str | None, root: Path) -> bool:
+    """True when ``git status --porcelain -z`` reports a blocking change.
+
+    Entries are ``XY path\\0``; renames and copies carry the original path as
+    an extra NUL-separated field. Untracked files inside ``output_dir`` are the
+    run's own artifacts, so they are ignored. Tracked edits (including inside
+    ``output_dir``) and untracked files anywhere else still count as dirty.
+    """
+    ignored = _repo_relative_dir(output_dir, root)
+    entries = status.split("\0")
+    index = 0
+    while index < len(entries):
+        entry = entries[index]
+        index += 1
+        if len(entry) < 4:
+            continue
+        code, path = entry[:2], entry[3:]
+        if code[0] in ("R", "C"):
+            index += 1  # next field is the rename/copy source path
+        if code == "??" and ignored is not None and _is_within(path, ignored):
+            continue
+        return True
+    return False
+
+
+def _git_state(output_dir: str | None = None) -> tuple[str | None, bool | None]:
+    """Return (HEAD revision, working-tree-dirty) when git is available.
+
+    Untracked files inside ``output_dir`` (the run's own artifacts) do not make
+    the tree dirty; tracked changes anywhere and untracked files elsewhere do.
+    """
+    try:
+        root = _repo_root()
         rev = subprocess.run(
             ["git", "rev-parse", "HEAD"], cwd=root,
             capture_output=True, text=True, timeout=10, check=True
         ).stdout.strip()
         status = subprocess.run(
-            ["git", "status", "--porcelain"], cwd=root,
-            capture_output=True, text=True, timeout=10, check=True
-        ).stdout.strip()
-        return rev or None, bool(status)
+            ["git", "status", "--porcelain", "-z", "--untracked-files=all"],
+            cwd=root, capture_output=True, text=True, timeout=10, check=True
+        ).stdout
+        return rev or None, _status_has_dirt(status, output_dir, root)
     except Exception:
         return None, None
 
 
-def _require_clean_tree(allow_dirty: bool, state=None) -> None:
+def _require_clean_tree(
+    allow_dirty: bool,
+    state=None,
+    output_dir: str | None = None,
+) -> None:
     """Refuse a run whose artifacts would be recorded as dirty.
 
-    ``state`` is a ``(revision, dirty)`` pair; when omitted it is read from git.
-    A run on a dirty tree records ``run.code.dirty = true``, which makes the
-    artifact hard to reproduce; ``--allow-dirty`` accepts that explicitly.
+    ``state`` is a ``(revision, dirty)`` pair; when omitted it is read from git
+    with ``output_dir`` exempted (the run's own untracked artifacts). A run on a
+    dirty tree records ``run.code.dirty = true``, which makes the artifact hard
+    to reproduce; ``--allow-dirty`` accepts that explicitly.
     Unknown git state (git unavailable) does not block.
     """
-    rev, dirty = _git_state() if state is None else state
+    rev, dirty = _git_state(output_dir) if state is None else state
     if dirty is True and not allow_dirty:
         raise SystemExit(
             "Working tree is dirty (HEAD {rev}). Commit or stash your changes, "
@@ -471,7 +527,7 @@ def save_results(
 
 def _build_metadata(args, result: dict, exit_rules, portfolio_rules) -> dict:
     """Everything a reader needs to judge the artifact without the source."""
-    rev, dirty = _git_state()
+    rev, dirty = _git_state(args.output_dir)
     coverage = _symbol_coverage(result["data"], args.end)
     start_equity = portfolio_rules.start_equity
     # Reconciliation covers every trade; trade-level metrics may be windowed.
@@ -619,7 +675,9 @@ def main():
     args = parser.parse_args()
 
     # An artifact is only reproducible from a clean tree; refuse by default.
-    _require_clean_tree(args.allow_dirty)
+    # The run's own output directory is exempt (its untracked artifacts are not
+    # an input to this run).
+    _require_clean_tree(args.allow_dirty, output_dir=args.output_dir)
 
     if args.quick_setup is not None:
         if args.quick_setup not in SETUPS:

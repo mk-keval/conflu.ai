@@ -916,3 +916,268 @@ $ git diff --stat
 - Skipped: the pre-existing D-60 broken link (out of scope); the CI workflow was not
   exercised on GitHub (nothing was pushed).
 
+---
+
+## T8 — Clean-tree guard ignores the run's own output directory
+
+- **Date:** 2026-11-16
+- **What changed and why:** `_git_state()` used `git status --porcelain`, which counts
+  untracked files. The runner writes each artifact into `docs/backtests/research/`, a
+  tracked (not ignored) directory, so a second consecutive run saw its predecessor's
+  artifact as dirt, the guard refused it, and every run after the first recorded
+  `code.dirty = true`. That is exactly why three of the four T4 artifacts carry
+  `dirty=true` despite being produced from a clean tree.
+  `_git_state(output_dir)` now reads `git status --porcelain -z --untracked-files=all`
+  and ignores **untracked** entries inside the run's own output directory only.
+  Tracked-file modifications anywhere (including inside the output directory) and
+  untracked files elsewhere still count as dirty. `--allow-dirty` is unchanged, and
+  unknown git state still does not block.
+- **Files touched:**
+  - `scripts/run_research_baseline.py`
+  - `backend/tests/test_research_runner.py`
+  - `docs/SESSIONS/research-harden-d82-1og.md` (this file)
+- **Tests:** the guard's existing four state tests plus five new temporary-git-repo
+  tests: clean tree → not dirty; modified tracked file → dirty; modified tracked file
+  inside the output dir → dirty; untracked artifact inside the output dir → **not**
+  dirty; untracked source file elsewhere → dirty.
+
+### Commands and exact output
+
+```text
+$ python -m pytest -q backend/tests/test_research_control.py backend/tests/test_research_data.py backend/tests/test_research_diagnostics.py backend/tests/test_research_engine.py backend/tests/test_research_indicators.py backend/tests/test_research_metrics.py backend/tests/test_research_runner.py backend/tests/test_research_setups.py backend/tests/test_make_baseline_report.py
+..............................................................................................                                                                                                            [100%]
+94 passed in 10.97s
+TEST_EXIT=0
+
+$ python -m ruff check scripts/run_research_baseline.py backend/tests/test_research_runner.py
+All checks passed!
+RUFF_EXIT=0
+```
+
+End-to-end proof from the clean tree at `005cfda` (the task's command, with the
+mangled flags read as `--output-dir docs/backtests/research/_tmp_guardtest
+--setup statistical_mean_reversion`; no other flags, so the default end date
+"today" = 2026-11-16 applied). Each log is 577 lines; the 503 per-symbol signal
+lines are elided below (`...`) but the headers, reconciliation, metric block,
+controls, p-values and save line are verbatim.
+
+```text
+$ python scripts/run_research_baseline.py --output-dir docs/backtests/research/_tmp_guardtest --setup statistical_mean_reversion   # run 1
+
+============================================================
+RESEARCH BASELINE BACKTEST
+============================================================
+Setup:         statistical_mean_reversion
+Universe:      config/replay_universe_sp500.txt
+Date Range:    2015-01-01 to 2026-11-16 (inclusive)
+Stop ATR:      2.0
+Target ATR:    3.0
+Max Hold:      15
+Risk %:        0.5%
+Max Positions: 8
+Cost BPS:      15.0
+============================================================
+...
+Loaded 503 symbols (cache hits=0, downloads=503, failed=2)
+Coverage: n_symbols=501, early_end=0, late_start=37
+Dropped 2 symbols: ['KVUE', 'VYLR']
+Actual panel span: 2015-01-02 -> 2026-11-16
+...
+Total signals: 18551
+Running portfolio backtest...
+Completed 1845 trades
+Reconciliation: OK
+
+============================================================
+statistical_mean_reversion Backtest Results
+============================================================
+Trades:           1682 (W: 844, L: 838)
+Win Rate:         50.2%
+R-net Mean:       0.051
+R-net Median:     0.009
+R-net Sum:        86.419
+R-net Std:        1.083
+Sharpe (ann):     0.27
+Sortino (ann):    0.26
+Profit Factor:    1.11
+Max DD:           -23.4% ($-24,920)
+Total Return:     32.2%
+CAGR:             2.4%
+Vol (ann):        11.1%
+Avg Bars Held:    10.0
+Median Bars Held: 11.0
+Censored:         0 (0.0%)
+Final Equity:     $132,200
+Exit Reasons:     {'stop': 517, 'time': 637, 'target_gap': 69, 'stop_gap': 95, 'target': 364}
+Alpha (ann):      -2.5%
+Beta:             0.39
+============================================================
+Evaluation window: closed trades with exit_date >= 2016-01-01
+
+============================================================
+Running Control Suite
+Matched: 30, Random: 0, Permuted: 10, Shifted: 2
+Evaluation window: closed trades with exit_date >= 2016-01-01
+============================================================
+
+MATCHED_RANDOM (30 runs):
+  R-net Sum:  mean=67.597, std=45.916, min=-25.668, max=171.030
+  Sharpe:     mean=0.221, std=0.172
+  Return %:   mean=27.5%, std=28.7%
+
+PERMUTED (10 runs):
+  R-net Sum:  mean=88.348, std=43.412, min=33.945, max=159.537
+  Sharpe:     mean=0.294, std=0.150
+  Return %:   mean=42.8%, std=31.5%
+
+SHIFTED (2 runs):
+  R-net Sum:  mean=121.617, std=12.226, min=109.391, max=133.842
+  Sharpe:     mean=0.458, std=0.045
+  Return %:   mean=66.6%, std=9.5%
+
+============================================================
+P-VALUES (vs R-net Mean)
+============================================================
+  matched_random: p = 0.3226 
+  random        : p = 1.0000 
+  permuted      : p = 0.4545 
+  shifted       : p = 1.0000 
+
+P-VALUES (vs Sharpe, informational)
+============================================================
+  matched_random: p = 0.4194 
+  random        : p = 1.0000 
+  permuted      : p = 0.5455 
+  shifted       : p = 1.0000 
+
+Results saved to: docs/backtests/research/_tmp_guardtest\statistical_mean_reversion_20261116_172809.json
+
+============================================================
+BACKTEST COMPLETE
+============================================================
+INFO: NOT statistically significant vs controls (best p=0.3226 on matched_random)
+RUN1_EXIT=0
+```
+
+```text
+$ python scripts/run_research_baseline.py --output-dir docs/backtests/research/_tmp_guardtest --setup statistical_mean_reversion   # run 2, artifact from run 1 already on disk
+
+============================================================
+RESEARCH BASELINE BACKTEST
+============================================================
+Setup:         statistical_mean_reversion
+Universe:      config/replay_universe_sp500.txt
+Date Range:    2015-01-01 to 2026-11-16 (inclusive)
+Stop ATR:      2.0
+Target ATR:    3.0
+Max Hold:      15
+Risk %:        0.5%
+Max Positions: 8
+Cost BPS:      15.0
+============================================================
+...
+Loaded 503 symbols (cache hits=503, downloads=0, failed=2)
+Coverage: n_symbols=501, early_end=0, late_start=37
+Dropped 2 symbols: ['KVUE', 'VYLR']
+Actual panel span: 2015-01-02 -> 2026-11-16
+...
+Total signals: 18551
+Running portfolio backtest...
+Completed 1845 trades
+Reconciliation: OK
+
+============================================================
+statistical_mean_reversion Backtest Results
+============================================================
+Trades:           1682 (W: 844, L: 838)
+Win Rate:         50.2%
+R-net Mean:       0.051
+R-net Median:     0.009
+R-net Sum:        86.419
+R-net Std:        1.083
+Sharpe (ann):     0.27
+Sortino (ann):    0.26
+Profit Factor:    1.11
+Max DD:           -23.4% ($-24,920)
+Total Return:     32.2%
+CAGR:             2.4%
+Vol (ann):        11.1%
+Avg Bars Held:    10.0
+Median Bars Held: 11.0
+Censored:         0 (0.0%)
+Final Equity:     $132,200
+Exit Reasons:     {'stop': 517, 'time': 637, 'target_gap': 69, 'stop_gap': 95, 'target': 364}
+Alpha (ann):      -2.5%
+Beta:             0.39
+============================================================
+Evaluation window: closed trades with exit_date >= 2016-01-01
+
+============================================================
+Running Control Suite
+Matched: 30, Random: 0, Permuted: 10, Shifted: 2
+Evaluation window: closed trades with exit_date >= 2016-01-01
+============================================================
+
+MATCHED_RANDOM (30 runs):
+  R-net Sum:  mean=67.597, std=45.916, min=-25.668, max=171.030
+  Sharpe:     mean=0.221, std=0.172
+  Return %:   mean=27.5%, std=28.7%
+
+PERMUTED (10 runs):
+  R-net Sum:  mean=88.348, std=43.412, min=33.945, max=159.537
+  Sharpe:     mean=0.294, std=0.150
+  Return %:   mean=42.8%, std=31.5%
+
+SHIFTED (2 runs):
+  R-net Sum:  mean=121.617, std=12.226, min=109.391, max=133.842
+  Sharpe:     mean=0.458, std=0.045
+  Return %:   mean=66.6%, std=9.5%
+
+============================================================
+P-VALUES (vs R-net Mean)
+============================================================
+  matched_random: p = 0.3226 
+  random        : p = 1.0000 
+  permuted      : p = 0.4545 
+  shifted       : p = 1.0000 
+
+P-VALUES (vs Sharpe, informational)
+============================================================
+  matched_random: p = 0.4194 
+  random        : p = 1.0000 
+  permuted      : p = 0.5455 
+  shifted       : p = 1.0000 
+
+Results saved to: docs/backtests/research/_tmp_guardtest\statistical_mean_reversion_20261116_173345.json
+
+============================================================
+BACKTEST COMPLETE
+============================================================
+INFO: NOT statistically significant vs controls (best p=0.3226 on matched_random)
+RUN2_EXIT=0
+```
+
+The second run was **not** refused, despite run 1's artifact sitting untracked in the
+output directory. Both artifacts record the clean tree:
+
+```text
+$ python -c "...read run.code from the two artifacts..."
+statistical_mean_reversion_20261116_172809.json rev=005cfda dirty=False recycle=False
+statistical_mean_reversion_20261116_173345.json rev=005cfda dirty=False recycle=False
+```
+
+`_tmp_guardtest/` was deleted after the check and never staged:
+`git status --porcelain` showed only `?? docs/backtests/research/_tmp_guardtest/`
+while it existed and nothing afterwards. Because this work-log entry was filled in
+after the runs, the T8 commit was amended; the artifacts record `005cfda`, whose
+source files are identical to the final commit (only this document changed in the
+amend).
+
+### Outcome
+
+- Tests: **pass** (10 in the runner module, 94 across the set).
+- Ruff: **clean**.
+- Baseline artifacts: **not** re-run; the v3 artifacts and `BASELINE_REPORT.md` are unchanged.
+- Skipped: nothing.
+
+
