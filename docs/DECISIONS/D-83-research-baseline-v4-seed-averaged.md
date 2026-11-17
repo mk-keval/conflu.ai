@@ -69,14 +69,18 @@ Adopt the following for every research baseline from v4 onward.
 4. **The report shows both.** The main table gains
    `Expectancy (mean of N seeds)`. The control table gains
    `Strategy seed mean`, `Gap vs control (strategy seed-mean - control mean)`,
-   `SE of gap = sqrt(se_strategy^2 + control_std^2 / n_control)`, and
-   `p (seed-averaged)`, while retaining `p (seed 42)`.
+   `Gap / control std = gap / control_std`, `SE of means (shuffle + control mean only; not
+   a test) = sqrt(se_strategy^2 + control_std^2 / n_control)`, and `p (seed-averaged)`,
+   while retaining `p (seed 42)`.
 5. **The verdict uses the seed-averaged p-value.** No other verdict rule changes: the
    month-block bootstrap lower bound, the per-year profitability requirement and the
-   drawdown `REVIEW` label are untouched. If the seed-mean gap is more than **2 SE**
-   negative, the report prints
+   drawdown `REVIEW` label are untouched. If the seed-mean gap is more than **2 control
+   standard deviations** negative (`Gap / control std < -2.0`), the report prints
    `**<setup>**: strategy underperforms matched control (informational)`; that line does
-   not change the verdict.
+   not change the verdict. The flag compares the gap to the spread of single
+   matched-control runs, not to the SE of means: the SE covers only candidate-shuffle
+   noise and the error of the control mean, and ignores which stocks the signals pick, so
+   it overstated significance by roughly 4x. The SE stays in the table as a description.
 6. **Old artifacts still render.** A missing `strategy_seeds` / `p_values_seed_avg` shows
    `n/a` and the verdict falls back to the seed-42 p-value.
 
@@ -90,12 +94,13 @@ Adopt the following for every research baseline from v4 onward.
 | 4 | `--n-strategy-seeds` (default 20, validated `>= 1`). | `3bfb68c` | arg validation in `main`; CLI exercised by the smoke run and the four v4 runs |
 | 5 | Report: seed-mean column, gap / SE / seed-averaged p columns, seed-averaged verdict, underperformance line, two new deviation notes. | `3bfb68c` | `test_main_table_renders_seed_mean_column`, `test_control_table_renders_gap_se_and_seed_averaged_p`, `test_underperformance_line_when_gap_below_two_se`, `test_no_underperformance_line_when_gap_is_inside_two_se`, `test_verdict_uses_seed_averaged_p_value`, `test_verdict_seed_average_can_remove_candidate` |
 | 6 | Four v4 artifacts re-run at `3bfb68c` with defaults (`--end` = 2026-11-17, no recycling) and `BASELINE_REPORT.md` regenerated. | `8db1c25` | n/a (generated artifacts) |
+| 7 | Underperformance flag corrected to `Gap / control std < -2.0`; `SE of gap` renamed `SE of means (shuffle + control mean only; not a test)`; `Gap / control std` column added; report regenerated from the existing four artifacts (no re-run). | this change (T11) | `test_control_table_renders_gap_se_and_seed_averaged_p`, `test_underperformance_line_when_gap_below_two_control_std`, `test_no_underperformance_line_when_gap_is_inside_two_control_std`, `test_old_se_rule_flags_but_control_std_rule_does_not` |
 
 ## Verification
 
 | Check | Result |
 |---|---|
-| Research + report tests | **103 passed** (`test_research_{control,data,diagnostics,engine,indicators,metrics,runner,setups}.py` + `test_make_baseline_report.py`) |
+| Research + report tests | **104 passed** (`test_research_{control,data,diagnostics,engine,indicators,metrics,runner,setups}.py` + `test_make_baseline_report.py`) after T11 added the old-rule-vs-new-rule test |
 | `ruff check` (2 scripts + 2 test files) | clean |
 | Smoke run | `--quick --n-strategy-seeds 2` exit 0; artifact carried both p-value sets and a 2-seed summary |
 | Clean-tree guard | tree clean before each of the four runs; `dirty = false` in all four artifacts |
@@ -117,12 +122,12 @@ columns are the v4 artifacts (panel ends 2026-11-17, revision `3bfb68c`). The D-
 seed-42 and seed-mean columns come from the same run and are directly comparable; the
 D-82/D-83 difference also carries five extra sessions of data.
 
-| Setup | D-82 seed 42 | D-83 seed 42 | D-83 seed mean (std / se) | Control mean (std, n) | Gap (seed-mean - control) | SE of gap | z | p (seed 42) | p (seed-averaged) | Verdict (verbatim) |
+| Setup | D-82 seed 42 | D-83 seed 42 | D-83 seed mean (std / se) | Control mean (std, n) | Gap (seed-mean - control) | SE of means (not a test) | Gap / control std | p (seed 42) | p (seed-averaged) | Verdict (verbatim) |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `breakout_52week` | +0.0333 | +0.0277 | +0.0278 (0.0148 / 0.0033) | +0.0355 (0.0271, 30) | -0.0077 | 0.0060 | -1.30 | 0.6452 | 0.6452 | NO EVIDENCE OF EDGE |
-| `low_vol_setup` | +0.0280 | +0.0243 | +0.0107 (0.0185 / 0.0041) | +0.0253 (0.0257, 30) | -0.0146 | 0.0062 | -2.33 | 0.5484 | 0.7097 | NO EVIDENCE OF EDGE |
-| `statistical_mean_reversion` | +0.0489 | +0.0566 | +0.0167 (0.0183 / 0.0041) | +0.0349 (0.0231, 30) | -0.0182 | 0.0059 | -3.09 | 0.2258 | 0.8065 | NO EVIDENCE OF EDGE |
-| `volume_trend_accumulation` | -0.0039 | -0.0069 | +0.0036 (0.0213 / 0.0048) | +0.0502 (0.0201, 30) | -0.0466 | 0.0060 | -7.74 | 1.0000 | 1.0000 | NO EVIDENCE OF EDGE |
+| `breakout_52week` | +0.0333 | +0.0277 | +0.0278 (0.0148 / 0.0033) | +0.0355 (0.0271, 30) | -0.0077 | 0.0060 | -0.28 | 0.6452 | 0.6452 | NO EVIDENCE OF EDGE |
+| `low_vol_setup` | +0.0280 | +0.0243 | +0.0107 (0.0185 / 0.0041) | +0.0253 (0.0257, 30) | -0.0146 | 0.0062 | -0.57 | 0.5484 | 0.7097 | NO EVIDENCE OF EDGE |
+| `statistical_mean_reversion` | +0.0489 | +0.0566 | +0.0167 (0.0183 / 0.0041) | +0.0349 (0.0231, 30) | -0.0182 | 0.0059 | -0.79 | 0.2258 | 0.8065 | NO EVIDENCE OF EDGE |
+| `volume_trend_accumulation` | -0.0039 | -0.0069 | +0.0036 (0.0213 / 0.0048) | +0.0502 (0.0201, 30) | -0.0466 | 0.0060 | -2.31 | 1.0000 | 1.0000 | NO EVIDENCE OF EDGE |
 
 Seed-42 vs seed-mean within the D-83 artifacts: breakout +0.0277 -> +0.0278, low_vol
 +0.0243 -> +0.0107, SMR +0.0566 -> +0.0167, volume -0.0069 -> +0.0036. For low_vol, SMR and
@@ -147,13 +152,29 @@ runs are 0.091 and 0.333.
 
 ### Underperformance lines
 
-The report printed the informational line for `low_vol_setup`,
-`statistical_mean_reversion` and `volume_trend_accumulation`, and not for
-`breakout_52week`:
+Under the corrected rule (`Gap / control std < -2.0`), the report prints the informational
+line for `volume_trend_accumulation` only, and not for `breakout_52week`,
+`low_vol_setup` or `statistical_mean_reversion`:
 
-- **low_vol_setup**: strategy underperforms matched control (informational)
-- **statistical_mean_reversion**: strategy underperforms matched control (informational)
 - **volume_trend_accumulation**: strategy underperforms matched control (informational)
+
+The originally published D-83 report used `gap < -2 * SE_of_gap`, with
+`SE_of_gap = sqrt(se_strategy^2 + control_std^2 / n_control)`; that rule flagged `low_vol_setup`,
+`statistical_mean_reversion` and `volume_trend_accumulation`. **The SE-based flag was
+replaced because it ignored selection variability**: the SE covers only candidate-shuffle
+noise and the error of the control mean, not which stocks the signals pick, so it
+overstated significance by roughly 4x. The table now compares the gap to the spread of
+single matched-control runs (`Gap / control std`), and the SE column is kept only as a
+description of the two means.
+
+| Flag rule | breakout | low_vol | SMR | volume | Lines printed |
+|---|---|---|---|---|---|
+| Old: `gap < -2 SE_of_gap` | -1.30 SE | -2.33 SE | -3.09 SE | -7.74 SE | low_vol, SMR, volume |
+| New: `Gap / control std < -2.0` | -0.28 | -0.57 | -0.79 | -2.31 | volume only |
+
+Only `volume_trend_accumulation` remains flagged; `low_vol_setup` and
+`statistical_mean_reversion` dropped. `BASELINE_REPORT.md` was regenerated from the same
+four artifacts (no baseline re-run); p-values and verdicts are unchanged.
 
 ## Deviations from the pre-registered plan
 
@@ -163,6 +184,11 @@ The report printed the informational line for `low_vol_setup`,
   sweep in `DIAGNOSTICS.md` had been read. A second number that is chosen after seeing the
   first is not a pre-registered test, so these results are labelled exploratory and do not
   enter any pass bar, kill rule or scorecard.
+- **The underperformance flag compares the gap with the spread of single matched-control
+  runs (z < -2).** With four setups tested, a family-wise threshold would be about
+  z < -2.5; the flag is informational and is not corrected for multiple testing.
+- **The strategy's own sampling uncertainty is the month-block CI in the main table**,
+  which is far wider than the SE of means.
 - **The four v4 runs used the default `--end` (2026-11-17), not the D-82 end date.** The
   panel therefore carries five more sessions (2026-11-13..2026-11-17) than the D-82
   artifacts. The D-82/D-83 columns are not a controlled one-variable comparison; the
@@ -172,8 +198,8 @@ The report printed the informational line for `low_vol_setup`,
   seed 42. A seed-mean CAGR or drawdown is not recorded.
 - **`p_values_seed_avg` treats the seed mean as one realization.** The control p-value
   formula is applied to the seed mean as if it were a single strategy value. The seed
-  standard error is reported separately through `SE of gap`; it is not folded into the
-  p-value.
+  standard error is reported separately through `SE of means (shuffle + control mean only;
+  not a test)`; it is not folded into the p-value.
 - **The old-artifact path is fallback only.** Artifacts without `strategy_seeds` render
   `n/a` in the seed columns and use the seed-42 p-value for the verdict. The D-81/D-82
   artifacts are unchanged; the report is regenerated from the newest artifact per setup.

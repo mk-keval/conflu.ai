@@ -33,6 +33,8 @@ T10 makes the headline and the test use a seed-averaged strategy:
    `Strategy seed mean` / `Gap vs control` / `SE of gap` / `p (seed-averaged)` columns,
    uses the seed-averaged p for the verdict, and prints an informational line when the gap
    is more than 2 SE negative. Older artifacts render `n/a` and fall back to seed 42.
+   (The flag rule was corrected in T11 to `Gap / control std < -2.0`; see the T11 note
+   below.)
 5. All four setups were re-run with defaults on the 2015-01-01..2026-11-17 panel and
    `BASELINE_REPORT.md` was regenerated. All four verdicts remain
    **NO EVIDENCE OF EDGE**.
@@ -144,6 +146,15 @@ Rendered control table (verbatim):
 
 Underperformance lines printed for `low_vol_setup`, `statistical_mean_reversion` and
 `volume_trend_accumulation`, not `breakout_52week`.
+
+**T11 correction (2026-11-17):** the `gap < -2 SE` rule was replaced by
+`Gap / control std < -2.0`, because the SE ignores selection variability and overstated
+significance by roughly 4x. The report was regenerated from the same four artifacts (no
+re-run). Only `volume_trend_accumulation` remains flagged (-2.31); breakout (-0.28),
+low_vol (-0.57) and SMR (-0.79) are not. The two underperformance tests were renamed and a
+new `test_old_se_rule_flags_but_control_std_rule_does_not` was added; p-values and verdicts
+are unchanged. See the T11 entry in
+[`research-harden-d82-1og.md`](research-harden-d82-1og.md).
 
 ## Commits
 

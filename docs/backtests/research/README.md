@@ -103,10 +103,13 @@ the evaluation window cannot hide a cash break.
 - **Both p-values are kept.** `p_values` is seed 42; `p_values_seed_avg` applies the same
   control formula to the seed mean. The verdict uses `p_values_seed_avg` and falls back to
   `p_values` when the artifact predates D-83.
-- **Gap and SE.** The control table reports
-  `gap = seed_mean - control_mean` and
-  `SE = sqrt(se_strategy^2 + control_std^2 / n_control)`. A gap more than 2 SE negative
-  prints an informational underperformance line; it does not change the verdict.
+- **Gap, SE of means and gap / control std.** The control table reports
+  `gap = seed_mean - control_mean`,
+  `SE of means = sqrt(se_strategy^2 + control_std^2 / n_control)` and
+  `gap / control_std = gap / control_std`. The SE covers only candidate-shuffle noise and
+  the error of the control mean, not which stocks the signals pick, so it is descriptive
+  and is **not a test**. A `gap / control_std` below **-2.0** prints an informational
+  underperformance line; it does not change the verdict.
 - **`std` is population std (`ddof=0`)** to match `scripts/research_diagnostics.py`; the
   daily-equity Sharpe uses sample std (`ddof=1`).
 
@@ -136,16 +139,18 @@ headline expectancy is the mean of 20 seeds; the other strategy columns describe
 
 Matched-random control on per-trade expectancy (`r_net_mean`):
 
-| Setup | Control runs | Control trades (mean) | Control expectancy (mean +/- std) | Strategy expectancy (seed 42) | Strategy seed mean | Gap | SE of gap | p (seed 42) | p (seed-averaged) |
-|---|---|---|---|---|---|---|---|---|---|
-| breakout_52week | 30 | 1664.2 | 0.036 +/- 0.027 | 0.028 | 0.028 | -0.008 | 0.006 | 0.6452 | 0.6452 |
-| low_vol_setup | 30 | 1793.6 | 0.025 +/- 0.026 | 0.024 | 0.011 | -0.015 | 0.006 | 0.5484 | 0.7097 |
-| statistical_mean_reversion | 30 | 1870.0 | 0.035 +/- 0.023 | 0.057 | 0.017 | -0.018 | 0.006 | 0.2258 | 0.8065 |
-| volume_trend_accumulation | 30 | 2034.2 | 0.050 +/- 0.020 | -0.007 | 0.004 | -0.047 | 0.006 | 1.0000 | 1.0000 |
+| Setup | Control runs | Control trades (mean) | Control expectancy (mean +/- std) | Strategy expectancy (seed 42) | Strategy seed mean | Gap | Gap / control std | SE of means (not a test) | p (seed 42) | p (seed-averaged) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| breakout_52week | 30 | 1664.2 | 0.036 +/- 0.027 | 0.028 | 0.028 | -0.008 | -0.28 | 0.006 | 0.6452 | 0.6452 |
+| low_vol_setup | 30 | 1793.6 | 0.025 +/- 0.026 | 0.024 | 0.011 | -0.015 | -0.57 | 0.006 | 0.5484 | 0.7097 |
+| statistical_mean_reversion | 30 | 1870.0 | 0.035 +/- 0.023 | 0.057 | 0.017 | -0.018 | -0.79 | 0.006 | 0.2258 | 0.8065 |
+| volume_trend_accumulation | 30 | 2034.2 | 0.050 +/- 0.020 | -0.007 | 0.004 | -0.047 | -2.31 | 0.006 | 1.0000 | 1.0000 |
 
-`Gap` is the strategy seed mean minus the control mean; `SE of gap` is
-`sqrt(se_strategy^2 + control_std^2 / 30)`. The p-value in the last column is computed on
-the seed mean.
+`Gap` is the strategy seed mean minus the control mean; `Gap / control std` is
+`gap / control_std` (the spread of single matched-control runs). `SE of means` is
+`sqrt(se_strategy^2 + control_std^2 / 30)` and is descriptive only: it covers shuffle
+noise and the error of the control mean, not which stocks the signals pick, so it is not a
+test. The p-value in the last column is computed on the seed mean.
 
 Shadow controls (not used by the verdict), seed-averaged: permuted p-values 0.9091 /
 0.9091 / 0.7273 / 1.0000 and shifted 0.3333 / 0.6667 / 1.0000 / 1.0000 for breakout /
@@ -159,9 +164,12 @@ Mechanical verdicts:
 - **statistical_mean_reversion**: NO EVIDENCE OF EDGE
 - **volume_trend_accumulation**: NO EVIDENCE OF EDGE
 
-The report prints an informational underperformance line for `low_vol_setup`,
-`statistical_mean_reversion` and `volume_trend_accumulation` (gap more than 2 SE negative),
-not for `breakout_52week`. The line does not change the verdict.
+The report prints an informational underperformance line for
+`volume_trend_accumulation` (`Gap / control std = -2.31`), not for `breakout_52week`
+(-0.28), `low_vol_setup` (-0.57) or `statistical_mean_reversion` (-0.79). The line does
+not change the verdict. An earlier draft of this table compared the gap with the SE of
+means and flagged low_vol, SMR and volume; that SE ignores selection variability, so the
+flag now uses `Gap / control std < -2.0`.
 
 `low_vol_setup` is not flagged. Its D-81 flag was the report's -40% drawdown guard
 (-43.0%), not a p-value. Under the D-82 engine its D-83 max drawdown is -33.2%, and a

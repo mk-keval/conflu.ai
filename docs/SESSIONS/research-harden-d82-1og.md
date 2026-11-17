@@ -1467,4 +1467,96 @@ Verdicts (verbatim): `NO EVIDENCE OF EDGE` for all four.
 - Report: **regenerated** and committed with the artifacts.
 - Docs: D-83 record, this entry, session note, H-12, README, D-82 banner, indexes.
 
+---
+
+## T11 — Correct the underperformance flag (D-83)
+
+- **Date:** 2026-11-17
+- **Branch:** `research/baseline-backtesting` @ `841f774`
+- **What changed and why:** the D-83 report flagged "strategy underperforms matched
+  control (informational)" when `gap < -2 * SE_gap`, with
+  `SE_gap = sqrt(se_strategy^2 + control_std^2 / n_control)`. That SE covers only
+  candidate-shuffle noise and the error of the control mean; it ignores which stocks the
+  signals pick, so it overstated significance by roughly 4x. The flag now compares the gap
+  to the spread of single matched-control runs: `Gap / control std < -2.0`. No baseline
+  re-run; the report was regenerated from the same four D-83 artifacts.
+
+### Code
+
+- `scripts/make_baseline_report.py`
+  - `gap_stats` returns `{"gap", "se", "z"}`, where `z = gap / control_std` when
+    `control_std > 0`. `se` is still computed but is descriptive only.
+  - Control table gains `Gap / control std`; `SE of gap` is renamed
+    `SE of means (shuffle + control mean only; not a test)`.
+  - The underperformance condition is now `z < -2.0`; verdicts, seed averaging and all
+    D-82/D-83 guarantees are untouched.
+  - Two deviation bullets added, worded as requested:
+    - the flag compares the gap with the spread of single matched-control runs (z < -2),
+      family-wise threshold about z < -2.5 for four setups, uncorrected and informational;
+    - the strategy's own sampling uncertainty is the month-block CI, far wider than the SE
+      of means.
+- `backend/tests/test_make_baseline_report.py`
+  - `test_control_table_renders_gap_se_and_seed_averaged_p` asserts the new column and
+    headers.
+  - Renamed to `test_underperformance_line_when_gap_below_two_control_std` (values
+    `[-0.041, -0.040, -0.039]`, z = -2.5, flags) and
+    `test_no_underperformance_line_when_gap_is_inside_two_control_std` (default fixture,
+    z > 0).
+  - New `test_old_se_rule_flags_but_control_std_rule_does_not`: values
+    `[-0.021, -0.020, -0.019]`, gap -0.03, old SE rule flags, z = -1.5 does not.
+
+### Tests and lint
+
+```text
+$ python -m pytest -q backend/tests/test_research_control.py backend/tests/test_research_data.py backend/tests/test_research_diagnostics.py backend/tests/test_research_engine.py backend/tests/test_research_indicators.py backend/tests/test_research_metrics.py backend/tests/test_research_runner.py backend/tests/test_research_setups.py backend/tests/test_make_baseline_report.py
+........................................................................................................                                                             [100%]
+104 passed in 16.23s
+TEST_EXIT=0
+$ python -m ruff check scripts/make_baseline_report.py backend/tests/test_make_baseline_report.py
+All checks passed!
+RUFF_EXIT=0
+```
+
+### Report regeneration (no baseline re-run)
+
+```text
+$ python scripts/make_baseline_report.py
+Wrote docs/backtests/research\BASELINE_REPORT.md (4 setups)
+REPORT_EXIT=0
+```
+
+| Setup | Gap | Gap / control std | Old rule (gap / SE) | Underperformance line |
+|---|---|---|---|---|
+| `breakout_52week` | -0.008 | -0.28 | -1.30 | no |
+| `low_vol_setup` | -0.015 | -0.57 | -2.33 | no (was yes) |
+| `statistical_mean_reversion` | -0.018 | -0.79 | -3.09 | no (was yes) |
+| `volume_trend_accumulation` | -0.047 | -2.31 | -7.74 | **yes** |
+
+Only `volume_trend_accumulation` remains flagged. p-values
+(0.6452 / 0.7097 / 0.8065 / 1.0000 seed-averaged) and all four verdicts
+(`NO EVIDENCE OF EDGE`) are unchanged.
+
+### Docs
+
+- D-83: decision points 4 and 5, the What-changed table row 7, the results table (new
+  `Gap / control std` column), the Underperformance-lines section with the old-vs-new
+  table, and the two new deviation bullets.
+- `docs/backtests/research/README.md`: D-83 gap/SE bullet, control table and flag
+  paragraph.
+- `docs/backtests/HYPOTHESIS_LOG.md`: H-12 row and detail table/text.
+- `docs/index.md`, `docs/DECISIONS/index.md`, the D-83 session note and this entry.
+
+### Commits
+
+- `fix(research): underperformance flag compares gap to control-run spread (D-83)` —
+  script, tests, regenerated report.
+- `docs (research): correct D-83 underperformance flag` — documentation only.
+
+### Outcome
+
+- Code + tests: **complete**, 104 passed, ruff clean.
+- Baseline: **not re-run**; report regenerated from the four existing artifacts.
+- Flag: **volume only**; low_vol and SMR dropped.
+
+
 

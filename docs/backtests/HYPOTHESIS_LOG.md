@@ -44,7 +44,7 @@ else in this file is input to the review, never a verdict.
 | H-09 | 2026-10-30 | D-78 H-09: v0.1 vs v0.2 geometry on one signal stream | Exploratory (counterfactual) | 147 fills; v0.1 accepted 120; v0.2 accepted 103 (44 rejected) | v0.2 accepted −0.138R vs v0.1 accepted −0.050R; exit-only on 103 paired fills −0.138R vs −0.096R; rejected counterfactual +0.012R | Frozen; dry-run only; earliest full write 2026-11-24; never evidence |
 | H-10 | 2026-11-12 | D-81 research baseline v2: 4 setups vs matched-random/permuted/shifted controls | Exploratory (in-sample, 2015-2026) | 1876 / 1982 / 1860 / 2373 closed trades | No setup beat the matched control (p 0.61-0.94); mechanical verdicts NO EVIDENCE OF EDGE for `breakout_52week`, `statistical_mean_reversion`, `volume_trend_accumulation`; `low_vol_setup` flagged SUSPECTED BUG (max DD -43.0% vs -40% guard) | **Superseded by H-11 (D-82)** — valid only for the D-81 engine/window; the D-82 run replaces it. Never the scorecard, pass bar or kill rule |
 | H-11 | 2026-11-13 | D-82 research baseline v3: same four setups under a realistic engine (no same-day recycling, masked warm-up, one evaluation window, block-bootstrap CI) | Exploratory (in-sample, 2015-2026) | 1684 / 1746 / 1680 / 2120 closed trades | No setup beat the matched control (p 0.29–1.00); max DD worst -35.6%; mechanical verdicts NO EVIDENCE OF EDGE for all four; `low_vol_setup` no longer flagged | **Exploratory** — valid for one 2015-2026 panel and the D-82 contract; never the scorecard, pass bar or kill rule. **Superseded for the headline by H-12 (D-83)**; the D-82 contract stands. Supersedes H-10 |
-| H-12 | 2026-11-17 | D-83 research baseline v4: same four setups, headline expectancy and p-value averaged over 20 engine seeds (42..61) on identical signals | Exploratory (in-sample, 2015-2026; post-hoc rule change) | 1686 / 1747 / 1677 / 2147 closed trades (seed 42) | Seed-mean expectancy +0.0278 / +0.0107 / +0.0167 / +0.0036; matched p (seed-averaged) 0.6452 / 0.7097 / 0.8065 / 1.0000; informational underperformance line for low_vol, SMR and volume; NO EVIDENCE OF EDGE for all four | **Exploratory** - valid for one 2015-2026 panel and the D-83 rule; the seed-averaged headline was introduced after seeing D-82, so it is not pre-registered. Never the scorecard, pass bar or kill rule. Supersedes H-11 for the headline |
+| H-12 | 2026-11-17 | D-83 research baseline v4: same four setups, headline expectancy and p-value averaged over 20 engine seeds (42..61) on identical signals | Exploratory (in-sample, 2015-2026; post-hoc rule change) | 1686 / 1747 / 1677 / 2147 closed trades (seed 42) | Seed-mean expectancy +0.0278 / +0.0107 / +0.0167 / +0.0036; matched p (seed-averaged) 0.6452 / 0.7097 / 0.8065 / 1.0000; informational underperformance line for volume only (Gap / control std -2.31; low_vol -0.57 and SMR -0.79 not flagged); NO EVIDENCE OF EDGE for all four | **Exploratory** - valid for one 2015-2026 panel and the D-83 rule; the seed-averaged headline was introduced after seeing D-82, so it is not pre-registered. Never the scorecard, pass bar or kill rule. Supersedes H-11 for the headline |
 
 ---
 
@@ -390,18 +390,22 @@ current S&P 500 snapshot (501 tradable symbols; 2 dropped with reasons).
 
 **Result (valid for this panel and window):**
 
-| Setup | n | Seed 42 | 20-seed mean (std / se) | Control mean | Gap | SE | p (seed 42) | p (seed-averaged) | Verdict |
-|---|---|---|---|---|---|---|---|---|---|
-| `breakout_52week` | 1686 | +0.0277 | +0.0278 (0.0148 / 0.0033) | +0.0355 | -0.0077 | 0.0060 | 0.6452 | 0.6452 | NO EVIDENCE OF EDGE |
-| `low_vol_setup` | 1747 | +0.0243 | +0.0107 (0.0185 / 0.0041) | +0.0253 | -0.0146 | 0.0062 | 0.5484 | 0.7097 | NO EVIDENCE OF EDGE |
-| `statistical_mean_reversion` | 1677 | +0.0566 | +0.0167 (0.0183 / 0.0041) | +0.0349 | -0.0182 | 0.0059 | 0.2258 | 0.8065 | NO EVIDENCE OF EDGE |
-| `volume_trend_accumulation` | 2147 | -0.0069 | +0.0036 (0.0213 / 0.0048) | +0.0502 | -0.0466 | 0.0060 | 1.0000 | 1.0000 | NO EVIDENCE OF EDGE |
+| Setup | n | Seed 42 | 20-seed mean (std / se) | Control mean (std) | Gap | Gap / control std | SE of means (not a test) | p (seed 42) | p (seed-averaged) | Verdict |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `breakout_52week` | 1686 | +0.0277 | +0.0278 (0.0148 / 0.0033) | +0.0355 (0.0271) | -0.0077 | -0.28 | 0.0060 | 0.6452 | 0.6452 | NO EVIDENCE OF EDGE |
+| `low_vol_setup` | 1747 | +0.0243 | +0.0107 (0.0185 / 0.0041) | +0.0253 (0.0257) | -0.0146 | -0.57 | 0.0062 | 0.5484 | 0.7097 | NO EVIDENCE OF EDGE |
+| `statistical_mean_reversion` | 1677 | +0.0566 | +0.0167 (0.0183 / 0.0041) | +0.0349 (0.0231) | -0.0182 | -0.79 | 0.0059 | 0.2258 | 0.8065 | NO EVIDENCE OF EDGE |
+| `volume_trend_accumulation` | 2147 | -0.0069 | +0.0036 (0.0213 / 0.0048) | +0.0502 (0.0201) | -0.0466 | -2.31 | 0.0060 | 1.0000 | 1.0000 | NO EVIDENCE OF EDGE |
 
 All four accounts reconcile. Seed-42 vs seed-mean is +0.0277 -> +0.0278 (breakout),
 +0.0243 -> +0.0107 (low_vol), +0.0566 -> +0.0167 (SMR), -0.0069 -> +0.0036 (volume). The
-report printed the informational underperformance line for low_vol, SMR and volume, not
-breakout. Shadow seed-averaged p-values: permuted / shifted 0.9091 / 0.3333 (breakout),
-0.9091 / 0.6667 (low_vol), 0.7273 / 1.0000 (SMR), 1.0000 / 1.0000 (volume).
+report printed the informational underperformance line for volume only
+(`Gap / control std = -2.31`); breakout (-0.28), low_vol (-0.57) and SMR (-0.79) are not
+flagged. `SE of means` is descriptive only (shuffle noise plus the error of the control
+mean, not selection variability). The flag was corrected in T11 from `gap < -2 SE` to
+`gap / control_std < -2`; p-values and verdicts are unchanged. Shadow seed-averaged
+p-values: permuted / shifted 0.9091 / 0.3333 (breakout), 0.9091 / 0.6667 (low_vol),
+0.7273 / 1.0000 (SMR), 1.0000 / 1.0000 (volume).
 
 **What it supports:** on this panel, with the signals held fixed, the 20-seed mean does not
 raise any setup above the matched control, and the seed-averaged p-values are at or above
