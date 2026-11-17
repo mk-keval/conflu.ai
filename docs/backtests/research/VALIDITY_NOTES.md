@@ -164,10 +164,12 @@ from the D-61 sweep.
 - **Liquidity gate on dividend-adjusted prices.** `backend/app/research/data.py` downloads with
   `auto_adjust=True`, so `close >= 10` and `adv_usd20 >= 20,000,000` are evaluated on
   split- and dividend-adjusted prices, which can differ from the prices a trader saw.
-- **Single candidate-shuffle seed for the real run.** The strategy is run once with
-  `seed=42`; the shuffle only reorders candidates when more are available than slots. The
-  D-82 diagnostics (`docs/backtests/research/DIAGNOSTICS.md`) report across-seed std of the
-  mean net R of 0.0136-0.0219, which is the size of the seed-to-seed variation that single
-  seed carries.
+- **Candidate-shuffle seed: single-seed artifact, seed-averaged headline.** The shuffle only
+  reorders candidates when more are available than slots. From D-83 the strategy is run
+  under 20 seeds (42..61) on identical signals; the headline expectancy and test p-value use
+  the seed mean, while the artifact's trades, equity curve, account statistics and
+  reconciliation remain seed 42. `DIAGNOSTICS.md` (a) reports across-seed std of the mean
+  net R of 0.0140-0.0230 on its own 2026-11-16 panel, which is the size of the seed-to-seed
+  variation a single-seed number carries.
 - **Daily bars only.** The research harness has no 4h path, so any YAML rule declared on a 4h
   timeframe (for example `rvol_high` in `52week-breakout.yaml`) has no research equivalent.

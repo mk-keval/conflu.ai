@@ -1358,4 +1358,113 @@ a change session, so the T8+T9 session was added to:
 
 Committed separately as a docs-only commit after the two T9 commits, before pushing.
 
+---
+
+## T10 — Seed-averaged headline and p-value (D-83)
+
+- **Date:** 2026-11-17
+- **Branch:** `research/baseline-backtesting` @ `8bcf0da` (clean tree at start)
+- **What changed and why:** D-82's headline came from one engine seed (42), and
+  `DIAGNOSTICS.md` records a 20-seed spread of 0.0140–0.0230 R around those numbers. T10
+  makes the headline expectancy and the test p-value use the mean of 20 seeds (42..61) on
+  identical signals, while keeping seed 42 as the primary artifact run.
+- **Files touched:** `scripts/run_research_baseline.py`, `scripts/make_baseline_report.py`,
+  `backend/tests/test_research_runner.py`, `backend/tests/test_make_baseline_report.py`;
+  then the four `*_20261117_*.json` artifacts and `BASELINE_REPORT.md`.
+
+### Code
+
+- `strategy_seed_summary` / `strategy_seed_r_net_mean` / `run_strategy_seeds`; `std` is
+  population std (`ddof=0`, matching `research_diagnostics.py`), `se = std/sqrt(N)`.
+- `run_backtest(..., n_strategy_seeds=20)`; seed 42 supplies `trades`/`equity`/`metrics`.
+- `run_info.strategy_seeds = {seeds, r_net_mean[], mean, std, se}`.
+- `save_results(..., pvalues_seed_avg, ...)`; artifact gains `p_values_seed_avg`.
+- `--n-strategy-seeds` (default 20, `>= 1`).
+- Report: seed-mean main column, gap/SE/seed-averaged-p control columns, seed-averaged
+  verdict with fallback, underperformance line at gap < -2 SE, two deviation notes.
+- 9 new tests.
+
+### Commands and exact output
+
+```text
+$ pytest -q backend/tests/test_research_control.py backend/tests/test_research_data.py backend/tests/test_research_diagnostics.py backend/tests/test_research_engine.py backend/tests/test_research_indicators.py backend/tests/test_research_metrics.py backend/tests/test_research_runner.py backend/tests/test_research_setups.py backend/tests/test_make_baseline_report.py
+....................................................................................................... [100%]
+103 passed in 11.42s
+TEST_EXIT=0
+
+$ ruff check scripts/run_research_baseline.py scripts/make_baseline_report.py backend/tests/test_research_runner.py backend/tests/test_make_baseline_report.py
+All checks passed!
+RUFF_EXIT=0
+```
+
+```text
+$ python scripts/run_research_baseline.py --quick --n-strategy-seeds 2 --setup statistical_mean_reversion
+Strategy seeds:2 (42..43)
+Running portfolio backtest (strategy seeds 42..43, n=2)...
+Strategy seed sweep: mean=-0.0436 std=0.0119 se=0.0084
+P-VALUES (vs R-net Mean, seed 42)
+  matched_random: p = 1.0000
+P-VALUES (vs R-net Mean, strategy seed mean)
+  matched_random: p = 1.0000
+Results saved to: .cache/research_quick/out\statistical_mean_reversion_20261117_094331.json
+INFO: NOT statistically significant vs controls (seed-averaged best p=0.5000 on shifted)
+```
+
+Smoke artifact: `strategy_seeds` = seeds `[42, 43]`, `mean=-0.043608`,
+`std=0.011936`, `se=0.008440`; `p_values` and `p_values_seed_avg` both present.
+
+### Four default-flag runs
+
+Each was preceded by `python -c "... r._git_state('docs/backtests/research')"`, which
+printed `3bfb68c False` every time.
+
+| Setup | Timestamp | Exec | Seed 42 | Seed mean (std / se) | Control mean | Gap | SE | p 42 | p seed-avg |
+|---|---|---|---|---|---|---|---|---|---|
+| `breakout_52week` | 20261117_095332 | 0 | +0.027659 | +0.027783 (0.014752 / 0.003299) | +0.035506 | -0.007723 | 0.005951 | 0.6452 | 0.6452 |
+| `low_vol_setup` | 20261117_100100 | 0 | +0.024281 | +0.010719 (0.018492 / 0.004135) | +0.025300 | -0.014581 | 0.006248 | 0.5484 | 0.7097 |
+| `statistical_mean_reversion` | 20261117_100839 | 0 | +0.056569 | +0.016732 (0.018265 / 0.004084) | +0.034889 | -0.018157 | 0.005874 | 0.2258 | 0.8065 |
+| `volume_trend_accumulation` | 20261117_101631 | 0 | -0.006896 | +0.003598 (0.021337 / 0.004771) | +0.050210 | -0.046611 | 0.006024 | 1.0000 | 1.0000 |
+
+INFO tails: breakout `best p=0.3333 on shifted`; low_vol `p=0.6667 on shifted`; SMR
+`p=0.7273 on permuted`; volume `p=1.0000 on matched_random`. All four artifacts:
+`revision=3bfb68c`, `dirty=false`, `allow_same_day_recycling=false`,
+`eval_start="2016-01-01"`, 20 seeds 42..61, actual panel `2015-01-02..2026-11-17`.
+
+```text
+$ python scripts/make_baseline_report.py
+Wrote docs/backtests/research\BASELINE_REPORT.md (4 setups)
+REPORT_EXIT=0
+```
+
+The report printed the underperformance line for `low_vol_setup`,
+`statistical_mean_reversion` and `volume_trend_accumulation`, not `breakout_52week`.
+Verdicts (verbatim): `NO EVIDENCE OF EDGE` for all four.
+
+### Commits
+
+- `3bfb68c` `feat(research): seed-averaged headline and p-value (D-83)`
+- `8db1c25` `research baseline v4 artifacts with seed-averaged headline (D-83)`
+- docs commit `docs(research): record D-83 seed-averaged baseline`
+
+### Deviations and notes
+
+- The rule changed after seeing the D-82 tables and the DIAGNOSTICS seed spread; D-83
+  records this as a deviation and labels the result exploratory.
+- The v4 runs use the default `--end` (2026-11-17), so their panel is five sessions longer
+  than the D-82 artifacts'. The D-82/D-83 comparison is not one-variable; the within-run
+  seed-42 vs seed-mean comparison is.
+- `p_values_seed_avg` applies the control formula to the seed mean as one value; the
+  seed standard error appears separately as the gap SE.
+- No engine, indicator, control, data or metrics code changed. The breakout run downloaded
+  503 symbols (2 failed) because its cached span ended earlier; the other three had 503
+  hits each.
+- PowerShell globs for pytest are unreliable; the nine files were listed explicitly.
+
+### Outcome
+
+- Code + tests: **complete**, 103 passed, ruff clean.
+- Baseline: **4/4 runs exit 0**, clean tree, all accounts reconcile.
+- Report: **regenerated** and committed with the artifacts.
+- Docs: D-83 record, this entry, session note, H-12, README, D-82 banner, indexes.
+
 

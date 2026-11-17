@@ -43,7 +43,8 @@ else in this file is input to the review, never a verdict.
 | H-08 | 2026-10-22 → | **FWD-v0.1 forward sample** | **Confirmatory** | 1 closed / 2 open / 1 pending | Expectancy −1.00R, MFE gap +4.72R, net −$30.01 | **Active — not yet evidence** |
 | H-09 | 2026-10-30 | D-78 H-09: v0.1 vs v0.2 geometry on one signal stream | Exploratory (counterfactual) | 147 fills; v0.1 accepted 120; v0.2 accepted 103 (44 rejected) | v0.2 accepted −0.138R vs v0.1 accepted −0.050R; exit-only on 103 paired fills −0.138R vs −0.096R; rejected counterfactual +0.012R | Frozen; dry-run only; earliest full write 2026-11-24; never evidence |
 | H-10 | 2026-11-12 | D-81 research baseline v2: 4 setups vs matched-random/permuted/shifted controls | Exploratory (in-sample, 2015-2026) | 1876 / 1982 / 1860 / 2373 closed trades | No setup beat the matched control (p 0.61-0.94); mechanical verdicts NO EVIDENCE OF EDGE for `breakout_52week`, `statistical_mean_reversion`, `volume_trend_accumulation`; `low_vol_setup` flagged SUSPECTED BUG (max DD -43.0% vs -40% guard) | **Superseded by H-11 (D-82)** — valid only for the D-81 engine/window; the D-82 run replaces it. Never the scorecard, pass bar or kill rule |
-| H-11 | 2026-11-13 | D-82 research baseline v3: same four setups under a realistic engine (no same-day recycling, masked warm-up, one evaluation window, block-bootstrap CI) | Exploratory (in-sample, 2015-2026) | 1684 / 1746 / 1680 / 2120 closed trades | No setup beat the matched control (p 0.29–1.00); max DD worst -35.6%; mechanical verdicts NO EVIDENCE OF EDGE for all four; `low_vol_setup` no longer flagged | **Exploratory** — valid for one 2015-2026 panel and the D-82 contract; never the scorecard, pass bar or kill rule. Supersedes H-10 |
+| H-11 | 2026-11-13 | D-82 research baseline v3: same four setups under a realistic engine (no same-day recycling, masked warm-up, one evaluation window, block-bootstrap CI) | Exploratory (in-sample, 2015-2026) | 1684 / 1746 / 1680 / 2120 closed trades | No setup beat the matched control (p 0.29–1.00); max DD worst -35.6%; mechanical verdicts NO EVIDENCE OF EDGE for all four; `low_vol_setup` no longer flagged | **Exploratory** — valid for one 2015-2026 panel and the D-82 contract; never the scorecard, pass bar or kill rule. **Superseded for the headline by H-12 (D-83)**; the D-82 contract stands. Supersedes H-10 |
+| H-12 | 2026-11-17 | D-83 research baseline v4: same four setups, headline expectancy and p-value averaged over 20 engine seeds (42..61) on identical signals | Exploratory (in-sample, 2015-2026; post-hoc rule change) | 1686 / 1747 / 1677 / 2147 closed trades (seed 42) | Seed-mean expectancy +0.0278 / +0.0107 / +0.0167 / +0.0036; matched p (seed-averaged) 0.6452 / 0.7097 / 0.8065 / 1.0000; informational underperformance line for low_vol, SMR and volume; NO EVIDENCE OF EDGE for all four | **Exploratory** - valid for one 2015-2026 panel and the D-83 rule; the seed-averaged headline was introduced after seeing D-82, so it is not pre-registered. Never the scorecard, pass bar or kill rule. Supersedes H-11 for the headline |
 
 ---
 
@@ -365,6 +366,64 @@ D-81 → D-82 move. These runs use the 2026-11-16 default panel, record `dirty =
 revision `7628660`, and are documented in [`ABLATION.md`](research/ABLATION.md) with the
 refreshed [`DIAGNOSTICS.md`](research/DIAGNOSTICS.md).
 
+**Superseded for the headline (2026-11-17):** H-12 (D-83) replaces this headline with the
+mean of 20 engine seeds, and the test p-value with the seed-averaged p-value. The D-82
+engine contract, the artifacts above and every guarantee in this section stand; only the
+headline expectancy and p-value columns are superseded.
+
+### H-12 - D-83 research baseline v4: 20-seed headline and seed-averaged p-value (exploratory, in-sample, post-hoc)
+
+**Question:** the engine seed does not change the signals, only which same-date candidates
+fill the eight slots. If the same four setups are run under seeds 42..61 on identical
+signals, does the seed-mean expectancy or the seed-averaged p-value change the D-82
+verdict?
+
+**Design:** same harness and contract as H-11 (no same-day recycling, masked warm-up,
+`EVAL_START = 2016-01-01`, 2.0 ATR stop / 3.0 ATR target / 15-bar hold, 0.5% risk, 8
+positions, 20% cap, 15 bps/side). `--n-strategy-seeds 20` runs the strategy 20 times and
+records `run_info.strategy_seeds = {seeds, r_net_mean[], mean, std, se}` (population std,
+`se = std/sqrt(20)`). Seed 42 remains the primary artifact; its trades, equity, metrics,
+CIs, per-year tables and reconciliation are unchanged. `p_values_seed_avg` applies the
+same `compute_control_pvalues` formula to the seed-mean `r_net_mean` against the same 30
+matched-random / 10 permuted / 2 shifted controls. Window 2015-01-01..2026-11-17 on the
+current S&P 500 snapshot (501 tradable symbols; 2 dropped with reasons).
+
+**Result (valid for this panel and window):**
+
+| Setup | n | Seed 42 | 20-seed mean (std / se) | Control mean | Gap | SE | p (seed 42) | p (seed-averaged) | Verdict |
+|---|---|---|---|---|---|---|---|---|---|
+| `breakout_52week` | 1686 | +0.0277 | +0.0278 (0.0148 / 0.0033) | +0.0355 | -0.0077 | 0.0060 | 0.6452 | 0.6452 | NO EVIDENCE OF EDGE |
+| `low_vol_setup` | 1747 | +0.0243 | +0.0107 (0.0185 / 0.0041) | +0.0253 | -0.0146 | 0.0062 | 0.5484 | 0.7097 | NO EVIDENCE OF EDGE |
+| `statistical_mean_reversion` | 1677 | +0.0566 | +0.0167 (0.0183 / 0.0041) | +0.0349 | -0.0182 | 0.0059 | 0.2258 | 0.8065 | NO EVIDENCE OF EDGE |
+| `volume_trend_accumulation` | 2147 | -0.0069 | +0.0036 (0.0213 / 0.0048) | +0.0502 | -0.0466 | 0.0060 | 1.0000 | 1.0000 | NO EVIDENCE OF EDGE |
+
+All four accounts reconcile. Seed-42 vs seed-mean is +0.0277 -> +0.0278 (breakout),
++0.0243 -> +0.0107 (low_vol), +0.0566 -> +0.0167 (SMR), -0.0069 -> +0.0036 (volume). The
+report printed the informational underperformance line for low_vol, SMR and volume, not
+breakout. Shadow seed-averaged p-values: permuted / shifted 0.9091 / 0.3333 (breakout),
+0.9091 / 0.6667 (low_vol), 0.7273 / 1.0000 (SMR), 1.0000 / 1.0000 (volume).
+
+**What it supports:** on this panel, with the signals held fixed, the 20-seed mean does not
+raise any setup above the matched control, and the seed-averaged p-values are at or above
+the seed-42 p-values (0.6452, 0.7097, 0.8065, 1.0000). For low_vol, SMR and volume the
+seed-42 expectancy is above the 20-seed mean; for breakout the two differ by 0.0001 R.
+**What it does not support:** any deployment, weight change or scorecard entry. The
+seed-averaged headline was chosen after the D-82 tables were read, so it is not a
+pre-registered test; the panel is still the current index (survivorship) with no
+walk-forward, the research setups differ from the deployed templates, and the matched
+control draws from all eligible symbols rather than the setup's own candidates.
+
+**Evidence label:** `exploratory_research` - research harness only; never the scorecard,
+D-75 pass bar, kill rule or `/expectancy`.
+
+**Artifacts:** `docs/backtests/research/{breakout_52week_20261117_095332,
+low_vol_setup_20261117_100100, statistical_mean_reversion_20261117_100839,
+volume_trend_accumulation_20261117_101631}.json` (revision `3bfb68c`, `dirty = false`,
+`allow_same_day_recycling = false`, 20 seeds 42..61, `eval_start = "2016-01-01"`) and the
+generated [`BASELINE_REPORT.md`](research/BASELINE_REPORT.md); see the
+[artifact README](research/README.md). **Status:** supersedes H-11 for the headline; the
+D-82 engine contract and artifacts stand.
+
 ---
 
 ## Evidence hierarchy
@@ -436,3 +495,4 @@ artifact path, and the decision it does (not) justify.
 | 2026-11-12 | Replaced H-10 with the **D-81 v2 re-run** on 2015-2026 (no-look-ahead sizing, forward-filled marking, matched-random control, one-sided p-value); D-80 2020-2023 result retained as superseded history; 13 old artifacts quarantined under `research/invalid_20261110/` |
 | 2026-11-13 | Added H-11 (D-82 v3 re-run: no same-day recycling, masked indicator warm-up, one evaluation window, daily-equity Sharpe, calendar CAGR, block-bootstrap CI, drawdown breach relabelled REVIEW, control eligibility); D-81 row retained as superseded; four new `*_20261113_*.json` artifacts |
 | 2026-11-16 | Added the H-11 same-day-recycling ablation (four `*_20261116_*_recycle_on.json` runs, `dirty = false` at `7628660`) and refreshed `DIAGNOSTICS.md`; H-11 verdict unchanged |
+| 2026-11-17 | Added H-12 (D-83 v4 re-run: headline expectancy and p-value averaged over 20 seeds 42..61 on identical signals, `p_values_seed_avg`, seed-mean report columns, 103 tests) and marked H-11 **superseded for the headline**; the D-82 engine contract and artifacts stand |

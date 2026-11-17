@@ -5,6 +5,12 @@
 D-81 result tables.** Every D-81/D-80 harness guarantee (span-keyed cache, `data_end`
 closes, forward-filled marking, no look-ahead sizing, matched control, one-sided p-value,
 coverage gate, hard reconciliation) stands and is still enforced.
+
+> **Superseded for the headline (2026-11-17, [D-83](D-83-research-baseline-v4-seed-averaged.md)):**
+> the headline expectancy and p-value in this record are single-seed (42). D-83 replaces
+> them with the mean of 20 seeds and a seed-averaged p-value. The D-82 engine contract,
+> artifacts, tests and every guarantee in this record stand.
+
 **Branch:** `research/baseline-backtesting`
 **Commits:** `c6d1780`..`235f674` (T0, T1, T5, T2, T3, T4, T6a, T6b, T6c). The four
 artifacts all record `run.code.revision = 7ed0135`; the first run records
