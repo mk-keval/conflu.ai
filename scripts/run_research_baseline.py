@@ -12,11 +12,12 @@ and time-shifted control distributions. Writes a self-describing JSON artifact.
 import argparse
 import hashlib
 import json
+import math
 import os
 import platform
 import subprocess
 import sys
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import datetime
 from pathlib import Path
 
@@ -252,6 +253,65 @@ def _validate_panel(
     return problems
 
 
+def strategy_seed_summary(seeds, r_net_means) -> dict:
+    """The ``run_info.strategy_seeds`` payload: per-seed values and their stats.
+
+    ``std`` is the population standard deviation (``ddof=0``), matching
+    ``scripts/research_diagnostics.py``; ``se`` is ``std / sqrt(N)``.
+    """
+    values = np.asarray(r_net_means, dtype=float)
+    n = int(values.size)
+    mean = float(np.mean(values)) if n else 0.0
+    std = float(np.std(values)) if n else 0.0
+    se = float(std / math.sqrt(n)) if n else 0.0
+    return {
+        "seeds": [int(seed) for seed in seeds],
+        "r_net_mean": [float(value) for value in values],
+        "mean": mean,
+        "std": std,
+        "se": se,
+    }
+
+
+def strategy_seed_r_net_mean(trades, eval_start: str = EVAL_START) -> float:
+    """Mean ``r_net`` over the evaluation window (uncensored trades only)."""
+    windowed = trades_in_window(trades, eval_start)
+    return float(np.mean([t.r_net for t in windowed])) if windowed else 0.0
+
+
+def run_strategy_seeds(
+    data: dict[str, pd.DataFrame],
+    signals: dict[str, pd.Series],
+    exit_rules: ExitRules,
+    portfolio_rules: PortfolioRules,
+    seeds,
+    eval_start: str = EVAL_START,
+) -> tuple[list[dict], dict]:
+    """Run the identical signals under each engine seed.
+
+    The engine seed only shuffles same-date candidates, so every seed trades
+    the same signals and differs only in which candidate fills a scarce slot.
+    Returns one row per seed (``seed``, ``r_net_mean``, ``trades``, ``equity``)
+    plus the summary written to ``run_info.strategy_seeds``. The first seed
+    (42) remains the primary artifact run.
+    """
+    rows = []
+    for seed in seeds:
+        trades, equity = run_portfolio(
+            data, signals, exit_rules, portfolio_rules, seed=seed
+        )
+        rows.append({
+            "seed": int(seed),
+            "r_net_mean": strategy_seed_r_net_mean(trades, eval_start),
+            "trades": trades,
+            "equity": equity,
+        })
+    summary = strategy_seed_summary(
+        [row["seed"] for row in rows], [row["r_net_mean"] for row in rows]
+    )
+    return rows, summary
+
+
 def run_backtest(
     setup_name: str,
     universe_path: str,
@@ -264,6 +324,7 @@ def run_backtest(
     max_cache_age_hours: float = 20.0,
     force_download: bool = False,
     max_universe_symbols: int | None = None,
+    n_strategy_seeds: int = 20,
 ) -> dict:
     """Run a full backtest for a setup and return everything needed to document it."""
 
@@ -351,10 +412,24 @@ def run_backtest(
     total_signals = sum(s.sum() for s in signals.values())
     print(f"Total signals: {total_signals}")
 
-    # Run portfolio backtest
-    print("Running portfolio backtest...")
-    trades, equity = run_portfolio(data, signals, exit_rules, portfolio_rules, seed=42)
+    # Run portfolio backtest. The headline uses a seed sweep: the engine seed
+    # only shuffles same-date candidates, so every seed trades the same
+    # signals. Seed 42 stays the primary artifact (trades, equity, metrics).
+    seeds = list(range(42, 42 + n_strategy_seeds))
+    print(
+        f"Running portfolio backtest "
+        f"(strategy seeds {seeds[0]}..{seeds[-1]}, n={len(seeds)})..."
+    )
+    seed_runs, strategy_seeds = run_strategy_seeds(
+        data, signals, exit_rules, portfolio_rules, seeds, eval_start=EVAL_START
+    )
+    primary = seed_runs[0]
+    trades, equity = primary["trades"], primary["equity"]
     print(f"Completed {len(trades)} trades")
+    print(
+        f"Strategy seed sweep: mean={strategy_seeds['mean']:+.4f} "
+        f"std={strategy_seeds['std']:.4f} se={strategy_seeds['se']:.4f}"
+    )
 
     # Every position is closed, so equity must reconcile with realized P&L.
     expected = portfolio_rules.start_equity + sum(t.pnl_usd for t in trades)
@@ -391,6 +466,7 @@ def run_backtest(
         "requested_start": start_date,
         "requested_end": end_date,
         "n_universe_symbols": len(symbols),
+        "strategy_seeds": strategy_seeds,
     }
 
 
@@ -466,6 +542,7 @@ def save_results(
     control_summary: dict,
     pvalues_r_net_mean: dict,
     pvalues_sharpe: dict,
+    pvalues_seed_avg: dict,
     metadata: dict,
     run_info: dict,
     output_dir: str = "docs/backtests/research",
@@ -513,6 +590,7 @@ def save_results(
         "control_summary": control_summary,
         "p_values": pvalues_r_net_mean,
         "p_value_metric": "r_net_mean",
+        "p_values_seed_avg": pvalues_seed_avg,
         "p_values_sharpe": pvalues_sharpe,
         "run": metadata,
         "run_info": run_info,
@@ -651,6 +729,8 @@ def main():
                         help="Number of permuted control runs")
     parser.add_argument("--n-shifted", type=int, default=2,
                         help="Number of time-shifted control runs")
+    parser.add_argument("--n-strategy-seeds", type=int, default=20,
+                        help="Number of engine seeds (42..42+N-1) for the strategy headline")
     parser.add_argument("--cache-dir", default=".cache/research",
                         help="Cache directory")
     parser.add_argument("--cache-max-age-hours", type=float, default=20.0,
@@ -673,6 +753,9 @@ def main():
                         help="Alias for --quick with a setup name")
 
     args = parser.parse_args()
+
+    if args.n_strategy_seeds < 1:
+        parser.error("--n-strategy-seeds must be >= 1")
 
     # An artifact is only reproducible from a clean tree; refuse by default.
     # The run's own output directory is exempt (its untracked artifacts are not
@@ -722,6 +805,7 @@ def main():
     print(f"Risk %:        {args.risk_pct}%")
     print(f"Max Positions: {args.max_positions}")
     print(f"Cost BPS:      {args.cost_bps}")
+    print(f"Strategy seeds:{args.n_strategy_seeds} (42..{41 + args.n_strategy_seeds})")
     print(f"{'='*60}")
 
     # Run backtest
@@ -737,6 +821,7 @@ def main():
         max_cache_age_hours=args.cache_max_age_hours,
         force_download=args.force_download,
         max_universe_symbols=40 if args.quick else None,
+        n_strategy_seeds=args.n_strategy_seeds,
     )
 
     metrics = result["metrics"]
@@ -776,10 +861,12 @@ def main():
         "git_commit": _git_commit_short(),
         "quick": bool(args.quick),
         "eval_start": EVAL_START,
+        "strategy_seeds": result["strategy_seeds"],
     }
 
     # Run controls
     pvalues_r = {}
+    pvalues_seed_avg = {}
     pvalues_sharpe = {}
     control_results = {}
     control_summary = {}
@@ -796,12 +883,23 @@ def main():
         control_summary = summarize_controls(control_results)
 
         pvalues_r = compute_control_pvalues(metrics, control_results, "r_net_mean")
+        pvalues_seed_avg = compute_control_pvalues(
+            replace(metrics, r_net_mean=result["strategy_seeds"]["mean"]),
+            control_results,
+            "r_net_mean",
+        )
         pvalues_sharpe = compute_control_pvalues(metrics, control_results, "sharpe")
 
         print(f"\n{'='*60}")
-        print(f"P-VALUES (vs R-net Mean)")
+        print(f"P-VALUES (vs R-net Mean, seed 42)")
         print(f"{'='*60}")
         for ctype, p in pvalues_r.items():
+            sig = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else ""
+            print(f"  {ctype:14s}: p = {p:.4f} {sig}")
+
+        print(f"\nP-VALUES (vs R-net Mean, strategy seed mean)")
+        print(f"{'='*60}")
+        for ctype, p in pvalues_seed_avg.items():
             sig = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else ""
             print(f"  {ctype:14s}: p = {p:.4f} {sig}")
 
@@ -817,6 +915,7 @@ def main():
         control_summary,
         pvalues_r,
         pvalues_sharpe,
+        pvalues_seed_avg,
         metadata,
         run_info,
         args.output_dir,
@@ -828,29 +927,30 @@ def main():
     print(f"{'='*60}")
 
     # INFO only: a completed run is a successful run. Significance never
-    # changes the exit code.
-    if pvalues_r:
-        best_control = min(pvalues_r, key=pvalues_r.get)
-        best_p = pvalues_r[best_control]
+    # changes the exit code. The headline test is the strategy seed mean.
+    if pvalues_seed_avg:
+        strategy_mean = result["strategy_seeds"]["mean"]
+        best_control = min(pvalues_seed_avg, key=pvalues_seed_avg.get)
+        best_p = pvalues_seed_avg[best_control]
         control_mean = control_summary[best_control]["r_net_mean_mean"]
-        favorable = metrics.r_net_mean > control_mean
+        favorable = strategy_mean > control_mean
 
         if best_p < 0.05 and favorable:
             print(
                 f"INFO: significantly BETTER than {best_control} "
-                f"(p={best_p:.4f}, real r_net_mean={metrics.r_net_mean:.3f} "
+                f"(p={best_p:.4f}, strategy seed mean={strategy_mean:.3f} "
                 f"vs control mean {control_mean:.3f})"
             )
         elif best_p < 0.05:
             print(
                 f"INFO: significantly WORSE than {best_control} "
-                f"(p={best_p:.4f}, real r_net_mean={metrics.r_net_mean:.3f} "
+                f"(p={best_p:.4f}, strategy seed mean={strategy_mean:.3f} "
                 f"vs control mean {control_mean:.3f})"
             )
         else:
             print(
                 f"INFO: NOT statistically significant vs controls "
-                f"(best p={best_p:.4f} on {best_control})"
+                f"(seed-averaged best p={best_p:.4f} on {best_control})"
             )
     else:
         print("INFO: No controls run")

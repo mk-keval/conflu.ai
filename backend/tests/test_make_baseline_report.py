@@ -6,6 +6,7 @@ the block bootstrap CI and the verdict labels.
 """
 
 import math
+import statistics
 
 import pytest
 
@@ -18,6 +19,7 @@ from scripts.make_baseline_report import (
 
 
 PATTERN = [0.5, -0.3, 0.2, -0.1, 0.4, -0.2]
+SEED_VALUES = [0.06, 0.08, 0.11]
 
 
 def _artifact(n_per_year=5):
@@ -65,6 +67,13 @@ def _artifact(n_per_year=5):
                 "max_position_pct": 20.0,
                 "cost_bps_per_side": 15.0,
             },
+            "strategy_seeds": {
+                "seeds": [42, 43, 44],
+                "r_net_mean": list(SEED_VALUES),
+                "mean": statistics.mean(SEED_VALUES),
+                "std": statistics.pstdev(SEED_VALUES),
+                "se": statistics.pstdev(SEED_VALUES) / math.sqrt(len(SEED_VALUES)),
+            },
         },
         "trades": trades,
         "equity_curve": [
@@ -82,6 +91,7 @@ def _artifact(n_per_year=5):
             }
         },
         "p_values": {"matched_random": 0.01},
+        "p_values_seed_avg": {"matched_random": 0.02},
     }
 
 
@@ -178,3 +188,59 @@ def test_verdict_requires_profitable_years():
         {"year": 2018, "n": 40, "expectancy_net": -0.1, "profit_factor": 0.9},
     ]
     assert verdict(_row(), _stats(), years) == "NO EVIDENCE OF EDGE"
+
+
+def test_main_table_renders_seed_mean_column():
+    report = build_report({"demo": ("demo_20190101.json", _artifact(n_per_year=40))})
+
+    assert "Expectancy (mean of 3 seeds)" in report
+    assert f"| {statistics.mean(SEED_VALUES):.3f} |" in report
+
+
+def test_control_table_renders_gap_se_and_seed_averaged_p():
+    art = _artifact(n_per_year=40)
+    report = build_report({"demo": ("demo_20190101.json", art)})
+
+    seeds = art["run_info"]["strategy_seeds"]
+    controls = art["control_summary"]["matched_random"]
+    gap = seeds["mean"] - controls["r_net_mean_mean"]
+    se = math.sqrt(
+        seeds["se"] ** 2 + controls["r_net_mean_std"] ** 2 / controls["n_runs"]
+    )
+    assert "Gap vs control (strategy seed-mean - control mean)" in report
+    assert "SE of gap" in report
+    assert "p (seed-averaged)" in report
+    assert f"| {gap:.3f} | {se:.3f} |" in report
+    assert "| 0.0100 | 0.0200 |" in report
+
+
+def test_underperformance_line_when_gap_below_two_se():
+    art = _artifact(n_per_year=40)
+    values = [-0.06, -0.05, -0.04]
+    art["run_info"]["strategy_seeds"].update(
+        {
+            "r_net_mean": values,
+            "mean": statistics.mean(values),
+            "std": statistics.pstdev(values),
+            "se": statistics.pstdev(values) / math.sqrt(len(values)),
+        }
+    )
+    report = build_report({"demo": ("demo_20190101.json", art)})
+
+    assert "**demo**: strategy underperforms matched control (informational)" in report
+
+
+def test_no_underperformance_line_when_gap_is_inside_two_se():
+    report = build_report({"demo": ("demo_20190101.json", _artifact(n_per_year=40))})
+
+    assert "**demo**: strategy underperforms matched control" not in report
+
+
+def test_verdict_uses_seed_averaged_p_value():
+    row = _row(p_matched=0.20, p_matched_seed_avg=0.01)
+    assert verdict(row, _stats(), PER_YEAR) == "CANDIDATE needs out-of-sample test"
+
+
+def test_verdict_seed_average_can_remove_candidate():
+    row = _row(p_matched=0.01, p_matched_seed_avg=0.20)
+    assert verdict(row, _stats(), PER_YEAR) == "NO EVIDENCE OF EDGE"

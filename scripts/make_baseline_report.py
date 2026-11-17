@@ -26,8 +26,35 @@ CONTROL_NOTE = (
     "The p-value is the fraction of matched-random controls that do at least as "
     "well as the real strategy (`mean(control >= real)`), with the finite-sample "
     "correction `(p_raw*n + 1)/(n + 1)`; it is never direction-flipped for "
-    "negative results."
+    "negative results. The seed-averaged p-value applies the same formula to the "
+    "mean of the strategy's per-seed expectancies (`p_values_seed_avg`)."
 )
+
+
+def seed_stats(payload):
+    """The artifact's ``run_info.strategy_seeds`` block, or ``{}`` when absent."""
+    info = payload.get("run_info") or {}
+    return info.get("strategy_seeds") or {}
+
+
+def gap_stats(strategy_seeds, controls):
+    """Seed-mean gap to the control mean and the standard error of that gap.
+
+    ``SE = sqrt(se_strategy^2 + control_std^2 / n_control)``. Returns ``None``
+    when the artifact predates the seed sweep.
+    """
+    mean = strategy_seeds.get("mean")
+    control_mean = controls.get("r_net_mean_mean")
+    if mean is None or control_mean is None:
+        return None
+    gap = float(mean) - float(control_mean)
+    se = strategy_seeds.get("se")
+    control_std = controls.get("r_net_mean_std")
+    n_control = controls.get("n_runs")
+    if se is None or control_std is None or not n_control:
+        return {"gap": gap, "se": None}
+    se_gap = math.sqrt(float(se) ** 2 + float(control_std) ** 2 / int(n_control))
+    return {"gap": gap, "se": se_gap}
 
 
 def load_newest(dirpath):
@@ -238,7 +265,11 @@ def verdict(row, stats, per_year):
     if row["account"]["max_dd"] < -0.40:
         return "REVIEW drawdown guard breached (not necessarily a bug)"
 
-    p = row["p_matched"]
+    # Seed-averaged p-value when the artifact carries one (D-83); older
+    # artifacts fall back to the seed-42 p-value.
+    p = row.get("p_matched_seed_avg")
+    if p is None:
+        p = row["p_matched"]
     qualifying = [y for y in per_year if y["n"] >= 10]
     profitable = sum(1 for y in qualifying if y["expectancy_net"] > 0)
     share = profitable / len(qualifying) if qualifying else 0.0
@@ -310,6 +341,8 @@ def build_report(artifacts):
         years = per_year_stats(stats["trades"])
         controls = payload.get("control_summary", {}).get("matched_random", {})
         p_values = payload.get("p_values", {})
+        p_seed_avg = payload.get("p_values_seed_avg") or {}
+        seeds = seed_stats(payload)
         rows.append(
             {
                 "setup": setup,
@@ -320,26 +353,39 @@ def build_report(artifacts):
                 "years": years,
                 "controls": controls,
                 "p_matched": p_values.get("matched_random"),
+                "p_matched_seed_avg": p_seed_avg.get("matched_random"),
+                "strategy_seeds": seeds,
+                "gap": gap_stats(seeds, controls),
                 "run_info": info,
             }
         )
 
+    seed_counts = {
+        len(row["strategy_seeds"].get("seeds", []))
+        for row in rows
+        if row["strategy_seeds"].get("seeds")
+    }
+    seed_label = str(next(iter(seed_counts))) if len(seed_counts) == 1 else "N"
+
     add("## Main table")
     add("")
     add(
-        "| Setup | n | Win rate | Avg win R | Avg loss R | Expectancy net | 95% CI (iid) | "
+        "| Setup | n | Win rate | Avg win R | Avg loss R | Expectancy net | "
+        f"Expectancy (mean of {seed_label} seeds) | 95% CI (iid) | "
         "95% CI (block) | Expectancy gross | PF | CAGR | Max DD | Reconciliation |"
     )
-    add("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    add("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for row in rows:
         s = row["stats"]
         a = row["account"]
         ci = f"[{_fmt(s['ci95'][0], 3)}, {_fmt(s['ci95'][1], 3)}]"
         ci_block = f"[{_fmt(s['ci95_block'][0], 3)}, {_fmt(s['ci95_block'][1], 3)}]"
+        seed_mean = row["strategy_seeds"].get("mean")
         add(
             f"| {row['setup']} | {s['n']} | {_pct(s['win_rate'])} | "
             f"{_fmt(s['avg_win_r'], 3)} | {_fmt(s['avg_loss_r'], 3)} | "
-            f"{_fmt(s['expectancy_net'], 3)} | {ci} | {ci_block} | "
+            f"{_fmt(s['expectancy_net'], 3)} | {_fmt(seed_mean, 3)} | {ci} | "
+            f"{ci_block} | "
             f"{_fmt(s['expectancy_gross'], 3)} | {_fmt(s['profit_factor'])} | "
             f"{_pct(a['cagr'])} | {_pct(a['max_dd'])} | "
             f"{'PASS' if a['reconciles'] else 'FAIL'} |"
@@ -367,21 +413,38 @@ def build_report(artifacts):
     add("")
     add(
         "| Setup | Control runs | Control trades (mean) | Control expectancy (mean +/- std) | "
-        "Strategy expectancy | p (matched_random) |"
+        "Strategy expectancy (seed 42) | Strategy seed mean | "
+        "Gap vs control (strategy seed-mean - control mean) | SE of gap | "
+        "p (seed 42) | p (seed-averaged) |"
     )
-    add("|---|---|---|---|---|---|")
+    add("|---|---|---|---|---|---|---|---|---|---|")
     for row in rows:
         controls = row["controls"]
-        p = row["p_matched"]
+        gap = row["gap"] or {}
         add(
             f"| {row['setup']} | {controls.get('n_runs', 0)} | "
             f"{_fmt(controls.get('n_trades_mean'), 1)} | "
             f"{_fmt(controls.get('r_net_mean_mean'), 3)} +/- "
             f"{_fmt(controls.get('r_net_mean_std'), 3)} | "
             f"{_fmt(row['stats']['expectancy_net'], 3)} | "
-            f"{_fmt(p, 4)} |"
+            f"{_fmt(row['strategy_seeds'].get('mean'), 3)} | "
+            f"{_fmt(gap.get('gap'), 3)} | {_fmt(gap.get('se'), 3)} | "
+            f"{_fmt(row['p_matched'], 4)} | "
+            f"{_fmt(row['p_matched_seed_avg'], 4)} |"
         )
     add("")
+    underperform = [
+        row["setup"]
+        for row in rows
+        if row["gap"]
+        and row["gap"].get("se") is not None
+        and float(row["gap"]["se"]) > 0
+        and float(row["gap"]["gap"]) < -2 * float(row["gap"]["se"])
+    ]
+    for setup in underperform:
+        add(f"- **{setup}**: strategy underperforms matched control (informational)")
+    if underperform:
+        add("")
     add(CONTROL_NOTE)
     add("")
 
@@ -425,6 +488,11 @@ def build_report(artifacts):
     add("- `expectancy_gross` and `expectancy_net` are per-trade R averages.")
     add("- The p-value metric is per-trade expectancy (`r_net_mean`), not R sum.")
     add(
+        "- The headline expectancy is the mean of the per-seed net expectancies "
+        "(seeds 42..42+N-1 on identical signals); the other strategy columns describe "
+        "seed 42, which is the primary artifact run."
+    )
+    add(
         "- The matched-random control fires the same number of entries per day as the "
         "strategy, on random liquid symbols with valid indicators."
     )
@@ -435,6 +503,16 @@ def build_report(artifacts):
     add(
         "- The verdict rule uses the 95% month-block bootstrap CI lower bound (changed "
         "after seeing D-81 results); the iid CI is shown for reference only."
+    )
+    add(
+        "- The verdict rule uses the seed-averaged p-value (`p_values_seed_avg`, the "
+        "strategy seed-mean vs the same controls), changed after seeing D-82 results; "
+        "the seed-42 p-value is shown for comparison."
+    )
+    add(
+        "- When the seed-mean gap to the matched control is more than 2 standard errors "
+        "negative, the report prints \"strategy underperforms matched control "
+        "(informational)\"; that line does not change the verdict."
     )
     add(
         "- A drawdown breach alone is labelled REVIEW, not SUSPECTED BUG: a -40% drawdown "
