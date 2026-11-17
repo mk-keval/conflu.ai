@@ -20,6 +20,8 @@ Sensitivity studies (seed, cost, data integrity, exit mix) are in
 The same-day-recycling ablation (D-82 default vs recycle on) is in
 [`ABLATION.md`](ABLATION.md).
 
+The E1 event study and E2 exit study ([D-84](../../DECISIONS/D-84-research-signal-information-and-exit-shape.md), H-13/H-14) are in [`EVENT_STUDY.md`](EVENT_STUDY.md) and [`EXIT_STUDY.md`](EXIT_STUDY.md); use [`PREREGISTRATION_TEMPLATE.md`](PREREGISTRATION_TEMPLATE.md) before any future full run.
+
 The **D-82** `*_20261113_*.json` artifacts are **superseded for the headline** by D-83; they
 remain valid for the D-82 engine contract and are kept as the previous baseline. The **D-81**
 `*_20261111_21*.json` artifacts are **superseded**. The 13 older D-79/D-80 artifacts are

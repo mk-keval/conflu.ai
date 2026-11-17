@@ -3,6 +3,8 @@
 **Date:** 2026-11-12 (D-82, task T5)
 **Status:** descriptive only. This file changes no code, no YAML and no artifact.
 
+**Related:** [D-84](../../DECISIONS/D-84-research-signal-information-and-exit-shape.md) records the E1 event study and E2 exit study; their own capacity and benchmark caveats are in [EVENT_STUDY.md](EVENT_STUDY.md) and [EXIT_STUDY.md](EXIT_STUDY.md). This note is unchanged by E3.
+
 Sources read for this note: `backend/app/research/setups.py`, `backend/app/research/indicators.py`,
 `backend/app/research/control.py`, `config/screens/52week-breakout.yaml`,
 `config/screens/low-vol-setup.yaml`, `config/screens/statistical-mean-reversion.yaml`,

@@ -322,3 +322,176 @@ CI_TEST_EXIT=0
   trail only the open trade and the full run above is from the corrected code.
 - No baseline engine/indicator/setup/control/metrics/runner files or committed
   result artifacts were modified.
+
+---
+
+## E3 — Documentation record (D-84, H-13/H-14, trial ledger, pre-registration template)
+
+- **Date:** 2026-11-17
+- **Task:** E3 (Phase 2). Docs-only. Preconditions E1 `687df51` and E2 `62abbef` are
+  committed locally; no push.
+- **What changed and why:** record the two Phase 2 studies in one decision record
+  (D-84), log the two questions as H-13/H-14 with EXPLORATORY labels, add a trial
+  ledger (E1 `4 setups × 5 horizons = 20` cells; E2 `4 setups × 5 variants = 20`
+  cells), add a fill-in pre-registration template for future runs, and add one-line
+  pointers from the five existing indexes/notes. Every number is copied verbatim from
+  `EVENT_STUDY.md`, `EXIT_STUDY.md`, `BASELINE_REPORT.md` or this work log; fields with
+  no recorded value say "not recorded"; no interpretation was added. No code, test,
+  workflow or committed artifact changed.
+
+### Files touched
+
+- `docs/DECISIONS/D-84-research-signal-information-and-exit-shape.md` (new)
+- `docs/backtests/HYPOTHESIS_LOG.md` (H-13/H-14 rows + details, trial ledger, change log)
+- `docs/backtests/research/PREREGISTRATION_TEMPLATE.md` (new)
+- `docs/backtests/research/README.md` (pointer)
+- `docs/backtests/research/VALIDITY_NOTES.md` (pointer)
+- `docs/DECISIONS/index.md` (D-84 pointer)
+- `docs/index.md` (D-84 pointer)
+- `INDEX.md` (D-84 pointer)
+- `docs/SESSIONS/research-discovery-log.md` (this entry)
+
+### Commands, exact output
+
+Start-of-task gate (broad ruff failure is the same pre-existing six `W291` warnings):
+
+```text
+....................................................................................................................                                                                                      [100%]
+116 passed in 10.40s
+TEST_EXIT=0
+help: Remove trailing whitespace
+
+Found 6 errors.
+[*] 6 fixable with the `--fix` option.
+GATE_RUFF_EXIT=1
+All checks passed!
+CI_RUFF_EXIT=0
+```
+
+End-of-task gate and exact CI workflow commands (PowerShell does not expand the
+`test_research_*.py` glob, so the explicit 11-file list from `.github/workflows/research.yml`
+was used for pytest):
+
+```text
+=== END GATE: pytest -q (explicit 11-file CI list) ===
+....................................................................................................................                                                                                      [100%]
+116 passed in 10.21s
+TEST_EXIT=0
+=== END GATE: ruff check backend/app/research scripts ===
+W291 [*] Trailing whitespace  --> scripts\run_pytest.py:11:30
+W291 [*] Trailing whitespace  --> scripts\run_tests.py:10:30
+W291 [*] Trailing whitespace  --> scripts\run_tests.py:11:36
+W291 [*] Trailing whitespace  --> scripts\run_tests_final.py:18:36
+W291 [*] Trailing whitespace  --> scripts\run_tests_fixed.py:24:40
+W291 [*] Trailing whitespace  --> scripts\run_tests_isolated.py:24:40
+Found 6 errors.
+[*] 6 fixable with the `--fix` option.
+GATE_RUFF_EXIT=1
+=== EXACT CI: ruff check (workflow scope) ===
+All checks passed!
+CI_RUFF_EXIT=0
+=== EXACT CI: pytest -v (workflow list) ===
+backend/tests/test_make_baseline_report.py::test_control_table_renders_gap_se_and_seed_averaged_p PASSED                                                                                                  [ 95%]
+backend/tests/test_make_baseline_report.py::test_underperformance_line_when_gap_below_two_control_std PASSED                                                                                              [ 96%]
+backend/tests/test_make_baseline_report.py::test_no_underperformance_line_when_gap_is_inside_two_control_std PASSED                                                                                       [ 97%]
+backend/tests/test_make_baseline_report.py::test_old_se_rule_flags_but_control_std_rule_does_not PASSED                                                                                                   [ 98%]
+backend/tests/test_make_baseline_report.py::test_verdict_uses_seed_averaged_p_value PASSED                                                                                                                [ 99%]
+backend/tests/test_make_baseline_report.py::test_verdict_seed_average_can_remove_candidate PASSED                                                                                                         [100%]
+
+============================================================================================= 116 passed in 10.72s =============================================================================================
+CI_TEST_EXIT=0
+```
+
+The six W291 diagnostics above were shortened to their locations for this log; the
+full diagnostics were printed by the command and are unchanged from E1/E2.
+
+Self-check — every file path, flag and function name mentioned in the E3 docs
+(`Test-Path` for paths; `Select-String -SimpleMatch` over
+`backend/app/research`, `backend/tests`, `scripts`, `.github/workflows`, `docs` and
+root `INDEX.md` for content):
+
+```text
+=== PATH CHECK (Test-Path) ===
+PATH FOUND      docs/DECISIONS/D-84-research-signal-information-and-exit-shape.md
+PATH FOUND      docs/backtests/research/EVENT_STUDY.md
+PATH FOUND      docs/backtests/research/EXIT_STUDY.md
+PATH FOUND      docs/backtests/research/event_study/event_study_20261117_134829.json
+PATH FOUND      docs/backtests/research/event_study/exit_study_20261117_142553.json
+PATH FOUND      docs/backtests/research/BASELINE_REPORT.md
+PATH FOUND      docs/backtests/research/PREREGISTRATION_TEMPLATE.md
+PATH FOUND      docs/backtests/HYPOTHESIS_LOG.md
+PATH FOUND      docs/SESSIONS/research-discovery-log.md
+PATH FOUND      docs/DECISIONS/index.md
+PATH FOUND      docs/index.md
+PATH FOUND      INDEX.md
+PATH FOUND      backend/app/research/events.py
+PATH FOUND      backend/app/research/exit_study.py
+PATH FOUND      scripts/research_event_study.py
+PATH FOUND      scripts/research_exit_study.py
+PATH FOUND      backend/tests/test_research_events.py
+PATH FOUND      backend/tests/test_research_exit_study.py
+PATH FOUND      .github/workflows/research.yml
+PATH FOUND      docs/DECISIONS/D-83-research-baseline-v4-seed-averaged.md
+=== CONTENT CHECK (Select-String, first match shown) ===
+CONTENT FOUND      --setups -> C:\_Code\conflu.ai\scripts\research_diagnostics.py:17
+CONTENT FOUND      --horizons -> C:\_Code\conflu.ai\scripts\research_event_study.py:275
+CONTENT FOUND      --cooldown -> C:\_Code\conflu.ai\scripts\research_event_study.py:277
+CONTENT FOUND      --n-null -> C:\_Code\conflu.ai\scripts\research_event_study.py:15
+CONTENT FOUND      --report -> C:\_Code\conflu.ai\scripts\research_diagnostics.py:546
+CONTENT FOUND      --json-dir -> C:\_Code\conflu.ai\scripts\research_event_study.py:280
+CONTENT FOUND      --n-strategy-seeds -> C:\_Code\conflu.ai\scripts\run_research_baseline.py:732
+CONTENT FOUND      forward_return_frame -> C:\_Code\conflu.ai\backend\app\research\events.py:42
+CONTENT FOUND      eligibility_frame -> C:\_Code\conflu.ai\backend\app\research\events.py:67
+CONTENT FOUND      apply_cooldown -> C:\_Code\conflu.ai\backend\app\research\events.py:85
+CONTENT FOUND      accepted_event_positions -> C:\_Code\conflu.ai\backend\app\research\events.py:103
+CONTENT FOUND      collect_events -> C:\_Code\conflu.ai\backend\app\research\events.py:113
+CONTENT FOUND      universe_benchmark -> C:\_Code\conflu.ai\backend\app\research\events.py:183
+CONTENT FOUND      month_block_bootstrap_ci -> C:\_Code\conflu.ai\backend\app\research\events.py:217
+CONTENT FOUND      mean_excess -> C:\_Code\conflu.ai\backend\app\research\events.py:265
+CONTENT FOUND      event_stats -> C:\_Code\conflu.ai\backend\app\research\events.py:126
+CONTENT FOUND      p_values -> C:\_Code\conflu.ai\backend\app\research\events.py:338
+CONTENT FOUND      null_distribution -> C:\_Code\conflu.ai\backend\app\research\events.py:359
+CONTENT FOUND      ExitVariant -> C:\_Code\conflu.ai\backend\app\research\exit_study.py:49
+CONTENT FOUND      VARIANTS -> C:\_Code\conflu.ai\backend\app\research\exit_study.py:66
+CONTENT FOUND      trailing_stop_path -> C:\_Code\conflu.ai\backend\app\research\exit_study.py:100
+CONTENT FOUND      simulate_trade -> C:\_Code\conflu.ai\backend\app\research\exit_study.py:129
+CONTENT FOUND      entry_candidates -> C:\_Code\conflu.ai\backend\app\research\exit_study.py:255
+CONTENT FOUND      simulate_entries -> C:\_Code\conflu.ai\backend\app\research\exit_study.py:294
+CONTENT FOUND      trade_stats -> C:\_Code\conflu.ai\backend\app\research\exit_study.py:341
+CONTENT FOUND      null_summary -> C:\_Code\conflu.ai\backend\app\research\exit_study.py:383
+CONTENT FOUND      mask_ineligible -> C:\_Code\conflu.ai\backend\app\research\exit_study.py:414
+CONTENT FOUND      null_distributions -> C:\_Code\conflu.ai\backend\app\research\exit_study.py:440
+CONTENT FOUND      matched_random_signals -> C:\_Code\conflu.ai\backend\app\research\control.py:178
+CONTENT FOUND      run_portfolio -> C:\_Code\conflu.ai\backend\app\research\control.py:9
+```
+
+Unconfirmed items: **none** (all 20 paths and all 30 flags/function names were found).
+
+GitNexus change detection before commit (`detect_changes(scope="all", repo="conflu.ai")`):
+
+```text
+{
+  "summary": {
+    "changed_count": 4,
+    "affected_count": 0,
+    "changed_files": 6,
+    "risk_level": "low"
+  },
+  "changed_symbols": [ INDEX.md "conflu.ai — Trading Intelligence Platform"/"Project Index",
+                       docs/backtests/research/README.md "Research Backtest Artifacts",
+                       docs/backtests/research/VALIDITY_NOTES.md "Validity Notes — Research Harness vs Deployed Screens" ],
+  "affected_processes": []
+}
+```
+
+### Skipped / notes
+
+- No code, test, workflow, engine, indicator, setup, control, metric, runner or
+  committed result artifact was modified (docs only). No symbol was edited, so no
+  GitNexus impact analysis on a symbol was required; `detect_changes` returned
+  `risk_level = low` and `affected_processes = []`.
+- No push; one commit for E3 only.
+- Broad `ruff check backend/app/research scripts` still fails on the same six
+  pre-existing `W291` warnings; left untouched per user decision, CI ruff scope clean.
+- No pre-registration existed before E1/E2; D-84 records that as "not recorded" and
+  H-13/H-14 are labelled EXPLORATORY. The template added here applies to future runs.

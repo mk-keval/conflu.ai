@@ -45,6 +45,8 @@ else in this file is input to the review, never a verdict.
 | H-10 | 2026-11-12 | D-81 research baseline v2: 4 setups vs matched-random/permuted/shifted controls | Exploratory (in-sample, 2015-2026) | 1876 / 1982 / 1860 / 2373 closed trades | No setup beat the matched control (p 0.61-0.94); mechanical verdicts NO EVIDENCE OF EDGE for `breakout_52week`, `statistical_mean_reversion`, `volume_trend_accumulation`; `low_vol_setup` flagged SUSPECTED BUG (max DD -43.0% vs -40% guard) | **Superseded by H-11 (D-82)** — valid only for the D-81 engine/window; the D-82 run replaces it. Never the scorecard, pass bar or kill rule |
 | H-11 | 2026-11-13 | D-82 research baseline v3: same four setups under a realistic engine (no same-day recycling, masked warm-up, one evaluation window, block-bootstrap CI) | Exploratory (in-sample, 2015-2026) | 1684 / 1746 / 1680 / 2120 closed trades | No setup beat the matched control (p 0.29–1.00); max DD worst -35.6%; mechanical verdicts NO EVIDENCE OF EDGE for all four; `low_vol_setup` no longer flagged | **Exploratory** — valid for one 2015-2026 panel and the D-82 contract; never the scorecard, pass bar or kill rule. **Superseded for the headline by H-12 (D-83)**; the D-82 contract stands. Supersedes H-10 |
 | H-12 | 2026-11-17 | D-83 research baseline v4: same four setups, headline expectancy and p-value averaged over 20 engine seeds (42..61) on identical signals | Exploratory (in-sample, 2015-2026; post-hoc rule change) | 1686 / 1747 / 1677 / 2147 closed trades (seed 42) | Seed-mean expectancy +0.0278 / +0.0107 / +0.0167 / +0.0036; matched p (seed-averaged) 0.6452 / 0.7097 / 0.8065 / 1.0000; informational underperformance line for volume only (Gap / control std -2.31; low_vol -0.57 and SMR -0.79 not flagged); NO EVIDENCE OF EDGE for all four | **Exploratory** - valid for one 2015-2026 panel and the D-83 rule; the seed-averaged headline was introduced after seeing D-82, so it is not pre-registered. Never the scorecard, pass bar or kill rule. Supersedes H-11 for the headline |
+| H-13 | 2026-11-17 | E1 / D-84 event study: forward returns after each real setup signal, minus the same-date eligible-universe mean, at horizons 1, 5, 10, 20, 60; no stops, targets or portfolio rules | Exploratory (in-sample, 2015-2026; post-hoc, no pre-registration) | 9014 / 4915 / 9168 / 14481 events after cooldown (SMR / breakout / low_vol / volume) | h=5 mean excess -9.0 / +7.7 / -5.2 / +5.5 bp; h=20 -26.1 / +14.6 / -15.4 / -11.1 bp; 200 matched-random nulls, seeds 50000..50199 | **EXPLORATORY** - one survivorship-biased panel, no walk-forward, same-date eligibility benchmark, no portfolio constraints. Not pre-registered. Never the scorecard, D-75 pass bar, kill rule or forward verdict |
+| H-14 | 2026-11-17 | E2 / D-84 exit study: five exit variants (B0-B4) on the same entries, compared with 100 matched-random entry sets under the same exit | Exploratory (in-sample, 2015-2026; post-hoc, no pre-registration) | 16683 / 6819 / 18346 / 20830 entries before exit-variant drops (SMR / breakout / low_vol / volume) | Best mean r_net: low_vol B4 0.2463 (gap 0.0310, gap/std 2.66); worst: breakout B3 -0.0484 (gap -0.0500, gap/std -4.02); 4 setups x 5 variants = 20 cells, not independent | **EXPLORATORY** - one survivorship-biased panel, no walk-forward, no capacity or slot competition, shared entries across variants and nulls. Not pre-registered. Never the scorecard, D-75 pass bar, kill rule or forward verdict |
 
 ---
 
@@ -430,6 +432,136 @@ D-82 engine contract and artifacts stand.
 
 ---
 
+### H-13 — E1 / D-84 event study (exploratory)
+
+**Question (task title):** does the signal carry information, at which horizon?
+
+**Design:** committed as `687df51`. `backend/app/research/events.py` (pure) plus
+`scripts/research_event_study.py` load the same panel as the baseline runner
+(`download_daily` on `.cache/research`, 2015-01-01 -> latest, `add_indicators`;
+`NON_TRADABLE` excluded) and mark `ret_h = close[e+h-1] / open[e] - 1` at horizons
+1, 5, 10, 20, 60 after each `SETUPS[name](df)` signal with `eligible(df)` at the
+signal bar and entry date >= 2016-01-01. Cooldown drops a repeat when the previous
+accepted event is <= 5 bars earlier. Excess = event `ret_h` minus the same-date mean
+over all eligible symbols. Null: 200 matched-random sets per setup from
+`backend.app.research.control.matched_random_signals`, seeds 50000..50199. Flags:
+`--setups`, `--horizons`, `--cooldown`, `--n-null`, `--report`, `--json-dir`.
+Panel: 2015-01-02 -> 2026-11-17, 501 tradable, 2 dropped, 503 cache hits / 0 downloads.
+
+**Result:** events after cooldown 9014 / 4915 / 9168 / 14481 (SMR / breakout /
+low_vol / volume). h=5 mean excess -9.0 / +7.7 / -5.2 / +5.5 bp; h=20 -26.1 /
++14.6 / -15.4 / -11.1 bp. Full h=5 and h=20 tables, including the by-calendar-year
+rows, are copied into [D-84](../DECISIONS/D-84-research-signal-information-and-exit-shape.md)
+and the source is [`EVENT_STUDY.md`](research/EVENT_STUDY.md).
+
+**What it supports / does not support:** the report states the event study "has no
+stops, targets, position limits, slot competition or capital constraint; it cannot be
+read as a portfolio result", and the benchmark "is a same-date market/eligibility mean,
+not a sector- or size-matched benchmark". **Evidence label:** `EXPLORATORY` — one
+in-sample, survivorship-biased panel, no walk-forward, no pre-registration. Never the
+scorecard, D-75 pass bar, kill rule or forward verdict.
+
+**Artifacts:** `docs/backtests/research/EVENT_STUDY.md` (generated),
+`docs/backtests/research/event_study/event_study_20261117_134829.json` (generated),
+`backend/tests/test_research_events.py` (six synthetic tests),
+`docs/SESSIONS/research-discovery-log.md` (E1 entry).
+
+---
+
+### H-14 — E2 / D-84 exit study (exploratory)
+
+**Question (task title):** are our exits wasting a real signal?
+
+**Design:** committed as `62abbef`. `backend/app/research/exit_study.py` (pure) plus
+`scripts/research_exit_study.py` apply variants B0-B4 to the same entries (signal at
+`t`, entry at the open of `t+1`, `atr14` of the signal bar, skip NaN/<=0). 1R is
+always `2 * ATR`; costs are 15 bps per side with the engine's `r_net`/`r_gross`
+formulas; B4 exits at the close of the 20th bar including entry (`max_hold=19`).
+Null: 100 matched-random entry sets per setup from
+`backend.app.research.control.matched_random_signals`, seeds 60000..60099, same entry
+and exit rules. Flags: `--setups`, `--n-null`, `--report`, `--json-dir`. The work log
+records that the first smoke-run trailing stop used pre-entry highs and was corrected
+before the full run.
+
+**Result:** entries considered before drops 16683 / 6819 / 18346 / 20830. Best mean
+`r_net`: `low_vol_setup` B4 0.2463 (null mean 0.2153, null std 0.0116, gap 0.0310,
+gap/std 2.66, p_high 0.0099, p_low 1.0000). Worst: `breakout_52week` B3 -0.0484
+(null mean 0.0016, null std 0.0125, gap -0.0500, gap/std -4.02, p_high 1.0000,
+p_low 0.0099). Full 4 x 5 table is in [`EXIT_STUDY.md`](research/EXIT_STUDY.md).
+
+**What it supports / does not support:** the report states the analysis "ignores
+portfolio capacity and slot competition: every signal is taken as an independent
+trade, with no limit on concurrent positions or capital" and "variants share the same
+entries and the same signals are reused across variants and null draws, so the cells
+are not independent trials". **Evidence label:** `EXPLORATORY` — one in-sample,
+survivorship-biased panel, no walk-forward, no pre-registration. Never the scorecard,
+D-75 pass bar, kill rule or forward verdict.
+
+**Artifacts:** `docs/backtests/research/EXIT_STUDY.md` (generated),
+`docs/backtests/research/event_study/exit_study_20261117_142553.json` (generated),
+`backend/tests/test_research_exit_study.py` (six synthetic tests),
+`docs/SESSIONS/research-discovery-log.md` (E2 entry).
+
+---
+
+## Trial ledger
+
+Values copied verbatim from `docs/backtests/research/EVENT_STUDY.md` and
+`docs/backtests/research/EXIT_STUDY.md`. **E1: 4 setups x 5 horizons = 20 cells.
+E2: 4 setups x 5 variants = 20 cells.** Every cell is `EXPLORATORY`.
+
+### E1 — 20 cells (setup x horizon)
+
+| Setup | h | n | dates | mean excess (bp) | 95% CI (bp) | hit rate | raw mean | raw mean - 30 bp | null mean (bp) | null std (bp) | p_high | p_low | Label |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| statistical_mean_reversion | 1 | 9014 | 1684 | -1.4 | [-6.8, 4.2] | 49.7% | -0.018% | -0.318% | 0.0 | 1.3 | 0.8507 | 0.1542 | EXPLORATORY |
+| statistical_mean_reversion | 5 | 9014 | 1684 | -9.0 | [-21.6, 4.3] | 49.4% | 0.405% | 0.105% | -0.0 | 3.0 | 1.0000 | 0.0050 | EXPLORATORY |
+| statistical_mean_reversion | 10 | 9010 | 1682 | -15.6 | [-37.6, 5.4] | 49.2% | 0.312% | 0.012% | -0.1 | 4.1 | 1.0000 | 0.0050 | EXPLORATORY |
+| statistical_mean_reversion | 20 | 8990 | 1673 | -26.1 | [-57.7, 3.4] | 47.6% | 0.995% | 0.695% | -0.1 | 6.0 | 1.0000 | 0.0050 | EXPLORATORY |
+| statistical_mean_reversion | 60 | 8752 | 1637 | -51.7 | [-115.2, 16.5] | 48.0% | 4.236% | 3.936% | -0.5 | 9.7 | 1.0000 | 0.0050 | EXPLORATORY |
+| breakout_52week | 1 | 4915 | 1478 | 1.8 | [-4.6, 8.0] | 50.3% | -0.000% | -0.300% | 0.0 | 1.8 | 0.1542 | 0.8507 | EXPLORATORY |
+| breakout_52week | 5 | 4910 | 1476 | 7.7 | [-9.2, 25.2] | 49.9% | 0.223% | -0.077% | 0.1 | 4.5 | 0.0547 | 0.9502 | EXPLORATORY |
+| breakout_52week | 10 | 4881 | 1472 | 20.9 | [-2.3, 45.4] | 50.1% | 0.615% | 0.315% | -0.2 | 6.7 | 0.0100 | 0.9950 | EXPLORATORY |
+| breakout_52week | 20 | 4837 | 1462 | 14.6 | [-21.5, 52.0] | 48.1% | 0.823% | 0.523% | -0.3 | 9.1 | 0.0448 | 0.9602 | EXPLORATORY |
+| breakout_52week | 60 | 4813 | 1448 | 31.4 | [-37.7, 100.4] | 48.2% | 3.169% | 2.869% | -0.6 | 16.4 | 0.0398 | 0.9652 | EXPLORATORY |
+| low_vol_setup | 1 | 9168 | 1911 | -0.8 | [-3.1, 1.4] | 49.5% | -0.002% | -0.302% | -0.0 | 0.9 | 0.8060 | 0.1990 | EXPLORATORY |
+| low_vol_setup | 5 | 9165 | 1909 | -5.2 | [-13.0, 2.5] | 49.6% | 0.143% | -0.157% | 0.2 | 2.4 | 0.9900 | 0.0149 | EXPLORATORY |
+| low_vol_setup | 10 | 9163 | 1908 | -11.5 | [-26.9, 2.7] | 49.2% | 0.380% | 0.080% | 0.0 | 3.6 | 1.0000 | 0.0050 | EXPLORATORY |
+| low_vol_setup | 20 | 9161 | 1906 | -15.4 | [-44.8, 10.2] | 48.8% | 1.008% | 0.708% | -0.1 | 4.9 | 1.0000 | 0.0050 | EXPLORATORY |
+| low_vol_setup | 60 | 9109 | 1878 | -49.2 | [-104.6, 2.4] | 47.8% | 2.176% | 1.876% | -0.0 | 8.1 | 1.0000 | 0.0050 | EXPLORATORY |
+| volume_trend_accumulation | 1 | 14481 | 2369 | 1.6 | [-2.1, 5.2] | 50.8% | 0.023% | -0.277% | -0.1 | 0.9 | 0.0299 | 0.9751 | EXPLORATORY |
+| volume_trend_accumulation | 5 | 14465 | 2366 | 5.5 | [-2.8, 13.5] | 49.6% | 0.237% | -0.063% | 0.1 | 2.6 | 0.0299 | 0.9751 | EXPLORATORY |
+| volume_trend_accumulation | 10 | 14411 | 2362 | 3.1 | [-9.6, 17.4] | 48.7% | 0.504% | 0.204% | -0.0 | 3.3 | 0.1692 | 0.8358 | EXPLORATORY |
+| volume_trend_accumulation | 20 | 14285 | 2352 | -11.1 | [-35.8, 13.0] | 48.1% | 0.808% | 0.508% | 0.1 | 5.1 | 0.9851 | 0.0199 | EXPLORATORY |
+| volume_trend_accumulation | 60 | 14160 | 2320 | -11.7 | [-57.6, 30.6] | 47.2% | 3.130% | 2.830% | -0.4 | 9.4 | 0.8756 | 0.1294 | EXPLORATORY |
+
+### E2 — 20 cells (setup x variant)
+
+| Setup | Variant | n | mean r_net | null mean | null std | gap | gap/std | p_high | p_low | Label |
+|---|---|---|---|---|---|---|---|---|---|---|
+| statistical_mean_reversion | B0 | 16659 | 0.0494 | 0.0758 | 0.0068 | -0.0264 | -3.87 | 1.0000 | 0.0099 | EXPLORATORY |
+| statistical_mean_reversion | B1 | 16651 | 0.0331 | 0.0715 | 0.0079 | -0.0384 | -4.89 | 1.0000 | 0.0099 | EXPLORATORY |
+| statistical_mean_reversion | B2 | 16593 | 0.1545 | 0.1763 | 0.0098 | -0.0218 | -2.22 | 0.9901 | 0.0198 | EXPLORATORY |
+| statistical_mean_reversion | B3 | 16668 | 0.0453 | 0.0617 | 0.0078 | -0.0164 | -2.10 | 0.9901 | 0.0198 | EXPLORATORY |
+| statistical_mean_reversion | B4 | 16639 | 0.0649 | 0.1191 | 0.0108 | -0.0542 | -5.03 | 1.0000 | 0.0099 | EXPLORATORY |
+| breakout_52week | B0 | 6772 | -0.0018 | 0.0250 | 0.0124 | -0.0268 | -2.16 | 1.0000 | 0.0099 | EXPLORATORY |
+| breakout_52week | B1 | 6754 | 0.0010 | 0.0290 | 0.0128 | -0.0280 | -2.18 | 0.9802 | 0.0297 | EXPLORATORY |
+| breakout_52week | B2 | 6754 | 0.0127 | 0.0819 | 0.0178 | -0.0692 | -3.90 | 1.0000 | 0.0099 | EXPLORATORY |
+| breakout_52week | B3 | 6786 | -0.0484 | 0.0016 | 0.0125 | -0.0500 | -4.02 | 1.0000 | 0.0099 | EXPLORATORY |
+| breakout_52week | B4 | 6712 | 0.0641 | 0.0609 | 0.0181 | 0.0032 | 0.18 | 0.4653 | 0.5446 | EXPLORATORY |
+| low_vol_setup | B0 | 18338 | 0.0572 | 0.0616 | 0.0072 | -0.0044 | -0.61 | 0.7030 | 0.3069 | EXPLORATORY |
+| low_vol_setup | B1 | 18338 | 0.0998 | 0.1006 | 0.0085 | -0.0008 | -0.09 | 0.5347 | 0.4752 | EXPLORATORY |
+| low_vol_setup | B2 | 18330 | 0.1887 | 0.1653 | 0.0112 | 0.0234 | 2.09 | 0.0297 | 0.9802 | EXPLORATORY |
+| low_vol_setup | B3 | 18335 | 0.0604 | 0.0511 | 0.0078 | 0.0093 | 1.20 | 0.1188 | 0.8911 | EXPLORATORY |
+| low_vol_setup | B4 | 18336 | 0.2463 | 0.2153 | 0.0116 | 0.0310 | 2.66 | 0.0099 | 1.0000 | EXPLORATORY |
+| volume_trend_accumulation | B0 | 20696 | 0.0161 | 0.0360 | 0.0071 | -0.0199 | -2.81 | 1.0000 | 0.0099 | EXPLORATORY |
+| volume_trend_accumulation | B1 | 20635 | 0.0085 | 0.0497 | 0.0077 | -0.0412 | -5.37 | 1.0000 | 0.0099 | EXPLORATORY |
+| volume_trend_accumulation | B2 | 20633 | 0.0554 | 0.1073 | 0.0103 | -0.0519 | -5.05 | 1.0000 | 0.0099 | EXPLORATORY |
+| volume_trend_accumulation | B3 | 20750 | -0.0095 | 0.0184 | 0.0075 | -0.0280 | -3.73 | 1.0000 | 0.0099 | EXPLORATORY |
+| volume_trend_accumulation | B4 | 20536 | 0.0809 | 0.1164 | 0.0099 | -0.0355 | -3.59 | 1.0000 | 0.0099 | EXPLORATORY |
+
+---
+
 ## Evidence hierarchy
 
 ```
@@ -500,3 +632,6 @@ artifact path, and the decision it does (not) justify.
 | 2026-11-13 | Added H-11 (D-82 v3 re-run: no same-day recycling, masked indicator warm-up, one evaluation window, daily-equity Sharpe, calendar CAGR, block-bootstrap CI, drawdown breach relabelled REVIEW, control eligibility); D-81 row retained as superseded; four new `*_20261113_*.json` artifacts |
 | 2026-11-16 | Added the H-11 same-day-recycling ablation (four `*_20261116_*_recycle_on.json` runs, `dirty = false` at `7628660`) and refreshed `DIAGNOSTICS.md`; H-11 verdict unchanged |
 | 2026-11-17 | Added H-12 (D-83 v4 re-run: headline expectancy and p-value averaged over 20 seeds 42..61 on identical signals, `p_values_seed_avg`, seed-mean report columns, 103 tests) and marked H-11 **superseded for the headline**; the D-82 engine contract and artifacts stand |
+| 2026-11-17 | Added H-13 (E1 event study: `backend/app/research/events.py`, `scripts/research_event_study.py`, 6 tests, `EVENT_STUDY.md` + JSON, commit `687df51`); 20 setup x horizon cells, all EXPLORATORY and not pre-registered |
+| 2026-11-17 | Added H-14 (E2 exit study: `backend/app/research/exit_study.py`, `scripts/research_exit_study.py`, 6 tests, `EXIT_STUDY.md` + JSON, commit `62abbef`); 20 setup x variant cells, all EXPLORATORY and not pre-registered |
+| 2026-11-17 | E3 documentation only: recorded D-84, added the trial ledger (E1 20 cells, E2 20 cells) and added `docs/backtests/research/PREREGISTRATION_TEMPLATE.md` for future runs; no code, test, workflow or artifact change |
