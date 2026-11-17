@@ -204,19 +204,21 @@ def test_control_table_renders_gap_se_and_seed_averaged_p():
     seeds = art["run_info"]["strategy_seeds"]
     controls = art["control_summary"]["matched_random"]
     gap = seeds["mean"] - controls["r_net_mean_mean"]
+    z = gap / controls["r_net_mean_std"]
     se = math.sqrt(
         seeds["se"] ** 2 + controls["r_net_mean_std"] ** 2 / controls["n_runs"]
     )
     assert "Gap vs control (strategy seed-mean - control mean)" in report
-    assert "SE of gap" in report
+    assert "Gap / control std" in report
+    assert "SE of means (shuffle + control mean only; not a test)" in report
     assert "p (seed-averaged)" in report
-    assert f"| {gap:.3f} | {se:.3f} |" in report
+    assert f"| {gap:.3f} | {z:.2f} | {se:.3f} |" in report
     assert "| 0.0100 | 0.0200 |" in report
 
 
-def test_underperformance_line_when_gap_below_two_se():
+def test_underperformance_line_when_gap_below_two_control_std():
     art = _artifact(n_per_year=40)
-    values = [-0.06, -0.05, -0.04]
+    values = [-0.041, -0.040, -0.039]
     art["run_info"]["strategy_seeds"].update(
         {
             "r_net_mean": values,
@@ -230,9 +232,34 @@ def test_underperformance_line_when_gap_below_two_se():
     assert "**demo**: strategy underperforms matched control (informational)" in report
 
 
-def test_no_underperformance_line_when_gap_is_inside_two_se():
+def test_no_underperformance_line_when_gap_is_inside_two_control_std():
     report = build_report({"demo": ("demo_20190101.json", _artifact(n_per_year=40))})
 
+    assert "**demo**: strategy underperforms matched control" not in report
+
+
+def test_old_se_rule_flags_but_control_std_rule_does_not():
+    art = _artifact(n_per_year=40)
+    values = [-0.021, -0.020, -0.019]
+    art["run_info"]["strategy_seeds"].update(
+        {
+            "r_net_mean": values,
+            "mean": statistics.mean(values),
+            "std": statistics.pstdev(values),
+            "se": statistics.pstdev(values) / math.sqrt(len(values)),
+        }
+    )
+    seeds = art["run_info"]["strategy_seeds"]
+    controls = art["control_summary"]["matched_random"]
+    gap = seeds["mean"] - controls["r_net_mean_mean"]
+    se_gap = math.sqrt(
+        seeds["se"] ** 2 + controls["r_net_mean_std"] ** 2 / controls["n_runs"]
+    )
+    assert gap < -2 * se_gap
+
+    report = build_report({"demo": ("demo_20190101.json", art)})
+
+    assert gap / controls["r_net_mean_std"] >= -2.0
     assert "**demo**: strategy underperforms matched control" not in report
 
 

@@ -1,6 +1,6 @@
 # Research Baseline Report
 
-- Run date: 2026-11-17 10:16
+- Run date: 2026-11-17 11:01
 - Git commit: `3bfb68c`
 - Window: 2015-01-01 -> 2026-11-17
 - Symbols used: 501
@@ -88,15 +88,13 @@
 
 ## Control comparison
 
-| Setup | Control runs | Control trades (mean) | Control expectancy (mean +/- std) | Strategy expectancy (seed 42) | Strategy seed mean | Gap vs control (strategy seed-mean - control mean) | SE of gap | p (seed 42) | p (seed-averaged) |
-|---|---|---|---|---|---|---|---|---|---|
-| breakout_52week | 30 | 1664.2 | 0.036 +/- 0.027 | 0.028 | 0.028 | -0.008 | 0.006 | 0.6452 | 0.6452 |
-| low_vol_setup | 30 | 1793.6 | 0.025 +/- 0.026 | 0.024 | 0.011 | -0.015 | 0.006 | 0.5484 | 0.7097 |
-| statistical_mean_reversion | 30 | 1870.0 | 0.035 +/- 0.023 | 0.057 | 0.017 | -0.018 | 0.006 | 0.2258 | 0.8065 |
-| volume_trend_accumulation | 30 | 2034.2 | 0.050 +/- 0.020 | -0.007 | 0.004 | -0.047 | 0.006 | 1.0000 | 1.0000 |
+| Setup | Control runs | Control trades (mean) | Control expectancy (mean +/- std) | Strategy expectancy (seed 42) | Strategy seed mean | Gap vs control (strategy seed-mean - control mean) | Gap / control std | SE of means (shuffle + control mean only; not a test) | p (seed 42) | p (seed-averaged) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| breakout_52week | 30 | 1664.2 | 0.036 +/- 0.027 | 0.028 | 0.028 | -0.008 | -0.28 | 0.006 | 0.6452 | 0.6452 |
+| low_vol_setup | 30 | 1793.6 | 0.025 +/- 0.026 | 0.024 | 0.011 | -0.015 | -0.57 | 0.006 | 0.5484 | 0.7097 |
+| statistical_mean_reversion | 30 | 1870.0 | 0.035 +/- 0.023 | 0.057 | 0.017 | -0.018 | -0.79 | 0.006 | 0.2258 | 0.8065 |
+| volume_trend_accumulation | 30 | 2034.2 | 0.050 +/- 0.020 | -0.007 | 0.004 | -0.047 | -2.31 | 0.006 | 1.0000 | 1.0000 |
 
-- **low_vol_setup**: strategy underperforms matched control (informational)
-- **statistical_mean_reversion**: strategy underperforms matched control (informational)
 - **volume_trend_accumulation**: strategy underperforms matched control (informational)
 
 The p-value is the fraction of matched-random controls that do at least as well as the real strategy (`mean(control >= real)`), with the finite-sample correction `(p_raw*n + 1)/(n + 1)`; it is never direction-flipped for negative results. The seed-averaged p-value applies the same formula to the mean of the strategy's per-seed expectancies (`p_values_seed_avg`).
@@ -153,7 +151,8 @@ The p-value is the fraction of matched-random controls that do at least as well 
 - Artifacts without `run_info` are ignored; older artifacts are quarantined in `invalid_20261110/`.
 - The verdict rule uses the 95% month-block bootstrap CI lower bound (changed after seeing D-81 results); the iid CI is shown for reference only.
 - The verdict rule uses the seed-averaged p-value (`p_values_seed_avg`, the strategy seed-mean vs the same controls), changed after seeing D-82 results; the seed-42 p-value is shown for comparison.
-- When the seed-mean gap to the matched control is more than 2 standard errors negative, the report prints "strategy underperforms matched control (informational)"; that line does not change the verdict.
+- The underperformance flag compares the gap with the spread of single matched-control runs (z < -2). With four setups tested, a family-wise threshold would be about z < -2.5; the flag is informational and is not corrected for multiple testing.
+- The strategy's own sampling uncertainty is the month-block CI in the main table, which is far wider than the SE of means.
 - A drawdown breach alone is labelled REVIEW, not SUSPECTED BUG: a -40% drawdown can be a legitimate outcome of the configured risk, not a code fault.
 - CAGR uses elapsed calendar years from the equity curve, not `len(curve)/252`.
 

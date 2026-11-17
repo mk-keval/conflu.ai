@@ -38,23 +38,30 @@ def seed_stats(payload):
 
 
 def gap_stats(strategy_seeds, controls):
-    """Seed-mean gap to the control mean and the standard error of that gap.
+    """Seed-mean gap to the control mean, its SE, and the gap/control-std ratio.
 
-    ``SE = sqrt(se_strategy^2 + control_std^2 / n_control)``. Returns ``None``
-    when the artifact predates the seed sweep.
+    ``se`` = ``sqrt(se_strategy^2 + control_std^2 / n_control)`` covers only
+    candidate-shuffle noise and the error of the control mean; it ignores which
+    stocks the signals pick, so it is descriptive only and not a test. ``z`` =
+    ``gap / control_std`` compares the gap to the spread of single matched-control
+    runs; the underperformance flag uses ``z``. Returns ``None`` when the artifact
+    predates the seed sweep.
     """
     mean = strategy_seeds.get("mean")
     control_mean = controls.get("r_net_mean_mean")
     if mean is None or control_mean is None:
         return None
     gap = float(mean) - float(control_mean)
-    se = strategy_seeds.get("se")
     control_std = controls.get("r_net_mean_std")
+    z = None
+    if control_std is not None and float(control_std) > 0:
+        z = gap / float(control_std)
+    se = strategy_seeds.get("se")
     n_control = controls.get("n_runs")
-    if se is None or control_std is None or not n_control:
-        return {"gap": gap, "se": None}
-    se_gap = math.sqrt(float(se) ** 2 + float(control_std) ** 2 / int(n_control))
-    return {"gap": gap, "se": se_gap}
+    se_gap = None
+    if se is not None and control_std is not None and n_control:
+        se_gap = math.sqrt(float(se) ** 2 + float(control_std) ** 2 / int(n_control))
+    return {"gap": gap, "se": se_gap, "z": z}
 
 
 def load_newest(dirpath):
@@ -414,10 +421,11 @@ def build_report(artifacts):
     add(
         "| Setup | Control runs | Control trades (mean) | Control expectancy (mean +/- std) | "
         "Strategy expectancy (seed 42) | Strategy seed mean | "
-        "Gap vs control (strategy seed-mean - control mean) | SE of gap | "
+        "Gap vs control (strategy seed-mean - control mean) | Gap / control std | "
+        "SE of means (shuffle + control mean only; not a test) | "
         "p (seed 42) | p (seed-averaged) |"
     )
-    add("|---|---|---|---|---|---|---|---|---|---|")
+    add("|---|---|---|---|---|---|---|---|---|---|---|")
     for row in rows:
         controls = row["controls"]
         gap = row["gap"] or {}
@@ -428,7 +436,8 @@ def build_report(artifacts):
             f"{_fmt(controls.get('r_net_mean_std'), 3)} | "
             f"{_fmt(row['stats']['expectancy_net'], 3)} | "
             f"{_fmt(row['strategy_seeds'].get('mean'), 3)} | "
-            f"{_fmt(gap.get('gap'), 3)} | {_fmt(gap.get('se'), 3)} | "
+            f"{_fmt(gap.get('gap'), 3)} | {_fmt(gap.get('z'), 2)} | "
+            f"{_fmt(gap.get('se'), 3)} | "
             f"{_fmt(row['p_matched'], 4)} | "
             f"{_fmt(row['p_matched_seed_avg'], 4)} |"
         )
@@ -437,9 +446,8 @@ def build_report(artifacts):
         row["setup"]
         for row in rows
         if row["gap"]
-        and row["gap"].get("se") is not None
-        and float(row["gap"]["se"]) > 0
-        and float(row["gap"]["gap"]) < -2 * float(row["gap"]["se"])
+        and row["gap"].get("z") is not None
+        and float(row["gap"]["z"]) < -2.0
     ]
     for setup in underperform:
         add(f"- **{setup}**: strategy underperforms matched control (informational)")
@@ -510,9 +518,14 @@ def build_report(artifacts):
         "the seed-42 p-value is shown for comparison."
     )
     add(
-        "- When the seed-mean gap to the matched control is more than 2 standard errors "
-        "negative, the report prints \"strategy underperforms matched control "
-        "(informational)\"; that line does not change the verdict."
+        "- The underperformance flag compares the gap with the spread of single "
+        "matched-control runs (z < -2). With four setups tested, a family-wise "
+        "threshold would be about z < -2.5; the flag is informational and is not "
+        "corrected for multiple testing."
+    )
+    add(
+        "- The strategy's own sampling uncertainty is the month-block CI in the main "
+        "table, which is far wider than the SE of means."
     )
     add(
         "- A drawdown breach alone is labelled REVIEW, not SUSPECTED BUG: a -40% drawdown "
