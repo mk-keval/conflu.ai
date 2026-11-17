@@ -37,7 +37,7 @@ quarantined in [`invalid_20261110/`](invalid_20261110/) and must not be cited at
 | Universe | `config/replay_universe_sp500.txt` (current snapshot), SHA-256 `a53242f2...9a729080` |
 | Symbols | 501 tradable; 503 loaded with SPY + ^VIX; 2 dropped (KVUE: 1 row, VYLR: 34 rows) |
 | Coverage | `panel.n_symbols_ending_early = 0`; 37 symbols start late (recent listings) |
-| Cache | span covering 2026-11-17; breakout downloaded 503 (2 failures), then 503 hits per setup |
+| Cache | span covering 2026-11-17; breakout downloaded 503 (2 failures), then the other three had 503 hits each |
 | Controls | matched-random 30, permuted dates 10, time-shifted +20..+60 bars 2, unmatched random 0 |
 | Exits | 2.0 ATR stop, 3.0 ATR target, 15-bar time stop |
 | Portfolio | $100,000 start, 0.5% risk, 8 positions, 20% notional cap, 15 bps/side, `allow_same_day_recycling = false` |

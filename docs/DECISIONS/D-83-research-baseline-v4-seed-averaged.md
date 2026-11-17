@@ -102,7 +102,7 @@ Adopt the following for every research baseline from v4 onward.
 | Baseline runs | 4/4 exit 0, `Reconciliation: PASS` |
 | Artifact provenance | revision `3bfb68c`; `allow_same_day_recycling = false`; `eval_start = "2016-01-01"`; requested 2015-01-01..2026-11-17 |
 | Panel | actual `2015-01-02..2026-11-17`; 501 tradable; 2 dropped (KVUE 1 row, VYLR 34 rows) |
-| Cache | span covering 2026-11-17; breakout downloaded 503 (2 failed), the other three reused it (503 hits each) |
+| Cache | span covering 2026-11-17; breakout downloaded 503 (2 failed), then the other three had 503 hits each |
 
 ## Results (valid for this panel and window)
 
