@@ -495,3 +495,221 @@ GitNexus change detection before commit (`detect_changes(scope="all", repo="conf
   pre-existing `W291` warnings; left untouched per user decision, CI ruff scope clean.
 - No pre-registration existed before E1/E2; D-84 records that as "not recorded" and
   H-13/H-14 are labelled EXPLORATORY. The template added here applies to future runs.
+
+---
+
+## E4 - Volatility-matched re-measurement of E1 and E2
+
+- **Date:** 2026-11-17
+- **Task:** E4 (Phase 2). Precondition D-84 at `be499e5` (or later) confirmed on
+  `research/baseline-backtesting`; branch pulled with `Already up to date.`
+- **Commits:** COMMIT 1 `49cad31` (code only); COMMIT 2 for this entry and the
+  generated artifacts.
+- **What changed and why:** E1/E2 had two measurement flaws. (1) The old null
+  (`control.matched_random_signals`) sampled random eligible stocks of any
+  volatility, so its spread was 2-3.5x smaller than the strategy's own month-block
+  uncertainty; `p_high`/`p_low` and `gap/std` were not valid significance tests.
+  (2) E2 measures R with `1R = 2*ATR`, so `low_vol_setup`'s low-ATR names turn the
+  same percent move into more R. E4 adds a volatility-bucket control (`atr_pct`
+  rank per date, previous-bar bucket benchmark, per-date/per-bucket matched
+  random draws), cost-aware percent returns, and an honest month-block CI +
+  Bonferroni `block_t >= z_crit(20)` rule. No `p_high`/`p_low` is produced.
+  New pure module `backend/app/research/matched_control.py`, 8 deterministic
+  tests, and `scripts/research_vol_matched.py` (Part 1 event study against the
+  bucket benchmark, Part 2 exit study in R and percent units). Old engine,
+  indicators, setups, controls, metrics, runner, `events.py`, `exit_study.py`,
+  the two earlier study scripts and all committed result artifacts were reused by
+  import and not modified.
+
+### Files touched
+
+COMMIT 1 (code):
+
+- `backend/app/research/matched_control.py` (new)
+- `backend/tests/test_research_matched_control.py` (new)
+- `scripts/research_vol_matched.py` (new)
+- `.github/workflows/research.yml` (new test + new script in the CI ruff and pytest lists)
+
+COMMIT 2 (generated + log):
+
+- `docs/backtests/research/VOL_MATCHED_STUDY.md` (generated)
+- `docs/backtests/research/event_study/vol_matched_20261117_185439.json` (generated)
+- `docs/SESSIONS/research-discovery-log.md` (this entry)
+
+### Commands, exact output
+
+Start-of-task gate (before any E4 edit; explicit 11-file CI list):
+
+```text
+=== START GATE pytest ===
+....................................................................................................................                                                                                      [100%]
+116 passed in 11.39s
+TEST_EXIT=0
+=== START GATE ruff (CI scope) ===
+All checks passed!
+RUFF_EXIT=0
+```
+
+New module tests:
+
+```text
+........                                                                                                                                                                                                  [100%]
+8 passed in 1.71s
+TEST_EXIT=0
+```
+
+Smoke run into a temp folder OUTSIDE the repo (`breakout_52week`, 2 sanity draws,
+2 null draws). `dirty=True` is expected: the workflow edit and the three new files
+were not committed yet.
+
+```text
+Loading panel 2015-01-01 -> 2026-11-17 from .cache/research
+Panel: 2015-01-02 -> 2026-11-17, 501 tradable symbols, 2 dropped (cache hits=503, downloads=0)
+Building eligibility, forward returns and benchmarks
+Universe benchmark dates: 2735
+Bucket benchmark rows: 30056
+[E1 breakout_52week] building signals and events
+[E1 breakout_52week] events after cooldown: 4915
+[E1 breakout_52week] h=1: n=4915 old=+1.8 bp bucket=+1.6 bp block_t=0.55 pass=False
+[E1 breakout_52week] h=5: n=4910 old=+7.7 bp bucket=+7.3 bp block_t=0.92 pass=False
+[E1 breakout_52week] h=10: n=4881 old=+20.9 bp bucket=+21.6 bp block_t=1.89 pass=False
+[E1 breakout_52week] h=20: n=4837 old=+14.6 bp bucket=+22.7 bp block_t=1.27 pass=False
+[E1 breakout_52week] h=60: n=4813 old=+31.4 bp bucket=+71.9 bp block_t=2.27 pass=False
+[E1 breakout_52week] sanity draws 2/2
+[E2 breakout_52week] building signals and entries
+[E2 breakout_52week] real entries: 6819
+[E2 breakout_52week] B0: n=6772 mean r_net=-0.0018 mean pct=+11.4 bp
+[E2 breakout_52week] B1: n=6754 mean r_net=+0.0010 mean pct=+20.1 bp
+[E2 breakout_52week] B2: n=6754 mean r_net=+0.0127 mean pct=+20.4 bp
+[E2 breakout_52week] B3: n=6786 mean r_net=-0.0484 mean pct=-9.6 bp
+[E2 breakout_52week] B4: n=6712 mean r_net=+0.0641 mean pct=+56.9 bp
+[E2 breakout_52week] null draws 2/2
+[E2 breakout_52week] B0: gapR=-0.0316 gapPct=-8.6 bp signs=True block_t(R)=-0.97 block_t(pct)=-0.55 pass=False
+[E2 breakout_52week] B1: gapR=-0.0260 gapPct=-0.4 bp signs=True block_t(R)=-0.53 block_t(pct)=-0.02 pass=False
+[E2 breakout_52week] B2: gapR=-0.0508 gapPct=-11.0 bp signs=True block_t(R)=-1.07 block_t(pct)=-0.48 pass=False
+[E2 breakout_52week] B3: gapR=-0.0618 gapPct=-21.2 bp signs=True block_t(R)=-2.25 block_t(pct)=-1.51 pass=False
+[E2 breakout_52week] B4: gapR=+0.0050 gapPct=+12.7 bp signs=True block_t(R)=0.05 block_t(pct)=0.31 pass=False
+Wrote C:\Users\keval\AppData\Local\Temp\vm\VOL_MATCHED_STUDY.md and C:\Users\keval\AppData\Local\Temp\vm\vol_matched_20261117_182653.json
+Elapsed: 1.5 minutes; dirty=True
+EXIT=0
+```
+
+End-of-task gate for COMMIT 1 (explicit 12-file CI list including
+`test_research_matched_control.py`; ruff includes `research_vol_matched.py`):
+
+```text
+=== END GATE pytest ===
+............................................................................................................................                                                                              [100%]
+124 passed in 10.67s
+TEST_EXIT=0
+=== END GATE ruff (CI scope incl new script) ===
+All checks passed!
+RUFF_EXIT=0
+```
+
+Exact two CI workflow commands:
+
+```text
+=== WORKFLOW STEP: Ruff (research harness) ===
+All checks passed!
+RUFF_EXIT=0
+=== WORKFLOW STEP: Research tests ===
+...
+============================================================================================= 124 passed in 10.96s =============================================================================================
+PYTEST_EXIT=0
+```
+
+COMMIT 1 was created from a tree containing only the four code/workflow files:
+
+```text
+[research/baseline-backtesting 49cad31] research: add vol-matched control and percent-return measurement module
+ 4 files changed, 1561 insertions(+)
+ create mode 100644 backend/app/research/matched_control.py
+ create mode 100644 backend/tests/test_research_matched_control.py
+ create mode 100644 scripts/research_vol_matched.py
+COMMIT_EXIT=0
+```
+
+`git status --porcelain` was empty after the commit, so the full study ran from a
+clean tree with the default command:
+
+```text
+python scripts/research_vol_matched.py
+```
+
+Full-run console (first lines and last 40 lines; 131 lines total, 26.6 minutes,
+`dirty=False`):
+
+```text
+Loading panel 2015-01-01 -> 2026-11-17 from .cache/research
+Panel: 2015-01-02 -> 2026-11-17, 501 tradable symbols, 2 dropped (cache hits=503, downloads=0)
+Building eligibility, forward returns and benchmarks
+Universe benchmark dates: 2735
+Bucket benchmark rows: 30056
+...
+[E2 low_vol_setup] B4: n=18336 mean r_net=+0.2463 mean pct=+71.9 bp
+[E2 low_vol_setup] null draws 10/100
+[E2 low_vol_setup] null draws 20/100
+[E2 low_vol_setup] null draws 30/100
+[E2 low_vol_setup] null draws 40/100
+[E2 low_vol_setup] null draws 50/100
+[E2 low_vol_setup] null draws 60/100
+[E2 low_vol_setup] null draws 70/100
+[E2 low_vol_setup] null draws 80/100
+[E2 low_vol_setup] null draws 90/100
+[E2 low_vol_setup] null draws 100/100
+[E2 low_vol_setup] B0: gapR=+0.0193 gapPct=+4.7 bp signs=True block_t(R)=0.44 block_t(pct)=0.35 pass=False
+[E2 low_vol_setup] B1: gapR=+0.0187 gapPct=+4.3 bp signs=True block_t(R)=0.34 block_t(pct)=0.26 pass=False
+[E2 low_vol_setup] B2: gapR=+0.0328 gapPct=+9.1 bp signs=True block_t(R)=0.49 block_t(pct)=0.47 pass=False
+[E2 low_vol_setup] B3: gapR=+0.0270 gapPct=+6.7 bp signs=True block_t(R)=0.55 block_t(pct)=0.47 pass=False
+[E2 low_vol_setup] B4: gapR=+0.0394 gapPct=+8.8 bp signs=True block_t(R)=0.50 block_t(pct)=0.38 pass=False
+[E2 volume_trend_accumulation] building signals and entries
+[E2 volume_trend_accumulation] real entries: 20830
+[E2 volume_trend_accumulation] B0: n=20696 mean r_net=+0.0161 mean pct=+11.7 bp
+[E2 volume_trend_accumulation] B1: n=20635 mean r_net=+0.0085 mean pct=+10.8 bp
+[E2 volume_trend_accumulation] B2: n=20633 mean r_net=+0.0554 mean pct=+28.4 bp
+[E2 volume_trend_accumulation] B3: n=20750 mean r_net=-0.0095 mean pct=-1.1 bp
+[E2 volume_trend_accumulation] B4: n=20536 mean r_net=+0.0809 mean pct=+49.4 bp
+[E2 volume_trend_accumulation] null draws 10/100
+[E2 volume_trend_accumulation] null draws 20/100
+[E2 volume_trend_accumulation] null draws 30/100
+[E2 volume_trend_accumulation] null draws 40/100
+[E2 volume_trend_accumulation] null draws 50/100
+[E2 volume_trend_accumulation] null draws 60/100
+[E2 volume_trend_accumulation] null draws 70/100
+[E2 volume_trend_accumulation] null draws 80/100
+[E2 volume_trend_accumulation] null draws 90/100
+[E2 volume_trend_accumulation] null draws 100/100
+[E2 volume_trend_accumulation] B0: gapR=-0.0125 gapPct=-6.9 bp signs=True block_t(R)=-0.44 block_t(pct)=-0.53 pass=False
+[E2 volume_trend_accumulation] B1: gapR=-0.0306 gapPct=-12.3 bp signs=True block_t(R)=-0.84 block_t(pct)=-0.72 pass=False
+[E2 volume_trend_accumulation] B2: gapR=-0.0360 gapPct=-16.7 bp signs=True block_t(R)=-0.86 block_t(pct)=-0.87 pass=False
+[E2 volume_trend_accumulation] B3: gapR=-0.0201 gapPct=-10.0 bp signs=True block_t(R)=-0.73 block_t(pct)=-0.80 pass=False
+[E2 volume_trend_accumulation] B4: gapR=-0.0153 gapPct=-6.8 bp signs=True block_t(R)=-0.20 block_t(pct)=-0.22 pass=False
+Wrote docs\backtests\research\VOL_MATCHED_STUDY.md and docs\backtests\research\event_study\vol_matched_20261117_185439.json
+Elapsed: 26.6 minutes; dirty=False
+```
+
+Sanity-check bias, stated prominently as required: the report flags
+`breakout_52week` h=20 at -3.9 bp (draw std 10.2 bp) and h=60 at -8.4 bp (draw
+std 21.5 bp). With 20 draws that is about 1.7 and 1.8 standard errors from zero;
+the other 18 cells are within +/-2.0 bp. It is reported in the report header and
+in the sanity table, not hidden. The run was not stopped because the deviation is
+inside the draw-to-draw noise of this control, not a code-level systematic bias
+(the control draws from the same eligible per-bucket pool that defines the
+benchmark, so its expectation is zero). Result recorded in the report:
+**No cell passes.** (E1 0/20, E2 0/20.)
+
+### Skipped / notes
+
+- `add_pct_returns` follows the task text literally: the cost-aware formula
+  `exit*(1-c)/(entry*(1+c)) - 1` is stored in `ret_gross_pct` and mirrored in
+  `ret_net_pct`, which Part 2 reports. This is stated in the module docstring and
+  in the report definitions.
+- The 20 E1 cells and 20 E2 cells are re-measurements of the same hypotheses and
+  data; the cumulative trial count is 80 and no holdout was used.
+- No engine, indicator, setup, control, metric, runner, `events.py`,
+  `exit_study.py`, earlier study script or committed result artifact was edited.
+- No push and no squash. One code commit (COMMIT 1) plus one generated-artifact/log
+  commit (COMMIT 2).
+- Broad `ruff check backend/app/research scripts` was not run (six known
+  pre-existing `W291` warnings in unrelated files); the CI ruff scope is clean.
