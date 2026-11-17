@@ -1344,4 +1344,18 @@ DIAG_EXIT=0
 - Tests/ruff: **not run** — T9 changed no code (no engine/indicator/control or test file).
 - Skipped: nothing.
 
+### Post-task documentation coverage (2026-11-16)
+
+The task text did not require index work, but the project rule is to refresh the indexes after
+a change session, so the T8+T9 session was added to:
+
+- `INDEX.md` — one bullet for 2026-11-16 linking this work log and `ABLATION.md`.
+- `docs/index.md` — the research-artifacts entry now points at `ABLATION.md` and the
+  refreshed `DIAGNOSTICS.md`; a 2026-11-16 session-log entry was added.
+- `docs/backtests/HYPOTHESIS_LOG.md` — H-11 gained an "Ablation (2026-11-16)" paragraph and
+  the change log a matching row. The H-11 verdict itself is unchanged (the ablation is a
+  sensitivity study, not a new test).
+
+Committed separately as a docs-only commit after the two T9 commits, before pushing.
+
 

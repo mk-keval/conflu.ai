@@ -357,6 +357,14 @@ preceding run's artifact was untracked — no source file differed; `eval_start 
 H-10. The D-81 artifacts stay in place as the previous baseline and must not be cited as
 current.
 
+**Ablation (2026-11-16):** re-running the four setups with `--allow-same-day-recycling`
+(one flag; everything else default) gives expectancy net -0.0004 / -0.0007 / -0.0007 /
++0.0032 with matched p 0.9032 / 0.7097 / 0.6129 / 0.9677 (breakout / low_vol / SMR /
+volume). On expectancy net the flag accounts for +81.7% / +102.4% / +99.3% / +32.5% of the
+D-81 → D-82 move. These runs use the 2026-11-16 default panel, record `dirty = false` at
+revision `7628660`, and are documented in [`ABLATION.md`](research/ABLATION.md) with the
+refreshed [`DIAGNOSTICS.md`](research/DIAGNOSTICS.md).
+
 ---
 
 ## Evidence hierarchy
@@ -427,3 +435,4 @@ artifact path, and the decision it does (not) justify.
 | 2026-11-11 | Replaced H-10 with the **D-80 clean re-run** on one consistent 2020-2023 panel (cache + equity defects fixed); D-79 row retained as audit trail, superseded; see D-80 |
 | 2026-11-12 | Replaced H-10 with the **D-81 v2 re-run** on 2015-2026 (no-look-ahead sizing, forward-filled marking, matched-random control, one-sided p-value); D-80 2020-2023 result retained as superseded history; 13 old artifacts quarantined under `research/invalid_20261110/` |
 | 2026-11-13 | Added H-11 (D-82 v3 re-run: no same-day recycling, masked indicator warm-up, one evaluation window, daily-equity Sharpe, calendar CAGR, block-bootstrap CI, drawdown breach relabelled REVIEW, control eligibility); D-81 row retained as superseded; four new `*_20261113_*.json` artifacts |
+| 2026-11-16 | Added the H-11 same-day-recycling ablation (four `*_20261116_*_recycle_on.json` runs, `dirty = false` at `7628660`) and refreshed `DIAGNOSTICS.md`; H-11 verdict unchanged |
