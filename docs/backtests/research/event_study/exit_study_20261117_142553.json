@@ -1,0 +1,638 @@
+{
+  "task": "E2",
+  "generated_at": "2026-11-17T13:57:35",
+  "command": "scripts/research_exit_study.py",
+  "definitions": [
+    "- **Entry (same as the engine):** a setup signal is True at the CLOSE of day `t`; the trade enters at the OPEN of `t+1`. ATR is `atr14` of the signal bar; entries with a NaN ATR or `ATR <= 0` are skipped.",
+    "- **1R:** always `2 * ATR` (the initial stop distance) for every variant, so R values are comparable even for variants without a stop.",
+    "- **Costs:** 15 bps per side using the engine's formula `r_net = (exit*(1-c) - entry*(1+c)) / (2*ATR)` with `c = 0.0015`; `r_gross` has no costs.",
+    "- **Stop order (engine rules):** gap stop at the open, then the stop, then the gap target, then the target, then the time exit at the close. The stop wins ties. A gap below the stop exits at the open; otherwise a stop hit exits at the stop price.",
+    "- **Trailing stop:** the entry bar uses only the initial stop. Each later bar `k` uses the highest HIGH of the open trade's bars from the entry bar through `k-1` minus the trail distance, never lowered. Bar `k`'s own high cannot move the stop used on bar `k` (no look-ahead); a spike on bar `k` raises the stop on bar `k+1`.",
+    "- **Panel end:** a trade whose path would run past the panel end is dropped, never marked to market.",
+    "- **Evaluation window:** entry date >= 2016-01-01 (2015 is indicator warm-up).",
+    "- **Null:** 100 matched-random entry sets per setup from `backend.app.research.control.matched_random_signals` (same daily count of eligible signals, random eligible symbols), the same entry and exit rules; seeds 60000..60099. Reported are the null mean/std of mean `r_net`, the gap `strategy - null mean`, `gap / null std`, and one-sided `p_high = (count(null >= real)+1)/(n+1)`, `p_low = (count(null <= real)+1)/(n+1)`.",
+    "- **Capacity caveat:** This analysis ignores portfolio capacity and slot competition: every signal is taken as an independent trade, with no limit on concurrent positions or capital."
+  ],
+  "warning": "Exploratory, in-sample, survivorship-biased. Not evidence of a live edge.",
+  "capacity_caveat": "This analysis ignores portfolio capacity and slot competition: every signal is taken as an independent trade, with no limit on concurrent positions or capital.",
+  "window": {
+    "requested_start": "2015-01-01",
+    "requested_end": "2026-11-17",
+    "eval_start": "2016-01-01"
+  },
+  "panel": {
+    "actual_start": "2015-01-02",
+    "actual_end": "2026-11-17",
+    "n_symbols": 501,
+    "n_dropped": 2,
+    "dropped": [
+      [
+        "KVUE",
+        "insufficient rows after cleaning: 1"
+      ],
+      [
+        "VYLR",
+        "insufficient rows after cleaning: 34"
+      ]
+    ],
+    "cache": {
+      "cache_dir": ".cache\\research",
+      "requested_start": "2015-01-01",
+      "requested_end": "2026-11-17",
+      "hits": 503,
+      "misses": 2,
+      "downloaded": 0,
+      "failed": 2
+    }
+  },
+  "params": {
+    "setups": [
+      "statistical_mean_reversion",
+      "breakout_52week",
+      "low_vol_setup",
+      "volume_trend_accumulation"
+    ],
+    "n_null": 100,
+    "null_base_seed": 60000,
+    "cost_bps_per_side": 15.0,
+    "variants": {
+      "B0": {
+        "stop_atr": 2.0,
+        "target_atr": 3.0,
+        "trail_atr": null,
+        "max_hold": 15,
+        "description": "stop 2 ATR, target 3 ATR, max hold 15 (engine rules and order)"
+      },
+      "B1": {
+        "stop_atr": 2.0,
+        "target_atr": null,
+        "trail_atr": null,
+        "max_hold": 15,
+        "description": "stop 2 ATR, no target, max hold 15"
+      },
+      "B2": {
+        "stop_atr": 2.0,
+        "target_atr": null,
+        "trail_atr": 3.0,
+        "max_hold": 60,
+        "description": "stop 2 ATR plus 3 ATR trailing stop, no target, max hold 60"
+      },
+      "B3": {
+        "stop_atr": 2.0,
+        "target_atr": null,
+        "trail_atr": 2.0,
+        "max_hold": 30,
+        "description": "stop 2 ATR plus 2 ATR trailing stop, no target, max hold 30"
+      },
+      "B4": {
+        "stop_atr": null,
+        "target_atr": null,
+        "trail_atr": null,
+        "max_hold": 19,
+        "description": "no stop, no target, exit at the close of the 20th bar including entry (h=20)"
+      }
+    }
+  },
+  "results": {
+    "statistical_mean_reversion": {
+      "n_entries": 16683,
+      "variants": {
+        "B0": {
+          "stats": {
+            "n": 16659,
+            "mean_r_net": 0.049391670454679466,
+            "mean_r_gross": 0.1102613062104489,
+            "win_rate": 0.49954979290473617,
+            "avg_win_r": 1.0719115705267066,
+            "avg_loss_r": -0.9712885032768079,
+            "profit_factor": 1.1016119048774657,
+            "mean_bars_held": 9.188066510594874,
+            "exit_share": {
+              "stop": 0.320848,
+              "stop_gap": 0.075575,
+              "target": 0.232907,
+              "target_gap": 0.04436,
+              "time": 0.32631
+            }
+          },
+          "null": {
+            "n_null": 100,
+            "null_mean": 0.0758259769791498,
+            "null_std": 0.006836020473387144,
+            "gap": -0.02643430652447034,
+            "gap_over_std": -3.8669144756631404,
+            "p_high": 1.0,
+            "p_low": 0.009900990099009901
+          }
+        },
+        "B1": {
+          "stats": {
+            "n": 16651,
+            "mean_r_net": 0.03306172619315564,
+            "mean_r_gross": 0.0939147645651826,
+            "win_rate": 0.4722238904570296,
+            "avg_win_r": 1.1555325458084047,
+            "avg_loss_r": -0.9712609928139793,
+            "profit_factor": 1.0644970498690396,
+            "mean_bars_held": 11.112125397874001,
+            "exit_share": {
+              "stop": 0.333493,
+              "stop_gap": 0.081917,
+              "time": 0.58459
+            }
+          },
+          "null": {
+            "n_null": 100,
+            "null_mean": 0.07147094581367808,
+            "null_std": 0.00785933369566351,
+            "gap": -0.03840921962052244,
+            "gap_over_std": -4.887083448526333,
+            "p_high": 1.0,
+            "p_low": 0.009900990099009901
+          }
+        },
+        "B2": {
+          "stats": {
+            "n": 16593,
+            "mean_r_net": 0.15452082301929543,
+            "mean_r_gross": 0.21554924609777468,
+            "win_rate": 0.38805520400168747,
+            "avg_win_r": 1.7555891667222197,
+            "avg_loss_r": -0.860771580477172,
+            "profit_factor": 1.293350509616356,
+            "mean_bars_held": 20.220816006749835,
+            "exit_share": {
+              "stop": 0.757609,
+              "stop_gap": 0.160851,
+              "time": 0.08154
+            }
+          },
+          "null": {
+            "n_null": 100,
+            "null_mean": 0.17631487049002645,
+            "null_std": 0.009827463925625099,
+            "gap": -0.02179404747073102,
+            "gap_over_std": -2.217667511747672,
+            "p_high": 0.9900990099009901,
+            "p_low": 0.019801980198019802
+          }
+        },
+        "B3": {
+          "stats": {
+            "n": 16668,
+            "mean_r_net": 0.045250515428549756,
+            "mean_r_gross": 0.10610447725690679,
+            "win_rate": 0.3971082313414927,
+            "avg_win_r": 1.1154051430006502,
+            "avg_loss_r": -0.6596309135593827,
+            "profit_factor": 1.113784518316539,
+            "mean_bars_held": 9.74076073914087,
+            "exit_share": {
+              "stop": 0.775498,
+              "stop_gap": 0.158687,
+              "time": 0.065815
+            }
+          },
+          "null": {
+            "n_null": 100,
+            "null_mean": 0.06165165950936863,
+            "null_std": 0.007823100801878433,
+            "gap": -0.016401144080818872,
+            "gap_over_std": -2.0965016936610015,
+            "p_high": 0.9900990099009901,
+            "p_low": 0.019801980198019802
+          }
+        },
+        "B4": {
+          "stats": {
+            "n": 16639,
+            "mean_r_net": 0.0648787905021466,
+            "mean_r_gross": 0.12578786514453252,
+            "win_rate": 0.5616924093996033,
+            "avg_win_r": 1.2614237705246065,
+            "avg_loss_r": -1.4684969647823605,
+            "profit_factor": 1.1007977179723507,
+            "mean_bars_held": 19.0,
+            "exit_share": {
+              "time": 1.0
+            }
+          },
+          "null": {
+            "n_null": 100,
+            "null_mean": 0.11909488837839827,
+            "null_std": 0.010767941281483498,
+            "gap": -0.05421609787625167,
+            "gap_over_std": -5.034954821817372,
+            "p_high": 1.0,
+            "p_low": 0.009900990099009901
+          }
+        }
+      }
+    },
+    "breakout_52week": {
+      "n_entries": 6819,
+      "variants": {
+        "B0": {
+          "stats": {
+            "n": 6772,
+            "mean_r_net": -0.0018212013763168277,
+            "mean_r_gross": 0.07595466797730276,
+            "win_rate": 0.47238629651506203,
+            "avg_win_r": 1.095941792999994,
+            "avg_loss_r": -0.9846770141414493,
+            "profit_factor": 0.9964945150814345,
+            "mean_bars_held": 8.71751329001772,
+            "exit_share": {
+              "stop": 0.368576,
+              "stop_gap": 0.059362,
+              "target": 0.234938,
+              "target_gap": 0.048435,
+              "time": 0.288689
+            }
+          },
+          "null": {
+            "n_null": 100,
+            "null_mean": 0.024974962393350147,
+            "null_std": 0.012380374938670235,
+            "gap": -0.026796163769666974,
+            "gap_over_std": -2.16440648222768,
+            "p_high": 1.0,
+            "p_low": 0.009900990099009901
+          }
+        },
+        "B1": {
+          "stats": {
+            "n": 6754,
+            "mean_r_net": 0.0009824931155620457,
+            "mean_r_gross": 0.07877275283645215,
+            "win_rate": 0.43959135327213505,
+            "avg_win_r": 1.2475228013725446,
+            "avg_loss_r": -0.9768188741803379,
+            "profit_factor": 1.001794777621748,
+            "mean_bars_held": 10.871335504885993,
+            "exit_share": {
+              "stop": 0.387918,
+              "stop_gap": 0.061889,
+              "time": 0.550192
+            }
+          },
+          "null": {
+            "n_null": 100,
+            "null_mean": 0.028956835174234082,
+            "null_std": 0.012842819420404937,
+            "gap": -0.027974342058672035,
+            "gap_over_std": -2.1782087828958976,
+            "p_high": 0.9801980198019802,
+            "p_low": 0.0297029702970297
+          }
+        },
+        "B2": {
+          "stats": {
+            "n": 6754,
+            "mean_r_net": 0.012655096420865056,
+            "mean_r_gross": 0.09035633249355263,
+            "win_rate": 0.3491264435889843,
+            "avg_win_r": 1.6477806691931027,
+            "avg_loss_r": -0.8644209046248438,
+            "profit_factor": 1.0224928025023765,
+            "mean_bars_held": 15.895173230678116,
+            "exit_share": {
+              "stop": 0.826177,
+              "stop_gap": 0.144803,
+              "time": 0.02902
+            }
+          },
+          "null": {
+            "n_null": 100,
+            "null_mean": 0.08188860065537762,
+            "null_std": 0.017770611977988498,
+            "gap": -0.06923350423451256,
+            "gap_over_std": -3.8959549800686877,
+            "p_high": 1.0,
+            "p_low": 0.009900990099009901
+          }
+        },
+        "B3": {
+          "stats": {
+            "n": 6786,
+            "mean_r_net": -0.048372518938978225,
+            "mean_r_gross": 0.029222573089929746,
+            "win_rate": 0.3651635720601238,
+            "avg_win_r": 1.0488899058382097,
+            "avg_loss_r": -0.6795276462829597,
+            "profit_factor": 0.887867957359595,
+            "mean_bars_held": 8.199086354258768,
+            "exit_share": {
+              "stop": 0.823018,
+              "stop_gap": 0.150162,
+              "time": 0.02682
+            }
+          },
+          "null": {
+            "n_null": 100,
+            "null_mean": 0.0016425762944206415,
+            "null_std": 0.012451109098515403,
+            "gap": -0.050015095233398865,
+            "gap_over_std": -4.0169188814964585,
+            "p_high": 1.0,
+            "p_low": 0.009900990099009901
+          }
+        },
+        "B4": {
+          "stats": {
+            "n": 6712,
+            "mean_r_net": 0.06409478894793158,
+            "mean_r_gross": 0.14206378575578923,
+            "win_rate": 0.5283075089392133,
+            "avg_win_r": 1.3358612097732394,
+            "avg_loss_r": -1.3603157379776976,
+            "profit_factor": 1.099890465392513,
+            "mean_bars_held": 19.0,
+            "exit_share": {
+              "time": 1.0
+            }
+          },
+          "null": {
+            "n_null": 100,
+            "null_mean": 0.06086478542502764,
+            "null_std": 0.018083022648829283,
+            "gap": 0.0032300035229039376,
+            "gap_over_std": 0.17862077516742214,
+            "p_high": 0.46534653465346537,
+            "p_low": 0.5445544554455446
+          }
+        }
+      }
+    },
+    "low_vol_setup": {
+      "n_entries": 18346,
+      "variants": {
+        "B0": {
+          "stats": {
+            "n": 18338,
+            "mean_r_net": 0.05720563917952487,
+            "mean_r_gross": 0.15679034124879446,
+            "win_rate": 0.49983640527865636,
+            "avg_win_r": 1.122648291215232,
+            "avg_loss_r": -1.0075400377240176,
+            "profit_factor": 1.1135179269888547,
+            "mean_bars_held": 9.288362962155087,
+            "exit_share": {
+              "stop": 0.358818,
+              "stop_gap": 0.053223,
+              "target": 0.277838,
+              "target_gap": 0.040353,
+              "time": 0.269768
+            }
+          },
+          "null": {
+            "n_null": 100,
+            "null_mean": 0.0616340473074646,
+            "null_std": 0.007214317300610693,
+            "gap": -0.00442840812793973,
+            "gap_over_std": -0.6138360628475358,
+            "p_high": 0.7029702970297029,
+            "p_low": 0.3069306930693069
+          }
+        },
+        "B1": {
+          "stats": {
+            "n": 18338,
+            "mean_r_net": 0.09979525911375184,
+            "mean_r_gross": 0.19944394158352352,
+            "win_rate": 0.4768240811429818,
+            "avg_win_r": 1.301463369450301,
+            "avg_loss_r": -0.9954086138050292,
+            "profit_factor": 1.1916287954884641,
+            "mean_bars_held": 11.351401461446176,
+            "exit_share": {
+              "stop": 0.367979,
+              "stop_gap": 0.05524,
+              "time": 0.57678
+            }
+          },
+          "null": {
+            "n_null": 100,
+            "null_mean": 0.10058295546330984,
+            "null_std": 0.008450239331229736,
+            "gap": -0.0007876963495579981,
+            "gap_over_std": -0.09321586273265554,
+            "p_high": 0.5346534653465347,
+            "p_low": 0.4752475247524752
+          }
+        },
+        "B2": {
+          "stats": {
+            "n": 18330,
+            "mean_r_net": 0.18868782371771986,
+            "mean_r_gross": 0.2882920830783163,
+            "win_rate": 0.39858156028368796,
+            "avg_win_r": 1.8304258122147243,
+            "avg_loss_r": -0.8993507960173233,
+            "profit_factor": 1.3488494257916714,
+            "mean_bars_held": 17.959028914348064,
+            "exit_share": {
+              "stop": 0.826241,
+              "stop_gap": 0.136716,
+              "time": 0.037043
+            }
+          },
+          "null": {
+            "n_null": 100,
+            "null_mean": 0.1653027352296317,
+            "null_std": 0.011186355584121491,
+            "gap": 0.02338508848808815,
+            "gap_over_std": 2.0905010852043886,
+            "p_high": 0.0297029702970297,
+            "p_low": 0.9801980198019802
+          }
+        },
+        "B3": {
+          "stats": {
+            "n": 18335,
+            "mean_r_net": 0.06043845519260935,
+            "mean_r_gross": 0.15993621990963075,
+            "win_rate": 0.38985546768475593,
+            "avg_win_r": 1.2322068701373847,
+            "avg_loss_r": -0.6882699232846639,
+            "profit_factor": 1.1439202284550676,
+            "mean_bars_held": 9.709408235614944,
+            "exit_share": {
+              "stop": 0.831524,
+              "stop_gap": 0.129425,
+              "time": 0.039051
+            }
+          },
+          "null": {
+            "n_null": 100,
+            "null_mean": 0.05109536509606175,
+            "null_std": 0.007790447666812754,
+            "gap": 0.009343090096547595,
+            "gap_over_std": 1.1993007970965628,
+            "p_high": 0.1188118811881188,
+            "p_low": 0.8910891089108911
+          }
+        },
+        "B4": {
+          "stats": {
+            "n": 18336,
+            "mean_r_net": 0.24632676336713719,
+            "mean_r_gross": 0.34616254545204755,
+            "win_rate": 0.5718259162303665,
+            "avg_win_r": 1.4390435198405516,
+            "avg_loss_r": -1.346544869752688,
+            "profit_factor": 1.4272385119330775,
+            "mean_bars_held": 19.0,
+            "exit_share": {
+              "time": 1.0
+            }
+          },
+          "null": {
+            "n_null": 100,
+            "null_mean": 0.2153282937035165,
+            "null_std": 0.011633314182557192,
+            "gap": 0.030998469663620687,
+            "gap_over_std": 2.6646292859604275,
+            "p_high": 0.009900990099009901,
+            "p_low": 1.0
+          }
+        }
+      }
+    },
+    "volume_trend_accumulation": {
+      "n_entries": 20830,
+      "variants": {
+        "B0": {
+          "stats": {
+            "n": 20696,
+            "mean_r_net": 0.016139987033894573,
+            "mean_r_gross": 0.0927472783985242,
+            "win_rate": 0.47816003092385,
+            "avg_win_r": 1.1016022704606814,
+            "avg_loss_r": -0.9784650830393908,
+            "profit_factor": 1.031609709852137,
+            "mean_bars_held": 8.907228449942018,
+            "exit_share": {
+              "stop": 0.362244,
+              "stop_gap": 0.058224,
+              "target": 0.241303,
+              "target_gap": 0.043052,
+              "time": 0.295178
+            }
+          },
+          "null": {
+            "n_null": 100,
+            "null_mean": 0.036011309353824766,
+            "null_std": 0.007070668661832654,
+            "gap": -0.019871322319930194,
+            "gap_over_std": -2.8103879944474337,
+            "p_high": 1.0,
+            "p_low": 0.009900990099009901
+          }
+        },
+        "B1": {
+          "stats": {
+            "n": 20635,
+            "mean_r_net": 0.008498247219183687,
+            "mean_r_gross": 0.0851133000106489,
+            "win_rate": 0.4487521201841531,
+            "avg_win_r": 1.2104333408560226,
+            "avg_loss_r": -0.9699561674689154,
+            "profit_factor": 1.0158938942775326,
+            "mean_bars_held": 10.993360794766174,
+            "exit_share": {
+              "stop": 0.375721,
+              "stop_gap": 0.06174,
+              "time": 0.562539
+            }
+          },
+          "null": {
+            "n_null": 100,
+            "null_mean": 0.049738091747087765,
+            "null_std": 0.007685798735474145,
+            "gap": -0.04123984452790408,
+            "gap_over_std": -5.365720069868568,
+            "p_high": 1.0,
+            "p_low": 0.009900990099009901
+          }
+        },
+        "B2": {
+          "stats": {
+            "n": 20633,
+            "mean_r_net": 0.05539120512654961,
+            "mean_r_gross": 0.1318030254629677,
+            "win_rate": 0.3661610042165463,
+            "avg_win_r": 1.6615410667656503,
+            "avg_loss_r": -0.8724618461567816,
+            "profit_factor": 1.1001648662345125,
+            "mean_bars_held": 17.038336645180053,
+            "exit_share": {
+              "stop": 0.813842,
+              "stop_gap": 0.1485,
+              "time": 0.037658
+            }
+          },
+          "null": {
+            "n_null": 100,
+            "null_mean": 0.10725933283240442,
+            "null_std": 0.01026760490285199,
+            "gap": -0.05186812770585481,
+            "gap_over_std": -5.0516287095783765,
+            "p_high": 1.0,
+            "p_low": 0.009900990099009901
+          }
+        },
+        "B3": {
+          "stats": {
+            "n": 20750,
+            "mean_r_net": -0.009531339744426735,
+            "mean_r_gross": 0.06693432046028001,
+            "win_rate": 0.3772048192771084,
+            "avg_win_r": 1.0966447782329152,
+            "avg_loss_r": -0.679502745409416,
+            "profit_factor": 0.977477453553518,
+            "mean_bars_held": 8.857349397590362,
+            "exit_share": {
+              "stop": 0.809108,
+              "stop_gap": 0.151277,
+              "time": 0.039614
+            }
+          },
+          "null": {
+            "n_null": 100,
+            "null_mean": 0.018433924920861773,
+            "null_std": 0.007493018683246794,
+            "gap": -0.02796526466528851,
+            "gap_over_std": -3.732176022437315,
+            "p_high": 1.0,
+            "p_low": 0.009900990099009901
+          }
+        },
+        "B4": {
+          "stats": {
+            "n": 20536,
+            "mean_r_net": 0.0808855763310333,
+            "mean_r_gross": 0.15763846322544617,
+            "win_rate": 0.5385664199454616,
+            "avg_win_r": 1.310922772102691,
+            "avg_loss_r": -1.3547635778726956,
+            "profit_factor": 1.1293893036483866,
+            "mean_bars_held": 19.0,
+            "exit_share": {
+              "time": 1.0
+            }
+          },
+          "null": {
+            "n_null": 100,
+            "null_mean": 0.11641088235734172,
+            "null_std": 0.009884705358913365,
+            "gap": -0.03552530602630842,
+            "gap_over_std": -3.593967117520006,
+            "p_high": 1.0,
+            "p_low": 0.009900990099009901
+          }
+        }
+      }
+    }
+  }
+}

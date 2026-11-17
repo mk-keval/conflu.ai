@@ -33,6 +33,7 @@ jobs:
           scripts/make_baseline_report.py
           scripts/research_diagnostics.py
           scripts/research_event_study.py
+          scripts/research_exit_study.py
       - name: Research tests
         run: >-
           pytest -v
@@ -41,6 +42,7 @@ jobs:
           backend/tests/test_research_diagnostics.py
           backend/tests/test_research_engine.py
           backend/tests/test_research_events.py
+          backend/tests/test_research_exit_study.py
           backend/tests/test_research_indicators.py
           backend/tests/test_research_metrics.py
           backend/tests/test_research_runner.py
