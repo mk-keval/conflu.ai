@@ -991,3 +991,14 @@ RUFF_EXIT=0
 - The frozen-commit hash is not written into the pre-registration file. It is
   recorded in the follow-up work-log entry committed as
   `docs(log): record H-16 pre-registration hash`.
+
+### E7 frozen pre-registration hash
+
+`git log -1 --format=%H` of the E7 commit:
+
+```text
+cf25477b03e9742a07531c326fecb613c571aca0
+```
+
+The pre-registration file was committed unchanged in that commit and is not
+edited again by E7 or later documentation tasks.
