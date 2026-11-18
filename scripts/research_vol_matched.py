@@ -167,8 +167,9 @@ def definitions_text(horizons, n_buckets, n_sanity, n_null):
         "non-tradable symbols get an all-False series. Shortfalls (`requested > drawn`) are "
         "reported, never hidden.",
         "- **Percent returns (Part 2):** `add_pct_returns(trades, cost_bps)` adds "
-        "`ret_gross_pct = exit_price*(1-c)/(entry_price*(1+c)) - 1` with `c = cost_bps/10000`; "
-        "`ret_net_pct` carries the same cost-aware value and is the name reported in Part 2. Same "
+        "`ret_gross_pct = exit_price/entry_price - 1` (no costs) and "
+        "`ret_net_pct = exit_price*(1-c)/(entry_price*(1+c)) - 1` with `c = cost_bps/10000`; "
+        "Part 2 reports `ret_net_pct`. Same "
         f"entries and the same five variants B0-B4 as E2, {COST_BPS:.0f} bps per side.",
         "- **Honest significance:** `block_summary` returns the mean, the 95% month-block bootstrap "
         "CI (`events.month_block_bootstrap_ci`, `n_resamples=2000`, seed `42`), "

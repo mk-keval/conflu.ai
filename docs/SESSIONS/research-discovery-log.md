@@ -851,3 +851,91 @@ it is not in this output; `git status --porcelain` listed it as `??`):
 - Nothing was pushed and nothing was squashed. Broad
   `ruff check backend/app/research scripts` was not run (six known pre-existing
   `W291` warnings in unrelated files); the exact CI ruff scope is clean.
+
+## E6 - Fix `add_pct_returns` gross column and the E4 wording
+
+- **Date:** 2026-11-18
+- **Task:** E6 (Phase 3 correction commit). Precondition confirmed: `49cad31`,
+  `84c7f8d` and `f5c9f05` are on `research/baseline-backtesting`; `git pull
+  --ff-only` said `Already up to date.` No study was re-run.
+- **What changed and why:** the E4 task defined
+  `ret_gross_pct = exit_price/entry_price - 1` (no costs) and
+  `ret_net_pct = exit_price*(1-c)/(entry_price*(1+c)) - 1`, but
+  `add_pct_returns` stored the cost-aware formula in both columns and the
+  docstring, test, script text, report and D-85 said this was "as specified".
+  E6 makes `ret_gross_pct` cost-free, keeps `ret_net_pct` cost-aware, and adds
+  an insert-only correction blockquote to the report and D-85. Only
+  `ret_net_pct` is reported and `ret_gross_pct` is used nowhere else (grep
+  below), so no reported number changes.
+- **`git grep -n ret_gross_pct` before editing:** hits were the definition in
+  `matched_control.py` (docstring plus the two column assignments), the test
+  and empty-frame assertions, the D-85 definitions and section 11 wording, the
+  E4 work-log entry, the report definitions bullet, the JSON definitions
+  string, and `scripts/research_vol_matched.py` line 170. No computation or
+  report table reads `ret_gross_pct`.
+- **Files touched:** `backend/app/research/matched_control.py`,
+  `backend/tests/test_research_matched_control.py`,
+  `scripts/research_vol_matched.py`,
+  `docs/backtests/research/VOL_MATCHED_STUDY.md`,
+  `docs/DECISIONS/D-85-research-vol-matched-remeasurement.md`,
+  `docs/backtests/research/VALIDITY_NOTES.md`, this work log.
+
+### Commands, exact output
+
+Start gate:
+
+```text
+=== E6 START GATE pytest ===
+124 passed in 14.26s
+TEST_EXIT=0
+=== E6 START GATE ruff ===
+All checks passed!
+RUFF_EXIT=0
+```
+
+End gate:
+
+```text
+=== E6 END GATE pytest ===
+124 passed in 16.87s
+TEST_EXIT=0
+=== E6 END GATE ruff ===
+All checks passed!
+RUFF_EXIT=0
+```
+
+`git diff -U0 -- docs/backtests/research/VOL_MATCHED_STUDY.md` (pure insertion;
+no table line changed):
+
+```text
+@@ -23,0 +24,3 @@ Any cell that does not pass is NOT evidence of an edge. A passing cell is only a
++
++> Correction (E6, 2026-11-18): ret_gross_pct is exit/entry-1 (no costs); ret_net_pct is the cost-aware value. The original wording above was wrong. All reported numbers use ret_net_pct and are unchanged.
++
+```
+
+`git diff --name-only | grep -i json` printed nothing (`JSON_MATCH_COUNT=0`).
+
+```text
+git diff --stat
+ backend/app/research/matched_control.py                   | 14 ++++++--------
+ backend/tests/test_research_matched_control.py            | 25 +++++++++++++++++++++----
+ docs/DECISIONS/D-85-research-vol-matched-remeasurement.md |  6 ++++++
+ docs/backtests/research/VALIDITY_NOTES.md                 |  2 ++
+ docs/backtests/research/VOL_MATCHED_STUDY.md              |  3 +++
+ scripts/research_vol_matched.py                           |  5 +++--
+ 6 files changed, 41 insertions(+), 14 deletions(-)
+```
+
+### Skipped / notes
+
+- Task text said "with `cost_bps=8` the two columns are equal". That is not
+  true for the formulas E6 defines: at 8 bps the net column is below gross.
+  The test therefore checks equality at `cost_bps=0` (the only cost at which
+  the two formulas coincide) and additionally checks `net < gross` at 8 bps
+  and at 15 bps. No test was weakened and no formula was bent to match the
+  sentence.
+- The generated JSON artifact was not edited; its definitions string keeps the
+  old wording, and the D-85 definitions blockquote says so.
+- No study was re-run, no download was made, and no report or JSON number was
+  edited.

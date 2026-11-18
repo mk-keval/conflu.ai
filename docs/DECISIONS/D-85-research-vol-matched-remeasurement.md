@@ -106,6 +106,9 @@ Module functions recorded by the self-check: `vol_bucket_frame`,
   `ret_gross_pct = exit_price*(1-c)/(entry_price*(1+c)) - 1` with `c = cost_bps/10000`;
   `ret_net_pct` carries the same cost-aware value and is the name reported in Part 2.
   Same entries and the same five variants B0-B4 as E2, 15 bps per side.
+
+> Correction (E6, 2026-11-18): ret_gross_pct is exit/entry-1 (no costs); ret_net_pct is the cost-aware value. The original wording above was wrong. All reported numbers use ret_net_pct and are unchanged. The generated JSON artifact's definitions string keeps the old wording.
+
 - **Honest significance:** `block_summary` returns the mean, the 95% month-block
   bootstrap CI (`events.month_block_bootstrap_ci`, `n_resamples=2000`, seed `42`),
   `se_block = (ci_high - ci_low)/(2*1.96)`, `reference_in_ci`, and
@@ -379,6 +382,9 @@ changed 3 files with 1737 insertions.
   `exit*(1-c)/(entry*(1+c)) - 1` is stored in `ret_gross_pct` and mirrored in
   `ret_net_pct`, which Part 2 reports. This is stated in the module docstring and in
   the report definitions.
+
+> Correction (E6, 2026-11-18): ret_gross_pct is exit/entry-1 (no costs); ret_net_pct is the cost-aware value. The original wording above was wrong. All reported numbers use ret_net_pct and are unchanged.
+
 - The vol-matched control matches on volatility bucket and pool size only. It does not
   match on sector, industry, beta or liquidity beyond the existing eligibility rule.
 - The bucket benchmark shifts the bucket series one bar per symbol, mirroring

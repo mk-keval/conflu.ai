@@ -301,11 +301,10 @@ def bucket_excess_frame(
 def add_pct_returns(trades: pd.DataFrame, cost_bps: float) -> pd.DataFrame:
     """Add percent returns to an exit-study trade frame.
 
-    The task defines the cost-aware percent return as
-    ``exit_price * (1 - c) / (entry_price * (1 + c)) - 1`` with
-    ``c = cost_bps / 10_000``.  That formula is stored in ``ret_gross_pct``
-    exactly as specified and mirrored in ``ret_net_pct``, the name the Part 2
-    report uses.  Trades with NaN prices stay NaN, never filled.
+    ``ret_gross_pct = exit_price / entry_price - 1`` (no costs).  The
+    cost-aware value ``exit_price * (1 - c) / (entry_price * (1 + c)) - 1``
+    with ``c = cost_bps / 10_000`` is stored in ``ret_net_pct``, the name the
+    Part 2 report uses.  Trades with NaN prices stay NaN, never filled.
     """
     out = trades.copy()
     if out.empty:
@@ -315,9 +314,8 @@ def add_pct_returns(trades: pd.DataFrame, cost_bps: float) -> pd.DataFrame:
     cost = float(cost_bps) / 10_000.0
     entry = out["entry_price"].astype(float)
     exit_price = out["exit_price"].astype(float)
-    pct = exit_price * (1.0 - cost) / (entry * (1.0 + cost)) - 1.0
-    out["ret_gross_pct"] = pct
-    out["ret_net_pct"] = pct
+    out["ret_gross_pct"] = exit_price / entry - 1.0
+    out["ret_net_pct"] = exit_price * (1.0 - cost) / (entry * (1.0 + cost)) - 1.0
     return out
 
 

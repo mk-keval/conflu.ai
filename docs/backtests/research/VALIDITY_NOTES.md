@@ -5,6 +5,8 @@
 
 **Related:** [D-84](../../DECISIONS/D-84-research-signal-information-and-exit-shape.md) records the E1 event study and E2 exit study; their own capacity and benchmark caveats are in [EVENT_STUDY.md](EVENT_STUDY.md) and [EXIT_STUDY.md](EXIT_STUDY.md). This note is unchanged by E3.
 
+**Related:** [D-85](../../DECISIONS/D-85-research-vol-matched-remeasurement.md) records the E4 volatility-matched re-measurement of E1/E2; its tables are in [VOL_MATCHED_STUDY.md](VOL_MATCHED_STUDY.md).
+
 Sources read for this note: `backend/app/research/setups.py`, `backend/app/research/indicators.py`,
 `backend/app/research/control.py`, `config/screens/52week-breakout.yaml`,
 `config/screens/low-vol-setup.yaml`, `config/screens/statistical-mean-reversion.yaml`,

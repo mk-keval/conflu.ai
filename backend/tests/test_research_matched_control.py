@@ -239,7 +239,7 @@ def test_volatility_confound_universe_benchmark_vs_bucket_excess():
 
 
 def test_add_pct_returns_matches_the_specified_formula():
-    """A hand-built trade row gives the exact cost-aware percent return."""
+    """Hand-built rows match gross and net formulas; costs separate them."""
     trades = pd.DataFrame(
         {
             "entry_price": [100.0, 50.0],
@@ -248,16 +248,33 @@ def test_add_pct_returns_matches_the_specified_formula():
     )
     cost_bps = 15.0
     cost = cost_bps / 10_000.0
-    expected = trades["exit_price"] * (1.0 - cost) / (
+    expected_gross = trades["exit_price"] / trades["entry_price"] - 1.0
+    expected_net = trades["exit_price"] * (1.0 - cost) / (
         trades["entry_price"] * (1.0 + cost)
     ) - 1.0
 
     out = add_pct_returns(trades, cost_bps)
 
-    for column in ("ret_gross_pct", "ret_net_pct"):
-        assert np.allclose(out[column].to_numpy(dtype=float), expected.to_numpy(dtype=float))
+    assert np.allclose(
+        out["ret_gross_pct"].to_numpy(dtype=float),
+        expected_gross.to_numpy(dtype=float),
+    )
+    assert np.allclose(
+        out["ret_net_pct"].to_numpy(dtype=float),
+        expected_net.to_numpy(dtype=float),
+    )
+    assert math.isclose(out["ret_gross_pct"].iloc[0], 0.10)
+    assert (out["ret_net_pct"] < out["ret_gross_pct"]).all()
     # 110 * 0.9985 / (100 * 1.0015) - 1
     assert math.isclose(out["ret_net_pct"].iloc[0], 110.0 * 0.9985 / 100.15 - 1.0)
+    # Costs are the only difference between the columns, so they coincide at zero.
+    free = add_pct_returns(trades, 0.0)
+    assert np.allclose(
+        free["ret_net_pct"].to_numpy(dtype=float),
+        free["ret_gross_pct"].to_numpy(dtype=float),
+    )
+    at_8bps = add_pct_returns(trades, 8.0)
+    assert (at_8bps["ret_net_pct"] < at_8bps["ret_gross_pct"]).all()
     empty = add_pct_returns(trades.iloc[0:0], cost_bps)
     assert "ret_net_pct" in empty and "ret_gross_pct" in empty
 
