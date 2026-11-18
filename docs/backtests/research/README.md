@@ -24,6 +24,8 @@ The E1 event study and E2 exit study ([D-84](../../DECISIONS/D-84-research-signa
 
 The E4 volatility-matched re-measurement ([D-85](../../DECISIONS/D-85-research-vol-matched-remeasurement.md), H-15) is in [`VOL_MATCHED_STUDY.md`](VOL_MATCHED_STUDY.md) with artifact [`event_study/vol_matched_20261117_185439.json`](event_study/vol_matched_20261117_185439.json). It re-measures E1/E2 with volatility-bucket benchmarks, vol-matched entry nulls and percent returns; no cell passes.
 
+The pre-2016 H-16 check ([D-86](../../DECISIONS/D-86-research-pre2016-check-and-survivorship-estimate.md)) is in [`WINDOW_STUDY_H16.md`](WINDOW_STUDY_H16.md) with artifact [`event_study/window_study_20261118_160453.json`](event_study/window_study_20261118_160453.json); its pre-registered primary cell fails (+31.5 bp, CI [-28.8, 102.8], `block_t` 0.94). The survivorship size estimate is in [`SURVIVORSHIP_ESTIMATE.md`](SURVIVORSHIP_ESTIMATE.md) with artifact [`event_study/survivorship_20261118_161329.json`](event_study/survivorship_20261118_161329.json); it is a measurement (average annual gap +6.32 pp), not a corrected estimate.
+
 The **D-82** `*_20261113_*.json` artifacts are **superseded for the headline** by D-83; they
 remain valid for the D-82 engine contract and are kept as the previous baseline. The **D-81**
 `*_20261111_21*.json` artifacts are **superseded**. The 13 older D-79/D-80 artifacts are

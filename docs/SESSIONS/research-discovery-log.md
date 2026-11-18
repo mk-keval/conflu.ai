@@ -1307,3 +1307,125 @@ Average annual gap +6.32 pp (11 of 11 years positive).
   `download_daily` call and reused from `.cache/research`; SPY from cache).
 - No pass/fail rule applies: this is a size estimate, and the report carries the
   four required caveats verbatim. No interpretation was added.
+
+## E10 - Record D-86: H-16 pre-2016 check and the survivorship size estimate
+
+- **Date:** 2026-11-18
+- **Task:** E10 (Phase 3 documentation). Precondition confirmed: E7 `cf25477` /
+  `285ce7b`, E8 `1cc53df` / `2f9a1f5` and E9 `5808d4f` / `6806a49` are committed and
+  `git status` was clean before any E10 edit.
+- **What changed and why:** documentation only. Added
+  `docs/DECISIONS/D-86-research-pre2016-check-and-survivorship-estimate.md`; updated
+  the H-16 row and appended one change-log row in `docs/backtests/HYPOTHESIS_LOG.md`;
+  filled only the five run-filled fields in
+  `docs/backtests/research/PREREGISTRATION-H-16-v1.md` (Status -> `run`, actual panel,
+  symbols tradable/dropped, code revision/dirty, run commits) and added one section 8
+  amendment row stating "post-run fill, no criterion changed"; added one pointer line
+  each to `docs/DECISIONS/index.md`, `docs/index.md`, `INDEX.md`,
+  `docs/backtests/research/README.md` and `docs/backtests/research/VALIDITY_NOTES.md`.
+  No code, test, workflow, report, JSON or earlier work-log entry was touched, and no
+  pass/fail criterion was changed after the run.
+- **Files touched:** the D-86 file (new), `docs/backtests/HYPOTHESIS_LOG.md`,
+  `docs/backtests/research/PREREGISTRATION-H-16-v1.md`, `docs/DECISIONS/index.md`,
+  `docs/index.md`, `INDEX.md`, `docs/backtests/research/README.md`,
+  `docs/backtests/research/VALIDITY_NOTES.md`, this work log.
+
+### Commands, exact output
+
+Start gate:
+
+```text
+=== E10 START GATE pytest ===
+134 passed in 14.63s
+TEST_EXIT=0
+=== E10 START GATE ruff ===
+All checks passed!
+RUFF_EXIT=0
+```
+
+Self-check (`Test-Path` and `Select-String -SimpleMatch`), all 13 paths, all 10 module
+functions, all 9 window-study flags and all 4 workflow entries found:
+
+```text
+=== PATH CHECKS ===
+OK   docs/DECISIONS/D-86-research-pre2016-check-and-survivorship-estimate.md
+OK   backend/app/research/window_study.py
+OK   backend/tests/test_research_window_study.py
+OK   scripts/research_window_study.py
+OK   docs/backtests/research/WINDOW_STUDY_H16.md
+OK   docs/backtests/research/event_study/window_study_20261118_160453.json
+OK   docs/backtests/research/PREREGISTRATION-H-16-v1.md
+OK   backend/app/research/survivorship.py
+OK   backend/tests/test_research_survivorship.py
+OK   scripts/research_survivorship.py
+OK   docs/backtests/research/SURVIVORSHIP_ESTIMATE.md
+OK   docs/backtests/research/event_study/survivorship_20261118_161329.json
+OK   .github/workflows/research.yml
+=== FUNCTION CHECKS (module definitions) ===
+OK   backend/app/research/window_study.py :: def by_year_excess (line 24)
+OK   backend/app/research/window_study.py :: def eligible_symbols_by_year (line 52)
+OK   backend/app/research/window_study.py :: def assert_no_data_after (line 71)
+OK   backend/app/research/window_study.py :: def primary_cell_passes (line 88)
+OK   backend/app/research/survivorship.py :: def equal_weight_returns (line 25)
+OK   backend/app/research/survivorship.py :: def calendar_year_returns (line 40)
+OK   backend/app/research/survivorship.py :: def symbols_with_data_by_year (line 56)
+OK   backend/app/research/survivorship.py :: def cumulative_return (line 68)
+OK   backend/app/research/survivorship.py :: def annual_gap_table (line 79)
+OK   backend/app/research/survivorship.py :: def average_annual_gap (line 103)
+=== FLAG CHECKS ===
+OK   flag --start
+OK   flag --end
+OK   flag --eval-start
+OK   flag --setups
+OK   flag --horizons
+OK   flag --n-buckets
+OK   flag --n-sanity
+OK   flag --report
+OK   flag --json-dir
+=== WORKFLOW CHECKS ===
+OK   workflow backend/tests/test_research_window_study.py (line 54)
+OK   workflow backend/tests/test_research_survivorship.py (line 55)
+OK   workflow scripts/research_window_study.py (line 38)
+OK   workflow scripts/research_survivorship.py (line 39)
+=== PENDING CHECK (must be empty) ===
+=== END PENDING CHECK ===
+=== STATUS / FILLED FIELDS ===
+27: | Status | `run` |
+47: | Actual panel | `2005-01-03 -> 2015-12-31` |
+54: | Symbols tradable / dropped | `461 / 42` |
+55: | Code revision / dirty flag | `1cc53df / false` |
+105: | Commit hash(es) of the run | `1cc53df` (code) / `2f9a1f5` (results) |
+=== OUTCOME STRING CHECKS ===
+OK   report PRE-REGISTERED PRIMARY CELL: FAIL
+OK   report | n | 3208 |
+OK   report | block_t | 0.94 |
+OK   H-16 row FAIL (line 51)
+OK   E9 average gap line
+```
+
+End gate (after every E10 edit, before the E10 commit):
+
+```text
+=== E10 END GATE pytest (exact CI list) ===
+134 passed in 12.40s
+TEST_EXIT=0
+=== E10 END GATE ruff (exact CI scope) ===
+All checks passed!
+RUFF_EXIT=0
+```
+
+### Skipped / notes
+
+- Documentation only: no study was re-run, no download was made, no number was
+  recomputed or hand-edited. Every number in D-86 is copied verbatim from
+  `WINDOW_STUDY_H16.md`, `SURVIVORSHIP_ESTIMATE.md` or the work log; fields with no
+  recorded value say "not recorded".
+- `pending` no longer appears anywhere in `PREREGISTRATION-H-16-v1.md`; the only
+  post-run change to that file is the five run-filled fields plus the section 8
+  amendment row. The pass/fail rule, threshold, window and seeds are unchanged.
+- The 0.4 bp smoke-vs-full difference (31.1 vs 31.5) is documented with its cause
+  "not recorded"; the full default run with `matches_preregistration=true` is the
+  recorded result.
+- The E9 loader restriction (only cached-span symbols plus RSP; `KVUE` and `VYLR`
+  never downloaded) is recorded in D-86 and the E9 work log.
+- No push and no squash.

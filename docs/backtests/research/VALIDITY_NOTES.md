@@ -7,6 +7,8 @@
 
 **Related:** [D-85](../../DECISIONS/D-85-research-vol-matched-remeasurement.md) records the E4 volatility-matched re-measurement of E1/E2; its tables are in [VOL_MATCHED_STUDY.md](VOL_MATCHED_STUDY.md).
 
+**Related:** [D-86](../../DECISIONS/D-86-research-pre2016-check-and-survivorship-estimate.md) records the pre-2016 H-16 window study and the survivorship size estimate; the tables are in [WINDOW_STUDY_H16.md](WINDOW_STUDY_H16.md) and [SURVIVORSHIP_ESTIMATE.md](SURVIVORSHIP_ESTIMATE.md). The survivorship caveat in this note is unchanged; E9 only attaches a scale to it.
+
 Sources read for this note: `backend/app/research/setups.py`, `backend/app/research/indicators.py`,
 `backend/app/research/control.py`, `config/screens/52week-breakout.yaml`,
 `config/screens/low-vol-setup.yaml`, `config/screens/statistical-mean-reversion.yaml`,

@@ -24,7 +24,7 @@ research backtest into forward evidence.
 | Date written (before run) | `2026-11-18` |
 | Author | Keval Makwana |
 | Evidence label | `EXPLORATORY` (research harness) |
-| Status | `frozen` |
+| Status | `run` |
 | Decision ADR / linked decision | `D-86` (to be written in E10) |
 
 ## 2. Question and metric
@@ -44,15 +44,15 @@ research backtest into forward evidence.
 |---|---|
 | Loader | `download_daily` on `.cache/research`, then `add_indicators` |
 | Requested span | `2005-01-01 -> 2015-12-31` |
-| Actual panel | `pending` |
+| Actual panel | `2005-01-03 -> 2015-12-31` |
 | Universe | `config/replay_universe_sp500.txt` current snapshot (survivorship-biased, and **more biased the further back the window goes**) |
 | Exclusions | `NON_TRADABLE` |
 | Signal source | `SETUPS["breakout_52week"](df)` at the close of day `t` (other setups descriptive only) |
 | Eligibility | `events.eligibility_frame` at the signal bar (`close >= 10`, `adv_usd20 >= 20M`, evaluated on dividend-adjusted prices, which is stricter in older years) |
 | Evaluation / entry start | `2006-01-01` (2005 is indicator warm-up) |
 | Panel-end rule | forward rows without the future close are dropped, as `events.py` does; no data after `2015-12-31` is loaded |
-| Symbols tradable / dropped | `pending` |
-| Code revision / dirty flag | `pending` |
+| Symbols tradable / dropped | `461 / 42` |
+| Code revision / dirty flag | `1cc53df / false` |
 
 ## 4. Design
 
@@ -102,7 +102,7 @@ State one primary rule. Do not add or change a criterion after seeing the result
 | Unit-test command | `python -m pytest -q backend/tests/test_research_window_study.py` plus the explicit CI list |
 | Lint command | the exact CI ruff scope, including `scripts/research_window_study.py` |
 | Commit hash of the frozen pre-registration | recorded in the E7 work-log entry, **not** in this file |
-| Commit hash(es) of the run | `pending` |
+| Commit hash(es) of the run | `1cc53df` (code) / `2f9a1f5` (results) |
 
 ## 7. Limits to restate with any result
 
@@ -122,6 +122,7 @@ State one primary rule. Do not add or change a criterion after seeing the result
 | Date | Field | Old value | New value | Reason | Effect on label |
 |---|---|---|---|---|---|
 | `not recorded` | `none` | `none` | `none` | no amendment before the run | `still EXPLORATORY` |
+| 2026-11-18 | run-filled fields only (`Status`, `Actual panel`, `Symbols tradable / dropped`, `Code revision / dirty flag`, `Commit hash(es) of the run`) | `frozen` / the five run-filled fields were unfilled | `run` / `2005-01-03 -> 2015-12-31` / `461 / 42` / `1cc53df / false` / `1cc53df` (code) + `2f9a1f5` (results) | post-run fill, no criterion changed | `still EXPLORATORY` |
 
 ---
 
