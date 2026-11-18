@@ -367,3 +367,9 @@ EXPLORATORY research (H-13, H-14). Do not wire either script into a live decisio
 the D-75 pass bar, the kill rule, the forward scorecard or a FWD-v0.2 verdict. No
 engine, indicator, setup, control, metric, runner or committed result artifact is
 changed by D-84.
+
+---
+
+**Addendum (D-85):** the `p_high` / `p_low` and `gap/std` values in this record use a
+null whose spread is smaller than the strategy's own month-block uncertainty; treat
+them as descriptive only. See [D-85](D-85-research-vol-matched-remeasurement.md).

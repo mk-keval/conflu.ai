@@ -713,3 +713,141 @@ benchmark, so its expectation is zero). Result recorded in the report:
   commit (COMMIT 2).
 - Broad `ruff check backend/app/research scripts` was not run (six known
   pre-existing `W291` warnings in unrelated files); the CI ruff scope is clean.
+
+## E5 - Documentation record (D-85, H-15, trial ledger, pre-registration significance rule)
+
+- **Date:** 2026-11-17
+- **Task:** E5 (Phase 2). Precondition E4 at `84c7f8d` (or later) confirmed on
+  `research/baseline-backtesting`; `git log --oneline -3` showed
+  `84c7f8d` / `49cad31` / `be499e5` and the worktree was clean.
+- **Commit:** docs only; find it with
+  `git log --oneline -- docs/DECISIONS/D-85-*.md`. Message:
+  `docs (research): record D-85 vol-matched re-measurement, fix preregistration significance rule`.
+- **What changed and why:** E4 produced a measurement module, tests, a study
+  script and generated artifacts but was not recorded in the decision log. E5
+  writes `docs/DECISIONS/D-85-research-vol-matched-remeasurement.md` (why, the
+  pre-declared rule verbatim, definitions, panel/provenance, Part 1/Part 2
+  tables copied from `VOL_MATCHED_STUDY.md`, the sanity bias, shortfall, test and
+  lint evidence, deviations and known gaps), appends the D-85 addendum to D-84,
+  adds H-15 and the E4 trial-ledger rows (E1 20 + E2 20 + E4 Part 1 20 + E4
+  Part 2 20 = 80 cells) to `HYPOTHESIS_LOG.md`, replaces the pre-registration
+  template's any-volatility `p <= 0.01` / `gap/std` rule with the vol-matched
+  95% month-block CI plus `|block_t| >= z_crit(m)`, adds the volatility-matching
+  limit, and adds D-85 pointers to the research README, DECISIONS index,
+  `docs/index.md` and root `INDEX.md`. No code, test, workflow or committed
+  result artifact changed.
+
+### Files touched
+
+- `docs/DECISIONS/D-85-research-vol-matched-remeasurement.md` (new)
+- `docs/DECISIONS/D-84-research-signal-information-and-exit-shape.md` (append-only addendum)
+- `docs/DECISIONS/index.md`
+- `docs/backtests/HYPOTHESIS_LOG.md`
+- `docs/backtests/research/PREREGISTRATION_TEMPLATE.md`
+- `docs/backtests/research/README.md`
+- `docs/index.md`
+- `INDEX.md`
+- `docs/SESSIONS/research-discovery-log.md` (this entry)
+
+### Commands, exact output
+
+Start gate (before any E5 edit):
+
+```text
+=== E5 START GATE pytest (explicit 12-file CI list) ===
+124 passed in 10.25s
+TEST_EXIT=0
+=== E5 START GATE ruff (exact CI scope) ===
+All checks passed!
+RUFF_EXIT=0
+```
+
+Self-check of every path, flag and function named in the new text
+(`Test-Path` / `Select-String -SimpleMatch`):
+
+```text
+=== paths ===
+True   docs/DECISIONS/D-85-research-vol-matched-remeasurement.md
+True   docs/DECISIONS/D-84-research-signal-information-and-exit-shape.md
+True   docs/DECISIONS/D-83-research-baseline-v4-seed-averaged.md
+True   docs/backtests/HYPOTHESIS_LOG.md
+True   docs/backtests/research/VOL_MATCHED_STUDY.md
+True   docs/backtests/research/EVENT_STUDY.md
+True   docs/backtests/research/EXIT_STUDY.md
+True   docs/backtests/research/PREREGISTRATION_TEMPLATE.md
+True   docs/SESSIONS/research-discovery-log.md
+True   backend/app/research/matched_control.py
+True   backend/tests/test_research_matched_control.py
+True   scripts/research_vol_matched.py
+True   docs/backtests/research/event_study/vol_matched_20261117_185439.json
+True   .github/workflows/research.yml
+=== flags in script ===
+True   --setups
+True   --horizons
+True   --n-buckets
+True   --n-sanity
+True   --n-null
+True   --report
+True   --json-dir
+=== functions in matched_control.py ===
+True   def vol_bucket_frame
+True   def vol_matched_random_signals
+True   def bucket_benchmark
+True   def add_event_bucket
+True   def bucket_excess_frame
+True   def add_pct_returns
+True   def block_summary
+True   def z_crit
+True   def cell_passes
+```
+
+Imported symbols were also confirmed by their definitions: `events.py` has
+`forward_return_frame`, `eligibility_frame`, `collect_events`,
+`universe_benchmark`, `month_block_bootstrap_ci` and `event_stats`;
+`exit_study.py` has `DEFAULT_COST_BPS`, `VARIANTS`, `entry_candidates`,
+`simulate_entries` and `mask_ineligible`. Nothing named in D-85 was unconfirmed.
+
+End gate (after all E5 edits):
+
+```text
+=== E5 END GATE pytest (explicit 12-file CI list) ===
+124 passed in 11.26s
+TEST_EXIT=0
+=== E5 END GATE ruff (exact CI scope) ===
+All checks passed!
+RUFF_EXIT=0
+```
+
+`git diff --stat` before the commit (the new D-85 file is untracked at this point, so
+it is not in this output; `git status --porcelain` listed it as `??`):
+
+```text
+ INDEX.md                                                          |   2 ++
+ docs/DECISIONS/D-84-research-signal-information-and-exit-shape.md |   6 ++++++
+ docs/DECISIONS/index.md                                           |   1 +
+ docs/backtests/HYPOTHESIS_LOG.md                                  | 116 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++---
+ docs/backtests/research/PREREGISTRATION_TEMPLATE.md               |  24 +++++++++++++++---------
+ docs/backtests/research/README.md                                 |   2 ++
+ docs/index.md                                                     |   1 +
+ 7 files changed, 140 insertions(+), 12 deletions(-)
+```
+
+### Skipped / notes
+
+- The template uses "vol-matched CI plus `|block_t| >= z_crit(m)`" in place of
+  the old any-volatility rule. The exact old placeholder lines
+  (`Primary threshold ... gap / null std > 2`, `p-value definition`,
+  `p-value threshold ... p_high < 0.05`) were replaced, and the amendment log
+  records the change with `still EXPLORATORY`.
+- No "Universe and biases" heading exists in the template; the volatility-matching
+  line was added to section 7 ("Limits to restate with any result"), which is the
+  template's bias-restatement section. D-85 itself has a "Universe and biases"
+  section.
+- Numbers were copied verbatim from `VOL_MATCHED_STUDY.md`, `EVENT_STUDY.md`,
+  `EXIT_STUDY.md` and D-84; no run was repeated and no value was recomputed.
+- The `git diff --stat` command was followed by a stray `timeout=900000` line in
+  PowerShell, which produced a `CommandNotFoundException`; the gates had already
+  completed and both exits are recorded above. No other command failed.
+- Nothing was pushed and nothing was squashed. Broad
+  `ruff check backend/app/research scripts` was not run (six known pre-existing
+  `W291` warnings in unrelated files); the exact CI ruff scope is clean.

@@ -47,6 +47,7 @@ else in this file is input to the review, never a verdict.
 | H-12 | 2026-11-17 | D-83 research baseline v4: same four setups, headline expectancy and p-value averaged over 20 engine seeds (42..61) on identical signals | Exploratory (in-sample, 2015-2026; post-hoc rule change) | 1686 / 1747 / 1677 / 2147 closed trades (seed 42) | Seed-mean expectancy +0.0278 / +0.0107 / +0.0167 / +0.0036; matched p (seed-averaged) 0.6452 / 0.7097 / 0.8065 / 1.0000; informational underperformance line for volume only (Gap / control std -2.31; low_vol -0.57 and SMR -0.79 not flagged); NO EVIDENCE OF EDGE for all four | **Exploratory** - valid for one 2015-2026 panel and the D-83 rule; the seed-averaged headline was introduced after seeing D-82, so it is not pre-registered. Never the scorecard, pass bar or kill rule. Supersedes H-11 for the headline |
 | H-13 | 2026-11-17 | E1 / D-84 event study: forward returns after each real setup signal, minus the same-date eligible-universe mean, at horizons 1, 5, 10, 20, 60; no stops, targets or portfolio rules | Exploratory (in-sample, 2015-2026; post-hoc, no pre-registration) | 9014 / 4915 / 9168 / 14481 events after cooldown (SMR / breakout / low_vol / volume) | h=5 mean excess -9.0 / +7.7 / -5.2 / +5.5 bp; h=20 -26.1 / +14.6 / -15.4 / -11.1 bp; 200 matched-random nulls, seeds 50000..50199 | **EXPLORATORY** - one survivorship-biased panel, no walk-forward, same-date eligibility benchmark, no portfolio constraints. Not pre-registered. Never the scorecard, D-75 pass bar, kill rule or forward verdict |
 | H-14 | 2026-11-17 | E2 / D-84 exit study: five exit variants (B0-B4) on the same entries, compared with 100 matched-random entry sets under the same exit | Exploratory (in-sample, 2015-2026; post-hoc, no pre-registration) | 16683 / 6819 / 18346 / 20830 entries before exit-variant drops (SMR / breakout / low_vol / volume) | Best mean r_net: low_vol B4 0.2463 (gap 0.0310, gap/std 2.66); worst: breakout B3 -0.0484 (gap -0.0500, gap/std -4.02); 4 setups x 5 variants = 20 cells, not independent | **EXPLORATORY** - one survivorship-biased panel, no walk-forward, no capacity or slot competition, shared entries across variants and nulls. Not pre-registered. Never the scorecard, D-75 pass bar, kill rule or forward verdict |
+| H-15 | 2026-11-17 | E4 / D-85 vol-matched re-measurement: E1 event study against a volatility-bucket benchmark and E2 exit study against a volatility-matched entry null, in R and percent units, with `block_t` and Bonferroni `z_crit(20)` | Exploratory (in-sample, 2015-2026; post-hoc, no pre-registration) | 9014 / 4915 / 9168 / 14481 events; 16683 / 6819 / 18346 / 20830 entries (SMR / breakout / low_vol / volume) | 0 of 20 E1 cells and 0 of 20 E2 cells pass; largest absolute `block_t` 2.27 (`breakout_52week` h=60); low_vol B4 R gap +0.0394 (`block_t` 0.50) and percent gap +8.8 bp (`block_t` 0.38); no `p_high`/`p_low`; 20 sanity seeds 70000..70019, 100 null seeds 80000..80099 | **EXPLORATORY** - one survivorship-biased panel, no walk-forward, no capacity or slot competition, shared entries across variants and nulls. Not pre-registered. Never the scorecard, D-75 pass bar, kill rule or forward verdict |
 
 ---
 
@@ -502,13 +503,60 @@ D-75 pass bar, kill rule or forward verdict.
 `backend/tests/test_research_exit_study.py` (six synthetic tests),
 `docs/SESSIONS/research-discovery-log.md` (E2 entry).
 
+### H-15 — E4 / D-85 volatility-matched re-measurement (exploratory)
+
+**Question (task title):** are the E1/E2 comparisons valid once the control is matched
+on volatility and the exit study is measured in percent as well as R?
+
+**Design:** committed as `49cad31` (code) and `84c7f8d` (generated artifacts and work
+log). `backend/app/research/matched_control.py` (pure) adds volatility buckets
+(`atr_pct` rank per date, `rank(pct=True, method="first")`, `ceil(pct*10)-1`, default
+10 buckets, ineligible/NaN = -1), a bucket benchmark that uses each symbol's bucket on
+the bar before the entry date, vol-matched random signals that match the real
+per-date/per-bucket counts, event-bucket joining, bucket excess, cost-aware percent
+returns and `block_summary`/`z_crit`. `scripts/research_vol_matched.py` re-measures
+Part 1 (E1 event study vs the bucket benchmark) and Part 2 (E2 exit study in R and
+percent units); `EVENT_STUDY.md`/`EXIT_STUDY.md` are not modified. Flags: `--setups`,
+`--horizons` (default `1,5,10,20,60`), `--n-buckets` (default 10), `--n-sanity`
+(default 20), `--n-null` (default 100), `--report`, `--json-dir`. Part 1 sanity seeds
+70000..70019; Part 2 null seeds 80000..80099. Significance uses the 95% month-block
+CI, `se_block = (ci_high-ci_low)/(2*1.96)`, `block_t = (mean-reference)/se_block` and
+`z_crit(20) = 3.023`; E2 cells need both R and percent to pass and the gap signs to
+agree. No `p_high`/`p_low` is produced.
+
+**Result:** **no cell passes** (E1 0/20, E2 0/20). Largest `|block_t|` in either part
+is 2.27 (`breakout_52week` h=60, bucket excess +71.9 bp). `low_vol_setup` B4 keeps a
+positive R gap (+0.0394, `block_t` 0.50) and a positive percent gap (+8.8 bp,
+`block_t` 0.38) against the vol-matched null, so the E2-vs-E1 sign disagreement does
+not survive the measurement fix as a passing cell. `breakout_52week` B1 is the only
+cell whose R and percent gap signs disagree (R -0.0128, percent +6.0 bp); it fails
+both. Every requested control signal was drawn (shortfall 0 for all four setups).
+Full tables are in [`VOL_MATCHED_STUDY.md`](research/VOL_MATCHED_STUDY.md).
+
+**What it supports / does not support:** the report states "Any cell that does not pass
+is NOT evidence of an edge. A passing cell is only a candidate to be pre-registered
+and tested on the locked 2021-2026 holdout; it is never a result." It also repeats that
+the analysis "ignores portfolio capacity and slot competition". The old E1/E2
+`p_high`/`p_low` and `gap/std` are descriptive only because the old null's spread is
+2-3.5x smaller than the strategy's month-block uncertainty (see the D-84 addendum).
+**Evidence label:** `EXPLORATORY` — one in-sample, survivorship-biased panel, no
+walk-forward, no pre-registration, no capacity model. Never the scorecard, D-75 pass
+bar, kill rule or forward verdict.
+
+**Artifacts:** `docs/backtests/research/VOL_MATCHED_STUDY.md` (generated),
+`docs/backtests/research/event_study/vol_matched_20261117_185439.json` (generated),
+`backend/tests/test_research_matched_control.py` (eight synthetic tests),
+`docs/SESSIONS/research-discovery-log.md` (E4 and E5 entries).
+
 ---
 
 ## Trial ledger
 
-Values copied verbatim from `docs/backtests/research/EVENT_STUDY.md` and
-`docs/backtests/research/EXIT_STUDY.md`. **E1: 4 setups x 5 horizons = 20 cells.
-E2: 4 setups x 5 variants = 20 cells.** Every cell is `EXPLORATORY`.
+Values copied verbatim from `docs/backtests/research/EVENT_STUDY.md`,
+`docs/backtests/research/EXIT_STUDY.md` and `docs/backtests/research/VOL_MATCHED_STUDY.md`.
+**E1: 4 setups x 5 horizons = 20 cells. E2: 4 setups x 5 variants = 20 cells.
+E4 re-measures both studies: Part 1 = 20 setup x horizon cells, Part 2 = 20 setup x
+variant cells. Cumulative trials after E4 = 80 cells.** Every cell is `EXPLORATORY`.
 
 ### E1 — 20 cells (setup x horizon)
 
@@ -559,6 +607,67 @@ E2: 4 setups x 5 variants = 20 cells.** Every cell is `EXPLORATORY`.
 | volume_trend_accumulation | B2 | 20633 | 0.0554 | 0.1073 | 0.0103 | -0.0519 | -5.05 | 1.0000 | 0.0099 | EXPLORATORY |
 | volume_trend_accumulation | B3 | 20750 | -0.0095 | 0.0184 | 0.0075 | -0.0280 | -3.73 | 1.0000 | 0.0099 | EXPLORATORY |
 | volume_trend_accumulation | B4 | 20536 | 0.0809 | 0.1164 | 0.0099 | -0.0355 | -3.59 | 1.0000 | 0.0099 | EXPLORATORY |
+
+### E4 Part 1 — 20 cells (setup x horizon, volatility-bucket benchmark)
+
+Re-measurement of E1 against the bucket benchmark. `block t` is
+`(bucket excess)/se_block`; `passes` requires `|block t| >= z_crit(20) = 3.023` and
+the reference outside the 95% month-block CI. Every cell: `no`.
+
+| Setup | h | bucket excess (bp) | block t | Label |
+|---|---|---|---|---|
+| statistical_mean_reversion | 1 | 1.2 | 0.54 | EXPLORATORY |
+| statistical_mean_reversion | 5 | -9.1 | -1.66 | EXPLORATORY |
+| statistical_mean_reversion | 10 | -17.2 | -1.65 | EXPLORATORY |
+| statistical_mean_reversion | 20 | -20.8 | -1.36 | EXPLORATORY |
+| statistical_mean_reversion | 60 | -34.2 | -1.17 | EXPLORATORY |
+| breakout_52week | 1 | 1.6 | 0.55 | EXPLORATORY |
+| breakout_52week | 5 | 7.3 | 0.92 | EXPLORATORY |
+| breakout_52week | 10 | 21.6 | 1.89 | EXPLORATORY |
+| breakout_52week | 20 | 22.7 | 1.27 | EXPLORATORY |
+| breakout_52week | 60 | 71.9 | 2.27 | EXPLORATORY |
+| low_vol_setup | 1 | 0.1 | 0.10 | EXPLORATORY |
+| low_vol_setup | 5 | 0.3 | 0.12 | EXPLORATORY |
+| low_vol_setup | 10 | 2.0 | 0.50 | EXPLORATORY |
+| low_vol_setup | 20 | 9.9 | 1.61 | EXPLORATORY |
+| low_vol_setup | 60 | 18.9 | 1.53 | EXPLORATORY |
+| volume_trend_accumulation | 1 | 1.4 | 0.83 | EXPLORATORY |
+| volume_trend_accumulation | 5 | 6.9 | 1.80 | EXPLORATORY |
+| volume_trend_accumulation | 10 | 3.7 | 0.63 | EXPLORATORY |
+| volume_trend_accumulation | 20 | -4.4 | -0.41 | EXPLORATORY |
+| volume_trend_accumulation | 60 | 23.5 | 1.25 | EXPLORATORY |
+
+### E4 Part 2 — 20 cells (setup x variant, vol-matched null, R and percent)
+
+Re-measurement of E2 against the volatility-matched entry null. Percent gaps are in
+basis points. An E2 cell passes only if both metrics pass and the gap signs agree.
+Every cell: `passes = no`.
+
+| Setup | Variant | gap R | block t (R) | gap pct (bp) | block t (pct) | signs agree | Label |
+|---|---|---|---|---|---|---|---|
+| statistical_mean_reversion | B0 | -0.0264 | -0.47 | -13.8 | -0.44 | yes | EXPLORATORY |
+| statistical_mean_reversion | B1 | -0.0283 | -0.37 | -14.2 | -0.34 | yes | EXPLORATORY |
+| statistical_mean_reversion | B2 | -0.0135 | -0.16 | -6.8 | -0.15 | yes | EXPLORATORY |
+| statistical_mean_reversion | B3 | -0.0182 | -0.37 | -7.9 | -0.30 | yes | EXPLORATORY |
+| statistical_mean_reversion | B4 | -0.0460 | -0.27 | -27.8 | -0.30 | yes | EXPLORATORY |
+| breakout_52week | B0 | -0.0164 | -0.50 | -1.3 | -0.08 | yes | EXPLORATORY |
+| breakout_52week | B1 | -0.0128 | -0.26 | 6.0 | 0.26 | no | EXPLORATORY |
+| breakout_52week | B2 | -0.0378 | -0.80 | -4.3 | -0.19 | yes | EXPLORATORY |
+| breakout_52week | B3 | -0.0366 | -1.33 | -9.3 | -0.66 | yes | EXPLORATORY |
+| breakout_52week | B4 | 0.0273 | 0.26 | 24.4 | 0.59 | yes | EXPLORATORY |
+| low_vol_setup | B0 | 0.0193 | 0.44 | 4.7 | 0.35 | yes | EXPLORATORY |
+| low_vol_setup | B1 | 0.0187 | 0.34 | 4.3 | 0.26 | yes | EXPLORATORY |
+| low_vol_setup | B2 | 0.0328 | 0.49 | 9.1 | 0.47 | yes | EXPLORATORY |
+| low_vol_setup | B3 | 0.0270 | 0.55 | 6.7 | 0.47 | yes | EXPLORATORY |
+| low_vol_setup | B4 | 0.0394 | 0.50 | 8.8 | 0.38 | yes | EXPLORATORY |
+| volume_trend_accumulation | B0 | -0.0125 | -0.44 | -6.9 | -0.53 | yes | EXPLORATORY |
+| volume_trend_accumulation | B1 | -0.0306 | -0.84 | -12.3 | -0.72 | yes | EXPLORATORY |
+| volume_trend_accumulation | B2 | -0.0360 | -0.86 | -16.7 | -0.87 | yes | EXPLORATORY |
+| volume_trend_accumulation | B3 | -0.0201 | -0.73 | -10.0 | -0.80 | yes | EXPLORATORY |
+| volume_trend_accumulation | B4 | -0.0153 | -0.20 | -6.8 | -0.22 | yes | EXPLORATORY |
+
+**Cumulative:** E1 20 + E2 20 + E4 Part 1 20 + E4 Part 2 20 = **80 cells**, none
+passing and none out-of-sample.
 
 ---
 
@@ -635,3 +744,4 @@ artifact path, and the decision it does (not) justify.
 | 2026-11-17 | Added H-13 (E1 event study: `backend/app/research/events.py`, `scripts/research_event_study.py`, 6 tests, `EVENT_STUDY.md` + JSON, commit `687df51`); 20 setup x horizon cells, all EXPLORATORY and not pre-registered |
 | 2026-11-17 | Added H-14 (E2 exit study: `backend/app/research/exit_study.py`, `scripts/research_exit_study.py`, 6 tests, `EXIT_STUDY.md` + JSON, commit `62abbef`); 20 setup x variant cells, all EXPLORATORY and not pre-registered |
 | 2026-11-17 | E3 documentation only: recorded D-84, added the trial ledger (E1 20 cells, E2 20 cells) and added `docs/backtests/research/PREREGISTRATION_TEMPLATE.md` for future runs; no code, test, workflow or artifact change |
+| 2026-11-17 | Added H-15 (E4 vol-matched re-measurement: `backend/app/research/matched_control.py`, `scripts/research_vol_matched.py`, 8 tests, `VOL_MATCHED_STUDY.md` + JSON, commits `49cad31` / `84c7f8d` and D-85); E4 Part 1 20 cells + Part 2 20 cells, cumulative 80, none passing; replaced the template's `p <= 0.01` against an any-volatility control with the vol-matched CI plus an absolute-`block_t` threshold rule and marked the D-84 `p_high`/`p_low` descriptive only |

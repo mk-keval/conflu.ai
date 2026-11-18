@@ -69,7 +69,7 @@ research backtest into forward evidence.
 | Capacity / slot competition | `ignored` or `<modelled>` |
 | Cooldown / dedupe | `<none / previous accepted event <= N bars>` |
 | Strategy seeds | `<list and count, or none>` |
-| Null / control family | `<matched_random_signals / permuted / shifted / none>` |
+| Null / control family | `<matched_random_signals / vol_matched_random_signals / permuted / shifted / none>` |
 | Null draws and seeds | `<n draws, seed range>` |
 | Bootstrap resamples and seed | `<n resamples, seed>` |
 | Benchmark | `<same-date eligible universe mean / other / not recorded>` |
@@ -80,12 +80,13 @@ State one primary rule. Do not add or change a criterion after seeing the result
 
 | Field | Value |
 |---|---|
-| Primary threshold | `<e.g. mean excess > 0 bp, or gap / null std > 2>` |
+| Primary threshold | `<e.g. bucket / vol-matched gap > 0 bp, or mean r_net / percent gap > 0>` |
 | Direction | `higher` / `lower` |
-| p-value definition | `<one-sided formula and which tail>` |
-| p-value threshold | `<e.g. p_high < 0.05>` |
-| CI rule | `<e.g. month-block bootstrap lower bound > 0>` |
-| Multiple-comparison handling | `<e.g. Bonferroni over N cells / none — exploratory only>` |
+| Significance rule | an absolute `block_t` at or above `z_crit(m)`, where `block_t = (mean - reference) / se_block` and `se_block = (CI high - CI low) / (2 * 1.96)` |
+| p-value | `not used — report no p_high / p_low; the spread of one control run is descriptive, not a test` |
+| CI rule | `<e.g. 95% month-block bootstrap CI excludes the reference>` |
+| Multiple-comparison handling | `<e.g. Bonferroni z_crit(m) = NormalDist().inv_cdf(1 - 0.05/(2*m)) over m cells>` |
+| R and percent | `for an exit study, the cell passes only if the R metric AND the percent metric pass and the gap signs agree` |
 | Pass action | `<record as hypothesis only / no live change>` |
 | Fail action | `<record and stop / no re-run with a new window>` |
 | Amendment rule | any post-run change here invalidates the confirmatory label |
@@ -111,15 +112,20 @@ State one primary rule. Do not add or change a criterion after seeing the result
 - If cells share signals or entries, state that the cells are not independent trials.
 - If the universe benchmark is a same-date eligibility mean, state that it is not
   sector- or size-matched.
+- Controls must be matched on volatility (see
+  `backend/app/research/matched_control.py`); an any-volatility random null understates
+  the strategy's own month-block uncertainty.
 
 ## 8. Amendment log
 
 | Date | Field | Old value | New value | Reason | Effect on label |
 |---|---|---|---|---|---|
-| `<YYYY-MM-DD>` | `<field>` | `<old>` | `<new>` | `<reason>` | `still EXPLORATORY` / `invalidated` |
+| `2026-11-17` | Section 5 significance rule | `p <= 0.01` / `gap / null std` against an any-volatility matched control | vol-matched 95% month-block CI plus an absolute-`block_t` threshold; no `p_high` / `p_low` | the old null's spread is 2-3.5x smaller than the strategy's month-block uncertainty (D-85) | `still EXPLORATORY` |
 
 ---
 
 Reference: [D-84](../../DECISIONS/D-84-research-signal-information-and-exit-shape.md),
-[H-13 / H-14 and the trial ledger](../HYPOTHESIS_LOG.md),
-[EVENT_STUDY.md](EVENT_STUDY.md), [EXIT_STUDY.md](EXIT_STUDY.md).
+[D-85](../../DECISIONS/D-85-research-vol-matched-remeasurement.md),
+[H-13 / H-14 / H-15 and the trial ledger](../HYPOTHESIS_LOG.md),
+[EVENT_STUDY.md](EVENT_STUDY.md), [EXIT_STUDY.md](EXIT_STUDY.md),
+[VOL_MATCHED_STUDY.md](VOL_MATCHED_STUDY.md).
