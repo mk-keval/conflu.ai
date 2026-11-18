@@ -1,0 +1,137 @@
+{
+  "task": "E9",
+  "label": "MEASUREMENT",
+  "generated_at": "2026-11-18T16:12:53",
+  "command": "scripts/research_survivorship.py",
+  "definitions": [
+    "The panel = the 501 current-constituent symbols loaded exactly as in the other scripts.",
+    "For each trading day d from 2016-01-01, `ew_ret[d] = mean` over panel symbols that have both `close[d]` and `close[d-1]` of `close[d]/close[d-1] - 1` (daily-rebalanced equal weight; no eligibility filter).",
+    "Calendar-year return = `product(1 + ew_ret) - 1`.",
+    "Benchmarks: RSP (equal-weight S&P 500 ETF, point-in-time membership, ~0.20%/yr fee) and SPY, same adjusted-close method.",
+    "Per year report: panel EW return, RSP return, gap = panel EW - RSP (percentage points), SPY return, symbols with data; plus the cumulative 2016->latest of each series and the average annual gap."
+  ],
+  "caveats": [
+    "Gap = survivorship + current-membership selection + RSP fees + rebalancing-method differences.",
+    "It is an indicator of size, NOT a corrected estimate.",
+    "It says nothing about the sign of the bias on any one signal.",
+    "Daily-rebalanced equal weight is not RSP's quarterly rebalance."
+  ],
+  "git": {
+    "revision": "5808d4f0e955cd835509192a5dffcbfdddae1d0a",
+    "dirty": false
+  },
+  "elapsed_minutes": 0.5997437000274658,
+  "span": {
+    "start": "2015-01-01",
+    "end": "2026-11-17"
+  },
+  "panel": {
+    "actual_start": "2015-01-02",
+    "actual_end": "2026-11-17",
+    "n_universe": 503,
+    "n_cached": 501,
+    "n_uncached": 2,
+    "uncached": [
+      "KVUE",
+      "VYLR"
+    ],
+    "n_symbols": 501,
+    "n_dropped": 0,
+    "dropped": []
+  },
+  "cache": {
+    "cache_dir": ".cache\\research",
+    "requested_start": "2015-01-01",
+    "requested_end": "2026-11-17",
+    "hits": 504,
+    "misses": 0,
+    "downloaded": 0,
+    "failed": 0
+  },
+  "per_year": {
+    "2016": {
+      "panel_return": 0.21405035023957386,
+      "rsp_return": 0.15789033260299123,
+      "spy_return": 0.13585776015240447,
+      "gap_pp": 5.616001763658263,
+      "symbols": 469
+    },
+    "2017": {
+      "panel_return": 0.2720632267905143,
+      "rsp_return": 0.18516021846972852,
+      "spy_return": 0.21705373318260368,
+      "gap_pp": 8.690300832078579,
+      "symbols": 472
+    },
+    "2018": {
+      "panel_return": -0.02002254216783461,
+      "rsp_return": -0.07838999008849878,
+      "spy_return": -0.04568982285159673,
+      "gap_pp": 5.836744792066417,
+      "symbols": 476
+    },
+    "2019": {
+      "panel_return": 0.3505572652783233,
+      "rsp_return": 0.2890660393688693,
+      "spy_return": 0.3122386434799953,
+      "gap_pp": 6.1491225909453995,
+      "symbols": 482
+    },
+    "2020": {
+      "panel_return": 0.23505633594084907,
+      "rsp_return": 0.12658144030574836,
+      "spy_return": 0.1833161691128291,
+      "gap_pp": 10.84748956351007,
+      "symbols": 487
+    },
+    "2021": {
+      "panel_return": 0.3252116675962953,
+      "rsp_return": 0.2940833437100654,
+      "spy_return": 0.28728762372808636,
+      "gap_pp": 3.112832388622988,
+      "symbols": 491
+    },
+    "2022": {
+      "panel_return": -0.1013165668533188,
+      "rsp_return": -0.11617029444180793,
+      "spy_return": -0.181753608197315,
+      "gap_pp": 1.485372758848913,
+      "symbols": 493
+    },
+    "2023": {
+      "panel_return": 0.23338157625072742,
+      "rsp_return": 0.1369764507076201,
+      "spy_return": 0.2617578814370576,
+      "gap_pp": 9.640512554310732,
+      "symbols": 494
+    },
+    "2024": {
+      "panel_return": 0.21014911055300178,
+      "rsp_return": 0.12791111064374205,
+      "spy_return": 0.2488645466498145,
+      "gap_pp": 8.223799990925972,
+      "symbols": 497
+    },
+    "2025": {
+      "panel_return": 0.1722948030047029,
+      "rsp_return": 0.11213089288538303,
+      "spy_return": 0.17719063776702804,
+      "gap_pp": 6.016391011931987,
+      "symbols": 499
+    },
+    "2026": {
+      "panel_return": 0.17864696724172413,
+      "rsp_return": 0.13980242952836397,
+      "spy_return": 0.09150424842603022,
+      "gap_pp": 3.884453771336016,
+      "symbols": 501
+    }
+  },
+  "cumulative": {
+    "panel": 5.200263778799068,
+    "rsp": 2.4148537190447033,
+    "spy": 3.36877989727752,
+    "gap_pp": 278.5410059754365
+  },
+  "average_annual_gap_pp": 6.318456547112302
+}

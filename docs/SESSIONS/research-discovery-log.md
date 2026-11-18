@@ -1185,3 +1185,125 @@ PRE-REGISTERED PRIMARY CELL: FAIL
 - The two generated files were committed together with this entry. No engine,
   indicator, setup, control, metric, runner, `events.py`, `exit_study.py`,
   `matched_control.py`, earlier script or earlier artifact was modified.
+
+## E9 - Survivorship / current-membership size estimate (MEASUREMENT)
+
+- **Date:** 2026-11-18
+- **Task:** E9. Preconditions confirmed: E6/E7/E8 are committed and the tree was
+  clean before the recorded run. Downloads used only
+  `backend.app.research.data.download_daily` with cache `.cache/research`, span
+  `2015-01-01 -> 2026-11-17` (the latest complete session present in the
+  span-keyed cache).
+- **What changed and why:** added the pure helpers
+  `backend/app/research/survivorship.py` (equal-weight daily returns,
+  calendar-year compounding, per-year symbols with data, annual gap table,
+  average annual gap, cumulative return), 5 synthetic tests, and
+  `scripts/research_survivorship.py`. The script loads the 501 cached
+  current-constituent symbols and compares their daily-rebalanced equal-weight
+  return with RSP and SPY. Added the new test file and script to
+  `.github/workflows/research.yml`. No frozen module was edited and no number
+  was hand-edited.
+- **Files touched (COMMIT 1):** `backend/app/research/survivorship.py` (new),
+  `backend/tests/test_research_survivorship.py` (new),
+  `scripts/research_survivorship.py` (new), `.github/workflows/research.yml`.
+- **Files touched (COMMIT 2):**
+  `docs/backtests/research/SURVIVORSHIP_ESTIMATE.md` (generated),
+  `docs/backtests/research/event_study/survivorship_20261118_161329.json`
+  (generated), this work log.
+
+### Commands, exact output
+
+Start gate:
+
+```text
+=== E9 START GATE pytest ===
+129 passed in 12.42s
+TEST_EXIT=0
+=== E9 START GATE ruff ===
+All checks passed!
+RUFF_EXIT=0
+```
+
+New module tests and lint:
+
+```text
+5 passed in 1.60s
+TEST_EXIT=0
+All checks passed!
+RUFF_EXIT=0
+```
+
+Code end gate (before COMMIT 1):
+
+```text
+=== E9 CODE END GATE pytest ===
+134 passed in 20.23s
+TEST_EXIT=0
+=== E9 CODE END GATE ruff (exact CI scope) ===
+All checks passed!
+RUFF_EXIT=0
+```
+
+COMMIT 1: `5808d4f` `research: add survivorship size-estimate module and script (E9)`,
+`git status` clean afterwards.
+
+Recorded run console (clean tree):
+
+```text
+Loading panel and benchmarks 2015-01-01 -> 2026-11-17 from .cache/research
+Universe symbols: 503; cached for span: 501; not loaded (no cache, never downloaded): ['KVUE', 'VYLR']
+Wrote docs\backtests\research\SURVIVORSHIP_ESTIMATE.md and docs\backtests\research\event_study\survivorship_20261118_161329.json
+Panel 2015-01-02 -> 2026-11-17, 501 symbols; average annual gap +6.32 pp; dirty=False
+Elapsed: 0.6 minutes
+RUN_EXIT=0
+```
+
+End gate (after the run, before COMMIT 2):
+
+```text
+=== E9 END GATE pytest ===
+134 passed in 14.86s
+TEST_EXIT=0
+=== E9 END GATE ruff (exact CI scope) ===
+All checks passed!
+RUFF_EXIT=0
+```
+
+Generated numbers (MEASUREMENT, no pass/fail), copied from
+`SURVIVORSHIP_ESTIMATE.md`:
+
+```text
+| 2016 | 21.41% | 15.79% | +5.62 pp | 13.59% | 469 |
+| 2017 | 27.21% | 18.52% | +8.69 pp | 21.71% | 472 |
+| 2018 | -2.00% | -7.84% | +5.84 pp | -4.57% | 476 |
+| 2019 | 35.06% | 28.91% | +6.15 pp | 31.22% | 482 |
+| 2020 | 23.51% | 12.66% | +10.85 pp | 18.33% | 487 |
+| 2021 | 32.52% | 29.41% | +3.11 pp | 28.73% | 491 |
+| 2022 | -10.13% | -11.62% | +1.49 pp | -18.18% | 493 |
+| 2023 | 23.34% | 13.70% | +9.64 pp | 26.18% | 494 |
+| 2024 | 21.01% | 12.79% | +8.22 pp | 24.89% | 497 |
+| 2025 | 17.23% | 11.21% | +6.02 pp | 17.72% | 499 |
+| 2026 | 17.86% | 13.98% | +3.88 pp | 9.15% | 501 |
+
+Panel EW cumulative 520.03%; RSP 241.49%; gap +278.54 pp; SPY 336.88%.
+Average annual gap +6.32 pp (11 of 11 years positive).
+```
+
+### Skipped / notes / deviations
+
+- COMMIT 2: `research: survivorship size estimate results (E9)`.
+- The first code draft passed the full universe to `download_daily`, which
+  attempted a fetch of the uncached constituent `KVUE` (it failed, no data) and
+  would have attempted `VYLR`. That conflicts with the task's "only for symbols
+  RSP and SPY". Before the recorded run, COMMIT 1 was amended to restrict the
+  request to symbols that already have a cache entry for the exact span (plus
+  RSP) and to print the two uncached universe symbols. The recorded run made no
+  non-RSP/SPY request; `KVUE` and `VYLR` have no data and are not in the panel.
+  COMMIT 1 was also amended once to add the `Universe symbols / Cached for span
+  / Not loaded` provenance rows. Both amendments happened before COMMIT 2; the
+  final COMMIT 1 hash is `5808d4f`.
+- 503 universe symbols, 501 cached for the span, 501 loaded, 0 dropped by the
+  loader. Downloads: 0 in the recorded run (RSP was fetched by the earlier
+  `download_daily` call and reused from `.cache/research`; SPY from cache).
+- No pass/fail rule applies: this is a size estimate, and the report carries the
+  four required caveats verbatim. No interpretation was added.
