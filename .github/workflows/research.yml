@@ -36,6 +36,7 @@ jobs:
           scripts/research_exit_study.py
           scripts/research_vol_matched.py
           scripts/research_window_study.py
+          scripts/research_survivorship.py
       - name: Research tests
         run: >-
           pytest -v
@@ -51,4 +52,5 @@ jobs:
           backend/tests/test_research_runner.py
           backend/tests/test_research_setups.py
           backend/tests/test_research_window_study.py
+          backend/tests/test_research_survivorship.py
           backend/tests/test_make_baseline_report.py
