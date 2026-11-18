@@ -1429,3 +1429,48 @@ RUFF_EXIT=0
 - The E9 loader restriction (only cached-span symbols plus RSP; `KVUE` and `VYLR`
   never downloaded) is recorded in D-86 and the E9 work log.
 - No push and no squash.
+
+## E6 (correction) - `cost_bps=8` in the task text was a typo for `cost_bps=0`
+
+- **Date:** 2026-11-18
+- **Task:** documentation correction to the E6 record only. Precondition
+  confirmed: HEAD `4503060` on `research/baseline-backtesting`, working tree
+  clean, start gate `134 passed` (matches the E10 end count) and
+  `All checks passed!`.
+- **What changed and why:** the E6 task text said "with `cost_bps=8` the two
+  columns are equal". The author has confirmed that was a typo: the intended
+  value is `cost_bps=0`, the only cost at which `ret_gross_pct` and
+  `ret_net_pct` coincide. The E6 "Skipped / notes" bullet above therefore
+  describes a deviation that never existed. This entry supersedes that framing;
+  the E6 entry itself is left untouched (append-only log).
+- **What was already correct:** the shipped test
+  `test_add_pct_returns_matches_the_specified_formula` asserts equality at
+  `cost_bps=0` (`free = add_pct_returns(trades, 0.0)`, then
+  `np.allclose(free["ret_net_pct"], free["ret_gross_pct"])`) and additionally
+  keeps the valid checks `net < gross` at 8 bps and at 15 bps. Those extra
+  checks are correct assertions about the formulas, not a workaround.
+- **What did not change:** no code, formula, test, script, JSON, report or
+  number. Only this work log was appended to; no earlier entry was edited and
+  no artifact was regenerated. The correction commit therefore changes this
+  file only (`1 file changed`, insertions only).
+- **Commands, exact output:**
+
+```text
+=== E6-CORR START GATE pytest (exact CI list) ===
+134 passed in 15.94s
+TEST_EXIT=0
+=== E6-CORR START GATE ruff (exact CI scope) ===
+All checks passed!
+RUFF_EXIT=0
+```
+
+End gate (run after this entry was appended):
+
+```text
+=== E6-CORR END GATE pytest (exact CI list) ===
+134 passed in 12.84s
+TEST_EXIT=0
+=== E6-CORR END GATE ruff (exact CI scope) ===
+All checks passed!
+RUFF_EXIT=0
+```
