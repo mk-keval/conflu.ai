@@ -939,3 +939,55 @@ git diff --stat
   old wording, and the D-85 definitions blockquote says so.
 - No study was re-run, no download was made, and no report or JSON number was
   edited.
+
+## E7 - Pre-register the pre-2016 test of breakout 52week (H-16)
+
+- **Date:** 2026-11-18
+- **Task:** E7 (Phase 3 pre-registration). Docs only: no code, no download, no
+  study run. Precondition confirmed: E6 is committed (`f37cbed`), working tree
+  clean, `git pull --ff-only` said `Already up to date.`
+- **What changed and why:** copied `PREREGISTRATION_TEMPLATE.md` to
+  `docs/backtests/research/PREREGISTRATION-H-16-v1.md` and filled every field
+  before any download: H-16, task E8, one primary cell (`breakout_52week` h=60
+  bucket excess > 0 with 95% month-block CI low > 0 and
+  `block_t >= z_crit(1) = 1.96`), 19 descriptive cells, m = 1, window
+  2006-01-01..2015-12-31 with 2005 as indicator warm-up, 20 sanity draws
+  seeds 90000..90019, bootstrap 2000 resamples seed 42. Status `frozen`.
+  Run-filled fields (`Actual panel`, `Symbols tradable / dropped`,
+  `Code revision / dirty flag`, `Commit hash(es) of the run`) are `pending`.
+  Added the H-16 row and the ledger line to `HYPOTHESIS_LOG.md`; no other row
+  changed.
+- **Files touched:** `docs/backtests/research/PREREGISTRATION-H-16-v1.md`
+  (new), `docs/backtests/HYPOTHESIS_LOG.md`, this work log.
+
+### Commands, exact output
+
+Start gate:
+
+```text
+=== E7 START GATE pytest ===
+124 passed in 15.16s
+TEST_EXIT=0
+=== E7 START GATE ruff ===
+All checks passed!
+RUFF_EXIT=0
+```
+
+End gate (after the E7 edits, before the E7 commit):
+
+```text
+=== E7 END GATE pytest ===
+124 passed in 10.25s
+TEST_EXIT=0
+=== E7 END GATE ruff ===
+All checks passed!
+RUFF_EXIT=0
+```
+
+### Skipped / notes
+
+- No code, test, workflow or artifact changed; no download was made and no
+  study was run.
+- The frozen-commit hash is not written into the pre-registration file. It is
+  recorded in the follow-up work-log entry committed as
+  `docs(log): record H-16 pre-registration hash`.
