@@ -1,0 +1,86 @@
+﻿# Phase 4 ETF Research Work Log
+
+Purpose: Phase 4: free-data ETF trend study, H-17
+
+## F0 - Gate and log
+
+- **Date:** 2026-11-23
+- **Task:** F0 - verify starting state, create Phase 4 log. No code changed.
+- **Branch:** `research/baseline-backtesting`
+
+### What changed and why
+
+Created the Phase 4 ETF work log and recorded the F0 gate outputs. No code, tests, scripts, or artifacts were changed.
+
+### Files touched
+
+- `docs/SESSIONS/research-etf-log.nd` (created)
+
+### Commands and exact output
+
+#### 1. Git sync / state
+
+```text
+$ git pull 2>&1; Write-Output "PULL_EXIT=$LASTEXITCODE"; git log -3 --oneline 2>&1; Write-Output "---STATUS---"; git status --short 2>&1
+Already up to date.
+PULL_EXIT=0
+daac557 docs(log): record that E6's cost_bps=8 was a typo for cost_bps=0
+4503060 docs(research): record D-86 H-16 pre-2016 check and survivorship estimate (E10)
+6806a49 research: survivorship size estimate results (E9)
+---STATUS---
+```
+
+Tree clean: yes (`git status --short` empty).
+
+#### 2. Exact CI pytest list and ruff scope from `.github/workflows/research.yml`
+
+```text
+=== F0 GATE pytest (exact CI list) ===
+......................................................................................................................................                                                                    [100%]
+134 passed in 12.69s
+TEST_EXIT=0
+=== F0 GATE ruff (exact CI scope) ===
+All checks passed!
+RUFF_EXIT=0
+```
+
+Matches last recorded result (134 passed, ruff clean).
+
+#### 3. Package / Yahoo access check (commands run as written)
+
+Command 3a (as written):
+
+```text
+$ python -c "Import pandas, numpy, yfinance, yaml; print(pandas. version, numpy. version, yfinance. version)"
+  File "<string>", line 1
+    Import pandas, numpy, yfinance, yaml; print(pandas. version, numpy. version, yfinance. version)
+    ^^^^^^
+SyntaxError: invalid syntax. Did you mean 'import'?
+EXIT=1
+```
+
+Command 3b (as written):
+
+```text
+$ python -c "import yfinance as yf; d= yf.download('SPY', start='2024-01-02', end='2024-02-01',   auto_adjust=False, progress=False); print(d.shape); print(d.columns.tolist())"
+(21, 6)
+[('Adj Close', 'SPY'), ('Close', 'SPY'), ('High', 'SPY'), ('Low', 'SPY'), ('Open', 'SPY'), ('Volume', 'SPY')]
+EXIT=0
+```
+
+3b confirms Yahoo download works and returns non-empty data; Yahoo access required for F2 is available. 3a failed due to the command text as written (`Import`/spacing); not treated as a missing-package or empty-download stop condition because 3b succeeded.
+
+#### 4. TIINGO_API_KEY presence
+
+```text
+not set
+```
+
+(Value not printed.)
+
+### Skipped / notes
+
+- No code changed.
+- Command 3a was executed exactly as written and produced a SyntaxError; recorded verbatim. Command 3b succeeded with non-empty SPY data.
+- TIINGO_API_KEY is not set; F2 Tiingo cross-check will be NOT RUN unless key is provided later.
+- No push, no squash.
