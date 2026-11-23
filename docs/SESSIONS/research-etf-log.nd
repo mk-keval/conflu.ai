@@ -84,3 +84,30 @@ not set
 - Command 3a was executed exactly as written and produced a SyntaxError; recorded verbatim. Command 3b succeeded with non-empty SPY data.
 - TIINGO_API_KEY is not set; F2 Tiingo cross-check will be NOT RUN unless key is provided later.
 - No push, no squash.
+
+## F0 (follow-up) - corrected command 3a and TIINGO status
+
+- **Date:** 2026-11-23
+- **Task:** Follow-up to F0 per user request: re-run command 3a with corrected import syntax; confirm TIINGO_API_KEY status. No code changed.
+- **What changed and why:** The F0 command 3a as written contained a typo (`Import` / `pandas. version` spacing) and failed with SyntaxError. User confirmed typo and asked to run corrected import. User also provided TIINGO_API_KEY; it is now set in the current shell session (value never printed/logged).
+
+### Corrected command and exact output
+
+```text
+$ python -c "import pandas, numpy, yfinance, yaml; print(pandas.__version__, numpy.__version__, yfinance.__version__, yaml.__version__)"
+2.3.3 2.4.4 1.3.0 6.0.3
+EXIT=0
+```
+
+### TIINGO_API_KEY presence (current session)
+
+```text
+set
+```
+
+(Value not printed.)
+
+### Skipped / notes
+
+- Append-only log update; no earlier F0 entry edited.
+- No code/tests/scripts/artifacts changed. No push, no squash.
