@@ -263,3 +263,30 @@ RUFF_EXIT=0
 - Authorized deviation logged and commented in code; not a silent fix. F1 adj_ratio text specified 1e-6; user explicitly authorized 1e-4 after investigation.
 - `scripts/research_etf_trend.py` not yet added to ruff list (created in F4).
 - No installs, no refactors, no unrelated files changed.
+
+## F3 - Pre-registration (documents only, before any strategy code)
+
+- **Date:** 2026-11-24
+- **Task:** F3 - write frozen pre-registration for H-17. Documents only; no code, tests, workflow, or snapshot data opened/computed.
+- **What changed and why:** Created `docs/backtests/research/PREREGISTRATION-H-17-v1.md` by copying the template and filling every field per F3 spec. Status `frozen`, date 2026-11-24. Identity H-17 / F3 / EXPLORATORY / D-87 (to be written in F6). Data references frozen snapshot `research_data/etf_20261124/` with manifest sha256 `c0bb469785aa64679f3b8f48e17f7ee42584d2d049a88b1a6b2b316f19aa9304` copied from ETF_DATA_QUALITY.md; no re-download allowed. Frozen strategy/design, Tier A/B pass criteria, descriptive comparators, limits, and amendment rule recorded verbatim as specified. Updated `docs/backtests/HYPOTHESIS_LOG.md`: added H-17 row (PRE-REGISTERED, not yet run), trial-ledger line, and change-log line; nothing else changed.
+- **Files touched:**
+  - `docs/backtests/research/PREREGISTRATION-H-17-v1.md` (created)
+  - `docs/backtests/HYPOTHESIS_LOG.md` (edited - H-17 row + trial ledger + change log only)
+  - `docs/SESSIONS/research-etf-log.nd` (appended)
+
+### Gates (docs-only task; CI sanity check)
+
+```text
+=== F3 END GATE pytest (exact CI list) ===
+151 passed in 11.96s
+TEST_EXIT=0
+=== F3 END GATE ruff (exact CI scope) ===
+All checks passed!
+RUFF_EXIT=0
+```
+
+### Notes / skipped
+
+- Did not open or compute anything from snapshot data; manifest sha256 copied from ETF_DATA_QUALITY.md.
+- Pre-registration file must not be edited again by any later task.
+- Commit hash to be recorded in a second docs(log) commit per F3 spec.
