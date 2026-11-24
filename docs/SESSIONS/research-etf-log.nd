@@ -290,3 +290,11 @@ RUFF_EXIT=0
 - Did not open or compute anything from snapshot data; manifest sha256 copied from ETF_DATA_QUALITY.md.
 - Pre-registration file must not be edited again by any later task.
 - Commit hash to be recorded in a second docs(log) commit per F3 spec.
+
+## F3 (hash record) - frozen pre-registration commit hash
+
+- **Date:** 2026-11-24
+- **Task:** Record F3 pre-registration commit hash (second commit per F3 spec).
+- **Frozen pre-registration commit:** `90dab04386761a68d4cc6de756d9354cb4b0be18` (`docs (research): pre-register H-17 ETF momentum + trend filter (F3)`)
+- **Files touched:** `docs/SESSIONS/research-etf-log.nd` (appended)
+- **Notes:** Pre-registration file not edited; hash recorded in work log only.
