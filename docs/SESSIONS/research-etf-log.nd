@@ -349,3 +349,50 @@ All checks passed!
 - No real H-17 run executed (F4 is code+tests only). No snapshot data read for results.
 - No installs, no refactors, no unrelated files changed.
 - PREREGISTRATION-H-17-v1.md not edited.
+
+## F5 - Run H-17 ETF trend study on frozen snapshot (no code changes)
+
+- **Date:** 2026-11-24
+- **Task:** F5 - run the frozen H-17 ETF trend study on `research_data/etf_20261124/` using frozen defaults; produce report + JSON artifacts. No code/test/workflow changes.
+- **What changed and why:** Ran `scripts/research_etf_trend.py` with frozen defaults against frozen snapshot. Script produced markdown report and JSON artifact. Holdout result (2016-01-01..2026-11-23, net cost_bps=10): Tier A **False**, Tier B **False**, four-way label **neither**. Bootstrap CIs (2000, seed 17000, month-block) include zero/1: Sharpe diff -0.1740 [-0.5489,0.1777] (includes 0), CAGR diff -0.0536 [-49.5462,0.0000] (includes 0), MaxDD ratio 0.6827 [0.5423,1.3605] (includes 1). Report states bar met on point estimates not statistically distinguishable where applicable.
+- **Files touched:**
+  - `docs/backtests/research/ETF_TREND_STUDY_H17.md` (created)
+  - `docs/backtests/research/etf_trend/etf_trend_20261124_152807.json` (created)
+  - `docs/SESSIONS/research-etf-log.nd` (appended)
+
+### F5 start gate (exact CI list/scope)
+
+```text
+163 passed in 11.86s
+All checks passed! (ruff)
+```
+
+### Run command and exact output
+
+```text
+$ python scripts/research_etf_trend.py --snapshot-dir research_data/etf_20261124 --prereg docs/backtests/research/PREREGISTRATION-H-17-v1.md --report docs/backtests/research/ETF_TREND_STUDY_H17.md --json-dir docs/backtests/research/etf_trend
+report=docs\backtests\research\ETF_TREND_STUDY_H17.md
+json=docs\backtests\research\etf_trend\etf_trend_20261124_152807.json
+tier=neither
+```
+
+### Key artifact metadata
+
+- Code revision: `ea6411e5993e312e389f6f6a1df03b64e01b1c5e`
+- Dirty: `False`
+- Prereg sha256: `3a1300d840592287f28fcc0442f84609118878e9fd53a98a1aee3f4dff1f12af`
+- Snapshot manifest sha256: `c0bb469785aa64679f3b8f48e17f7ee42584d2d049a88b1a6b2b316f19aa9304`
+
+### F5 end gate (exact CI list/scope)
+
+```text
+$ python -m pytest -q backend/tests/test_research_control.py backend/tests/test_research_data.py backend/tests/test_research_diagnostics.py backend/tests/test_research_engine.py backend/tests/test_research_events.py backend/tests/test_research_exit_study.py backend/tests/test_research_indicators.py backend/tests/test_research_matched_control.py backend/tests/test_research_metrics.py backend/tests/test_research_runner.py backend/tests/test_research_setups.py backend/tests/test_research_window_study.py backend/tests/test_research_survivorship.py backend/tests/test_research_data_quality.py backend/tests/test_research_etf_trend.py backend/tests/test_make_baseline_report.py
+163 passed in 11.71s
+
+$ python -m ruff check backend/app/research scripts/run_research_baseline.py scripts/make_baseline_report.py scripts/research_diagnostics.py scripts/research_event_study.py scripts/research_exit_study.py scripts/research_vol_matched.py scripts/research_window_study.py scripts/research_survivorship.py scripts/research_etf_snapshot.py scripts/research_etf_trend.py
+All checks passed!
+```
+
+### Notes / skipped
+
+- No code/tests/workflow changed. No prereg edited. No re-download. No installs/refactors.
