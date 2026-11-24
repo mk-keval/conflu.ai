@@ -298,3 +298,54 @@ RUFF_EXIT=0
 - **Frozen pre-registration commit:** `90dab04386761a68d4cc6de756d9354cb4b0be18` (`docs (research): pre-register H-17 ETF momentum + trend filter (F3)`)
 - **Files touched:** `docs/SESSIONS/research-etf-log.nd` (appended)
 - **Notes:** Pre-registration file not edited; hash recorded in work log only.
+
+## F4 - ETF trend study module, tests and script (no real run)
+
+- **Date:** 2026-11-24
+- **Task:** F4 - implement ETF trend study module, synthetic tests, and study script for H-17. No real run, no snapshot read/compute beyond code/tests.
+- **What changed and why:** Added `backend/app/research/etf_trend.py` with pure/no-network functions per frozen spec: `load_snapshot` (verifies sha256 vs manifest, raises on mismatch), `signal_dates`, `eligible_assets`, `momentum_12_1`, `trend_pass`, `target_weights` (defaults frozen), `simulate` (s+1 execution, weight drift, cost on execution day), `metrics` (CAGR, Sharpe ddof=1*sqrt(252), MaxDD negative, Calmar, annual turnover, share of days in SHY), `paired_month_bootstrap(strategy, benchmark, n=2000, seed=17000)`, `tier_flags`. Added `backend/tests/test_research_etf_trend.py` with 12 synthetic deterministic tests covering the F4-required cases: look-ahead, weights sum 1, <253 bars ineligible, below 200d mean -> SHY, alphabetical ties, s+1 execution timing, cost hand-computed, zero turnover zero cost, tier_flags boundaries/equal not Tier B pass, bootstrap deterministic/CI contains point estimate, load_snapshot raises on byte change. Added `scripts/research_etf_trend.py` with frozen defaults, required `--snapshot-dir`, `--prereg` default H-17 prereg, `--report`, `--json-dir`, dirty-tree refusal unless `--allow-dirty` (same guard approach as run_research_baseline.py), primary + 7 descriptive comparators on dev/holdout windows, and report including Tier A/B four-way label, point estimates/CIs, comparator table, per-year table, 2008/2020/2022 drawdowns, frozen limits text. Updated `.github/workflows/research.yml` to include new test in pytest and new script in ruff.
+- **Files touched:**
+  - `backend/app/research/etf_trend.py` (created)
+  - `backend/tests/test_research_etf_trend.py` (created)
+  - `scripts/research_etf_trend.py` (created)
+  - `.github/workflows/research.yml` (edited)
+  - `docs/SESSIONS/research-etf-log.nd` (appended)
+
+### F4 start gate (exact CI list/scope)
+
+```text
+=== F4 START GATE pytest (exact CI list) ===
+151 passed in 11.69s
+TEST_EXIT=0
+=== F4 START GATE ruff (exact CI scope) ===
+All checks passed!
+RUFF_EXIT=0
+```
+
+### Sanity checks (new files only, before end gate)
+
+```text
+$ python -m pytest -q backend/tests/test_research_etf_trend.py
+12 passed in 2.68s
+
+$ python -m ruff check backend/app/research/etf_trend.py backend/tests/test_research_etf_trend.py scripts/research_etf_trend.py
+All checks passed!
+```
+
+Note: initial new-test draft had 5 failures from test setup (used index 260 which was not a month-end signal date; two timing/cost tests also had unintended s+1 return from linspace). Fixed test setup only; implementation logic unchanged; reran to 12 passed.
+
+### F4 end gate (exact CI list/scope including F4 additions)
+
+```text
+$ python -m pytest -q backend/tests/test_research_control.py backend/tests/test_research_data.py backend/tests/test_research_diagnostics.py backend/tests/test_research_engine.py backend/tests/test_research_events.py backend/tests/test_research_exit_study.py backend/tests/test_research_indicators.py backend/tests/test_research_matched_control.py backend/tests/test_research_metrics.py backend/tests/test_research_runner.py backend/tests/test_research_setups.py backend/tests/test_research_window_study.py backend/tests/test_research_survivorship.py backend/tests/test_research_data_quality.py backend/tests/test_research_etf_trend.py backend/tests/test_make_baseline_report.py
+163 passed in 13.03s
+
+$ python -m ruff check backend/app/research scripts/run_research_baseline.py scripts/make_baseline_report.py scripts/research_diagnostics.py scripts/research_event_study.py scripts/research_exit_study.py scripts/research_vol_matched.py scripts/research_window_study.py scripts/research_survivorship.py scripts/research_etf_snapshot.py scripts/research_etf_trend.py
+All checks passed!
+```
+
+### Notes / skipped
+
+- No real H-17 run executed (F4 is code+tests only). No snapshot data read for results.
+- No installs, no refactors, no unrelated files changed.
+- PREREGISTRATION-H-17-v1.md not edited.

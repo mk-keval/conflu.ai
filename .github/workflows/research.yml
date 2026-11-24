@@ -38,6 +38,7 @@ jobs:
           scripts/research_window_study.py
           scripts/research_survivorship.py
           scripts/research_etf_snapshot.py
+          scripts/research_etf_trend.py
       - name: Research tests
         run: >-
           pytest -v
@@ -55,4 +56,5 @@ jobs:
           backend/tests/test_research_window_study.py
           backend/tests/test_research_survivorship.py
           backend/tests/test_research_data_quality.py
+          backend/tests/test_research_etf_trend.py
           backend/tests/test_make_baseline_report.py
