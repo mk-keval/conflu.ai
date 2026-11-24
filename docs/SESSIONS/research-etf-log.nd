@@ -152,3 +152,114 @@ RUFF_EXIT=0
 - `scripts/research_etf_snapshot.py` and `scripts/research_etf_trend.py` were **not** added to the ruff list in this task because they do not exist yet; F1 spec allows adding each in the task that creates it if ruff would fail on a missing file. I will add them in F2/F4 when created.
 - First F1 attempt failed end gate (2 test expectation bugs I wrote + 3 E741 ruff errors); per rule I ran `git checkout -- .`, deleted new untracked files, and stopped. This retry fixes the test constructions (avoid unintended next-row move/ratio change) and renames ambiguous `l` to `lo`; no check logic/threshold weakened.
 - No installs, no refactors, no existing module/test/script/committed artifact changed.
+
+## F2 - ETF snapshot, quality report, frozen data (STOPPED: HARD findings)
+
+- **Date:** 2026-11-23
+- **Task:** F2 - download and freeze ETF data, run quality checks. No code changed outside task files.
+- **Status:** STOPPED per spec - HARD findings present; snapshot folder NOT written.
+- **What changed and why:** Created `scripts/research_etf_snapshot.py` and ran it. Script downloaded 20 frozen symbols twice (2s between symbols, 10s between pulls), compared pulls, ran `data_quality.run_all` against SPY calendar, and wrote `docs/backtests/research/ETF_DATA_QUALITY.md`. 11 HARD + 28 WARN findings were found; per F2 rule, report written, snapshot NOT written, no fix/patch/drop applied.
+- **Files touched (uncommitted):**
+  - `scripts/research_etf_snapshot.py` (created)
+  - `docs/backtests/research/ETF_DATA_QUALITY.md` (generated report)
+  - `.github/workflows/research.yml` (edited - added script to ruff list)
+  - `docs/SESSIONS/research-etf-log.nd` (appended)
+
+### Commands and exact output
+
+Start gate: `151 passed, TEST_EXIT=0`, `All checks passed!, RUFF_EXIT=0` (exact CI list/scope).
+
+Script run:
+
+```text
+$ $env:TIINGO_API_KEY=<set>; python scripts/research_etf_snapshot.py 2>&1; Write-Output "EXIT=$LASTEXITCODE"
+F2 snapshot start=2003-01-01 end=2026-11-24 (yf exclusive 2026-11-25)
+STOP: 11 HARD findings; snapshot not written
+EXIT=1
+```
+
+(Stdout included pandas FutureWarning noise from pct_change fill_method default; omitted here for brevity, no failures.)
+
+### HARD findings (from report)
+
+- SPY adj_ratio HARD count 6
+- QQQ adj_ratio HARD count 18
+- XLF adj_ratio HARD count 7
+- XLK adj_ratio HARD count 9
+- XLP adj_ratio HARD count 6
+- XLU adj_ratio HARD count 6
+- XLY adj_ratio HARD count 6
+- TLT adj_ratio HARD count 162
+- IEF adj_ratio HARD count 182
+- LQD adj_ratio HARD count 157
+- SHY adj_ratio HARD count 269
+
+Report: `docs/backtests/research/ETF_DATA_QUALITY.md` (manifest sha256 NONE, snapshot not written).
+
+### Skipped / notes
+
+- Stopped on HARD findings per F2 spec. Did not fix/patch/drop data. Did not write snapshot folder.
+- Tiingo cross-check: NOT RUN (HARD findings) - report records this.
+- Workflow ruff list updated to include `scripts/research_etf_snapshot.py`; `scripts/research_etf_trend.py` deferred to F4.
+- No commit made for F2 success; files remain uncommitted pending user decision.
+
+## F2 (continuation) - authorized adj_ratio deviation, rerun, snapshot frozen
+
+- **Date:** 2026-11-23
+- **Task:** F2 continuation after HARD stop. User explicitly authorized Option 1 (scoped spec/check change for yfinance adj_ratio precision artifact). No silent fix.
+- **What changed and why:** Investigation showed adj_ratio HARDs were ~1e-6..1.6e-6 relative drifts on non-dividend/non-split days (bond ETFs prominent), consistent with yfinance Adj Close/Close precision artifacts, while dividend days showed expected ratio steps. With explicit user authorization, `check_adj_ratio` tolerance was changed from `1e-6` to `1e-4` in `backend/app/research/data_quality.py` (docstring/comment/log note added). This is a deliberate, logged deviation from F1 text; no other check/threshold weakened. Re-ran snapshot script; it passed.
+- **Files touched:**
+  - `backend/app/research/data_quality.py` (edited - authorized deviation)
+  - `scripts/research_etf_snapshot.py` (created earlier in F2)
+  - `docs/backtests/research/ETF_DATA_QUALITY.md` (regenerated)
+  - `research_data/etf_20261124/` (20 csv.gz + manifest.json)
+  - `.github/workflows/research.yml` (edited earlier in F2)
+  - `docs/SESSIONS/research-etf-log.nd` (appended)
+
+### End gate after authorized code change
+
+```text
+=== F2-ADJ END GATE pytest (exact CI list) ===
+151 passed in 10.48s
+TEST_EXIT=0
+=== F2-ADJ END GATE ruff (exact CI scope incl snapshot) ===
+All checks passed!
+RUFF_EXIT=0
+```
+
+### Rerun command and exact output
+
+```text
+$ $env:TIINGO_API_KEY=<set>; python scripts/research_etf_snapshot.py 2>&1; Write-Output "EXIT=$LASTEXITCODE"
+F2 snapshot start=2003-01-01 end=2026-11-24 (yf exclusive 2026-11-25)
+snapshot_written=research_data\etf_20261124
+manifest_sha256=c0bb469785aa64679f3b8f48e17f7ee42584d2d049a88b1a6b2b316f19aa9304
+hard=0 warn=2
+report=docs\backtests\research\ETF_DATA_QUALITY.md
+EXIT=0
+```
+
+### Final F2 end gate
+
+```text
+=== F2 END GATE pytest (exact CI list) ===
+151 passed in 10.42s
+TEST_EXIT=0
+=== F2 END GATE ruff (exact CI scope) ===
+All checks passed!
+RUFF_EXIT=0
+```
+
+### Final report summary
+
+- HARD findings: 0, WARN findings: 2 (EEM close_moves WARN count 2; XLE close_moves WARN count 1)
+- Manifest sha256: `c0bb469785aa64679f3b8f48e17f7ee42584d2d049a88b1a6b2b316f19aa9304`
+- Snapshot: `research_data/etf_20261124/` (20 symbols csv.gz + manifest.json)
+- Two-pull comparison: all 20 symbols Close-equal, 0 return diffs at tol 0.0005
+- Tiingo cross-check: RUN (summary only; no Tiingo price data saved; key not printed). IWM ret diff fraction 0.025121 (>0.02, noted in report table); others <= 0.016803.
+
+### Skipped / notes
+
+- Authorized deviation logged and commented in code; not a silent fix. F1 adj_ratio text specified 1e-6; user explicitly authorized 1e-4 after investigation.
+- `scripts/research_etf_trend.py` not yet added to ruff list (created in F4).
+- No installs, no refactors, no unrelated files changed.

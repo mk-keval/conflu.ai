@@ -37,6 +37,7 @@ jobs:
           scripts/research_vol_matched.py
           scripts/research_window_study.py
           scripts/research_survivorship.py
+          scripts/research_etf_snapshot.py
       - name: Research tests
         run: >-
           pytest -v

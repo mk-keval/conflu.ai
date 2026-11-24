@@ -233,9 +233,15 @@ def check_close_moves(symbol: str, df: pd.DataFrame) -> list[Finding]:
 
 
 def check_adj_ratio(symbol: str, df: pd.DataFrame) -> list[Finding]:
-    """7. Adj Close / Close ratio changes by more than 1e-6 relative on a date
+    """7. Adj Close / Close ratio changes by more than 1e-4 relative on a date
     with no Dividends > 0 and no Stock Splits > 0: WARN per date; HARD if there
-    are more than 5 such dates."""
+    are more than 5 such dates.
+
+    Authorized deviation (2026-11-23, user option 1): F1 spec stated 1e-6; F2
+    investigation showed ~1e-6..1.6e-6 yfinance Adj Close/Close precision drift
+    on non-dividend/non-split days (bond ETFs especially). Threshold relaxed to
+    1e-4 to avoid precision-noise HARDs while still flagging real unexplained
+    ratio changes. Logged in docs/SESSIONS/research-etf-log.nd."""
     findings: list[Finding] = []
     needed = ["Adj Close", "Close"]
     if df.empty or any(c not in df.columns for c in needed) or len(df) < 2:
@@ -256,7 +262,8 @@ def check_adj_ratio(symbol: str, df: pd.DataFrame) -> list[Finding]:
         else pd.Series(0, index=df.index)
     )
     no_corp = (div <= 0) & (spl <= 0)
-    bad = no_corp & (rel_change > 1e-6)
+    # Authorized deviation: 1e-4 (was 1e-6 in F1 spec) for yfinance precision noise.
+    bad = no_corp & (rel_change > 1e-4)
     bad = bad.fillna(False)
     if len(bad) > 0:
         bad.iloc[0] = False
