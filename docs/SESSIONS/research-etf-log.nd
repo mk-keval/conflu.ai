@@ -396,3 +396,41 @@ All checks passed!
 ### Notes / skipped
 
 - No code/tests/workflow changed. No prereg edited. No re-download. No installs/refactors.
+
+## F6 - Record H-17 ETF trend study outcome (docs/decision)
+
+- **Date:** 2026-11-24
+- **Task:** F6 - Record H-17 (ETF momentum + trend filter) outcome in decision record, hypothesis log, decisions index, and work log. Docs-only; no code/tests/workflow/snapshot changes.
+- **What changed and why:** Recorded exploratory H-17 holdout result as FAIL (neither Tier A nor Tier B). Added D-87 decision record with frozen provenance, holdout primary result, descriptive comparators, per-year/stress drawdowns, authorized F2 deviation note, and limits. Updated HYPOTHESIS_LOG H-17 row/trial-ledger/change-log with outcome and artifact references. Added D-87 to DECISIONS index. No live decision, scorecard, D-75 pass bar, kill rule, or forward verdict changed; no parameter re-run.
+- **Files touched:**
+  - `docs/DECISIONS/D-87-research-etf-momentum-trend-h17.md` (created)
+  - `docs/backtests/HYPOTHESIS_LOG.md` (updated H-17 outcome/trial ledger/change log)
+  - `docs/DECISIONS/index.md` (updated index with D-87)
+  - `docs/SESSIONS/research-etf-log.nd` (appended)
+
+### F6 start gate (exact CI list/scope) - passed earlier in session before edits finalized
+
+```text
+$ python -m pytest -q backend/tests/test_research_control.py backend/tests/test_research_data.py backend/tests/test_research_diagnostics.py backend/tests/test_research_engine.py backend/tests/test_research_events.py backend/tests/test_research_exit_study.py backend/tests/test_research_indicators.py backend/tests/test_research_matched_control.py backend/tests/test_research_metrics.py backend/tests/test_research_runner.py backend/tests/test_research_setups.py backend/tests/test_research_window_study.py backend/tests/test_research_survivorship.py backend/tests/test_research_data_quality.py backend/tests/test_research_etf_trend.py backend/tests/test_make_baseline_report.py
+...................................................................................................................................................................                                       [100%]
+163 passed in 16.20s
+
+$ python -m ruff check backend/app/research scripts/run_research_baseline.py scripts/make_baseline_report.py scripts/research_diagnostics.py scripts/research_event_study.py scripts/research_exit_study.py scripts/research_vol_matched.py scripts/research_window_study.py scripts/research_survivorship.py scripts/research_etf_snapshot.py scripts/research_etf_trend.py
+All checks passed!
+```
+
+### F6 end gate (exact CI list/scope)
+
+```text
+$ python -m pytest -q backend/tests/test_research_control.py backend/tests/test_research_data.py backend/tests/test_research_diagnostics.py backend/tests/test_research_engine.py backend/tests/test_research_events.py backend/tests/test_research_exit_study.py backend/tests/test_research_indicators.py backend/tests/test_research_matched_control.py backend/tests/test_research_metrics.py backend/tests/test_research_runner.py backend/tests/test_research_setups.py backend/tests/test_research_window_study.py backend/tests/test_research_survivorship.py backend/tests/test_research_data_quality.py backend/tests/test_research_etf_trend.py backend/tests/test_make_baseline_report.py
+...................................................................................................................................................................                                       [100%]
+163 passed in 12.03s
+
+$ python -m ruff check backend/app/research scripts/run_research_baseline.py scripts/make_baseline_report.py scripts/research_diagnostics.py scripts/research_event_study.py scripts/research_exit_study.py scripts/research_vol_matched.py scripts/research_window_study.py scripts/research_survivorship.py scripts/research_etf_snapshot.py scripts/research_etf_trend.py
+All checks passed!
+```
+
+### Notes / skipped
+
+- Docs-only F6; no code/tests/workflow/snapshot changed. No prereg edited. No installs/refactors/push.
+- H-17 result recorded as exploratory: Tier A False, Tier B False, label neither; CIs include zero/1. No parameter re-run or live decision.
