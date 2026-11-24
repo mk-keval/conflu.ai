@@ -53,4 +53,5 @@ jobs:
           backend/tests/test_research_setups.py
           backend/tests/test_research_window_study.py
           backend/tests/test_research_survivorship.py
+          backend/tests/test_research_data_quality.py
           backend/tests/test_make_baseline_report.py

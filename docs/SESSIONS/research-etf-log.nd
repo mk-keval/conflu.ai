@@ -111,3 +111,44 @@ set
 
 - Append-only log update; no earlier F0 entry edited.
 - No code/tests/scripts/artifacts changed. No push, no squash.
+
+## F1 - Data-quality checks (pure code)
+
+- **Date:** 2026-11-23
+- **Task:** F1 - add pure data-quality checks and tests.
+- **What changed and why:** Added `backend/app/research/data_quality.py` with a frozen `Finding` dataclass and 10 pure checks plus `run_all`, `sha256_of_file`, and `build_manifest`. Added synthetic deterministic tests in `backend/tests/test_research_data_quality.py`. Updated CI workflow pytest list to include the new test file. This provides the pure validation layer F2 will use on the frozen ETF snapshot; no I/O/network/randomness in checks, no existing module changed.
+- **Files touched:**
+  - `backend/app/research/data_quality.py` (created)
+  - `backend/tests/test_research_data_quality.py` (created)
+  - `.github/workflows/research.yml` (edited - added `backend/tests/test_research_data_quality.py` to pytest list)
+  - `docs/SESSIONS/research-etf-log.nd` (appended)
+
+### Start gate (exact CI list/scope from `.github/workflows/research.yml`)
+
+```text
+=== F1 RETRY START GATE pytest (exact CI list) ===
+......................................................................................................................................                                                                    [100%]
+134 passed in 12.40s
+TEST_EXIT=0
+=== F1 RETRY START GATE ruff (exact CI scope) ===
+All checks passed!
+RUFF_EXIT=0
+```
+
+### End gate (exact CI list/scope from `.github/workflows/research.yml`, updated pytest list includes new test)
+
+```text
+=== F1 RETRY END GATE pytest (exact CI list) ===
+.......................................................................................................................................................                                                   [100%]
+151 passed in 11.43s
+TEST_EXIT=0
+=== F1 RETRY END GATE ruff (exact CI scope) ===
+All checks passed!
+RUFF_EXIT=0
+```
+
+### Notes / skipped
+
+- `scripts/research_etf_snapshot.py` and `scripts/research_etf_trend.py` were **not** added to the ruff list in this task because they do not exist yet; F1 spec allows adding each in the task that creates it if ruff would fail on a missing file. I will add them in F2/F4 when created.
+- First F1 attempt failed end gate (2 test expectation bugs I wrote + 3 E741 ruff errors); per rule I ran `git checkout -- .`, deleted new untracked files, and stopped. This retry fixes the test constructions (avoid unintended next-row move/ratio change) and renames ambiguous `l` to `lo`; no check logic/threshold weakened.
+- No installs, no refactors, no existing module/test/script/committed artifact changed.
