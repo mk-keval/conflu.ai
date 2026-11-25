@@ -558,3 +558,81 @@ All checks passed!
 - No real H-17 snapshot run executed in F8. No snapshot/prereg/protocol/original F5 artifact edited.
 - Existing tests: none deleted/weakened; no existing test failed due to old timing. All 163 baseline + 7 new = 170 passed.
 - User explicitly authorized relaxing `test_bootstrap_cagr_ci_is_sane` width bound from `< 0.5` to `< 0.51` after STOP (observed width ~0.5006); recorded here.
+
+## F9 - H-17 corrected run (one run only)
+
+- **Date:** 2026-11-24
+- **Task:** F9 - Run the corrected study ONCE. No code changes.
+- **Preconditions verified:**
+  - `git status --short`: clean
+  - `git log --oneline docs/backtests/research/PREREGISTRATION-H-17-v1.md`: `90dab04 docs (research): pre-register H-17 ETF momentum + trend filter (F3)` (only expected commit)
+  - `git log --oneline docs/backtests/research/H17_CORRECTION_PROTOCOL.md`: `8ef939b docs (research): H-17 correction protocol and housekeeping (F7)` (only expected commit)
+  - `research_data/etf_20261124/manifest.json` sha256: `c0bb469785aa64679f3b8f48e17f7ee42584d2d049a88b1a6b2b316f19aa9304` (matches expected)
+- **Run command:**
+  - `python scripts/research_etf_trend.py --snapshot-dir research_data/etf_20261124 --prereg docs/backtests/research/PREREGISTRATION-H-17-v1.md --report docs/backtests/research/ETF_TREND_STUDY_H17_CORRECTED.md --json-dir docs/backtests/research/etf_trend --run-label F9-corrected`
+- **Run output:**
+```text
+report=docs\backtests\research\ETF_TREND_STUDY_H17_CORRECTED.md
+json=docs\backtests\research\etf_trend\etf_trend_20261125_013346.json
+tier=neither
+```
+- **Artifacts produced:** `docs/backtests/research/ETF_TREND_STUDY_H17_CORRECTED.md`, `docs/backtests/research/etf_trend/etf_trend_20261125_013346.json`
+- **Files touched:** corrected report, corrected JSON artifact, `docs/SESSIONS/research-etf-log.md`
+
+### Corrected report (verbatim excerpts)
+
+**Tier A/Tier B labels:**
+```text
+- Tier A: **False**
+- Tier B: **False**
+- Four-way label: **neither**
+```
+
+**Holdout point estimates and CIs (primary vs SPY):**
+
+| Metric | Point | 95% month-block CI | CI includes zero/1? |
+|---|---:|---:|---:|
+| Sharpe diff (strategy-SPY) | -0.1827 | [-0.5862, 0.1856] | True |
+| CAGR diff (strategy-SPY) | -0.0547 | [-0.1241, 0.0086] | True |
+| MaxDD magnitude ratio (strategy/SPY) | 0.6076 | [0.5270, 1.3855] | True |
+
+**Holdout comparator table:**
+
+| Strategy | CAGR | Sharpe | MaxDD | Calmar | Ann turnover | Share days SHY |
+|---|---:|---:|---:|---:|---:|---:|
+| primary_cost_10 | 8.66% | 0.6495 | -20.49% | 0.4225 | 3.3244 | 0.77% |
+| top3 | 7.98% | 0.5487 | -21.81% | 0.3656 | 3.9408 | 0.77% |
+| top8 | 8.30% | 0.6962 | -20.38% | 0.4070 | 2.7619 | 0.77% |
+| trend_only | 8.82% | 0.7590 | -19.79% | 0.4459 | 2.7574 | 0.77% |
+| momentum_no_trend | 10.44% | 0.7083 | -21.49% | 0.4858 | 2.8922 | 0.00% |
+| primary_cost_0 | 9.38% | 0.6954 | -20.40% | 0.4599 | 3.3244 | 0.77% |
+| primary_cost_25 | 7.58% | 0.5802 | -20.62% | 0.3674 | 3.3244 | 0.77% |
+| spy_ief_60_40 | 9.10% | 0.8832 | -21.18% | 0.4294 | 0.1084 | 0.00% |
+| equal_weight_19 | 10.59% | 0.8178 | -28.65% | 0.3696 | 0.1621 | 0.00% |
+| spy_buy_hold | 14.12% | 0.8322 | -33.72% | 0.4189 | 0.0000 | 0.00% |
+
+### Side-by-side: as-run (F5) vs corrected (F9), primary strategy
+
+| Window | Run | CAGR | Sharpe | MaxDD | Calmar | Ann turnover | Share days SHY |
+|---|---|---:|---:|---:|---:|---:|---:|
+| Dev (2005-01-01..2015-12-31) | as-run (F5) | 9.84% | 0.7021 | -24.76% | 0.3974 | 3.0842 | 0.00% |
+| Dev (2005-01-01..2015-12-31) | corrected (F9) | 9.38% | 0.6742 | -25.66% | 0.3656 | 3.0865 | 0.00% |
+| Holdout (2016-01-01..2026-11-23) | as-run (F5) | 8.76% | 0.6582 | -23.02% | 0.3805 | 3.3166 | 0.77% |
+| Holdout (2016-01-01..2026-11-23) | corrected (F9) | 8.66% | 0.6495 | -20.49% | 0.4225 | 3.3244 | 0.77% |
+
+Tier flag comparison (holdout, primary vs SPY): Tier A same (False). Tier B same (False). Four-way label same (neither).
+
+### F9 end gate (exact CI list/scope)
+
+```text
+$ python -m pytest -q backend/tests/test_research_control.py backend/tests/test_research_data.py backend/tests/test_research_diagnostics.py backend/tests/test_research_engine.py backend/tests/test_research_events.py backend/tests/test_research_exit_study.py backend/tests/test_research_indicators.py backend/tests/test_research_matched_control.py backend/tests/test_research_metrics.py backend/tests/test_research_runner.py backend/tests/test_research_setups.py backend/tests/test_research_window_study.py backend/tests/test_research_survivorship.py backend/tests/test_research_data_quality.py backend/tests/test_research_etf_trend.py backend/tests/test_make_baseline_report.py
+..........................................................................................................................................................................                                [100%]
+170 passed in 21.78s
+
+$ python -m ruff check backend/app/research scripts/run_research_baseline.py scripts/make_baseline_report.py scripts/research_diagnostics.py scripts/research_event_study.py scripts/research_exit_study.py scripts/research_vol_matched.py scripts/research_window_study.py scripts/research_survivorship.py scripts/research_etf_snapshot.py scripts/research_etf_trend.py
+All checks passed!
+```
+
+### Notes / skipped
+
+- One corrected run only; not re-run. No code/test/workflow changes. No prereg/protocol/snapshot/original F5 report/JSON edited.
