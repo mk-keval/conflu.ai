@@ -503,3 +503,58 @@ All checks passed!
 - **F7 protocol commit:** `8ef939b92cbec8226d7d66d2e3e24e841286f4f7`
 - **H17_CORRECTION_PROTOCOL.md sha256:** `442e721d3b17821569a631e296167453842405b0b7c7a5da6cc3534c9f94fb44`
 - **Note:** Protocol file must not be edited again by any later task.
+
+## F8 - Fix H-17 execution timing and bootstrap CAGR; add tests (no real run)
+
+- **Date:** 2026-11-24
+- **Task:** F8 - Fix etf_trend.py to match H17_CORRECTION_PROTOCOL.md section b; add tests that would have caught defects. No study run on snapshot.
+- **What changed and why:**
+  - `backend/app/research/etf_trend.py`: corrected `simulate()` execution timing - on s+1 previous weights earn gross close-to-close return, drift by gross, then trade to target at close s+1; cost `(cost_bps/10000)*sum|w_target-w_drifted|` subtracted from s+1 reported return; target earns s+2 onward and drifts by gross on later days; end-of-day stored weights are post-trade. Added `metrics(..., years: float | None = None)` (default None preserves existing behavior). `paired_month_bootstrap()` computes `years = (last-first).days/365.25` from original aligned series once and passes `years=` to all point/bootstrap `metrics()` calls; Sharpe/MaxDD bootstrap unchanged, seed 17000/n 2000 unchanged.
+  - `scripts/research_etf_trend.py`: added `--run-label` (default `F5`), report header/JSON `run_label`, protocol sha256 recorded in report/JSON when protocol file exists; fixed `_run_weight_schedule` to same corrected timing (comparators).
+  - `backend/tests/test_research_etf_trend.py`: added 7 tests (a-g) per F8 spec; no existing test deleted or weakened.
+- **Files touched:**
+  - `backend/app/research/etf_trend.py`
+  - `backend/tests/test_research_etf_trend.py`
+  - `scripts/research_etf_trend.py`
+  - `docs/SESSIONS/research-etf-log.md` (appended)
+
+### Pre-fix capture for test g (git show HEAD:backend/app/research/etf_trend.py)
+
+Fixed synthetic series: `rng=np.random.default_rng(123)`, `dates=pd.bdate_range('2018-01-01', periods=1260)`, `strat=normal(0.0006,0.01)`, `bench=normal(0.0004,0.012)`, `n=2000, seed=17000`.
+
+```text
+sharpe_diff {'point': 0.9997790340111061, 'ci_low': -0.19452343949139025, 'ci_high': 2.250281114037276}
+maxdd_ratio {'point': 0.43113156570528777, 'ci_low': 0.23903684507568235, 'ci_high': 1.1779554477261305}
+```
+
+### F8 start/before gate (baseline)
+
+F7 end gate on clean tree before F8 edits: 163 passed, ruff clean (recorded in F7 log).
+
+### Initial F8 run (STOP condition)
+
+After implementing F8 and adding tests a-g, CI list run produced 1 failed, 169 passed. Failure was in newly added `test_bootstrap_cagr_ci_is_sane` (not an existing test):
+
+```text
+FAILED backend/tests/test_research_etf_trend.py::test_bootstrap_cagr_ci_is_sane - assert (0.43216366309697507 - -0.06845083631820922) < 0.5
+1 failed, 169 passed in 22.74s
+```
+
+Observed CI: `ci_low=-0.06845083631820922`, `ci_high=0.43216366309697507`, width `0.5006144994151843`; other bounds satisfied. Per F8 5d STOP/report; user explicitly authorized option 1 (relax only this new test width bound). Changed bound to `< 0.51` with comment; no other test/bound changed.
+
+### F8 end gate (exact CI list/scope, after authorized bound adjustment)
+
+```text
+$ python -m pytest -q backend/tests/test_research_control.py backend/tests/test_research_data.py backend/tests/test_research_diagnostics.py backend/tests/test_research_engine.py backend/tests/test_research_events.py backend/tests/test_research_exit_study.py backend/tests/test_research_indicators.py backend/tests/test_research_matched_control.py backend/tests/test_research_metrics.py backend/tests/test_research_runner.py backend/tests/test_research_setups.py backend/tests/test_research_window_study.py backend/tests/test_research_survivorship.py backend/tests/test_research_data_quality.py backend/tests/test_research_etf_trend.py backend/tests/test_make_baseline_report.py
+..........................................................................................................................................................................                                [100%]
+170 passed in 23.09s
+
+$ python -m ruff check backend/app/research scripts/run_research_baseline.py scripts/make_baseline_report.py scripts/research_diagnostics.py scripts/research_event_study.py scripts/research_exit_study.py scripts/research_vol_matched.py scripts/research_window_study.py scripts/research_survivorship.py scripts/research_etf_snapshot.py scripts/research_etf_trend.py
+All checks passed!
+```
+
+### Notes / skipped
+
+- No real H-17 snapshot run executed in F8. No snapshot/prereg/protocol/original F5 artifact edited.
+- Existing tests: none deleted/weakened; no existing test failed due to old timing. All 163 baseline + 7 new = 170 passed.
+- User explicitly authorized relaxing `test_bootstrap_cagr_ci_is_sane` width bound from `< 0.5` to `< 0.51` after STOP (observed width ~0.5006); recorded here.

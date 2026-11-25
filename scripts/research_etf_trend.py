@@ -306,20 +306,14 @@ def _run_weight_schedule(returns, calendar, exec_targets, *, cost_bps, universe)
         row_ret = returns.loc[dt]
         cost = 0.0
         turnover = 0.0
-        if dt_n in exec_targets:
-            target = exec_targets[dt_n]
-            turnover = 0.5 * float(sum(abs(target.get(sym, 0.0) - cur_w.get(sym, 0.0)) for sym in universe))
-            cost = (float(cost_bps) / 10000.0) * float(
-                sum(abs(target.get(sym, 0.0) - cur_w.get(sym, 0.0)) for sym in universe)
-            )
-            cur_w = {sym: float(target.get(sym, 0.0)) for sym in universe}
+
         gross = 0.0
         for sym in universe:
             r = row_ret.get(sym)
             r_f = 0.0 if pd.isna(r) else float(r)
             gross += cur_w.get(sym, 0.0) * r_f
-        net = gross - cost
-        denom = 1.0 + net
+
+        denom = 1.0 + gross
         if denom == 0.0:
             drifted = dict(cur_w)
         else:
@@ -328,7 +322,21 @@ def _run_weight_schedule(returns, calendar, exec_targets, *, cost_bps, universe)
                 r = row_ret.get(sym)
                 r_f = 0.0 if pd.isna(r) else float(r)
                 drifted[sym] = cur_w.get(sym, 0.0) * (1.0 + r_f) / denom
-        cur_w = drifted
+
+        net = gross
+        if dt_n in exec_targets:
+            target = exec_targets[dt_n]
+            turnover = 0.5 * float(
+                sum(abs(target.get(sym, 0.0) - drifted.get(sym, 0.0)) for sym in universe)
+            )
+            cost = (float(cost_bps) / 10000.0) * float(
+                sum(abs(target.get(sym, 0.0) - drifted.get(sym, 0.0)) for sym in universe)
+            )
+            net = gross - cost
+            cur_w = {sym: float(target.get(sym, 0.0)) for sym in universe}
+        else:
+            cur_w = drifted
+
         port_rets.append(net)
         costs.append(cost)
         turnovers.append(turnover)
@@ -366,12 +374,14 @@ def _write_report(path: Path, payload: dict):
     path.parent.mkdir(parents=True, exist_ok=True)
     p = payload
     lines = []
-    lines.append("# ETF Trend Study H-17 (F4/F5)")
+    run_label = p.get("run_label", "F5")
+    lines.append(f"# ETF Trend Study H-17 ({run_label})")
     lines.append("")
     lines.append("> EXPLORATORY — never the scorecard, D-75 pass bar, kill rule or any forward verdict.")
     lines.append("")
     lines.append("## Run metadata")
     lines.append("")
+    lines.append(f"- Run label: `{run_label}`")
     lines.append(f"- Generated UTC: {p['generated_utc']}")
     lines.append(f"- Code revision: `{p['code_revision']}`")
     lines.append(f"- Dirty: `{p['dirty']}`")
@@ -379,6 +389,9 @@ def _write_report(path: Path, payload: dict):
     lines.append(f"- Prereg sha256: `{p['prereg_sha256']}`")
     lines.append(f"- Snapshot dir: `{p['snapshot_dir']}`")
     lines.append(f"- Manifest sha256: `{p['manifest_sha256']}`")
+    if p.get("correction_protocol_sha256"):
+        lines.append(f"- Correction protocol: `{p.get('correction_protocol_path')}`")
+        lines.append(f"- Correction protocol sha256: `{p['correction_protocol_sha256']}`")
     lines.append("")
     lines.append("## Frozen limits")
     lines.append("")
@@ -449,6 +462,7 @@ def main() -> int:
     parser.add_argument("--report", default=DEFAULT_REPORT)
     parser.add_argument("--json-dir", default=DEFAULT_JSON_DIR)
     parser.add_argument("--allow-dirty", action="store_true")
+    parser.add_argument("--run-label", default="F5")
     args = parser.parse_args()
 
     rev, dirty = _require_clean_tree(args.allow_dirty)
@@ -462,6 +476,8 @@ def main() -> int:
     manifest_path = snapshot_dir / "manifest.json"
     manifest_sha = _sha256_file(manifest_path)
     prereg_sha = _sha256_file(prereg_path) if prereg_path.exists() else "missing"
+    protocol_path = Path("docs/backtests/research/H17_CORRECTION_PROTOCOL.md")
+    protocol_sha = _sha256_file(protocol_path) if protocol_path.exists() else None
 
     spy = data["SPY"]
     calendar = pd.DatetimeIndex(spy.index).normalize().sort_values().unique()
@@ -521,10 +537,13 @@ def main() -> int:
         "generated_utc": datetime.now(UTC).isoformat(),
         "code_revision": rev,
         "dirty": dirty,
+        "run_label": args.run_label,
         "prereg_path": str(prereg_path).replace("\\", "/"),
         "prereg_sha256": prereg_sha,
         "snapshot_dir": str(snapshot_dir).replace("\\", "/"),
         "manifest_sha256": manifest_sha,
+        "correction_protocol_path": str(protocol_path).replace("\\", "/") if protocol_sha else None,
+        "correction_protocol_sha256": protocol_sha,
         "holdout_tier_flags": tf,
         "holdout_bootstrap_ci": ci,
         "dev_comparators": dev_rows,

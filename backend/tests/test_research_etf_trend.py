@@ -333,3 +333,154 @@ def test_load_snapshot_raises_on_byte_change(tmp_path):
     p.write_bytes(bytes(b))
     with pytest.raises(ValueError, match="sha256 mismatch"):
         load_snapshot(tmp_path)
+
+
+def test_old_timing_is_not_applied():
+    n = 320
+    idx = pd.bdate_range("2020-01-01", periods=n)
+    s_pos = 261  # actual month-end signal date
+    spy = np.linspace(80.0, 100.0, n)
+    shy = np.full(n, 100.0)
+    aaa = np.linspace(80.0, 100.0, n)
+    # Make AAA selected at s with strong momentum and trend pass.
+    aaa[s_pos - 252] = 50.0
+    aaa[s_pos - 21 : s_pos + 1] = 100.0
+    # Jump +10% on day s+1 (close-to-close return on s+1), flat before, +10% again on s+2.
+    aaa[s_pos + 1] = 110.0
+    aaa[s_pos + 2] = 121.0
+    aaa[s_pos + 3 :] = 121.0
+    data = {"AAA": _make_df(aaa), "SPY": _make_df(spy), "SHY": _make_df(shy)}
+    res = simulate(data, idx, cost_bps=0.0, n_slots=1, min_bars=253, risk_assets=("AAA",), cash_asset="SHY")
+    s1 = idx[s_pos + 1]
+    s2 = idx[s_pos + 2]
+    # Previous weights (SHY) earn s+1; AAA selected at close s+1, earns s+2 onward.
+    assert res.portfolio_returns.loc[s1] == pytest.approx(0.0)
+    assert res.weights.loc[s1, "AAA"] == pytest.approx(1.0)
+    assert res.portfolio_returns.loc[s2] == pytest.approx(0.10)
+
+
+def test_cost_charged_on_old_weights_drifted():
+    n = 320
+    idx = pd.bdate_range("2020-01-01", periods=n)
+    s_pos = 261
+    spy = np.linspace(80.0, 100.0, n)
+    shy = np.full(n, 100.0)
+    aaa = np.linspace(80.0, 100.0, n)
+    aaa[s_pos - 252] = 50.0
+    aaa[s_pos - 21 : s_pos + 1] = 100.0
+    aaa[s_pos + 1 :] = 100.0
+    data = {"AAA": _make_df(aaa), "SPY": _make_df(spy), "SHY": _make_df(shy)}
+    res = simulate(data, idx, cost_bps=10.0, n_slots=1, min_bars=253, risk_assets=("AAA",), cash_asset="SHY")
+    s1 = idx[s_pos + 1]
+    # Previous weights 100% SHY, target 100% AAA: turnover abs sum = 2, cost = 0.002
+    assert res.costs.loc[s1] == pytest.approx(0.002)
+    assert res.portfolio_returns.loc[s1] == pytest.approx(0.0 - 0.002)
+
+
+def test_drift_uses_gross_return():
+    n = 40
+    idx = pd.bdate_range("2021-01-01", periods=n)
+    # Two assets, no signals/executions: start 50/50 by forcing weights via direct schedule? 
+    # Easier: simulate with no eligible risk assets so stays in SHY? No, need two assets held.
+    # Build: AAA and BBB selected as 50/50 at first execution and held; check drift on later days.
+    aaa = np.full(n, 100.0)
+    bbb = np.full(n, 100.0)
+    spy = np.linspace(80.0, 100.0, n)
+    shy = np.full(n, 100.0)
+    # Make both eligible and selected at s_pos.
+    s_pos = 21  # we'll set min_bars small via direct simulate? simulate has min_bars param.
+    # Build prices so both have momentum/trend at a signal.
+    # Use simpler: construct 260+ days.
+    n = 320
+    idx = pd.bdate_range("2020-01-01", periods=n)
+    aaa = np.linspace(80.0, 100.0, n)
+    bbb = np.linspace(80.0, 100.0, n)
+    spy = np.linspace(80.0, 100.0, n)
+    shy = np.full(n, 100.0)
+    s_pos = 261
+    aaa[s_pos - 252] = 50.0
+    bbb[s_pos - 252] = 50.0
+    aaa[s_pos - 21 : s_pos + 1] = 100.0
+    bbb[s_pos - 21 : s_pos + 1] = 100.0
+    # After execution, give different returns on s+2,s+3,s+4 with no rebalance expected.
+    # s+1 execution day: flat
+    aaa[s_pos + 1] = 100.0
+    bbb[s_pos + 1] = 100.0
+    aaa[s_pos + 2] = 110.0  # +10%
+    bbb[s_pos + 2] = 100.0  # 0%
+    aaa[s_pos + 3] = 121.0  # +10%
+    bbb[s_pos + 3] = 95.0   # -5%
+    aaa[s_pos + 4 :] = 121.0
+    bbb[s_pos + 4 :] = 95.0
+    data = {"AAA": _make_df(aaa), "BBB": _make_df(bbb), "SPY": _make_df(spy), "SHY": _make_df(shy)}
+    res = simulate(data, idx, cost_bps=0.0, n_slots=2, min_bars=253, risk_assets=("AAA", "BBB"), cash_asset="SHY")
+    # After s+1 execution, end-of-day weights 50/50. Check s+2 drift (no rebalance).
+    d2 = idx[s_pos + 2]
+    r_aaa_2 = 110.0 / 100.0 - 1.0
+    r_bbb_2 = 0.0
+    gross2 = 0.5 * r_aaa_2 + 0.5 * r_bbb_2
+    w_aaa_2 = 0.5 * (1 + r_aaa_2) / (1 + gross2)
+    w_bbb_2 = 0.5 * (1 + r_bbb_2) / (1 + gross2)
+    assert res.weights.loc[d2, "AAA"] == pytest.approx(w_aaa_2)
+    assert res.weights.loc[d2, "BBB"] == pytest.approx(w_bbb_2)
+    # s+3 drift from s+2 end-of-day weights using gross return on s+3.
+    d3 = idx[s_pos + 3]
+    r_aaa_3 = 121.0 / 110.0 - 1.0
+    r_bbb_3 = 95.0 / 100.0 - 1.0
+    gross3 = w_aaa_2 * r_aaa_3 + w_bbb_2 * r_bbb_3
+    w_aaa_3 = w_aaa_2 * (1 + r_aaa_3) / (1 + gross3)
+    w_bbb_3 = w_bbb_2 * (1 + r_bbb_3) / (1 + gross3)
+    assert res.weights.loc[d3, "AAA"] == pytest.approx(w_aaa_3)
+    assert res.weights.loc[d3, "BBB"] == pytest.approx(w_bbb_3)
+
+
+def test_bootstrap_cagr_ci_is_sane():
+    rng = np.random.default_rng(123)
+    dates = pd.bdate_range("2018-01-01", periods=1260)  # ~5y
+    strat = pd.Series(rng.normal(0.0006, 0.01, len(dates)), index=dates)
+    bench = pd.Series(rng.normal(0.0004, 0.012, len(dates)), index=dates)
+    out = paired_month_bootstrap(strat, bench, n=2000, seed=17000)
+    ci = out["cagr_diff"]
+    assert ci["ci_low"] <= ci["point"] <= ci["ci_high"]
+    assert abs(ci["ci_low"]) < 1.0
+    assert abs(ci["ci_high"]) < 1.0
+    assert ci["ci_high"] - ci["ci_low"] < 0.51  # user-authorized relaxation from 0.5 after F8 STOP; observed width ~0.5006
+
+
+def test_bootstrap_identical_series_gives_zero_cagr_diff():
+    rng = np.random.default_rng(7)
+    dates = pd.bdate_range("2019-01-01", periods=800)
+    r = pd.Series(rng.normal(0.0003, 0.01, len(dates)), index=dates)
+    out = paired_month_bootstrap(r, r.copy(), n=500, seed=17000)
+    ci = out["cagr_diff"]
+    assert ci["point"] == pytest.approx(0.0, abs=1e-12)
+    assert ci["ci_low"] == pytest.approx(0.0, abs=1e-12)
+    assert ci["ci_high"] == pytest.approx(0.0, abs=1e-12)
+
+
+def test_metrics_years_override():
+    idx = pd.bdate_range("2020-01-01", periods=252)
+    r = pd.Series(np.full(252, 0.001), index=idx)
+    m2 = metrics(r, years=2.0)
+    end_equity = float((1.0 + r).prod())
+    assert m2["cagr"] == pytest.approx(end_equity ** (1 / 2.0) - 1.0)
+    m_none = metrics(r, years=None)
+    m_default = metrics(r)
+    assert m_none["cagr"] == pytest.approx(m_default["cagr"])
+    assert m_none["sharpe"] == pytest.approx(m_default["sharpe"])
+    assert m_none["max_drawdown"] == pytest.approx(m_default["max_drawdown"])
+
+
+def test_sharpe_and_ratio_cis_unchanged_by_years_fix():
+    rng = np.random.default_rng(123)
+    dates = pd.bdate_range("2018-01-01", periods=1260)  # ~5y
+    strat = pd.Series(rng.normal(0.0006, 0.01, len(dates)), index=dates)
+    bench = pd.Series(rng.normal(0.0004, 0.012, len(dates)), index=dates)
+    res = paired_month_bootstrap(strat, bench, n=2000, seed=17000)
+    # Pre-fix values captured before F8 edit (git show HEAD:backend/app/research/etf_trend.py)
+    assert res["sharpe_diff"]["point"] == pytest.approx(0.9997790340111061, abs=1e-9)
+    assert res["sharpe_diff"]["ci_low"] == pytest.approx(-0.19452343949139025, abs=1e-9)
+    assert res["sharpe_diff"]["ci_high"] == pytest.approx(2.250281114037276, abs=1e-9)
+    assert res["maxdd_ratio"]["point"] == pytest.approx(0.43113156570528777, abs=1e-9)
+    assert res["maxdd_ratio"]["ci_low"] == pytest.approx(0.23903684507568235, abs=1e-9)
+    assert res["maxdd_ratio"]["ci_high"] == pytest.approx(1.1779554477261305, abs=1e-9)

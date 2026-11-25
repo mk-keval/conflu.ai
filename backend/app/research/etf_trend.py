@@ -284,11 +284,12 @@ def simulate(
 ) -> SimulationResult:
     """Simulate frozen H-17 strategy on daily calendar.
 
-    Execution is at close of s+1. New weights earn returns from close of s+1
-    to close of s+2 onward. Before s+1 previous weights apply. Weights drift
-    with returns between rebalances: w_i <- w_i*(1+r_i)/(1+r_p) each day.
-    Cost on execution day is (cost_bps/10000)*sum|w_target-w_drifted| subtracted
-    from that day's portfolio return.
+    Execution is at close of s+1. On s+1 the PREVIOUS weights earn that day's
+    close-to-close gross return and are drifted with gross return; then the
+    portfolio trades to target at close of s+1. Cost
+    (cost_bps/10000)*sum|w_target-w_drifted| is subtracted from the s+1
+    portfolio return. Target weights earn returns from close of s+1 to s+2
+    onward and drift on later days with each day's gross return.
     """
     calendar = pd.DatetimeIndex(pd.to_datetime(calendar)).normalize().sort_values().unique()
     universe = (*risk_assets, cash_asset) if cash_asset not in risk_assets else tuple(risk_assets)
@@ -352,28 +353,19 @@ def simulate(
     for dt in calendar:
         dt_n = pd.Timestamp(dt).normalize()
         row_ret = returns.loc[dt]
-        # execution at close of s+1: apply new weights for this day's return
         cost = 0.0
         turnover = 0.0
-        if dt_n in exec_to_target:
-            target = exec_to_target[dt_n]
-            # drifted weights at start of day are cur_w (already drifted from prior day)
-            turnover = 0.5 * float(sum(abs(target.get(sym, 0.0) - cur_w.get(sym, 0.0)) for sym in universe))
-            cost = (float(cost_bps) / 10000.0) * float(
-                sum(abs(target.get(sym, 0.0) - cur_w.get(sym, 0.0)) for sym in universe)
-            )
-            cur_w = {sym: float(target.get(sym, 0.0)) for sym in universe}
 
+        # Previous weights earn this day's gross close-to-close return.
         gross = 0.0
         for sym in universe:
             r = row_ret.get(sym)
             r_f = 0.0 if pd.isna(r) else float(r)
             gross += cur_w.get(sym, 0.0) * r_f
-        net = gross - cost
-        # drift weights by day's returns with r_p = net
-        denom = 1.0 + net
+
+        # Drift previous weights to close using gross return.
+        denom = 1.0 + gross
         if denom == 0.0:
-            # pathological; keep weights unchanged
             drifted = dict(cur_w)
         else:
             drifted = {}
@@ -381,7 +373,20 @@ def simulate(
                 r = row_ret.get(sym)
                 r_f = 0.0 if pd.isna(r) else float(r)
                 drifted[sym] = cur_w.get(sym, 0.0) * (1.0 + r_f) / denom
-        cur_w = drifted
+
+        net = gross
+        if dt_n in exec_to_target:
+            target = exec_to_target[dt_n]
+            turnover = 0.5 * float(
+                sum(abs(target.get(sym, 0.0) - drifted.get(sym, 0.0)) for sym in universe)
+            )
+            cost = (float(cost_bps) / 10000.0) * float(
+                sum(abs(target.get(sym, 0.0) - drifted.get(sym, 0.0)) for sym in universe)
+            )
+            net = gross - cost
+            cur_w = {sym: float(target.get(sym, 0.0)) for sym in universe}
+        else:
+            cur_w = drifted
 
         port_rets.append(net)
         costs.append(cost)
@@ -407,6 +412,7 @@ def metrics(
     *,
     turnover: pd.Series | np.ndarray | list[float] | None = None,
     cash_weights: pd.Series | np.ndarray | list[float] | None = None,
+    years: float | None = None,
 ) -> dict[str, float]:
     """Compute H-17 metrics on daily returns within a window.
 
@@ -429,13 +435,15 @@ def metrics(
     equity = (1.0 + r).cumprod()
     start_val = 1.0
     end_val = float(equity.iloc[-1])
-    if isinstance(r.index, pd.DatetimeIndex) and len(r.index) >= 2:
+    if years is not None and float(years) > 0:
+        years_val = float(years)
+    elif isinstance(r.index, pd.DatetimeIndex) and len(r.index) >= 2:
         days = (pd.Timestamp(r.index[-1]) - pd.Timestamp(r.index[0])).days
-        years = days / 365.25
+        years_val = days / 365.25
     else:
-        years = len(r) / 252.0
-    if years > 0 and start_val > 0 and end_val > 0:
-        cagr = float(end_val ** (1.0 / years) - 1.0)
+        years_val = len(r) / 252.0
+    if years_val > 0 and start_val > 0 and end_val > 0:
+        cagr = float(end_val ** (1.0 / years_val) - 1.0)
     else:
         cagr = 0.0
     mu = float(r.mean())
@@ -499,13 +507,14 @@ def paired_month_bootstrap(
     if len(idx) == 0:
         raise ValueError("no paired returns")
 
+    years = (pd.Timestamp(idx[-1]) - pd.Timestamp(idx[0])).days / 365.25
     months = idx.to_period("M")
     unique_months = list(dict.fromkeys(months))
     month_groups = {m: idx[months == m] for m in unique_months}
 
     def _stats(sv: pd.Series, bv: pd.Series) -> tuple[float, float, float]:
-        sm = metrics(sv)
-        bm = metrics(bv)
+        sm = metrics(sv, years=years)
+        bm = metrics(bv, years=years)
         sharpe_diff = sm["sharpe"] - bm["sharpe"]
         cagr_diff = sm["cagr"] - bm["cagr"]
         b_dd = abs(bm["max_drawdown"])
