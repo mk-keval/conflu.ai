@@ -434,3 +434,65 @@ All checks passed!
 
 - Docs-only F6; no code/tests/workflow/snapshot changed. No prereg edited. No installs/refactors/push.
 - H-17 result recorded as exploratory: Tier A False, Tier B False, label neither; CIs include zero/1. No parameter re-run or live decision.
+
+## F7 - H-17 correction protocol and housekeeping (docs only)
+
+- **Date:** 2026-11-24
+- **Task:** F7 - Write and commit correction protocol BEFORE any code changes; fix housekeeping gaps. No code/tests/workflow change.
+- **What changed and why:** Created `H17_CORRECTION_PROTOCOL.md` documenting two H-17 defects (simulate execution timing; paired_month_bootstrap CAGR CI uses shuffled sample elapsed time), frozen corrected behaviour, verdict rules, and known IWM Tiingo gap. Performed housekeeping: renamed work log `.nd`->`.md`, fixed D-87 log link, replaced D-87 F6 `<this commit>` with `06929ac`, corrected D-87 F1 message, appended IWM Tiingo WARN addendum to `ETF_DATA_QUALITY.md`. No code/tests/workflow/snapshot/prereg changed.
+- **Files touched:**
+  - `docs/backtests/research/H17_CORRECTION_PROTOCOL.md` (created)
+  - `docs/SESSIONS/research-etf-log.nd` -> `docs/SESSIONS/research-etf-log.md` (renamed via git mv)
+  - `docs/DECISIONS/D-87-research-etf-momentum-trend-h17.md` (F1 message, F6 hash, log link)
+  - `docs/backtests/research/ETF_DATA_QUALITY.md` (Addendum F7 appended)
+  - `docs/SESSIONS/research-etf-log.md` (appended)
+
+### Hash investigation (read-only; no prereg/line-ending changes)
+
+Commands run (adapted for Windows; sha256sum not native):
+```text
+$ git show 90dab04:docs/backtests/research/PREREGISTRATION-H-17-v1.md | python -c "import sys,hashlib; d=sys.stdin.buffer.read(); print(hashlib.sha256(d).hexdigest())"
+14970daf98be137b87226a5839a2edef3fcecee8ad35fe91048750d28127ab1c
+
+$ (Get-FileHash docs/backtests/research/PREREGISTRATION-H-17-v1.md -Algorithm SHA256).Hash.ToLower()
+3a1300d840592287f28fcc0442f84609118878e9fd53a98a1aee3f4dff1f12af
+
+$ git config core.autocrlf
+false
+
+$ git check-attr -a docs/backtests/research/PREREGISTRATION-H-17-v1.md
+(no output)
+
+$ git log --oneline docs/backtests/research/PREREGISTRATION-H-17-v1.md
+90dab04 docs (research): pre-register H-17 ETF momentum + trend filter (F3)
+```
+
+Recorded F5 prereg sha256: `3a1300d840592287f28fcc0442f84609118878e9fd53a98a1aee3f4dff1f12af`. **Working file hash matches** the F5-recorded value; committed blob hash differs (`14970daf...`). `core.autocrlf=false`, no check-attr output. Neither-hash-mismatch condition not triggered; continued.
+
+### F7 start gate (exact CI list/scope)
+
+```text
+$ python -m pytest -q backend/tests/test_research_control.py backend/tests/test_research_data.py backend/tests/test_research_diagnostics.py backend/tests/test_research_engine.py backend/tests/test_research_events.py backend/tests/test_research_exit_study.py backend/tests/test_research_indicators.py backend/tests/test_research_matched_control.py backend/tests/test_research_metrics.py backend/tests/test_research_runner.py backend/tests/test_research_setups.py backend/tests/test_research_window_study.py backend/tests/test_research_survivorship.py backend/tests/test_research_data_quality.py backend/tests/test_research_etf_trend.py backend/tests/test_make_baseline_report.py
+...................................................................................................................................................................                                       [100%]
+163 passed in 15.49s
+
+$ python -m ruff check backend/app/research scripts/run_research_baseline.py scripts/make_baseline_report.py scripts/research_diagnostics.py scripts/research_event_study.py scripts/research_exit_study.py scripts/research_vol_matched.py scripts/research_window_study.py scripts/research_survivorship.py scripts/research_etf_snapshot.py scripts/research_etf_trend.py
+All checks passed!
+```
+
+### F7 end gate (exact CI list/scope)
+
+```text
+$ python -m pytest -q backend/tests/test_research_control.py backend/tests/test_research_data.py backend/tests/test_research_diagnostics.py backend/tests/test_research_engine.py backend/tests/test_research_events.py backend/tests/test_research_exit_study.py backend/tests/test_research_indicators.py backend/tests/test_research_matched_control.py backend/tests/test_research_metrics.py backend/tests/test_research_runner.py backend/tests/test_research_setups.py backend/tests/test_research_window_study.py backend/tests/test_research_survivorship.py backend/tests/test_research_data_quality.py backend/tests/test_research_etf_trend.py backend/tests/test_make_baseline_report.py
+...................................................................................................................................................................                                       [100%]
+163 passed in 12.92s
+
+$ python -m ruff check backend/app/research scripts/run_research_baseline.py scripts/make_baseline_report.py scripts/research_diagnostics.py scripts/research_event_study.py scripts/research_exit_study.py scripts/research_vol_matched.py scripts/research_window_study.py scripts/research_survivorship.py scripts/research_etf_snapshot.py scripts/research_etf_trend.py
+All checks passed!
+```
+
+### Notes / skipped
+
+- Docs-only; no code/tests/workflow/snapshot/prereg changed. No installs/refactors/push.
+- Prereg file and line endings not changed. Working file hash matches F5-recorded hash; continued per protocol.
+- Research README paragraph not added (reserved for F10).

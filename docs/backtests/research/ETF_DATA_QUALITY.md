@@ -91,3 +91,9 @@ Tiingo cross-check: RUN (summary only; no Tiingo price data saved)
 | VNQ | 5573 | 52 | 0.009331 |
 | SHY | 6011 | 17 | 0.002828 |
 
+## Addendum (F7)
+
+**Date:** 2026-11-24
+
+Known gap (docs only, no code change): Tiingo return comparison for IWM was `0.025121` (> `0.02`), which the F1 rule treats as WARN; this IWM comparison was not listed in the WARN/HARD summary above. The snapshot `research_data/etf_20261124/` is not regenerated.
+

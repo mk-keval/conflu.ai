@@ -8,14 +8,14 @@
 | Task | Commit | Message |
 |---|---|---|
 | F0 | `5057888`, `9247522` | F0 start log/gates (recorded in work log) |
-| F1 | `d479514` | `research: add ETF snapshot data-quality checks (F1)` |
+| F1 | `d479514` | `research: add data-quality checks and tests (F1)` |
 | F2 | `630b977` | `research: freeze ETF snapshot and data-quality report (F2)` |
 | F3 | `90dab04386761a68d4cc6de756d9354cb4b0be18`, `8dbd478` | `docs (research): pre-register H-17 ETF momentum + trend filter (F3)` / hash record |
 | F4 | `ea6411e` | `research: add ETF trend study module, tests and script (F4)` |
 | F5 | `e28b31d` | `research: run H-17 ETF trend study (F5)` |
-| F6 | `<this commit>` | `docs (research): record H-17 ETF trend study outcome (F6)` |
+| F6 | `06929ac` | `docs (research): record H-17 ETF trend study outcome (F6)` |
 
-**Related:** [PREREGISTRATION-H-17-v1.md](../backtests/research/PREREGISTRATION-H-17-v1.md), [ETF_DATA_QUALITY.md](../backtests/research/ETF_DATA_QUALITY.md), [ETF_TREND_STUDY_H17.md](../backtests/research/ETF_TREND_STUDY_H17.md), [HYPOTHESIS_LOG.md](../backtests/HYPOTHESIS_LOG.md), [D-84](D-84-research-signal-information-and-exit-shape.md), [D-85](D-85-research-vol-matched-remeasurement.md), [D-86](D-86-research-pre2016-check-and-survivorship-estimate.md), [research-etf-log.nd](../SESSIONS/research-etf-log.nd).
+**Related:** [PREREGISTRATION-H-17-v1.md](../backtests/research/PREREGISTRATION-H-17-v1.md), [ETF_DATA_QUALITY.md](../backtests/research/ETF_DATA_QUALITY.md), [ETF_TREND_STUDY_H17.md](../backtests/research/ETF_TREND_STUDY_H17.md), [HYPOTHESIS_LOG.md](../backtests/HYPOTHESIS_LOG.md), [D-84](D-84-research-signal-information-and-exit-shape.md), [D-85](D-85-research-vol-matched-remeasurement.md), [D-86](D-86-research-pre2016-check-and-survivorship-estimate.md), [research-etf-log.md](../SESSIONS/research-etf-log.md).
 
 ---
 
