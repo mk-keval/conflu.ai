@@ -134,4 +134,8 @@ Record H-17 as **EXPLORATORY, pre-registered, FAIL (neither Tier A nor Tier B on
 - The frozen strategy did not meet Tier A (drawdown/Sharpe bar) or Tier B (CAGR bar) against SPY buy-and-hold on the 2016-onward holdout, net of 10 bps.
 - Bootstrap CIs include zero/1, so differences are not statistically distinguishable.
 - Do not tune, re-run with different parameters, or promote any comparator. Any new variant requires a new H-id and a new pre-registration.
+
+## Correction (F7-F10)
+
+This D-87 record documents the as-run F5 result. Review found two implementation defects (execution timing in `simulate()`, bootstrap CAGR elapsed time in `paired_month_bootstrap()`); the as-run CAGR CI was invalid and the execution timing deviated from the frozen spec. The as-run F5 result is retained unchanged and is **superseded for the H-17 verdict** by the corrected run recorded in [D-88](D-88-research-h17-correction.md). See [H17_CORRECTION_PROTOCOL.md](../backtests/research/H17_CORRECTION_PROTOCOL.md), [ETF_TREND_STUDY_H17.md](../backtests/research/ETF_TREND_STUDY_H17.md) (as-run), and [ETF_TREND_STUDY_H17_CORRECTED.md](../backtests/research/ETF_TREND_STUDY_H17_CORRECTED.md) (corrected).
 - No live decision, scorecard, D-75 pass bar, kill rule, or forward verdict changes.

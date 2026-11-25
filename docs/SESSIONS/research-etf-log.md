@@ -636,3 +636,32 @@ All checks passed!
 ### Notes / skipped
 
 - One corrected run only; not re-run. No code/test/workflow changes. No prereg/protocol/snapshot/original F5 report/JSON edited.
+
+## F10 - Record D-88 H-17 correction (docs only)
+
+- **Date:** 2026-11-24
+- **Task:** F10 - Documentation only. Record D-88 correction, update D-87/HYPOTHESIS_LOG/DECISIONS index/research README. No code/test/workflow/artifact changes.
+- **What changed and why:** Created D-88 recording F7-F10 correction (two defects, correction rules, corrected F9 result, side-by-side, tier-flag comparison). Appended Correction section to D-87 marking as-run F5 superseded for verdict by D-88. Added D-88 to top of DECISIONS index. Updated HYPOTHESIS_LOG H-17 row/trial ledger and added one change-log line (corrected verdict, as-run superseded). Added D-87/D-88 paragraph to research README. No conclusions beyond reports.
+- **Files touched:**
+  - `docs/DECISIONS/D-88-research-h17-correction.md` (created)
+  - `docs/DECISIONS/D-87-research-etf-momentum-trend-h17.md` (Correction section appended)
+  - `docs/DECISIONS/index.md` (D-88 entry added at top)
+  - `docs/backtests/HYPOTHESIS_LOG.md` (H-17 row/trial ledger/changelog updated)
+  - `docs/backtests/research/README.md` (D-87/D-88 paragraph added)
+  - `docs/SESSIONS/research-etf-log.md` (appended)
+
+### F10 end gate (exact CI list/scope)
+
+```text
+$ python -m pytest -q backend/tests/test_research_control.py backend/tests/test_research_data.py backend/tests/test_research_diagnostics.py backend/tests/test_research_engine.py backend/tests/test_research_events.py backend/tests/test_research_exit_study.py backend/tests/test_research_indicators.py backend/tests/test_research_matched_control.py backend/tests/test_research_metrics.py backend/tests/test_research_runner.py backend/tests/test_research_setups.py backend/tests/test_research_window_study.py backend/tests/test_research_survivorship.py backend/tests/test_research_data_quality.py backend/tests/test_research_etf_trend.py backend/tests/test_make_baseline_report.py
+..........................................................................................................................................................................                                [100%]
+170 passed in 21.89s
+
+$ python -m ruff check backend/app/research scripts/run_research_baseline.py scripts/make_baseline_report.py scripts/research_diagnostics.py scripts/research_event_study.py scripts/research_exit_study.py scripts/research_vol_matched.py scripts/research_window_study.py scripts/research_survivorship.py scripts/research_etf_snapshot.py scripts/research_etf_trend.py
+All checks passed!
+```
+
+### Notes / skipped
+
+- Docs-only; no code/tests/workflow/artifact changes. No prereg/protocol/snapshot/original F5 report/JSON edited. No installs/refactors/push.
+- Corrected holdout verdict: Tier A False, Tier B False, neither; no tier flag changed by correction. As-run F5 retained as superseded for verdict.

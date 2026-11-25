@@ -26,6 +26,8 @@ The E4 volatility-matched re-measurement ([D-85](../../DECISIONS/D-85-research-v
 
 The pre-2016 H-16 check ([D-86](../../DECISIONS/D-86-research-pre2016-check-and-survivorship-estimate.md)) is in [`WINDOW_STUDY_H16.md`](WINDOW_STUDY_H16.md) with artifact [`event_study/window_study_20261118_160453.json`](event_study/window_study_20261118_160453.json); its pre-registered primary cell fails (+31.5 bp, CI [-28.8, 102.8], `block_t` 0.94). The survivorship size estimate is in [`SURVIVORSHIP_ESTIMATE.md`](SURVIVORSHIP_ESTIMATE.md) with artifact [`event_study/survivorship_20261118_161329.json`](event_study/survivorship_20261118_161329.json); it is a measurement (average annual gap +6.32 pp), not a corrected estimate.
 
+The H-17 ETF momentum + trend filter study ([D-87](../../DECISIONS/D-87-research-etf-momentum-trend-h17.md), as-run; [D-88](../../DECISIONS/D-88-research-h17-correction.md), correction) is documented in [`ETF_TREND_STUDY_H17.md`](ETF_TREND_STUDY_H17.md) (as-run F5, superseded for verdict) and [`ETF_TREND_STUDY_H17_CORRECTED.md`](ETF_TREND_STUDY_H17_CORRECTED.md) (corrected F9, verdict). Data quality and snapshot provenance are in [`ETF_DATA_QUALITY.md`](ETF_DATA_QUALITY.md); correction rules are in [`H17_CORRECTION_PROTOCOL.md`](H17_CORRECTION_PROTOCOL.md). The corrected holdout result is Tier A False, Tier B False, label neither; no tier flag changed by correction. Exploratory only; never the scorecard, D-75 pass bar, kill rule, or forward verdict.
+
 The **D-82** `*_20261113_*.json` artifacts are **superseded for the headline** by D-83; they
 remain valid for the D-82 engine contract and are kept as the previous baseline. The **D-81**
 `*_20261111_21*.json` artifacts are **superseded**. The 13 older D-79/D-80 artifacts are
