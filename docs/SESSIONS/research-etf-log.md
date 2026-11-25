@@ -496,3 +496,10 @@ All checks passed!
 - Docs-only; no code/tests/workflow/snapshot/prereg changed. No installs/refactors/push.
 - Prereg file and line endings not changed. Working file hash matches F5-recorded hash; continued per protocol.
 - Research README paragraph not added (reserved for F10).
+
+## F7 protocol hash record
+
+- **Date:** 2026-11-24
+- **F7 protocol commit:** `8ef939b92cbec8226d7d66d2e3e24e841286f4f7`
+- **H17_CORRECTION_PROTOCOL.md sha256:** `442e721d3b17821569a631e296167453842405b0b7c7a5da6cc3534c9f94fb44`
+- **Note:** Protocol file must not be edited again by any later task.
